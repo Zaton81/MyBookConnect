@@ -1,6 +1,6 @@
 # My Book Connect
 
-My Book Connect es una aplicación para conectar con otros lectores.
+My Book Connect es una aplicación para conectar con otros lectores. EN DESARROLLO
 
 ## Requisitos
 
@@ -11,7 +11,7 @@ My Book Connect es una aplicación para conectar con otros lectores.
 
 1.  **Clona el repositorio:**
     ```bash
-    git clone <URL-DEL-REPO>
+    git clone <https://github.com/Zaton81/MyBookConnect>
     cd MyBookConnect
     ```
 
