@@ -1,0 +1,13 @@
+version: '3.9'
+services:
+  backend:
+    build:
+      target: production
+    ports:
+      - "8000:8000"
+
+  frontend:
+    build:
+      target: production
+    ports:
+      - "80:80" # El servidor Nginx corre en el puerto 80
