@@ -1,21 +1,20 @@
 import React from 'react';
 import { Button } from 'flowbite-react'
 import {Header} from "./components/header"
+import {Logo} from "./components/logo"
+import {FooterSection} from "./components/footer"
 
 export default function App() {
   return (
-    <div className="min-h-screen p-6">
+    <div className="min-h-screen p-6 bg-teal-800">
       <Header />
-      <header className="mb-6">
-        <h1 className="text-2xl font-semibold">My Book Connect</h1>
-        <p className="text-gray-600">MVP con React + Tailwind + Flowbite</p>
-      </header>
       <main>
-        <div className="flex gap-3">
-          <Button color="blue">Guardar cambios 3</Button>
-          <Button color="gray">Cancelar</Button>
+        <div className="flex justify-center">
+          <Logo />
+
         </div>
       </main>
+      <FooterSection />
     </div>
   )
 }

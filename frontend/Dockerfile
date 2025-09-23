@@ -3,8 +3,10 @@ FROM node:20-alpine AS development
 WORKDIR /app
 RUN npm install -g pnpm
 ENV NODE_ENV=development
-COPY package.json pnpm-lock.yaml* ./
+COPY package.json ./
 RUN pnpm install
+COPY pnpm-lock.yaml* ./
+RUN pnpm install --frozen-lockfile
 COPY . .
 EXPOSE 5173
 # El server.host en vite.config.js se encarga de que sea accesible
