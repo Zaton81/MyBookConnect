@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from rest_framework.validators import UniqueValidator
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 
@@ -17,6 +18,8 @@ class UserCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ('username', 'password', 'password2', 'email', 'bio')
+
+    email = serializers.EmailField(required=True, validators=[UniqueValidator(queryset=User.objects.all())])
 
     def validate(self, attrs):
         if attrs['password'] != attrs['password2']:
