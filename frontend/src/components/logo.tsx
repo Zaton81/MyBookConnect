@@ -6,7 +6,7 @@ import { es } from "../locales/es";
 export function Logo() {
   return (
     <Card
-      className="max-w-default"
+      className="max-w-sm"
       imgAlt={es.logo.imgAlt}
       imgSrc={LogoLibro}
     >

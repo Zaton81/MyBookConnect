@@ -2,12 +2,15 @@ import React from "react";
 import { Button, Navbar } from "flowbite-react";
 import logoLibro from "../assets/logo-libro.png";
 import { es } from "../locales/es";
+import LoginButtons from "./login";
 
 
 
 export function Header() {
   return (
-    <Navbar fluid rounded className="bg-teal-500">
+    // Fixed header: usamos 'fixed top-0 left-0 right-0 z-50' y sombra
+    <header className="fixed top-0 left-0 right-0 z-50 shadow">
+      <Navbar fluid rounded className="bg-teal-500">
       <Navbar.Brand href="/">
         <img
           src={logoLibro}
@@ -19,9 +22,7 @@ export function Header() {
         </span>
       </Navbar.Brand>
       <div className="flex md:order-2">
-        <Button className="bg-teal-500 hover:bg-teal-600 text-white">
-          Iniciar Sesión
-        </Button>
+        <LoginButtons />
         <Navbar.Toggle />
       </div>
       <Navbar.Collapse>
@@ -33,6 +34,7 @@ export function Header() {
         <Navbar.Link href="#">Pricing</Navbar.Link>
         <Navbar.Link href="#">Contact</Navbar.Link>
       </Navbar.Collapse>
-    </Navbar>
+      </Navbar>
+    </header>
   );
 }

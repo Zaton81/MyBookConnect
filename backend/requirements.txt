@@ -1,10 +1,10 @@
-fastapi==0.111.0
-uvicorn[standard]==0.30.1
-sqlalchemy==2.0.31
-asyncpg==0.29.0
-alembic==1.13.1
-pydantic==2.8.2
+Django==5.0
+psycopg2-binary==2.9.9
+djangorestframework==3.14.0
+djangorestframework-simplejwt==5.3.1
+django-cors-headers==4.3.0
 python-jose[cryptography]==3.3.0
-passlib[bcrypt]==1.7.4
-python-dotenv==1.0.1
-redis==5.0.4
+python-dotenv==1.0.0
+Pillow==10.0.1  # Para manejo de imágenes
+django-storages==1.14.2  # Para gestión de archivos en la nube si se necesita
+gunicorn==21.2.0  # Para producción

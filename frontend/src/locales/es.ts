@@ -7,5 +7,11 @@ export const es = {
   },
   logo_simple: {
     imgAlt: "Logo simple de MyBookConnect"
+  },
+  form_register:{
+    texto: "Regístrate para empezar a usar MyBookConnect",
+    detalles: "Crea tu cuenta en segundos. Es gratis.",
+    otros_detalles: "Una vez registrado, podrás completar tu perfil y empezar a añadir libros a tu biblioteca."
+
   }
 };

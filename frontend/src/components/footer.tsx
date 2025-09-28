@@ -18,7 +18,7 @@ import { es } from "../locales/es";
 
 export function FooterSection() {
   return (
-    <Footer container>
+    <Footer container className="bg-teal-500 mt-6 text-white">
       <div className="w-full">
         <div className="grid w-full justify-between sm:flex sm:justify-between md:flex md:grid-cols-1">
           <div>
