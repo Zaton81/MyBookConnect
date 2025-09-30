@@ -1,6 +1,9 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { EditProfile } from './pages/EditProfile';
+import { Profile } from './pages/Profile';
+import { Library } from './pages/Library';
+import { AddBook } from './pages/AddBook';
 import { Home } from './pages/Home';
 import { Header } from "./components/header";
 import { Logo } from "./components/logo";
@@ -36,6 +39,38 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <Home />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/books/add"
+            element={
+              <ProtectedRoute>
+                <AddBook />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/library"
+            element={
+              <ProtectedRoute>
+                <Library />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <Profile />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/profile/:username"
+            element={
+              <ProtectedRoute>
+                <Profile />
               </ProtectedRoute>
             }
           />

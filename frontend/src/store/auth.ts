@@ -7,7 +7,7 @@ interface AuthStore extends AuthState {
   login: (email: string, password: string) => Promise<void>;
   register: (username: string, email: string, password: string) => Promise<void>;
   logout: () => void;
-  updateProfile: (data: Partial<User>) => Promise<void>;
+  updateProfile: (data: FormData | Partial<User>) => Promise<void>;
 }
 
 export const useAuthStore = create<AuthStore>()(
@@ -91,12 +91,18 @@ export const useAuthStore = create<AuthStore>()(
         });
       },
 
-      updateProfile: async (data: Partial<User>) => {
+      updateProfile: async (data: FormData | Partial<User>) => {
         const state = useAuthStore.getState();
         if (!state.token) throw new Error('No hay token');
         
-        const updatedUser = await authApi.updateProfile(state.token, data);
-        set({ user: updatedUser });
+        try {
+          const updatedUser = await authApi.updateProfile(state.token, data);
+          console.log('Perfil actualizado:', updatedUser);
+          set({ user: updatedUser });
+        } catch (error) {
+          console.error('Error actualizando perfil:', error);
+          throw error;
+        }
       },
     }),
     {

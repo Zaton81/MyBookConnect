@@ -6,11 +6,13 @@ User = get_user_model()
 
 @admin.register(User)
 class CustomUserAdmin(UserAdmin):
-    list_display = ('username', 'email', 'is_staff', 'is_private')
-    list_filter = ('is_staff', 'is_superuser', 'is_active', 'is_private')
+    list_display = ('username', 'email', 'is_staff', 'privacy_level')
+    list_filter = ('is_staff', 'is_superuser', 'is_active', 'privacy_level')
     fieldsets = UserAdmin.fieldsets + (
-        ('Perfil', {'fields': ('bio', 'avatar', 'is_private')}),
+        ('Perfil', {'fields': ('bio', 'avatar', 'birth_date', 'location', 'privacy_level')}),
     )
     add_fieldsets = UserAdmin.add_fieldsets + (
-        ('Perfil', {'fields': ('email', 'bio', 'avatar', 'is_private')}),
+        ('Perfil', {
+            'fields': ('email', 'bio', 'avatar', 'birth_date', 'location', 'privacy_level')
+        }),
     )
