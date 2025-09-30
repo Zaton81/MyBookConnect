@@ -67,14 +67,20 @@ export const authApi = {
     return response.json();
   },
 
-  async updateProfile(token: string, data: any) {
+  async updateProfile(token: string, data: FormData | Record<string, any>) {
+    const isFormData = data instanceof FormData;
+    const headers: Record<string, string> = {
+      'Authorization': `Bearer ${token}`,
+    };
+    
+    if (!isFormData) {
+      headers['Content-Type'] = 'application/json';
+    }
+
     const response = await fetch(`${API_URL}/auth/profile/update/`, {
       method: 'PATCH',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(data),
+      headers,
+      body: isFormData ? data : JSON.stringify(data),
     });
 
     if (!response.ok) {

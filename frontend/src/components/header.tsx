@@ -2,11 +2,12 @@ import React from "react";
 import { Button, Navbar } from "flowbite-react";
 import logoLibro from "../assets/logo-libro.png";
 import { es } from "../locales/es";
-import LoginButtons from "./login";
-
-
+import { useAuthStore } from "../store/auth";
 
 export function Header() {
+  const { isAuthenticated, logout } = useAuthStore();
+  
+  if (!isAuthenticated) return null;
   return (
     // Fixed header: usamos 'fixed top-0 left-0 right-0 z-50' y sombra
     <header className="fixed top-0 left-0 right-0 z-50 shadow">
@@ -22,17 +23,21 @@ export function Header() {
         </span>
       </Navbar.Brand>
       <div className="flex md:order-2">
-        <LoginButtons />
+        <Button color="light" onClick={logout}>
+          Cerrar sesión
+        </Button>
         <Navbar.Toggle />
       </div>
       <Navbar.Collapse>
-        <Navbar.Link href="#" active>
-          Home
+        <Navbar.Link href="/" active>
+          Mi Biblioteca
         </Navbar.Link>
-        <Navbar.Link href="#">About</Navbar.Link>
-        <Navbar.Link href="#">Services</Navbar.Link>
-        <Navbar.Link href="#">Pricing</Navbar.Link>
-        <Navbar.Link href="#">Contact</Navbar.Link>
+        <Navbar.Link href="/books/add">
+          Añadir libro
+        </Navbar.Link>
+        <Navbar.Link href="/profile">
+          Mi Perfil
+        </Navbar.Link>
       </Navbar.Collapse>
       </Navbar>
     </header>

@@ -1,10 +1,16 @@
 export interface User {
   id: number;
   username: string;
+  first_name?: string;
+  last_name?: string;
   email: string;
   bio?: string;
   avatar?: string;
-  is_private: boolean;
+  birth_date?: string;
+  location?: string;
+  privacy_level: 'public' | 'friends' | 'private';
+  following?: number[];
+  followers?: number[];
 }
 
 export interface AuthState {

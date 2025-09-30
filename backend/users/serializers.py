@@ -6,10 +6,16 @@ from django.contrib.auth.password_validation import validate_password
 User = get_user_model()
 
 class UserSerializer(serializers.ModelSerializer):
+    birth_date = serializers.DateField(format='%Y-%m-%d', input_formats=['%Y-%m-%d'], required=False)
+    
     class Meta:
         model = User
-        fields = ('id', 'username', 'email', 'bio', 'avatar', 'is_private')
-        read_only_fields = ('id',)
+        fields = (
+            'id', 'username', 'first_name', 'last_name', 'email', 'bio', 'avatar',
+            'birth_date', 'location', 'privacy_level',
+            'following', 'followers'
+        )
+        read_only_fields = ('id', 'followers')
 
 class UserCreateSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=True, validators=[validate_password])
@@ -17,7 +23,7 @@ class UserCreateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ('username', 'password', 'password2', 'email', 'bio')
+        fields = ('username', 'password', 'password2', 'email', 'bio', 'first_name', 'last_name')
 
     email = serializers.EmailField(required=True, validators=[UniqueValidator(queryset=User.objects.all())])
 
