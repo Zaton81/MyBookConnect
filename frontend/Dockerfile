@@ -1,12 +1,13 @@
 # ─── Etapa de Desarrollo ───
 FROM node:20-alpine AS development
 WORKDIR /app
-RUN npm install -g pnpm
+RUN npm install -g pnpm@8.15.4
+ENV PNPM_STORE_PATH=/app/.pnpm-store
 ENV NODE_ENV=development
-COPY package.json ./
-RUN pnpm install
-COPY pnpm-lock.yaml* ./
-RUN pnpm install --frozen-lockfile
+COPY package.json pnpm-lock.yaml* ./
+RUN pnpm config set store-dir /app/.pnpm-store --global
+# El lockfile puede estar desfasado tras cambios en package.json
+RUN pnpm install --no-frozen-lockfile
 COPY . .
 EXPOSE 5173
 # El server.host en vite.config.js se encarga de que sea accesible

@@ -5,6 +5,7 @@ import { Profile } from './pages/Profile';
 import { Library } from './pages/Library';
 import { AddBook } from './pages/AddBook';
 import { Home } from './pages/Home';
+import { BookDetail } from './pages/BookDetail';
 import { Header } from "./components/header";
 import { Logo } from "./components/logo";
 import { FooterSection } from "./components/footer";
@@ -55,6 +56,14 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <Library />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/books/:id"
+            element={
+              <ProtectedRoute>
+                <BookDetail />
               </ProtectedRoute>
             }
           />

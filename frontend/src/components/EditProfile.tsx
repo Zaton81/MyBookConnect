@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Label, TextInput, Button, Select } from 'flowbite-react';
+import ReactQuill from 'react-quill';
+import 'react-quill/dist/quill.snow.css';
 import { useAuthStore } from '../store/auth';
 
 export function EditProfile() {
@@ -8,9 +10,13 @@ export function EditProfile() {
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
+    first_name: user?.first_name || '',
+    last_name: user?.last_name || '',
+    email: user?.email || '',
     birth_date: user?.birth_date || '',
     location: user?.location || '',
     privacy_level: user?.privacy_level || 'public',
+    bio: user?.bio || '',
   });
   const [avatar, setAvatar] = useState<File | null>(null);
 
@@ -25,7 +31,7 @@ export function EditProfile() {
         data.append('avatar', avatar);
       }
       Object.entries(formData).forEach(([key, value]) => {
-        if (value) data.append(key, value);
+        if (value !== undefined && value !== null) data.append(key, value);
       });
       
       await updateProfile(data);
@@ -61,6 +67,33 @@ export function EditProfile() {
       </div>
 
       <div className="mb-4">
+        <Label htmlFor="first_name" value="Nombre" />
+        <TextInput
+          id="first_name"
+          type="text"
+          value={formData.first_name}
+          onChange={(e) => setFormData({...formData, first_name: e.target.value})}
+        />
+      </div>
+      <div className="mb-4">
+        <Label htmlFor="last_name" value="Apellidos" />
+        <TextInput
+          id="last_name"
+          type="text"
+          value={formData.last_name}
+          onChange={(e) => setFormData({...formData, last_name: e.target.value})}
+        />
+      </div>
+      <div className="mb-4">
+        <Label htmlFor="email" value="Email" />
+        <TextInput
+          id="email"
+          type="email"
+          value={formData.email}
+          onChange={(e) => setFormData({...formData, email: e.target.value})}
+        />
+      </div>
+      <div className="mb-4">
         <Label htmlFor="birth_date" value="Fecha de nacimiento" />
         <TextInput
           id="birth_date"
@@ -91,6 +124,15 @@ export function EditProfile() {
           <option value="friends">Solo amigos</option>
           <option value="private">Privado</option>
         </Select>
+      </div>
+      <div className="mb-4">
+        <Label htmlFor="bio" value="Biografía enriquecida" />
+        <ReactQuill
+          id="bio"
+          value={formData.bio}
+          onChange={(value) => setFormData({...formData, bio: value})}
+          theme="snow"
+        />
       </div>
 
       <div className="flex justify-between">
