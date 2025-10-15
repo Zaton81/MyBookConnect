@@ -62,10 +62,15 @@ export function BookDetail() {
       {error && <div className="text-red-600">{error}</div>}
       {book && (
         <div className="border rounded shadow p-4">
-          <h1 className="text-2xl font-bold mb-2">{book.title}</h1>
-          <div className="text-gray-700 mb-2">Autor: {book.author?.name || 'Desconocido'}</div>
-          {book.isbn && <div className="text-gray-700 mb-2">ISBN: {book.isbn}</div>}
-          {book.average_rating && <div className="text-gray-700 mb-2">Nota media: {book.average_rating}</div>}
+          <div className="flex items-center gap-2 ">
+            <img src={book.cover} alt={book.title} className="w-32 h-48 object-cover" />
+            <h1 className="text-2xl font-bold mb-2">{book.title}</h1>
+          </div>
+          <div className="text-green-700 mb-2">Autor: {book.author ? (
+            <a className="underline hover:text-teal-700" href={`/authors/${book.author.id}`}>{book.author.name}</a>
+          ) : 'Desconocido'}</div>
+          {book.isbn && <div className="text-black-700 mb-2">ISBN: {book.isbn}</div>}
+          {book.average_rating && <div className="text-red-700 mb-2">Nota media: {book.average_rating}</div>}
           {book.description && (
             <div className="prose max-w-none" dangerouslySetInnerHTML={{ __html: book.description }} />
           )}
