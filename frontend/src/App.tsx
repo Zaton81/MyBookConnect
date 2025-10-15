@@ -10,6 +10,7 @@ import { Header } from "./components/header";
 import { Logo } from "./components/logo";
 import { FooterSection } from "./components/footer";
 import AuthBox from './components/AuthBox';
+import { Author } from './pages/Author';
 
 export default function App() {
   return (
@@ -64,6 +65,14 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <BookDetail />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/authors/:id"
+            element={
+              <ProtectedRoute>
+                <Author />
               </ProtectedRoute>
             }
           />

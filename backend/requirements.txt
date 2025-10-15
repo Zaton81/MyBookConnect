@@ -8,3 +8,4 @@ python-dotenv==1.0.0
 Pillow==10.0.1  # Para manejo de imágenes
 django-storages==1.14.2  # Para gestión de archivos en la nube si se necesita
 gunicorn==21.2.0  # Para producción
+requests==2.32.3

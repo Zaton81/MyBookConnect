@@ -6,6 +6,7 @@ from datetime import datetime
 class Author(models.Model):
     name = models.CharField(max_length=200)
     biography = models.TextField(blank=True, null=True)
+    photo = models.ImageField(upload_to='author_photos/', null=True, blank=True)
 
     def __str__(self):
         return self.name
@@ -17,6 +18,7 @@ class Book(models.Model):
     isbn = models.CharField(max_length=30, blank=True, null=True, db_index=True)
     cover = models.ImageField(upload_to='covers/', null=True, blank=True)
     description = models.TextField(blank=True, null=True)
+    published_date = models.DateField(blank=True, null=True)
     created_at = models.DateTimeField(default=datetime.utcnow)
     # puntuación media o agregada (opcional, puede calcularse desde reseñas)
     average_rating = models.FloatField(null=True, blank=True)
