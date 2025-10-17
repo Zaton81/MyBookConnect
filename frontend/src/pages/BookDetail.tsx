@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/auth';
 import { Button, Label, Select, Textarea } from 'flowbite-react';
+import DOMPurify from 'dompurify';
 
 export function BookDetail() {
   const { id } = useParams();
@@ -72,7 +73,7 @@ export function BookDetail() {
           {book.isbn && <div className="text-black-700 mb-2">ISBN: {book.isbn}</div>}
           {book.average_rating && <div className="text-red-700 mb-2">Nota media: {book.average_rating}</div>}
           {book.description && (
-            <div className="prose max-w-none" dangerouslySetInnerHTML={{ __html: book.description }} />
+            <div className="prose max-w-none" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(book.description) }} />
           )}
 
           {/* Metadatos del usuario si el libro está en su biblioteca */}
@@ -118,5 +119,3 @@ export function BookDetail() {
     </div>
   );
 }
-
-

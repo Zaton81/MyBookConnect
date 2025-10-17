@@ -20,7 +20,7 @@ export function AddBook() {
   const [offset, setOffset] = useState(0);
   const [hasMoreResults, setHasMoreResults] = useState(false);
 
-  const handleSearch = async (q: string, currentOffset: number) => {
+  const handleSearch = async (q: string, currentOffset: number, signal: AbortSignal) => {
     if (!token || q.length < 2) {
       setSearchResults([]);
       return;
@@ -32,6 +32,7 @@ export function AddBook() {
       if (currentOffset === 0) {
         const res = await fetch(`${apiUrl}/api/v1/books/books/?q=${encodeURIComponent(q)}`, {
           headers: { Authorization: `Bearer ${token}` },
+          signal,
         });
         const data = await res.json();
         const localResults = Array.isArray(data) ? data : [];
@@ -52,6 +53,7 @@ export function AddBook() {
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(importBody),
+        signal,
       });
 
       if (importRes.ok) {
@@ -64,25 +66,32 @@ export function AddBook() {
         setHasMoreResults(false);
       }
     } catch (err) {
-      console.error(err);
+      if ((err as any)?.name !== 'AbortError') {
+        console.error(err);
+      }
     } finally {
       setIsSearching(false);
     }
   };
 
   useEffect(() => {
+    const controller = new AbortController();
     const run = () => {
       setOffset(0);
-      handleSearch(search.trim(), 0);
+      handleSearch(search.trim(), 0, controller.signal);
     };
     const t = setTimeout(run, 300);
-    return () => clearTimeout(t);
+    return () => {
+      clearTimeout(t);
+      controller.abort();
+    };
   }, [search, token]);
 
   const handleLoadMore = () => {
     const newOffset = offset + 5;
     setOffset(newOffset);
-    handleSearch(search.trim(), newOffset);
+    const controller = new AbortController(); // A new controller for this specific call
+    handleSearch(search.trim(), newOffset, controller.signal);
   };
 
   const openConfirmForBook = (bookId: number) => {
