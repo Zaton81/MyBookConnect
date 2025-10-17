@@ -11,7 +11,9 @@ RUN pnpm install --no-frozen-lockfile
 COPY . .
 EXPOSE 5173
 # El server.host en vite.config.js se encarga de que sea accesible
-CMD ["pnpm", "dev"]
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 
 # ─── Etapa de Build (Production) ───
 FROM development AS build
