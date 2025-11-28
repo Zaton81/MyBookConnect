@@ -11,6 +11,12 @@ class Author(models.Model):
     def __str__(self):
         return self.name
 
+class Category(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    slug = models.SlugField(max_length=100, unique=True)
+
+    def __str__(self):
+        return self.name
 
 class Book(models.Model):
     title = models.CharField(max_length=300)
@@ -20,8 +26,8 @@ class Book(models.Model):
     description = models.TextField(blank=True, null=True)
     published_date = models.DateField(blank=True, null=True)
     created_at = models.DateTimeField(default=datetime.utcnow)
-    # puntuación media o agregada (opcional, puede calcularse desde reseñas)
     average_rating = models.FloatField(null=True, blank=True)
+    categories = models.ManyToManyField(Category, related_name='books', blank=True)
 
     def __str__(self):
         return f"{self.title}"
@@ -58,3 +64,33 @@ class Review(models.Model):
 
     def __str__(self):
         return f"Reseña {self.user.username} - {self.book.title}"
+
+
+from django.db.models import Avg
+from django.db.models.signals import post_save, post_delete
+from django.dispatch import receiver
+
+@receiver(post_save, sender=UserBook)
+@receiver(post_delete, sender=UserBook)
+def update_book_rating(sender, instance, **kwargs):
+    book = instance.book
+    avg = UserBook.objects.filter(book=book, rating__isnull=False).aggregate(Avg('rating'))['rating__avg']
+    book.average_rating = round(avg, 2) if avg else None
+    book.save()
+
+@receiver(post_save, sender=UserBook)
+def sync_userbook_to_review(sender, instance, **kwargs):
+    """
+    Syncs UserBook notes and rating to the Review model.
+    If UserBook has notes or rating, create/update Review.
+    """
+    if instance.notes or instance.rating:
+        Review.objects.update_or_create(
+            user=instance.user,
+            book=instance.book,
+            defaults={
+                'text': instance.notes if instance.notes else '',
+                'rating': instance.rating if instance.rating else 0 
+            }
+        )
+

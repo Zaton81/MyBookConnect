@@ -204,12 +204,15 @@ export function AddBook() {
             <div className="border rounded divide-y max-h-96 overflow-auto">
               {searchResults.map((b) => (
                 <div key={b.id} className="p-2 flex items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="font-medium truncate">{b.title}</div>
-                    <div className="text-xs text-gray-600 truncate">
-                      {b.author?.name || 'Autor desconocido'} · {b.published_date || 'N/A'}
+                  <div className="flex items-center gap-3 min-w-0">
+                    {b.cover && <img src={b.cover} alt={b.title} className="w-10 h-14 object-cover rounded" />}
+                    <div className="min-w-0">
+                      <div className="font-medium truncate">{b.title}</div>
+                      <div className="text-xs text-gray-600 truncate">
+                        {b.author?.name || 'Autor desconocido'} · {b.published_date || 'N/A'}
+                      </div>
+                      <div className="text-xs text-gray-600 truncate">ISBN: {b.isbn || 'N/A'}</div>
                     </div>
-                    <div className="text-xs text-gray-600 truncate">ISBN: {b.isbn || 'N/A'}</div>
                   </div>
                   <Button size="xs" onClick={() => openConfirmForBook(b.id)}>Añadir</Button>
                 </div>

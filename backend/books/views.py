@@ -33,7 +33,7 @@ class AuthorListCreateView(generics.ListCreateAPIView):
 
 
 class AuthorDetailView(generics.RetrieveAPIView):
-    queryset = Author.objects.all()
+    queryset = Author.objects.all().prefetch_related('books')
     serializer_class = AuthorSerializer
     permission_classes = (permissions.IsAuthenticated,)
 
@@ -54,6 +54,24 @@ class BookDetailView(generics.RetrieveAPIView):
     queryset = Book.objects.all()
     serializer_class = BookSerializer
     permission_classes = (permissions.IsAuthenticated,)
+
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if not instance.cover:
+            try:
+                services.ensure_book_cover(instance)
+                instance.refresh_from_db()
+            except Exception as e:
+                logging.exception(f"Error ensuring book cover in detail view: {e}")
+        
+        if not instance.description or not instance.published_date:
+            try:
+                services.enrich_book_metadata(instance)
+                instance.refresh_from_db()
+            except Exception as e:
+                logging.exception(f"Error enriching book metadata in detail view: {e}")
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data)
 
 
 class UserBookPagination(PageNumberPagination):
@@ -167,3 +185,45 @@ class ImportBookView(APIView):
         except Exception as exc:
             logging.exception(exc)
             return Response({'detail': 'Ocurrió un error al importar el libro.'}, status=500)
+
+
+class RecommendationView(generics.ListAPIView):
+    serializer_class = BookSerializer
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get_queryset(self):
+        book_id = self.kwargs.get('pk')
+        try:
+            book = Book.objects.get(pk=book_id)
+        except Book.DoesNotExist:
+            return Book.objects.none()
+
+        # Get books in the same categories
+        categories = book.categories.all()
+        if not categories:
+            # Fallback: books by same author
+            return Book.objects.filter(author=book.author).exclude(id=book.id).order_by('-average_rating')[:5]
+
+        # Exclude the book itself and books the user has already read/owned
+        user_books = UserBook.objects.filter(user=self.request.user).values_list('book_id', flat=True)
+        
+        return Book.objects.filter(categories__in=categories) \
+            .exclude(id=book.id) \
+            .exclude(id__in=user_books) \
+            .distinct() \
+            .order_by('-average_rating')[:5]
+
+
+class AuthorBookRefreshView(APIView):
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def post(self, request, pk):
+        try:
+            author = Author.objects.get(pk=pk)
+            count = services.import_books_by_author(author.name)
+            return Response({'count': count, 'detail': f'Se encontraron {count} libros nuevos.'})
+        except Author.DoesNotExist:
+            return Response({'detail': 'Autor no encontrado'}, status=404)
+        except Exception as e:
+            logging.exception(e)
+            return Response({'detail': 'Error al actualizar libros'}, status=500)

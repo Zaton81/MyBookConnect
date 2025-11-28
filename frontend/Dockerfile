@@ -12,6 +12,7 @@ COPY . .
 EXPOSE 5173
 # El server.host en vite.config.js se encarga de que sea accesible
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN sed -i 's/\r$//' /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 

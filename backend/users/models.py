@@ -13,6 +13,7 @@ class User(AbstractUser):
     avatar = models.ImageField(upload_to='avatars/', null=True, blank=True)
     email = models.EmailField(unique=True, blank=False, null=False)
     following = models.ManyToManyField('self', symmetrical=False, related_name='followers', blank=True)
+    blocked_users = models.ManyToManyField('self', symmetrical=False, related_name='blocked_by', blank=True)
     
     # Nuevos campos
     birth_date = models.DateField(null=True, blank=True, 
