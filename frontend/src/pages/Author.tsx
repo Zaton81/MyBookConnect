@@ -24,7 +24,31 @@ export function Author() {
       .then(setAuthor)
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
+
   }, [id, token]);
+
+  const refreshBooks = () => {
+    if (!token || !id) return;
+    const apiUrl = (import.meta as any).env.VITE_API_URL || 'http://localhost:8000';
+    setLoading(true);
+    fetch(`${apiUrl}/api/v1/books/authors/${id}/refresh-books/`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+    })
+    .then(r => r.json())
+    .then(data => {
+        alert(`Se encontraron ${data.count} libros nuevos.`);
+        if (data.count > 0) {
+             fetch(`${apiUrl}/api/v1/books/authors/${id}/`, {
+                headers: { Authorization: `Bearer ${token}` },
+            })
+            .then(r => r.json())
+            .then(setAuthor);
+        }
+    })
+    .catch(console.error)
+    .finally(() => setLoading(false));
+  };
 
   if (!id) return null;
 
@@ -40,9 +64,35 @@ export function Author() {
               <img src={author.photo} alt={author.name} className="w-32 h-32 object-cover rounded-full" />
             )}
             <h1 className="text-2xl font-bold">{author.name}</h1>
+            {token && (
+                <button onClick={refreshBooks} className="ml-auto text-sm bg-teal-600 text-white px-3 py-1 rounded hover:bg-teal-700">
+                    Actualizar libros
+                </button>
+            )}
           </div>
           {author.biography && (
             <div className="prose max-w-none whitespace-pre-wrap">{author.biography}</div>
+          )}
+
+          {author.books && author.books.length > 0 && (
+            <div className="mt-8 pt-4 border-t">
+              <h2 className="text-xl font-bold mb-4">Libros de {author.name}</h2>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {author.books.map((book: any) => (
+                  <div key={book.id} className="cursor-pointer group" onClick={() => navigate(`/books/${book.id}`)}>
+                    <div className="aspect-[2/3] overflow-hidden rounded shadow mb-2">
+                      {book.cover ? (
+                        <img src={book.cover} alt={book.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                      ) : (
+                        <div className="w-full h-full bg-gray-200 flex items-center justify-center text-gray-400">Sin portada</div>
+                      )}
+                    </div>
+                    <div className="font-medium text-sm group-hover:text-teal-700">{book.title}</div>
+                    <div className="text-xs text-gray-500">{book.published_date}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
         </div>
       )}
