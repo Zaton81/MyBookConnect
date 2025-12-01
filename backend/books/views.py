@@ -151,10 +151,19 @@ class ReviewListCreateView(generics.ListCreateAPIView):
     permission_classes = (permissions.IsAuthenticated,)
 
     def get_queryset(self):
+        from django.db.models import Exists, OuterRef
+        queryset = Review.objects.all()
+        
         book_id = self.request.query_params.get('book')
         if book_id:
-            return Review.objects.filter(book_id=book_id)
-        return Review.objects.all()
+            queryset = queryset.filter(book_id=book_id)
+            
+        user = self.request.user
+        if user.is_authenticated:
+            following_subquery = user.following.filter(pk=OuterRef('user_id'))
+            queryset = queryset.annotate(is_friend=Exists(following_subquery))
+            
+        return queryset
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)

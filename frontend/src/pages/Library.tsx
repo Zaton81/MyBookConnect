@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useAuthStore } from '../store/auth';
 import { Button, TextInput, Select } from 'flowbite-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 
 const DEFAULT_PAGE_SIZE = 10;
 
@@ -175,9 +175,9 @@ export function Library() {
                   </div>
                   <div className="text-sm text-gray-600 mb-2">
                     Autor: {ub.book.author ? (
-                      <span className="text-teal-600 hover:underline cursor-pointer" onClick={(e) => { e.stopPropagation(); navigate(`/authors/${ub.book.author.id}`); }}>
+                      <Link to={`/authors/${ub.book.author.id}`} className="text-teal-600 hover:underline" onClick={(e) => e.stopPropagation()}>
                         {ub.book.author.name}
-                      </span>
+                      </Link>
                     ) : 'Desconocido'}
                   </div>
                   <div className="flex flex-wrap gap-2 mb-2">

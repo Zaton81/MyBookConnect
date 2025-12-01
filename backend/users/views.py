@@ -35,10 +35,25 @@ class UserUpdateView(generics.UpdateAPIView):
         return Response(serializer.data)
 
 class UserDetailView(generics.RetrieveAPIView):
-    queryset = User.objects.all()
-    permission_classes = (permissions.IsAuthenticated,)
-    serializer_class = UserSerializer
     lookup_field = 'id'
+
+    def get_queryset(self):
+        from django.db.models import Count, Exists, OuterRef, Q
+        
+        queryset = User.objects.all().annotate(
+            reviews_count=Count('reviews', distinct=True),
+            books_read_count=Count('user_books', filter=Q(user_books__is_read=True), distinct=True),
+            following_count=Count('following', distinct=True),
+            followers_count=Count('followers', distinct=True),
+        )
+
+        if self.request.user.is_authenticated:
+            queryset = queryset.annotate(
+                is_following=Exists(self.request.user.following.filter(pk=OuterRef('pk'))),
+                is_blocked=Exists(self.request.user.blocked_users.filter(pk=OuterRef('pk'))),
+                am_i_blocked=Exists(User.objects.filter(pk=self.request.user.pk, blocked_users=OuterRef('pk')))
+            )
+        return queryset
 
     def retrieve(self, request, *args, **kwargs):
         instance = self.get_object()

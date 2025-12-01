@@ -231,6 +231,8 @@ def maybe_enrich_author_from_wikipedia(author: Author):
                             data = None
             except Exception:
                 pass
+            except requests.exceptions.RequestException as e:
+                logging.warning(f"Wikipedia API request failed for URL {url}: {e}")
 
             if data: break
 
@@ -259,6 +261,8 @@ def maybe_enrich_author_from_wikipedia(author: Author):
                                 break
             except Exception:
                 pass
+            except requests.exceptions.RequestException as e:
+                logging.warning(f"Wikipedia API request failed for URL {sr_url}: {e}")
             
             if data: break
 
@@ -338,7 +342,7 @@ def ensure_book_cover(book: Book):
     try:
         query = f'isbn:{book.isbn}' if book.isbn else f'intitle:{book.title}'
         params = {'q': query, 'maxResults': 1, 'printType': 'books'}
-        resp = requests.get(GOOGLE_BOOKS_API_URL, params=params, timeout=10)
+        resp = requests.get(GOOGLE_BOOKS_API_URL, params=params, timeout=10, headers={'User-Agent': 'MyBookConnect/1.0'})
         if resp.ok:
             data = resp.json()
             items = data.get('items') or []
@@ -358,7 +362,7 @@ def enrich_book_metadata(book: Book):
     try:
         query = f'isbn:{book.isbn}' if book.isbn else f'intitle:{book.title}'
         params = {'q': query, 'maxResults': 1, 'printType': 'books'}
-        resp = requests.get(GOOGLE_BOOKS_API_URL, params=params, timeout=10)
+        resp = requests.get(GOOGLE_BOOKS_API_URL, params=params, timeout=10, headers={'User-Agent': 'MyBookConnect/1.0'})
         if resp.ok:
             data = resp.json()
             items = data.get('items') or []
@@ -392,7 +396,7 @@ def import_books_by_author(author_name: str):
     """
     try:
         params = {'q': f'inauthor:{author_name}', 'maxResults': 10, 'printType': 'books', 'langRestrict': 'es'}
-        resp = requests.get(GOOGLE_BOOKS_API_URL, params=params, timeout=10)
+        resp = requests.get(GOOGLE_BOOKS_API_URL, params=params, timeout=10, headers={'User-Agent': 'MyBookConnect/1.0'})
         if resp.ok:
             data = resp.json()
             items = data.get('items') or []

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuthStore } from '../store/auth';
 import { Button, Label, Select, Textarea } from 'flowbite-react';
 import DOMPurify from 'dompurify';
@@ -244,10 +244,10 @@ function RecommendationsSection({ bookId, token }: { bookId: string, token: stri
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         {books.map((b) => (
           <div key={b.id} className="border rounded p-2">
-             <a href={`/books/${b.id}`}>
+             <Link to={`/books/${b.id}`}>
                <img src={b.cover} alt={b.title} className="w-full h-32 object-cover mb-2" />
                <h3 className="text-sm font-bold truncate">{b.title}</h3>
-             </a>
+             </Link>
           </div>
         ))}
       </div>
@@ -257,6 +257,7 @@ function RecommendationsSection({ bookId, token }: { bookId: string, token: stri
 
 function ReviewsSection({ bookId, token }: { bookId: string, token: string | null }) {
   const [reviews, setReviews] = useState<any[]>([]);
+  const { user: authUser } = useAuthStore();
   const [showAll, setShowAll] = useState(false);
   const [newReviewText, setNewReviewText] = useState('');
   const [newReviewRating, setNewReviewRating] = useState(5);
@@ -322,14 +323,14 @@ function ReviewsSection({ bookId, token }: { bookId: string, token: string | nul
                           <div className="flex items-center gap-2">
                               {r.user_avatar && <img src={r.user_avatar} alt={r.user} className="w-6 h-6 rounded-full" />}
                               <div>
-                                  {(r.privacy_level === 'public' || r.is_friend || r.user === (useAuthStore.getState() as any).user?.username) ? (
-                                      <a href={`/profile/${r.user_id}`} className="font-bold text-sm hover:underline text-teal-700">{r.user}</a>
+                                  {(r.privacy_level === 'public' || r.is_friend || r.user === authUser?.username) ? (
+                                      <Link to={`/profile/${r.user_id}`} className="font-bold text-sm hover:underline text-teal-700">{r.user}</Link>
                                   ) : (
                                       <span className="font-bold text-sm text-gray-700">{r.user}</span>
                                   )}
                                   
                                   {/* Logic for "Add Friend" or "Private" */}
-                                  {r.privacy_level === 'friends' && !r.is_friend && r.user !== (useAuthStore.getState() as any).user?.username && (
+                                  {r.privacy_level === 'friends' && !r.is_friend && r.user !== authUser?.username && (
                                       <Button size="xs" color="light" className="ml-2 inline-block py-0 px-1 h-6 text-xs" onClick={() => alert('Solicitud de amistad enviada (simulado)')}>
                                           Solicitar amistad
                                       </Button>

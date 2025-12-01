@@ -56,8 +56,11 @@ class ReviewSerializer(serializers.ModelSerializer):
         fields = ('id', 'user', 'user_id', 'user_avatar', 'privacy_level', 'is_friend', 'book', 'book_id', 'rating', 'text', 'created_at')
 
     def get_is_friend(self, obj):
+        if hasattr(obj, 'is_friend'):
+            return obj.is_friend
         request = self.context.get('request')
         if request and request.user.is_authenticated:
-            # Check if request.user follows the review author
             return request.user.following.filter(id=obj.user.id).exists()
         return False
+
+

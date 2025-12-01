@@ -82,15 +82,25 @@ def update_book_rating(sender, instance, **kwargs):
 def sync_userbook_to_review(sender, instance, **kwargs):
     """
     Syncs UserBook notes and rating to the Review model.
-    If UserBook has notes or rating, create/update Review.
+    If UserBook has a rating, create/update Review.
+    If rating is removed, the corresponding Review is deleted.
     """
-    if instance.notes or instance.rating:
+    if instance.rating is not None:
         Review.objects.update_or_create(
             user=instance.user,
             book=instance.book,
             defaults={
-                'text': instance.notes if instance.notes else '',
-                'rating': instance.rating if instance.rating else 0 
+                'text': instance.notes or '',
+                'rating': instance.rating
             }
         )
+    else:
+        Review.objects.filter(user=instance.user, book=instance.book).delete()
+
+@receiver(post_delete, sender=UserBook)
+def delete_review_on_userbook_delete(sender, instance, **kwargs):
+    """
+    Deletes the corresponding Review when a UserBook is deleted.
+    """
+    Review.objects.filter(user=instance.user, book=instance.book).delete()
 

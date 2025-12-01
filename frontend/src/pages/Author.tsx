@@ -25,15 +25,20 @@ export function Author() {
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
 
-    // Auto-discover books
+  }, [id, token]);
+
+  const refreshBooks = () => {
+    if (!token || !id) return;
+    const apiUrl = (import.meta as any).env.VITE_API_URL || 'http://localhost:8000';
+    setLoading(true);
     fetch(`${apiUrl}/api/v1/books/authors/${id}/refresh-books/`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
     })
     .then(r => r.json())
     .then(data => {
+        alert(`Se encontraron ${data.count} libros nuevos.`);
         if (data.count > 0) {
-             // Reload author to show new books
              fetch(`${apiUrl}/api/v1/books/authors/${id}/`, {
                 headers: { Authorization: `Bearer ${token}` },
             })
@@ -41,8 +46,9 @@ export function Author() {
             .then(setAuthor);
         }
     })
-    .catch(console.error);
-  }, [id, token]);
+    .catch(console.error)
+    .finally(() => setLoading(false));
+  };
 
   if (!id) return null;
 
@@ -58,6 +64,11 @@ export function Author() {
               <img src={author.photo} alt={author.name} className="w-32 h-32 object-cover rounded-full" />
             )}
             <h1 className="text-2xl font-bold">{author.name}</h1>
+            {token && (
+                <button onClick={refreshBooks} className="ml-auto text-sm bg-teal-600 text-white px-3 py-1 rounded hover:bg-teal-700">
+                    Actualizar libros
+                </button>
+            )}
           </div>
           {author.biography && (
             <div className="prose max-w-none whitespace-pre-wrap">{author.biography}</div>

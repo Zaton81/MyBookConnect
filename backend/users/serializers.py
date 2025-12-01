@@ -27,30 +27,38 @@ class UserSerializer(serializers.ModelSerializer):
         read_only_fields = ('id', 'followers')
 
     def get_reviews_count(self, obj):
-        return obj.reviews.count()
+        return getattr(obj, 'reviews_count', obj.reviews.count())
 
     def get_books_read_count(self, obj):
+        if hasattr(obj, 'books_read_count'):
+            return obj.books_read_count
         return obj.user_books.filter(is_read=True).count()
 
     def get_following_count(self, obj):
-        return obj.following.count()
+        return getattr(obj, 'following_count', obj.following.count())
 
     def get_followers_count(self, obj):
-        return obj.followers.count()
+        return getattr(obj, 'followers_count', obj.followers.count())
 
     def get_is_following(self, obj):
+        if hasattr(obj, 'is_following'):
+            return obj.is_following
         request = self.context.get('request')
         if request and request.user.is_authenticated:
             return request.user.following.filter(id=obj.id).exists()
         return False
 
     def get_is_blocked(self, obj):
+        if hasattr(obj, 'is_blocked'):
+            return obj.is_blocked
         request = self.context.get('request')
         if request and request.user.is_authenticated:
             return request.user.blocked_users.filter(id=obj.id).exists()
         return False
 
     def get_am_i_blocked(self, obj):
+        if hasattr(obj, 'am_i_blocked'):
+            return obj.am_i_blocked
         request = self.context.get('request')
         if request and request.user.is_authenticated:
             return obj.blocked_users.filter(id=request.user.id).exists()
