@@ -9,8 +9,20 @@ export interface User {
   birth_date?: string;
   location?: string;
   privacy_level: 'public' | 'friends' | 'private';
+  show_email?: boolean;
+  show_birth_date?: boolean;
+  show_location?: boolean;
+  show_bio?: boolean;
   following?: number[];
   followers?: number[];
+  is_editor?: boolean;
+  is_following?: boolean;
+  is_blocked?: boolean;
+  am_i_blocked?: boolean;
+  reviews_count?: number;
+  books_read_count?: number;
+  following_count?: number;
+  followers_count?: number;
 }
 
 export interface AuthState {

@@ -1,4 +1,4 @@
-# ───── Python / FastAPI ─────
+# ───── Python / Django ─────
 __pycache__/
 *.py[cod]
 *.pyo
@@ -16,9 +16,8 @@ instance/
 .pytest_cache/
 .coverage
 htmlcov/
-
-# Alembic (opcional)
-backend/app/db/migrations/versions/*.py
+backend/media/
+media/
 
 # ───── Node / pnpm / React ─────
 node_modules/
@@ -41,3 +40,5 @@ db_data/
 # ───── Logs ─────
 *.log
 logs/
+# general
+OPTIMIZACIONES.md

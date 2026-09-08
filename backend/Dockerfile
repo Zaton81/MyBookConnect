@@ -9,10 +9,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 FROM base AS production
 COPY . .
 EXPOSE 8000
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "mybookconnect.wsgi:application"]
+CMD ["daphne", "-b", "0.0.0.0", "-p", "8000", "mybookconnect.asgi:application"]
 
 # ─── Etapa de Desarrollo ───
 FROM base AS development
 COPY . .
 EXPOSE 8000
-CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+CMD ["daphne", "-b", "0.0.0.0", "-p", "8000", "mybookconnect.asgi:application"]

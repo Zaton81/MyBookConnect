@@ -9,8 +9,21 @@ https://docs.djangoproject.com/en/5.0/howto/deployment/asgi/
 
 import os
 
-from django.core.asgi import get_asgi_application
-
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'mybookconnect.settings')
 
-application = get_asgi_application()
+from django.core.asgi import get_asgi_application
+from channels.routing import ProtocolTypeRouter, URLRouter
+from channels.auth import AuthMiddlewareStack
+
+
+django_asgi_app = get_asgi_application()
+# Importar rutas WebSocket después de inicializar Django para evitar Apps aren't loaded yet
+from messages_app.routing import websocket_urlpatterns  # noqa: E402
+
+# Aquí se agregarán las rutas websocket en el futuro
+application = ProtocolTypeRouter({
+	"http": django_asgi_app,
+	"websocket": AuthMiddlewareStack(
+		URLRouter(websocket_urlpatterns)
+	),
+})

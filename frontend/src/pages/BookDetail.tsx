@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuthStore } from '../store/auth';
 import { Button, Label, Select, Textarea } from 'flowbite-react';
 import DOMPurify from 'dompurify';
+import { createErrata } from '../services/erratas';
 
 export function BookDetail() {
   const { id } = useParams();
@@ -18,6 +19,8 @@ export function BookDetail() {
   const [notes, setNotes] = useState<string>('');
   const [wishlist, setWishlist] = useState<boolean>(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [errataText, setErrataText] = useState<string>('');
+  const [errataType, setErrataType] = useState<'errata' | 'suggestion' | 'other'>('errata');
 
   useEffect(() => {
     if (!token || !id) return;
@@ -34,14 +37,19 @@ export function BookDetail() {
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
 
-    // cargar userbook (si existe)
-    fetch(`${apiUrl}/api/v1/books/user/books/?search=&ordering=-updated_at`, {
+    // cargar userbook (si existe) - endpoint optimizado
+    fetch(`${apiUrl}/api/v1/books/user/books/by-book/${id}/`, {
       headers: { Authorization: `Bearer ${token}` },
     })
-      .then(r => r.json())
-      .then((data) => {
-        const results = Array.isArray(data) ? data : data?.results || [];
-        const found = results.find((ub: any) => String(ub.book.id) === String(id));
+      .then(async (r) => {
+        if (r.status === 404) {
+          setUserBook(null);
+          return;
+        }
+        if (!r.ok) throw new Error('Error al cargar userbook');
+        return r.json();
+      })
+      .then((found) => {
         if (found) {
           setUserBook(found);
           setIsDigital(!!found.is_digital);
@@ -49,8 +57,6 @@ export function BookDetail() {
           setWishlist(!!found.wishlist);
           setRating(found.rating ?? '');
           setNotes(found.notes || '');
-        } else {
-          setUserBook(null);
         }
       })
       .catch(() => {})
@@ -67,11 +73,11 @@ export function BookDetail() {
       {book && (
         <div className="border rounded shadow p-4">
           <div className="flex items-center gap-2 ">
-            <img src={book.cover} alt={book.title} className="w-32 h-48 object-cover" />
+            <img src={book.cover} alt={book.title} className="w-32 h-48 object-cover" loading="lazy" />
             <h1 className="text-2xl font-bold mb-2">{book.title}</h1>
           </div>
           <div className="text-green-700 mb-2">Autor: {book.author ? (
-            <a className="underline hover:text-teal-700" href={`/authors/${book.author.id}`}>{book.author.name}</a>
+            <Link className="underline hover:text-teal-700" to={`/authors/${book.author.id}`}>{book.author.name}</Link>
           ) : 'Desconocido'}</div>
           {book.isbn && <div className="text-black-700 mb-2">ISBN: {book.isbn}</div>}
           {book.average_rating && <div className="text-red-700 mb-2">Nota media: {book.average_rating}</div>}
@@ -214,6 +220,32 @@ export function BookDetail() {
             <h2 className="text-xl font-bold mb-4">Reseñas de la comunidad</h2>
             <ReviewsSection bookId={id} token={token} />
           </div>
+
+          {/* Reportar errata/sugerencia */}
+          <div className="mt-8 border-t pt-4">
+            <h3 className="font-semibold mb-2">¿Ves algo para corregir? Reporta una errata o sugiere una mejora</h3>
+            <div className="flex gap-2 items-center mb-2">
+              <label htmlFor="etype" className="text-sm">Tipo:</label>
+              <select id="etype" value={errataType} onChange={(e) => setErrataType(e.target.value as any)} className="border rounded px-2 py-1">
+                <option value="errata">Errata</option>
+                <option value="suggestion">Sugerencia</option>
+                <option value="other">Otro</option>
+              </select>
+            </div>
+            <Textarea rows={3} placeholder="Describe el problema o sugerencia..." value={errataText} onChange={(e) => setErrataText(e.target.value)} />
+            <div className="mt-2">
+              <Button color="light" onClick={async () => {
+                if (!token || !id || !errataText.trim()) return;
+                try {
+                  await createErrata(token, { book_id: Number(id), type: errataType, text: errataText.trim() });
+                  setErrataText('');
+                  alert('Gracias por tu reporte. Lo revisará un editor.');
+                } catch (e) {
+                  alert('No se pudo enviar el reporte');
+                }
+              }}>Enviar reporte</Button>
+            </div>
+          </div>
         </div>
       )}
     </div>
@@ -231,7 +263,8 @@ function RecommendationsSection({ bookId, token }: { bookId: string, token: stri
     })
       .then(r => r.json())
       .then(data => {
-          if (Array.isArray(data)) setBooks(data);
+          const list = Array.isArray(data) ? data : (data.results || []);
+          setBooks(list);
       })
       .catch(console.error);
   }, [bookId, token]);
@@ -324,7 +357,7 @@ function ReviewsSection({ bookId, token }: { bookId: string, token: string | nul
                               {r.user_avatar && <img src={r.user_avatar} alt={r.user} className="w-6 h-6 rounded-full" />}
                               <div>
                                   {(r.privacy_level === 'public' || r.is_friend || r.user === authUser?.username) ? (
-                                      <Link to={`/profile/${r.user_id}`} className="font-bold text-sm hover:underline text-teal-700">{r.user}</Link>
+                                      <Link to={`/users/${r.user_id}`} className="font-bold text-sm hover:underline text-teal-700">{r.user}</Link>
                                   ) : (
                                       <span className="font-bold text-sm text-gray-700">{r.user}</span>
                                   )}

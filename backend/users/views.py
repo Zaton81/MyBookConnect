@@ -1,16 +1,20 @@
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.decorators import api_view, permission_classes
 from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404
-from .serializers import UserSerializer, UserCreateSerializer
+from django.db.models import Count, Exists, OuterRef, Q
+from .serializers import UserSerializer, UserCreateSerializer, UserBasicSerializer
 
 User = get_user_model()
+
 
 class UserRegistrationView(generics.CreateAPIView):
     queryset = User.objects.all()
     permission_classes = (permissions.AllowAny,)
     serializer_class = UserCreateSerializer
+
 
 class UserProfileView(generics.RetrieveAPIView):
     permission_classes = (permissions.IsAuthenticated,)
@@ -18,6 +22,7 @@ class UserProfileView(generics.RetrieveAPIView):
 
     def get_object(self):
         return self.request.user
+
 
 class UserUpdateView(generics.UpdateAPIView):
     permission_classes = (permissions.IsAuthenticated,)
@@ -34,12 +39,13 @@ class UserUpdateView(generics.UpdateAPIView):
         self.perform_update(serializer)
         return Response(serializer.data)
 
+
 class UserDetailView(generics.RetrieveAPIView):
-    lookup_field = 'id'
+    permission_classes = (permissions.IsAuthenticated,)
+    serializer_class = UserSerializer
+    lookup_field = 'pk'
 
     def get_queryset(self):
-        from django.db.models import Count, Exists, OuterRef, Q
-        
         queryset = User.objects.all().annotate(
             reviews_count=Count('reviews', distinct=True),
             books_read_count=Count('user_books', filter=Q(user_books__is_read=True), distinct=True),
@@ -51,7 +57,9 @@ class UserDetailView(generics.RetrieveAPIView):
             queryset = queryset.annotate(
                 is_following=Exists(self.request.user.following.filter(pk=OuterRef('pk'))),
                 is_blocked=Exists(self.request.user.blocked_users.filter(pk=OuterRef('pk'))),
-                am_i_blocked=Exists(User.objects.filter(pk=self.request.user.pk, blocked_users=OuterRef('pk')))
+                am_i_blocked=Exists(
+                    User.objects.filter(pk=self.request.user.pk, blocked_users=OuterRef('pk'))
+                ),
             )
         return queryset
 
@@ -59,78 +67,114 @@ class UserDetailView(generics.RetrieveAPIView):
         instance = self.get_object()
         user = request.user
 
-        # Allow user to see their own profile
         if instance == user:
             serializer = self.get_serializer(instance)
             return Response(serializer.data)
 
-        # Check if blocked
-        # if user.blocked_users.filter(id=instance.id).exists():
-        #    return Response({"detail": "Has bloqueado a este usuario."}, status=status.HTTP_403_FORBIDDEN)
-        
-        # Check if blocked by target (I am blocked)
         if instance.blocked_users.filter(id=user.id).exists():
             return Response({"detail": "No puedes ver este perfil."}, status=status.HTTP_403_FORBIDDEN)
 
-        # Check if I blocked them (Allow access to unblock, bypass privacy?)
         has_blocked = user.blocked_users.filter(id=instance.id).exists()
-        
+
         if not has_blocked:
-            # Check privacy
             if instance.privacy_level == 'private':
                 return Response({"detail": "Este perfil es privado."}, status=status.HTTP_403_FORBIDDEN)
-            
+
             if instance.privacy_level == 'friends':
-                # Must be following to see
                 if not user.following.filter(id=instance.id).exists():
-                    return Response({"detail": "Este perfil es solo para amigos."}, status=status.HTTP_403_FORBIDDEN)
+                    return Response(
+                        {"detail": "Este perfil es solo para amigos."},
+                        status=status.HTTP_403_FORBIDDEN,
+                    )
 
         serializer = self.get_serializer(instance)
         return Response(serializer.data)
 
+
 class FollowUserView(APIView):
     permission_classes = (permissions.IsAuthenticated,)
 
-    def post(self, request, id):
-        user_to_follow = get_object_or_404(User, id=id)
+    def post(self, request, user_id):
+        user_to_follow = get_object_or_404(User, id=user_id)
         if request.user == user_to_follow:
             return Response({"detail": "No puedes seguirte a ti mismo."}, status=status.HTTP_400_BAD_REQUEST)
-        
+
         if user_to_follow.blocked_users.filter(id=request.user.id).exists():
-             return Response({"detail": "No puedes seguir a este usuario."}, status=status.HTTP_403_FORBIDDEN)
+            return Response({"detail": "No puedes seguir a este usuario."}, status=status.HTTP_403_FORBIDDEN)
+
+        if user_to_follow in request.user.following.all():
+            return Response({"detail": "Ya sigues a este usuario."}, status=status.HTTP_400_BAD_REQUEST)
 
         request.user.following.add(user_to_follow)
         return Response({"detail": f"Ahora sigues a {user_to_follow.username}"}, status=status.HTTP_200_OK)
 
+
 class UnfollowUserView(APIView):
     permission_classes = (permissions.IsAuthenticated,)
 
-    def post(self, request, id):
-        user_to_unfollow = get_object_or_404(User, id=id)
+    def post(self, request, user_id):
+        user_to_unfollow = get_object_or_404(User, id=user_id)
         request.user.following.remove(user_to_unfollow)
         return Response({"detail": f"Dejaste de seguir a {user_to_unfollow.username}"}, status=status.HTTP_200_OK)
+
 
 class BlockUserView(APIView):
     permission_classes = (permissions.IsAuthenticated,)
 
-    def post(self, request, id):
-        user_to_block = get_object_or_404(User, id=id)
+    def post(self, request, user_id):
+        user_to_block = get_object_or_404(User, id=user_id)
         if request.user == user_to_block:
-             return Response({"detail": "No puedes bloquearte a ti mismo."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": "No puedes bloquearte a ti mismo."}, status=status.HTTP_400_BAD_REQUEST)
 
         request.user.blocked_users.add(user_to_block)
-        # Also unfollow if blocking
         request.user.following.remove(user_to_block)
-        # And remove from their followers (if symmetrical friendship was implied, but here following is one-way)
-        # If they follow me, should I remove them? Maybe not strictly required by model but good practice.
-        # user_to_block.following.remove(request.user) 
-        
         return Response({"detail": f"Has bloqueado a {user_to_block.username}"}, status=status.HTTP_200_OK)
+
 
 class UnblockUserView(APIView):
     permission_classes = (permissions.IsAuthenticated,)
 
-    def post(self, request, id):
-        user_to_unblock = get_object_or_404(User, id=id)
+    def post(self, request, user_id):
+        user_to_unblock = get_object_or_404(User, id=user_id)
         request.user.blocked_users.remove(user_to_unblock)
         return Response({"detail": f"Has desbloqueado a {user_to_unblock.username}"}, status=status.HTTP_200_OK)
+
+
+class UserFollowingListView(generics.ListAPIView):
+    permission_classes = (permissions.IsAuthenticated,)
+    serializer_class = UserBasicSerializer
+
+    def get_queryset(self):
+        return self.request.user.following.all()
+
+
+class UserFollowersListView(generics.ListAPIView):
+    permission_classes = (permissions.IsAuthenticated,)
+    serializer_class = UserBasicSerializer
+
+    def get_queryset(self):
+        return self.request.user.followers.all()
+
+
+class CheckFollowStatusView(APIView):
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get(self, request, user_id):
+        target_user = get_object_or_404(User, id=user_id)
+        is_following = target_user in request.user.following.all()
+        is_follower = request.user in target_user.following.all()
+
+        return Response({
+            "is_following": is_following,
+            "is_follower": is_follower,
+            "is_mutual": is_following and is_follower,
+        })
+
+
+@api_view(['POST'])
+@permission_classes([permissions.IsAdminUser])
+def toggle_editor(request, user_id):
+    user = get_object_or_404(User, id=user_id)
+    user.is_editor = not getattr(user, 'is_editor', False)
+    user.save(update_fields=['is_editor'])
+    return Response({'id': user.id, 'is_editor': user.is_editor})

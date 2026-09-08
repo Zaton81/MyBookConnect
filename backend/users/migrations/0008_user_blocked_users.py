@@ -6,8 +6,14 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
 
+    # Sustituye el 0004 duplicado de la otra rama si ya estaba aplicado.
+    replaces = [
+        ('users', '0004_user_blocked_users'),
+    ]
+
     dependencies = [
-        ('users', '0003_remove_user_is_private_user_birth_date_user_location_and_more'),
+        ('users', '0007_user_is_editor'),
+        migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [
