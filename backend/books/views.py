@@ -6,8 +6,8 @@ from django.db.models import Q
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.views import APIView
 
-from .models import Author, Book, Review, UserBook
-from .serializers import AuthorSerializer, BookSerializer, ReviewSerializer, UserBookSerializer
+from .models import Author, Book, Review, UserBook, Errata, ErrataStatus
+from .serializers import AuthorSerializer, BookSerializer, ReviewSerializer, UserBookSerializer, ErrataSerializer
 from . import services
 
 
@@ -16,7 +16,7 @@ class BookListCreateView(generics.ListCreateAPIView):
     permission_classes = (permissions.IsAuthenticated,)
 
     def get_queryset(self):
-        queryset = Book.objects.all()
+        queryset = Book.objects.select_related('author')
         q = self.request.query_params.get('q')
         if q:
             return queryset.filter(Q(title__icontains=q) | Q(isbn__icontains=q))
@@ -39,19 +39,64 @@ class AuthorDetailView(generics.RetrieveAPIView):
 
     def retrieve(self, request, *args, **kwargs):
         instance: Author = self.get_object()
-        if not instance.biography or not instance.photo:
+        # Solo intentar enriquecer si no se ha intentado antes
+        if not instance.enrichment_attempted:
             try:
+                # Intentar OpenLibrary primero
                 services.maybe_enrich_author_from_openlibrary(instance)
+                # Las llamadas a Wikidata y Wikipedia ya están incluidas en la función anterior
+                # pero si OpenLibrary no llamó a las otras, forzamos aquí
+                if not instance.biography or not instance.photo:
+                    services.maybe_enrich_author_from_wikidata(instance)
                 if not instance.biography or not instance.photo:
                     services.maybe_enrich_author_from_wikipedia(instance)
+                # Marcar como intentado independientemente del resultado
+                instance.enrichment_attempted = True
+                instance.save(update_fields=['enrichment_attempted'])
             except Exception as e:
                 logging.exception(e)
+                # Marcar como intentado incluso si hubo error
+                instance.enrichment_attempted = True
+                instance.save(update_fields=['enrichment_attempted'])
         serializer = self.get_serializer(instance)
         return Response(serializer.data)
 
 
+class AuthorBooksView(APIView):
+    """Listar todos los libros de un autor guardados localmente."""
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get(self, request, pk):
+        books = Book.objects.filter(author_id=pk).select_related('author')
+        local = BookSerializer(books, many=True).data
+
+        # Búsqueda externa opcional cuando hay pocos locales
+        external = []
+        try:
+            author = Author.objects.get(pk=pk)
+            # Buscar en Google Books por autor
+            import requests
+            params = {'q': f'inauthor:"{author.name}"', 'maxResults': 5}
+            gb = requests.get(services.GOOGLE_BOOKS_API_URL, params=params, timeout=10, headers={'User-Agent': 'MyBookConnect/1.0'})
+            if gb.ok:
+                data = gb.json()
+                items = data.get('items') or []
+                for v in items:
+                    info = v.get('volumeInfo', {})
+                    external.append({
+                        'id': v.get('id'),
+                        'title': info.get('title'),
+                        'cover': (info.get('imageLinks') or {}).get('thumbnail'),
+                        'published_date': info.get('publishedDate')
+                    })
+        except Exception as e:
+            logging.exception(e)
+
+        return Response({'local': local, 'external': external})
+
+
 class BookDetailView(generics.RetrieveAPIView):
-    queryset = Book.objects.all()
+    queryset = Book.objects.select_related('author')
     serializer_class = BookSerializer
     permission_classes = (permissions.IsAuthenticated,)
 
@@ -86,7 +131,7 @@ class UserBookListCreateView(generics.ListCreateAPIView):
     pagination_class = UserBookPagination
 
     def get_queryset(self):
-        queryset = UserBook.objects.filter(user=self.request.user).select_related('book')
+        queryset = UserBook.objects.filter(user=self.request.user).select_related('book', 'book__author')
         params = self.request.query_params
 
         def parse_bool(value):
@@ -144,6 +189,22 @@ class UserBookDetailView(generics.RetrieveUpdateDestroyAPIView):
 
     def get_object(self):
         return get_object_or_404(UserBook, pk=self.kwargs['pk'], user=self.request.user)
+
+
+class UserBookByBookView(APIView):
+    """Endpoint optimizado para obtener el UserBook de un libro específico"""
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get(self, request, book_id):
+        try:
+            user_book = UserBook.objects.select_related('book', 'book__author').get(
+                user=request.user,
+                book_id=book_id
+            )
+            serializer = UserBookSerializer(user_book)
+            return Response(serializer.data)
+        except UserBook.DoesNotExist:
+            return Response({'detail': 'No encontrado'}, status=404)
 
 
 class ReviewListCreateView(generics.ListCreateAPIView):
@@ -207,15 +268,12 @@ class RecommendationView(generics.ListAPIView):
         except Book.DoesNotExist:
             return Book.objects.none()
 
-        # Get books in the same categories
         categories = book.categories.all()
         if not categories:
-            # Fallback: books by same author
             return Book.objects.filter(author=book.author).exclude(id=book.id).order_by('-average_rating')[:5]
 
-        # Exclude the book itself and books the user has already read/owned
         user_books = UserBook.objects.filter(user=self.request.user).values_list('book_id', flat=True)
-        
+
         return Book.objects.filter(categories__in=categories) \
             .exclude(id=book.id) \
             .exclude(id__in=user_books) \
@@ -236,3 +294,47 @@ class AuthorBookRefreshView(APIView):
         except Exception as e:
             logging.exception(e)
             return Response({'detail': 'Error al actualizar libros'}, status=500)
+
+
+class ErrataListCreateView(generics.ListCreateAPIView):
+    permission_classes = (permissions.IsAuthenticated,)
+    serializer_class = ErrataSerializer
+
+    def get_queryset(self):
+        user = self.request.user
+        if getattr(user, 'is_editor', False) or user.is_staff or user.is_superuser:
+            return Errata.objects.select_related('book', 'author', 'user', 'editor')
+        return Errata.objects.filter(user=user).select_related('book', 'author', 'user', 'editor')
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+
+class ErrataDetailUpdateView(generics.RetrieveUpdateAPIView):
+    permission_classes = (permissions.IsAuthenticated,)
+    serializer_class = ErrataSerializer
+    queryset = Errata.objects.select_related('book', 'author', 'user', 'editor')
+
+    def update(self, request, *args, **kwargs):
+        instance: Errata = self.get_object()
+        user = request.user
+        partial = kwargs.pop('partial', True)
+        data = request.data.copy()
+        if not (getattr(user, 'is_editor', False) or user.is_staff or user.is_superuser):
+            if instance.user_id != user.id:
+                return Response({'detail': 'No autorizado'}, status=403)
+            allowed_user = {'text'}
+            data = {k: v for k, v in data.items() if k in allowed_user}
+            serializer = self.get_serializer(instance, data=data, partial=partial)
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+            return Response(serializer.data)
+
+        allowed_editor = {'status', 'resolution_notes'}
+        data = {k: v for k, v in data.items() if k in allowed_editor}
+        if 'status' in data and data['status'] not in ErrataStatus.values:
+            return Response({'detail': 'Estado inválido'}, status=400)
+        serializer = self.get_serializer(instance, data=data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        serializer.save(editor=user)
+        return Response(serializer.data)

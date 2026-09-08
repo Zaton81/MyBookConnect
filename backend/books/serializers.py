@@ -1,11 +1,12 @@
 from rest_framework import serializers
-from .models import Author, Book, Review, UserBook, Category
+from .models import Author, Book, Review, UserBook, Category, Errata
 
 
 class AuthorBookSerializer(serializers.ModelSerializer):
     class Meta:
         model = Book
         fields = ('id', 'title', 'cover', 'published_date')
+
 
 class AuthorSerializer(serializers.ModelSerializer):
     books = AuthorBookSerializer(many=True, read_only=True)
@@ -20,9 +21,12 @@ class CategorySerializer(serializers.ModelSerializer):
         model = Category
         fields = ('id', 'name', 'slug')
 
+
 class BookSerializer(serializers.ModelSerializer):
     author = AuthorSerializer(read_only=True)
-    author_id = serializers.PrimaryKeyRelatedField(queryset=Author.objects.all(), source='author', write_only=True, required=False, allow_null=True)
+    author_id = serializers.PrimaryKeyRelatedField(
+        queryset=Author.objects.all(), source='author', write_only=True, required=False, allow_null=True
+    )
     categories = CategorySerializer(many=True, read_only=True)
 
     class Meta:
@@ -53,7 +57,10 @@ class ReviewSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Review
-        fields = ('id', 'user', 'user_id', 'user_avatar', 'privacy_level', 'is_friend', 'book', 'book_id', 'rating', 'text', 'created_at')
+        fields = (
+            'id', 'user', 'user_id', 'user_avatar', 'privacy_level', 'is_friend',
+            'book', 'book_id', 'rating', 'text', 'created_at'
+        )
 
     def get_is_friend(self, obj):
         if hasattr(obj, 'is_friend'):
@@ -64,3 +71,22 @@ class ReviewSerializer(serializers.ModelSerializer):
         return False
 
 
+class ErrataSerializer(serializers.ModelSerializer):
+    user = serializers.StringRelatedField(read_only=True)
+    editor = serializers.StringRelatedField(read_only=True)
+    book = BookSerializer(read_only=True)
+    book_id = serializers.PrimaryKeyRelatedField(
+        queryset=Book.objects.all(), source='book', write_only=True, required=False, allow_null=True
+    )
+    author = AuthorSerializer(read_only=True)
+    author_id = serializers.PrimaryKeyRelatedField(
+        queryset=Author.objects.all(), source='author', write_only=True, required=False, allow_null=True
+    )
+
+    class Meta:
+        model = Errata
+        fields = (
+            'id', 'user', 'book', 'book_id', 'author', 'author_id',
+            'type', 'text', 'status', 'resolution_notes', 'editor', 'created_at', 'updated_at'
+        )
+        read_only_fields = ('id', 'user', 'editor', 'created_at', 'updated_at')

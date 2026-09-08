@@ -8,6 +8,11 @@ interface AuthStore extends AuthState {
   register: (username: string, email: string, password: string) => Promise<void>;
   logout: () => void;
   updateProfile: (data: FormData | Partial<User>) => Promise<void>;
+  followUser: (userId: number) => Promise<void>;
+  unfollowUser: (userId: number) => Promise<void>;
+  getFollowStatus: (userId: number) => Promise<{is_following: boolean; is_follower: boolean; is_mutual: boolean}>;
+  getFollowing: () => Promise<User[]>;
+  getFollowers: () => Promise<User[]>;
 }
 
 export const useAuthStore = create<AuthStore>()(
@@ -101,6 +106,131 @@ export const useAuthStore = create<AuthStore>()(
           set({ user: updatedUser });
         } catch (error) {
           console.error('Error actualizando perfil:', error);
+          throw error;
+        }
+      },
+
+      followUser: async (userId: number) => {
+        const state = useAuthStore.getState();
+        if (!state.token) throw new Error('No hay token');
+        
+        try {
+          const apiUrl = (import.meta as any).env.VITE_API_URL || 'http://localhost:8000';
+          const response = await fetch(`${apiUrl}/api/v1/auth/users/${userId}/follow/`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${state.token}`,
+              'Content-Type': 'application/json',
+            },
+          });
+          
+          if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Error al seguir usuario');
+          }
+          
+          // Actualizar el perfil del usuario actual para reflejar el cambio
+          const updatedUser = await authApi.getProfile(state.token);
+          set({ user: updatedUser });
+        } catch (error) {
+          console.error('Error siguiendo usuario:', error);
+          throw error;
+        }
+      },
+
+      unfollowUser: async (userId: number) => {
+        const state = useAuthStore.getState();
+        if (!state.token) throw new Error('No hay token');
+        
+        try {
+          const apiUrl = (import.meta as any).env.VITE_API_URL || 'http://localhost:8000';
+          const response = await fetch(`${apiUrl}/api/v1/auth/users/${userId}/unfollow/`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${state.token}`,
+              'Content-Type': 'application/json',
+            },
+          });
+          
+          if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Error al dejar de seguir usuario');
+          }
+          
+          // Actualizar el perfil del usuario actual para reflejar el cambio
+          const updatedUser = await authApi.getProfile(state.token);
+          set({ user: updatedUser });
+        } catch (error) {
+          console.error('Error dejando de seguir usuario:', error);
+          throw error;
+        }
+      },
+
+      getFollowStatus: async (userId: number) => {
+        const state = useAuthStore.getState();
+        if (!state.token) throw new Error('No hay token');
+        
+        try {
+          const apiUrl = (import.meta as any).env.VITE_API_URL || 'http://localhost:8000';
+          const response = await fetch(`${apiUrl}/api/v1/auth/users/${userId}/follow-status/`, {
+            headers: {
+              'Authorization': `Bearer ${state.token}`,
+            },
+          });
+          
+          if (!response.ok) {
+            throw new Error('Error al obtener estado de seguimiento');
+          }
+          
+          return await response.json();
+        } catch (error) {
+          console.error('Error obteniendo estado de seguimiento:', error);
+          throw error;
+        }
+      },
+
+      getFollowing: async () => {
+        const state = useAuthStore.getState();
+        if (!state.token) throw new Error('No hay token');
+        
+        try {
+          const apiUrl = (import.meta as any).env.VITE_API_URL || 'http://localhost:8000';
+          const response = await fetch(`${apiUrl}/api/v1/auth/following/`, {
+            headers: {
+              'Authorization': `Bearer ${state.token}`,
+            },
+          });
+          
+          if (!response.ok) {
+            throw new Error('Error al obtener lista de seguidos');
+          }
+          
+          return await response.json();
+        } catch (error) {
+          console.error('Error obteniendo lista de seguidos:', error);
+          throw error;
+        }
+      },
+
+      getFollowers: async () => {
+        const state = useAuthStore.getState();
+        if (!state.token) throw new Error('No hay token');
+        
+        try {
+          const apiUrl = (import.meta as any).env.VITE_API_URL || 'http://localhost:8000';
+          const response = await fetch(`${apiUrl}/api/v1/auth/followers/`, {
+            headers: {
+              'Authorization': `Bearer ${state.token}`,
+            },
+          });
+          
+          if (!response.ok) {
+            throw new Error('Error al obtener lista de seguidores');
+          }
+          
+          return await response.json();
+        } catch (error) {
+          console.error('Error obteniendo lista de seguidores:', error);
           throw error;
         }
       },

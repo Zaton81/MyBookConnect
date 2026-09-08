@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuthStore } from '../store/auth';
+import { useNavigate } from 'react-router-dom';
 import { Button, Modal, Label, TextInput, Select, FileInput, Textarea } from 'flowbite-react';
 
 export function AddBook() {
@@ -10,6 +11,7 @@ export function AddBook() {
   const [description, setDescription] = useState('');
   const [publishedDate, setPublishedDate] = useState('');
   const [coverImage, setCoverImage] = useState<File | null>(null);
+  const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -116,7 +118,7 @@ export function AddBook() {
       setConfirmOpen(false);
       setSelectedBookId(null);
       alert('Libro añadido a tu biblioteca');
-      window.location.href = '/library';
+      navigate('/library');
     } catch (err) {
       console.error(err);
       alert('Error añadiendo libro a tu biblioteca');
@@ -176,7 +178,7 @@ export function AddBook() {
       setManualOpen(false);
       setTitle(''); setAuthorName(''); setIsbn(''); setDescription(''); setPublishedDate(''); setCoverImage(null);
       alert('Libro creado y añadido');
-      window.location.href = '/library';
+        navigate('/library');
     } catch (err) {
       console.error(err);
       alert('Error creando/añadiendo libro');

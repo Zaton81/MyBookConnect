@@ -5,6 +5,14 @@ from django.contrib.auth.password_validation import validate_password
 
 User = get_user_model()
 
+class UserBasicSerializer(serializers.ModelSerializer):
+    """Serializador para información básica de usuario (para listados de amigos)"""
+    class Meta:
+        model = User
+        fields = ('id', 'username', 'first_name', 'last_name', 'avatar', 'bio')
+        read_only_fields = fields
+
+
 class UserSerializer(serializers.ModelSerializer):
     birth_date = serializers.DateField(format='%Y-%m-%d', input_formats=['%Y-%m-%d'], required=False)
     reviews_count = serializers.SerializerMethodField()
@@ -14,17 +22,18 @@ class UserSerializer(serializers.ModelSerializer):
     is_following = serializers.SerializerMethodField()
     is_blocked = serializers.SerializerMethodField()
     am_i_blocked = serializers.SerializerMethodField()
-    
+
     class Meta:
         model = User
         fields = (
             'id', 'username', 'first_name', 'last_name', 'email', 'bio', 'avatar',
             'birth_date', 'location', 'privacy_level',
-            'following', 'followers',
+            'show_email', 'show_birth_date', 'show_location', 'show_bio',
+            'following', 'followers', 'is_editor',
             'reviews_count', 'books_read_count', 'following_count', 'followers_count',
             'is_following', 'is_blocked', 'am_i_blocked'
         )
-        read_only_fields = ('id', 'followers')
+        read_only_fields = ('id', 'followers', 'is_editor')
 
     def get_reviews_count(self, obj):
         return getattr(obj, 'reviews_count', obj.reviews.count())

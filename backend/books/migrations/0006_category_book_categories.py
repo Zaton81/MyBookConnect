@@ -5,8 +5,13 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
 
+    # Sustituye el 0003 duplicado de la otra rama si ya estaba aplicado.
+    replaces = [
+        ('books', '0003_category_book_categories'),
+    ]
+
     dependencies = [
-        ('books', '0002_author_photo_book_published_date'),
+        ('books', '0005_errata'),
     ]
 
     operations = [
