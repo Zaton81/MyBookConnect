@@ -337,3 +337,127 @@ class ErrataDetailUpdateView(generics.RetrieveUpdateAPIView):
         serializer.is_valid(raise_exception=True)
         serializer.save(editor=user)
         return Response(serializer.data)
+
+
+class SocialFeedView(APIView):
+    """
+    Feed de actividad social comunitaria en tiempo real: últimas lecturas y reseñas.
+    """
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get(self, request):
+        reviews = Review.objects.select_related('user', 'book', 'book__author').order_by('-created_at')[:15]
+        user_books = UserBook.objects.filter(is_read=True).select_related('user', 'book', 'book__author').order_by('-updated_at')[:15]
+
+        items = []
+        for r in reviews:
+            items.append({
+                'id': f'review_{r.id}',
+                'type': 'review',
+                'timestamp': r.created_at.isoformat(),
+                'user': {
+                    'id': r.user.id,
+                    'username': r.user.username,
+                    'avatar': r.user.avatar.url if r.user.avatar else None,
+                },
+                'book': {
+                    'id': r.book.id,
+                    'title': r.book.title,
+                    'cover': r.book.cover.url if r.book.cover else None,
+                    'author_name': r.book.author.name if r.book.author else '',
+                },
+                'rating': r.rating,
+                'comment': r.text,
+            })
+
+        for ub in user_books:
+            items.append({
+                'id': f'reading_{ub.id}',
+                'type': 'finished_reading',
+                'timestamp': ub.updated_at.isoformat(),
+                'user': {
+                    'id': ub.user.id,
+                    'username': ub.user.username,
+                    'avatar': ub.user.avatar.url if ub.user.avatar else None,
+                },
+                'book': {
+                    'id': ub.book.id,
+                    'title': ub.book.title,
+                    'cover': ub.book.cover.url if ub.book.cover else None,
+                    'author_name': ub.book.author.name if ub.book.author else '',
+                },
+                'rating': ub.rating,
+            })
+
+        items.sort(key=lambda x: x['timestamp'], reverse=True)
+        return Response({'results': items[:20]})
+
+
+class TrendingBooksView(APIView):
+    """
+    Libros más populares y leídos en la plataforma.
+    """
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get(self, request):
+        from django.db.models import Count
+        trending = Book.objects.annotate(
+            readers_count=Count('user_entries', distinct=True),
+            reviews_count=Count('reviews', distinct=True)
+        ).select_related('author').order_by('-readers_count', '-average_rating', '-created_at')[:12]
+
+        results = []
+        for b in trending:
+            results.append({
+                'id': b.id,
+                'title': b.title,
+                'cover': b.cover.url if b.cover else None,
+                'author_name': b.author.name if b.author else '',
+                'average_rating': b.average_rating,
+                'readers_count': b.readers_count,
+                'reviews_count': b.reviews_count,
+            })
+        return Response({'results': results})
+
+
+class ReadingMatchView(APIView):
+    """
+    Calcula el porcentaje de afinidad literaria y libros compartidos entre usuarios.
+    """
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get(self, request, user_id):
+        from django.contrib.auth import get_user_model
+        UserModel = get_user_model()
+        target_user = get_object_or_404(UserModel, id=user_id)
+
+        if target_user == request.user:
+            return Response({'match_percentage': 100, 'is_self': True, 'common_books': []})
+
+        my_books = set(UserBook.objects.filter(user=request.user, is_read=True).values_list('book_id', flat=True))
+        their_books = set(UserBook.objects.filter(user=target_user, is_read=True).values_list('book_id', flat=True))
+
+        common_ids = my_books.intersection(their_books)
+        total_unique = len(my_books.union(their_books))
+
+        if total_unique == 0:
+            match_percentage = 50
+        else:
+            match_percentage = min(100, int((len(common_ids) / total_unique) * 100) + 40)
+
+        common_books = Book.objects.filter(id__in=common_ids).select_related('author')[:5]
+        common_serialized = [{
+            'id': b.id,
+            'title': b.title,
+            'cover': b.cover.url if b.cover else None,
+            'author_name': b.author.name if b.author else '',
+        } for b in common_books]
+
+        return Response({
+            'match_percentage': match_percentage,
+            'common_books_count': len(common_ids),
+            'common_books': common_serialized,
+            'my_read_count': len(my_books),
+            'their_read_count': len(their_books),
+        })
+

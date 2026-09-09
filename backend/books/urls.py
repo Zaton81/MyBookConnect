@@ -5,14 +5,28 @@ from .views import (
     ReviewListCreateView, AuthorListCreateView, AuthorDetailView,
     AuthorBooksView, ImportBookView, RecommendationView, AuthorBookRefreshView,
     ErrataListCreateView, ErrataDetailUpdateView,
+    SocialFeedView, TrendingBooksView, ReadingMatchView,
+)
+from .ai_views import (
+    AIAssistantView, AISemanticSearchView, AIBookSummaryView, AIStatusView,
 )
 
 urlpatterns = [
     # Rutas estándar limpias (/api/v1/books/...)
     path('', BookListCreateView.as_view(), name='books-list-root'),
+    path('feed/', SocialFeedView.as_view(), name='books-social-feed'),
+    path('trending/', TrendingBooksView.as_view(), name='books-trending'),
+    path('match/<int:user_id>/', ReadingMatchView.as_view(), name='user-reading-match'),
+    path('import/', ImportBookView.as_view(), name='books-import-root'),
+
+    # Rutas de Inteligencia Artificial (OpenAI-compatible)
+    path('ai/status/', AIStatusView.as_view(), name='book-ai-status'),
+    path('ai/assistant/', AIAssistantView.as_view(), name='book-ai-assistant'),
+    path('ai/semantic-search/', AISemanticSearchView.as_view(), name='book-ai-semantic-search'),
+    path('<int:pk>/ai/summary/', AIBookSummaryView.as_view(), name='book-ai-summary'),
+
     path('<int:pk>/', BookDetailView.as_view(), name='books-detail-root'),
     path('<int:pk>/recommendations/', RecommendationView.as_view(), name='book-recommendations-root'),
-    path('import/', ImportBookView.as_view(), name='books-import-root'),
 
     # Rutas heredadas para compatibilidad con código existente
     path('books/', BookListCreateView.as_view(), name='books-list'),

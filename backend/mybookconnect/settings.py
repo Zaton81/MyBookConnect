@@ -147,3 +147,11 @@ SIMPLE_JWT = {
 
 CORS_ALLOWED_ORIGINS = os.getenv('CORS_ALLOWED_ORIGINS', 'http://localhost:5173').split()
 CORS_ALLOW_CREDENTIALS = True
+
+# ─── Configuración de IA (Compatible con OpenAI: Ollama, Cloud, etc.) ───
+AI_ENABLED = os.getenv('AI_ENABLED', 'true').lower() in ('true', '1', 'yes')
+AI_API_BASE_URL = os.getenv('AI_API_BASE_URL', 'http://localhost:11434/v1').rstrip('/')
+AI_API_KEY = os.getenv('AI_API_KEY', 'ollama')
+AI_MODEL_CHAT = os.getenv('AI_MODEL_CHAT', 'llama3.2')
+AI_MODEL_EMBEDDINGS = os.getenv('AI_MODEL_EMBEDDINGS', 'nomic-embed-text')
+AI_TIMEOUT = int(os.getenv('AI_TIMEOUT', '15'))

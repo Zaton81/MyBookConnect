@@ -15,6 +15,11 @@ export function Profile() {
   const [isMutual, setIsMutual] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [readingMatch, setReadingMatch] = useState<{
+    match_percentage: number;
+    common_books_count: number;
+    common_books: { id: number; title: string; cover?: string; author_name: string }[];
+  } | null>(null);
 
   const isOwnProfile = !profileId || (currentUser && String(currentUser.id) === String(profileId));
 
@@ -46,6 +51,19 @@ export function Profile() {
             setIsMutual(followStatus.is_mutual);
           } catch {
             setIsMutual(false);
+          }
+
+          // Cargar afinidad lectora
+          try {
+            const matchRes = await fetch(`${apiUrl}/api/v1/books/match/${profileId}/`, {
+              headers: { Authorization: `Bearer ${token}` },
+            });
+            if (matchRes.ok) {
+              const matchData = await matchRes.json();
+              setReadingMatch(matchData);
+            }
+          } catch (e) {
+            console.warn('Error fetching reading match', e);
           }
         }
       } else if (res.status === 403) {
@@ -92,6 +110,31 @@ export function Profile() {
     } catch (e: any) {
       console.error(e);
       alert(e.message || 'Error de conexión');
+    }
+  };
+
+  const handleStartChat = async () => {
+    if (!profileUser || !token) return;
+    const apiUrl = (import.meta as any).env.VITE_API_URL || 'http://localhost:8000';
+    try {
+      const res = await fetch(`${apiUrl}/api/v1/chat/conversations/start/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ user_id: profileUser.id }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        navigate(`/chat?conversationId=${data.conversation_id}`);
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert(err.error || 'Solo puedes chatear con amigos mutuos.');
+      }
+    } catch (e: any) {
+      console.error(e);
+      alert('Error al conectar con el chat');
     }
   };
 
@@ -173,8 +216,8 @@ export function Profile() {
                   )
                 )}
                 {isMutual && (
-                  <Button size="sm" color="light" onClick={() => alert('El chat se activará en un paso posterior')}>
-                    Mensaje
+                  <Button size="sm" color="teal" onClick={handleStartChat} className="flex items-center gap-1">
+                    💬 Mensaje
                   </Button>
                 )}
                 <Dropdown label="" renderTrigger={() => <Button color="light" size="sm">...</Button>}>
@@ -195,7 +238,7 @@ export function Profile() {
                         profileUser.privacy_level === 'friends' ? 'Solo amigos' : 'Privado'}
           </p>
           {isMutual && !isOwnProfile && (
-            <span className="text-green-600 text-sm font-medium">Amistad mutua</span>
+            <span className="text-teal-600 text-sm font-medium">Amistad mutua</span>
           )}
           {profileUser.birth_date && (isOwnProfile || canShow(profileUser.show_birth_date)) && (
             <p className="text-sm text-gray-600">
@@ -209,6 +252,62 @@ export function Profile() {
             />
           )}
         </div>
+
+        {/* Widget de Afinidad Lectora */}
+        {!isOwnProfile && readingMatch && (
+          <div className="mt-5 p-4 rounded-2xl bg-gradient-to-r from-teal-50 to-emerald-50 dark:from-gray-700/60 dark:to-teal-900/30 border border-teal-100 dark:border-teal-800">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <span className="text-2xl">✨</span>
+                <div>
+                  <h4 className="text-sm font-bold text-gray-900 dark:text-white">
+                    Afinidad Lectora
+                  </h4>
+                  <p className="text-xs text-gray-500 dark:text-gray-300">
+                    {readingMatch.common_books_count > 0
+                      ? `Tenéis ${readingMatch.common_books_count} libros leídos en común`
+                      : 'Compatibilidad estimada de biblioteca'}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center justify-center w-12 h-12 rounded-full bg-teal-600 text-white font-extrabold text-sm shadow-md shadow-teal-600/20">
+                {readingMatch.match_percentage}%
+              </div>
+            </div>
+
+            {readingMatch.common_books.length > 0 && (
+              <div className="mt-3 pt-3 border-t border-teal-100 dark:border-teal-800/60">
+                <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                  Libros compartidos:
+                </p>
+                <div className="flex gap-3 overflow-x-auto pb-1">
+                  {readingMatch.common_books.map((b) => (
+                    <div
+                      key={b.id}
+                      onClick={() => navigate(`/books/${b.id}`)}
+                      className="cursor-pointer group text-center shrink-0 w-16"
+                    >
+                      {b.cover ? (
+                        <img
+                          src={b.cover}
+                          alt={b.title}
+                          className="w-16 h-20 object-cover rounded shadow group-hover:scale-105 transition-transform"
+                        />
+                      ) : (
+                        <div className="w-16 h-20 bg-teal-700 text-white rounded flex items-center justify-center text-[10px] p-1 font-medium">
+                          {b.title}
+                        </div>
+                      )}
+                      <p className="text-[10px] text-gray-600 dark:text-gray-400 truncate mt-1 group-hover:text-teal-600">
+                        {b.title}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="grid grid-cols-3 gap-4 mt-6 border-t pt-4 text-center">
           <div>
