@@ -1,13 +1,66 @@
-version: '3.9'
 services:
   backend:
     build:
+      context: ./backend
       target: production
+    container_name: booksocial-backend-prod
+    restart: always
     ports:
       - "8000:8000"
+    env_file:
+      - .env
+    depends_on:
+      db:
+        condition: service_healthy
+      cache:
+        condition: service_healthy
+    volumes:
+      - backend_media:/app/media
 
   frontend:
     build:
+      context: ./frontend
       target: production
+    container_name: booksocial-frontend-prod
+    restart: always
     ports:
-      - "80:80" # El servidor Nginx corre en el puerto 80
+      - "80:80"
+    depends_on:
+      backend:
+        condition: service_started
+
+  db:
+    image: postgres:15
+    container_name: booksocial-db-prod
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-mybookconnect}
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_prod_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-mybookconnect}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  cache:
+    image: redis:7-alpine
+    container_name: booksocial-cache-prod
+    restart: always
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+volumes:
+  db_prod_data:
+  backend_media:
