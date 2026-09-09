@@ -38,5 +38,5 @@ urlpatterns = [
     path('following/', UserFollowingListView.as_view(), name='following-list'),
     path('followers/', UserFollowersListView.as_view(), name='followers-list'),
     *user_action_patterns,
-    path('users/', include((user_action_patterns, 'users-nested'))),
+    path('users/', include(user_action_patterns)),
 ] + router.urls

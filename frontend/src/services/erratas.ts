@@ -1,4 +1,4 @@
-const API_URL = (import.meta as any).env.VITE_API_URL || 'http://localhost:8000';
+import { api } from '../api/client';
 
 export type ErrataPayload = {
   book_id?: number | null;
@@ -8,29 +8,23 @@ export type ErrataPayload = {
 };
 
 export async function createErrata(token: string, payload: ErrataPayload) {
-  const res = await fetch(`${API_URL}/api/v1/books/erratas/`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-    body: JSON.stringify(payload),
+  return api.post('/api/v1/books/erratas/', payload, {
+    headers: { Authorization: `Bearer ${token}` },
   });
-  if (!res.ok) throw new Error('No se pudo enviar la errata');
-  return res.json();
 }
 
 export async function listErratas(token: string) {
-  const res = await fetch(`${API_URL}/api/v1/books/erratas/`, {
+  return api.get('/api/v1/books/erratas/', {
     headers: { Authorization: `Bearer ${token}` },
   });
-  if (!res.ok) throw new Error('No se pudo obtener el listado de erratas');
-  return res.json();
 }
 
-export async function updateErrata(token: string, id: number, data: Partial<{ status: string; resolution_notes: string; text: string }>) {
-  const res = await fetch(`${API_URL}/api/v1/books/erratas/${id}/`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-    body: JSON.stringify(data),
+export async function updateErrata(
+  token: string,
+  id: number,
+  data: Partial<{ status: string; resolution_notes: string; text: string }>
+) {
+  return api.patch(`/api/v1/books/erratas/${id}/`, data, {
+    headers: { Authorization: `Bearer ${token}` },
   });
-  if (!res.ok) throw new Error('No se pudo actualizar la errata');
-  return res.json();
 }

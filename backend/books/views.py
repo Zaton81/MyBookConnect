@@ -102,19 +102,18 @@ class BookDetailView(generics.RetrieveAPIView):
 
     def retrieve(self, request, *args, **kwargs):
         instance = self.get_object()
-        if not instance.cover:
+        if not instance.enrichment_attempted:
+            instance.enrichment_attempted = True
             try:
-                services.ensure_book_cover(instance)
+                if not instance.cover:
+                    services.ensure_book_cover(instance)
+                if not instance.description or not instance.published_date:
+                    services.enrich_book_metadata(instance)
+                instance.save(update_fields=['enrichment_attempted'])
                 instance.refresh_from_db()
             except Exception as e:
-                logging.exception(f"Error ensuring book cover in detail view: {e}")
-        
-        if not instance.description or not instance.published_date:
-            try:
-                services.enrich_book_metadata(instance)
-                instance.refresh_from_db()
-            except Exception as e:
-                logging.exception(f"Error enriching book metadata in detail view: {e}")
+                logging.exception(f"Error enriching book in detail view: {e}")
+                instance.save(update_fields=['enrichment_attempted'])
         serializer = self.get_serializer(instance)
         return Response(serializer.data)
 

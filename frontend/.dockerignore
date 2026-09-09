@@ -1,3 +1,10 @@
 node_modules
 .pnpm-store
 dist
+build
+.git
+.gitignore
+*.local
+.env
+.env.*
+!.env.example

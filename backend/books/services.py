@@ -20,26 +20,35 @@ WIKIDATA_ENTITY_URL = 'https://www.wikidata.org/wiki/Special:EntityData/{entity}
 logger = logging.getLogger(__name__)
 
 def import_single_by_query(query_isbn: str):
-    params = {'q': f'isbn:{query_isbn}', 'maxResults': 1, 'printType': 'books'}
-    resp = requests.get(GOOGLE_BOOKS_API_URL, params=params, timeout=10, headers={'User-Agent': 'MyBookConnect/1.0'})
-    resp.raise_for_status()
-    payload = resp.json()
-    items = payload.get('items') or []
-    if not items:
-        return None
-    return _create_or_get_from_volume(items[0])
+    try:
+        params = {'q': f'isbn:{query_isbn}', 'maxResults': 1, 'printType': 'books'}
+        resp = requests.get(GOOGLE_BOOKS_API_URL, params=params, timeout=8, headers={'User-Agent': 'MyBookConnect/1.0'})
+        if resp.ok:
+            payload = resp.json()
+            items = payload.get('items') or []
+            if items:
+                return _create_or_get_from_volume(items[0])
+    except Exception as e:
+        logger.warning("Error consultando Google Books para isbn %s: %s", query_isbn, e)
+    return None
 
 def import_multiple_by_title(title: str, offset: int = 0):
-    params = {'q': f'intitle:{title}', 'maxResults': 5, 'startIndex': offset, 'printType': 'books'}
-    resp = requests.get(GOOGLE_BOOKS_API_URL, params=params, timeout=10, headers={'User-Agent': 'MyBookConnect/1.0'})
-    resp.raise_for_status()
-    payload = resp.json()
-    items = payload.get('items') or []
     books = []
-    for volume in items:
-        book = _create_or_get_from_volume(volume)
-        if book:
-            books.append(book)
+    try:
+        params = {'q': f'intitle:{title}', 'maxResults': 5, 'startIndex': offset, 'printType': 'books'}
+        resp = requests.get(GOOGLE_BOOKS_API_URL, params=params, timeout=8, headers={'User-Agent': 'MyBookConnect/1.0'})
+        if resp.ok:
+            payload = resp.json()
+            items = payload.get('items') or []
+            for volume in items:
+                book = _create_or_get_from_volume(volume)
+                if book:
+                    books.append(book)
+        else:
+            logger.warning("Google Books devolvió status %s al buscar título %s", resp.status_code, title)
+    except Exception as e:
+        logger.warning("Error consultando Google Books para título %s: %s", title, e)
+
     if not books:
         books = _import_from_openlibrary_by_title(title, offset=offset)
     return books
