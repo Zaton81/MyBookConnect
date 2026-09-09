@@ -3,7 +3,7 @@ from django.conf import settings
 from django.db.models import Avg
 from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
-from datetime import datetime
+from django.utils import timezone
 
 
 class Author(models.Model):
@@ -31,7 +31,7 @@ class Book(models.Model):
     cover = models.ImageField(upload_to='covers/', null=True, blank=True)
     description = models.TextField(blank=True, null=True)
     published_date = models.DateField(blank=True, null=True)
-    created_at = models.DateTimeField(default=datetime.utcnow)
+    created_at = models.DateTimeField(default=timezone.now)
     average_rating = models.FloatField(null=True, blank=True)
     categories = models.ManyToManyField(Category, related_name='books', blank=True)
 
