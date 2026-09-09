@@ -5,6 +5,7 @@ import { Spinner } from 'flowbite-react';
 import DOMPurify from 'dompurify';
 import { createErrata } from '../services/erratas';
 import { AIAssistantModal } from '../components/AIAssistantModal';
+import { AmazonAdSlot } from '../components/AmazonAdSlot';
 
 export function BookDetail() {
   const { id } = useParams();
@@ -487,6 +488,13 @@ export function BookDetail() {
           </div>
         </div>
       </div>
+
+      {/* ── Recomendación / Compra en Amazon (Afiliados) ── */}
+      <AmazonAdSlot
+        bookTitle={book.title}
+        searchQuery={`${book.title} ${book.author?.name || ''}`}
+        variant="banner"
+      />
 
       {/* ── Formulario de Erratas ── */}
       <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-200/80 dark:border-slate-700 p-6 shadow-sm">

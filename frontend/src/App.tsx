@@ -4,6 +4,7 @@ import { ProtectedRoute } from './components/ProtectedRoute';
 import { Header } from "./components/header";
 import { Logo } from "./components/logo";
 import { FooterSection } from "./components/footer";
+import { CookieBanner } from "./components/CookieBanner";
 import AuthBox from './components/AuthBox';
 import { useAuthStore } from './store/auth';
 
@@ -16,6 +17,9 @@ const BookDetail = lazy(() => import('./pages/BookDetail').then(m => ({ default:
 const Author = lazy(() => import('./pages/Author').then(m => ({ default: m.Author })));
 const Friends = lazy(() => import('./pages/Friends').then(m => ({ default: m.Friends })));
 const Chat = lazy(() => import('./pages/Chat').then(m => ({ default: m.Chat })));
+const PrivacyPolicy = lazy(() => import('./pages/legal/PrivacyPolicy').then(m => ({ default: m.PrivacyPolicy })));
+const TermsOfService = lazy(() => import('./pages/legal/TermsOfService').then(m => ({ default: m.TermsOfService })));
+const CookiePolicy = lazy(() => import('./pages/legal/CookiePolicy').then(m => ({ default: m.CookiePolicy })));
 
 function ProfileIdRedirect() {
   const { id } = useParams();
@@ -146,10 +150,14 @@ export default function App() {
                   </ProtectedRoute>
                 }
               />
+              <Route path="/privacy" element={<PrivacyPolicy />} />
+              <Route path="/terms" element={<TermsOfService />} />
+              <Route path="/cookies" element={<CookiePolicy />} />
             </Routes>
           </Suspense>
         </main>
         <FooterSection />
+        <CookieBanner />
       </div>
     </BrowserRouter>
   );

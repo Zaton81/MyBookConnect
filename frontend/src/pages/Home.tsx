@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/auth';
 import { Spinner } from 'flowbite-react';
 import { AIAssistantModal } from '../components/AIAssistantModal';
+import { AmazonAdSlot } from '../components/AmazonAdSlot';
 
 interface TrendingBook {
   id: number;
@@ -372,6 +373,9 @@ export const Home = () => {
                 </button>
               </div>
             </div>
+
+            {/* Espacio Publicitario / Afiliados de Amazon */}
+            <AmazonAdSlot variant="card" />
           </div>
         </div>
       </div>
