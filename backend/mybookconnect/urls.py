@@ -26,5 +26,6 @@ urlpatterns = [
         path('books/', include('books.urls')),
         path('users/', include('users.urls')),
         path('chat/', include('messages_app.urls')),
+        path('admin/', include('books.admin_urls')),
     ])),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

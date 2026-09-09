@@ -70,3 +70,56 @@ class TestDomainModels:
         )
         assert errata.status == ErrataStatus.OPEN
         assert str(errata) == f"errata - {sample_book.title} (open)"
+
+    def test_review_uniqueness_and_isolation(self, test_user, sample_book):
+        from books.models import Review
+        # Create public review
+        review1 = Review.objects.create(
+            user=test_user,
+            book=sample_book,
+            rating=9,
+            title='Obra maestra',
+            text='Un hito de la literatura universal.'
+        )
+        assert review1.rating == 9
+
+        # UniqueConstraint prevents second review for same user and book
+        from django.db import transaction
+        with pytest.raises(IntegrityError):
+            with transaction.atomic():
+                Review.objects.create(
+                    user=test_user,
+                    book=sample_book,
+                    rating=5,
+                    text='Intento duplicado'
+                )
+
+        # Creating or modifying personal UserBook does NOT overwrite public review
+        ub = UserBook.objects.create(
+            user=test_user,
+            book=sample_book,
+            is_read=False,
+            notes='Mis notas privadas de lectura que nadie más debe ver'
+        )
+
+        review1.refresh_from_db()
+        assert review1.text == 'Un hito de la literatura universal.'
+        assert review1.text != ub.notes
+
+        # Deleting personal UserBook does NOT delete the public review
+        ub.delete()
+        assert Review.objects.filter(id=review1.id).exists()
+
+    def test_book_serializer_rating_distribution(self, test_user, second_user, sample_book):
+        from books.models import Review
+        from books.serializers import BookSerializer
+
+        Review.objects.create(user=test_user, book=sample_book, rating=10, text='Excelente')
+        Review.objects.create(user=second_user, book=sample_book, rating=8, text='Muy bueno')
+
+        serializer = BookSerializer(sample_book)
+        dist = serializer.data['rating_distribution']
+        assert dist[10] == 1
+        assert dist[8] == 1
+        assert dist[1] == 0
+        assert serializer.data['reviews_count'] == 2

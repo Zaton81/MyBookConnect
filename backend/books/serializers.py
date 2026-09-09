@@ -1,6 +1,9 @@
+from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
-from .models import Author, Book, Category, Errata, Review, UserBook
+from .models import Author, Book, Category, Errata, LegalDocument, Review, UserBook
+
+User = get_user_model()
 
 
 class AuthorBookSerializer(serializers.ModelSerializer):
@@ -29,13 +32,29 @@ class BookSerializer(serializers.ModelSerializer):
         queryset=Author.objects.all(), source='author', write_only=True, required=False, allow_null=True
     )
     categories = CategorySerializer(many=True, read_only=True)
+    rating_distribution = serializers.SerializerMethodField()
+    reviews_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Book
         fields = (
             'id', 'title', 'author', 'author_id', 'isbn', 'cover',
-            'description', 'published_date', 'average_rating', 'created_at', 'categories'
+            'description', 'published_date', 'average_rating', 'created_at',
+            'categories', 'rating_distribution', 'reviews_count'
         )
+
+    def get_rating_distribution(self, obj):
+        from django.db.models import Count
+        distribution = dict.fromkeys(range(1, 11), 0)
+        reviews = Review.objects.filter(book=obj, rating__isnull=False).values('rating').annotate(count=Count('id'))
+        for r in reviews:
+            val = r['rating']
+            if 1 <= val <= 10:
+                distribution[val] = r['count']
+        return distribution
+
+    def get_reviews_count(self, obj):
+        return Review.objects.filter(book=obj).count()
 
 
 class UserBookSerializer(serializers.ModelSerializer):
@@ -60,7 +79,7 @@ class ReviewSerializer(serializers.ModelSerializer):
         model = Review
         fields = (
             'id', 'user', 'user_id', 'user_avatar', 'privacy_level', 'is_friend',
-            'book', 'book_id', 'rating', 'text', 'created_at'
+            'book', 'book_id', 'rating', 'title', 'text', 'created_at', 'updated_at'
         )
 
     def get_is_friend(self, obj):
@@ -91,3 +110,26 @@ class ErrataSerializer(serializers.ModelSerializer):
             'type', 'text', 'status', 'resolution_notes', 'editor', 'created_at', 'updated_at'
         )
         read_only_fields = ('id', 'user', 'editor', 'created_at', 'updated_at')
+
+
+class LegalDocumentSerializer(serializers.ModelSerializer):
+    updated_by_username = serializers.ReadOnlyField(source='updated_by.username')
+
+    class Meta:
+        model = LegalDocument
+        fields = ('id', 'slug', 'title', 'content', 'updated_at', 'updated_by', 'updated_by_username')
+        read_only_fields = ('id', 'updated_at', 'updated_by', 'updated_by_username')
+
+
+class AdminUserSerializer(serializers.ModelSerializer):
+    books_count = serializers.IntegerField(source='user_books.count', read_only=True)
+    reviews_count = serializers.IntegerField(source='reviews.count', read_only=True)
+
+    class Meta:
+        model = User
+        fields = (
+            'id', 'username', 'email', 'first_name', 'last_name',
+            'is_active', 'is_staff', 'is_superuser', 'is_editor',
+            'date_joined', 'last_login', 'privacy_level', 'books_count', 'reviews_count'
+        )
+        read_only_fields = ('id', 'username', 'date_joined', 'last_login', 'books_count', 'reviews_count')

@@ -1,6 +1,22 @@
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import DOMPurify from 'dompurify';
 
 export function TermsOfService() {
+  const [dynamicDoc, setDynamicDoc] = useState<{ title: string; content: string; updated_at?: string } | null>(null);
+  const apiUrl = (import.meta as any).env.VITE_API_URL || 'http://localhost:8000';
+
+  useEffect(() => {
+    fetch(`${apiUrl}/api/v1/books/legal/terms/`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data && data.content && data.content.trim().length > 0) {
+          setDynamicDoc(data);
+        }
+      })
+      .catch(() => {});
+  }, [apiUrl]);
+
   return (
     <article className="max-w-4xl mx-auto py-8 px-4 sm:px-6">
       {/* Breadcrumb */}
@@ -15,14 +31,20 @@ export function TermsOfService() {
           <span>📜 Condiciones de Uso</span>
         </div>
         <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">
-          Términos y Condiciones de Servicio
+          {dynamicDoc?.title || 'Términos y Condiciones de Servicio'}
         </h1>
         <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-          Última actualización: Septiembre 2026
+          Última actualización: {dynamicDoc?.updated_at ? new Date(dynamicDoc.updated_at).toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' }) : 'Septiembre 2026'}
         </p>
       </header>
 
-      <div className="prose prose-slate dark:prose-invert max-w-none text-slate-700 dark:text-slate-300 space-y-8 leading-relaxed">
+      {dynamicDoc ? (
+        <div
+          className="prose prose-slate dark:prose-invert max-w-none text-slate-700 dark:text-slate-300 space-y-6 leading-relaxed whitespace-pre-line"
+          dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(dynamicDoc.content) }}
+        />
+      ) : (
+        <div className="prose prose-slate dark:prose-invert max-w-none text-slate-700 dark:text-slate-300 space-y-8 leading-relaxed">
         <section>
           <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-3">
             1. Aceptación de los Términos
@@ -93,6 +115,7 @@ export function TermsOfService() {
           </p>
         </section>
       </div>
+      )}
     </article>
   );
 }

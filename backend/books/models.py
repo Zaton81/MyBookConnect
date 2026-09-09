@@ -68,11 +68,16 @@ class Review(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='reviews')
     book = models.ForeignKey(Book, on_delete=models.CASCADE, related_name='reviews')
     rating = models.PositiveSmallIntegerField()
+    title = models.CharField(max_length=200, blank=True, null=True)
     text = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         ordering = ['-created_at']
+        constraints = [
+            models.UniqueConstraint(fields=['user', 'book'], name='unique_review_user_book'),
+        ]
 
     def __str__(self):
         return f"Reseña {self.user.username} - {self.book.title}"
@@ -119,30 +124,39 @@ class Errata(models.Model):
         return f"{self.type} - {target} ({self.status})"
 
 
+@receiver(post_save, sender=Review)
+@receiver(post_delete, sender=Review)
 @receiver(post_save, sender=UserBook)
 @receiver(post_delete, sender=UserBook)
 def update_book_rating(sender, instance, **kwargs):
     book = instance.book
-    avg = UserBook.objects.filter(book=book, rating__isnull=False).aggregate(Avg('rating'))['rating__avg']
-    book.average_rating = round(avg, 2) if avg else None
+    review_avg = Review.objects.filter(book=book, rating__isnull=False).aggregate(Avg('rating'))['rating__avg']
+    if review_avg is not None:
+        book.average_rating = round(review_avg, 2)
+    else:
+        ub_avg = UserBook.objects.filter(book=book, rating__isnull=False).aggregate(Avg('rating'))['rating__avg']
+        book.average_rating = round(ub_avg, 2) if ub_avg else None
     book.save(update_fields=['average_rating'])
 
 
-@receiver(post_save, sender=UserBook)
-def sync_userbook_to_review(sender, instance, **kwargs):
-    if instance.rating is not None:
-        Review.objects.update_or_create(
-            user=instance.user,
-            book=instance.book,
-            defaults={
-                'text': instance.notes or '',
-                'rating': instance.rating
-            }
-        )
-    else:
-        Review.objects.filter(user=instance.user, book=instance.book).delete()
+class LegalDocument(models.Model):
+    DOCUMENT_TYPES = [
+        ('terms', 'Términos del Servicio'),
+        ('privacy', 'Política de Privacidad'),
+        ('cookies', 'Política de Cookies'),
+        ('legal_notice', 'Aviso Legal'),
+    ]
+    slug = models.SlugField(max_length=50, unique=True, choices=DOCUMENT_TYPES)
+    title = models.CharField(max_length=200)
+    content = models.TextField(help_text="Contenido en Markdown o HTML")
+    updated_at = models.DateTimeField(auto_now=True)
+    updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='updated_legal_documents'
+    )
 
-
-@receiver(post_delete, sender=UserBook)
-def delete_review_on_userbook_delete(sender, instance, **kwargs):
-    Review.objects.filter(user=instance.user, book=instance.book).delete()
+    def __str__(self):
+        return self.title

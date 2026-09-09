@@ -207,7 +207,7 @@ class ReviewListCreateView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         from django.db.models import Exists, OuterRef
-        queryset = Review.objects.all()
+        queryset = Review.objects.select_related('user', 'book').order_by('-created_at')
 
         book_id = self.request.query_params.get('book')
         if book_id:
@@ -220,8 +220,48 @@ class ReviewListCreateView(generics.ListCreateAPIView):
 
         return queryset
 
-    def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
+    def create(self, request, *args, **kwargs):
+        from rest_framework import status
+        book_id = request.data.get('book_id')
+        if not book_id:
+            return Response({'detail': 'book_id es requerido'}, status=status.HTTP_400_BAD_REQUEST)
+
+        rating = request.data.get('rating')
+        try:
+            rating_val = int(rating)
+            if not (1 <= rating_val <= 10):
+                raise ValueError()
+        except (ValueError, TypeError):
+            return Response({'detail': 'La puntuación debe ser un valor entre 1 y 10'}, status=status.HTTP_400_BAD_REQUEST)
+
+        title = request.data.get('title', '')
+        text = request.data.get('text', '')
+
+        review, created = Review.objects.update_or_create(
+            user=request.user,
+            book_id=book_id,
+            defaults={
+                'rating': rating_val,
+                'title': title,
+                'text': text,
+            }
+        )
+        serializer = self.get_serializer(review)
+        status_code = status.HTTP_201_CREATED if created else status.HTTP_200_OK
+        return Response(serializer.data, status=status_code)
+
+
+class ReviewDetailView(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = ReviewSerializer
+    permission_classes = (permissions.IsAuthenticated,)
+    queryset = Review.objects.select_related('user', 'book')
+
+    def check_object_permissions(self, request, obj):
+        super().check_object_permissions(request, obj)
+        if request.method not in permissions.SAFE_METHODS:
+            if obj.user != request.user and not (request.user.is_staff or request.user.is_superuser):
+                from rest_framework.exceptions import PermissionDenied
+                raise PermissionDenied('No tienes permiso para modificar esta reseña.')
 
 
 class ImportBookView(APIView):

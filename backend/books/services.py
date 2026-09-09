@@ -104,10 +104,9 @@ def import_multiple_by_title(title: str, offset: int = 0):
     try:
         params = {
             'q': clean_title,
-            'maxResults': 5,
+            'maxResults': 8,
             'startIndex': offset,
             'printType': 'books',
-            'langRestrict': 'es',
         }
         api_key = _get_google_books_api_key()
         if api_key:
@@ -671,9 +670,86 @@ def enrich_book_metadata(book: Book):
         logger.warning(f"Error enriqueciendo metadatos del libro: {e}")
 
 
-def import_books_by_author(author_name: str):
+def maybe_enrich_book(book: Book):
+    """
+    Enriquece portada y metadatos del libro (descripción, fecha) de forma exhaustiva.
+    """
+    ensure_book_cover(book)
+    enrich_book_metadata(book)
+    book.enrichment_attempted = True
+    book.save(update_fields=['enrichment_attempted'])
+
+
+
+def _import_books_by_author_from_wikipedia(author: Author) -> int:
+    """
+    Busca obras notables y novelas del autor en Wikipedia cuando Google Books agota cuota o falla.
+    """
+    author_name = author.name.strip()
+    count = 0
     try:
-        params = {'q': f'inauthor:{author_name}', 'maxResults': 10, 'printType': 'books', 'langRestrict': 'es'}
+        sr_params = {
+            'action': 'query',
+            'list': 'search',
+            'srsearch': f'"{author_name}" novela OR libro',
+            'format': 'json',
+            'srlimit': 8,
+        }
+        res = requests.get('https://es.wikipedia.org/w/api.php', params=sr_params, timeout=7, headers=DEFAULT_HEADERS)
+        if res.ok:
+            items = res.json().get('query', {}).get('search', [])
+            for item in items:
+                page_title = item.get('title', '')
+                if not page_title:
+                    continue
+                # Si el título coincide con el nombre del autor, es su biografía, no un libro
+                if page_title.strip().casefold() == author_name.casefold():
+                    continue
+
+                clean_title = re.sub(r'\s*\([^)]+\)$', '', page_title).strip()
+                existing = Book.objects.filter(title__iexact=clean_title, author=author).first()
+                if existing:
+                    continue
+
+                sum_url = WIKIPEDIA_API_URL.format(lang='es') + requests.utils.quote(page_title)
+                sum_res = requests.get(sum_url, timeout=7, headers=DEFAULT_HEADERS)
+                if sum_res.ok:
+                    data = sum_res.json()
+                    desc = data.get('description', '').lower()
+                    if any(term in desc for term in ['desambiguación', 'escritor', 'biografía', 'persona']):
+                        continue
+
+                    synopsis = data.get('extract')
+                    new_book = Book.objects.create(
+                        title=clean_title,
+                        author=author,
+                        description=synopsis[:2000] if synopsis else None,
+                    )
+                    count += 1
+
+                    img_info = data.get('originalimage') or data.get('thumbnail') or {}
+                    img_url = img_info.get('source')
+                    if img_url:
+                        _download_and_attach_image(
+                            instance=new_book,
+                            field_name='cover',
+                            url=img_url,
+                            filename_hint=f"{slugify(clean_title)}-{new_book.id}.jpg"
+                        )
+    except Exception as e:
+        logger.warning(f"Error en fallback Wikipedia para libros de {author_name}: {e}")
+    return count
+
+
+def import_books_by_author(author_name: str) -> int:
+    clean_name = author_name.strip()
+    author, _ = Author.objects.get_or_create(name=clean_name)
+    maybe_enrich_author(author)
+    count = 0
+
+    # 1. Intentar Google Books con inauthor entrecomillado
+    try:
+        params = {'q': f'inauthor:"{clean_name}"', 'maxResults': 10, 'printType': 'books'}
         api_key = _get_google_books_api_key()
         if api_key:
             params['key'] = api_key
@@ -681,11 +757,14 @@ def import_books_by_author(author_name: str):
         resp = requests.get(GOOGLE_BOOKS_API_URL, params=params, timeout=7, headers=DEFAULT_HEADERS)
         if resp.ok:
             items = resp.json().get('items') or []
-            count = 0
             for volume in items:
                 if _create_or_get_from_volume(volume):
                     count += 1
-            return count
+            if count > 0:
+                return count
     except Exception as e:
-        logger.warning(f"Error importando libros por autor: {e}")
-    return 0
+        logger.warning(f"Error consultando Google Books para autor {clean_name}: {e}")
+
+    # 2. Si Google Books devuelve 429 o 0 resultados, consultar Wikipedia
+    wiki_count = _import_books_by_author_from_wikipedia(author)
+    return wiki_count

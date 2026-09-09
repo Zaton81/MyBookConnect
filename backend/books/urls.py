@@ -1,5 +1,6 @@
 from django.urls import path
 
+from .admin_views import PublicLegalDocumentView
 from .ai_views import (
     AIAssistantView,
     AIBookSummaryView,
@@ -18,6 +19,7 @@ from .views import (
     ImportBookView,
     ReadingMatchView,
     RecommendationView,
+    ReviewDetailView,
     ReviewListCreateView,
     SocialFeedView,
     TrendingBooksView,
@@ -27,6 +29,7 @@ from .views import (
 )
 
 urlpatterns = [
+    path('legal/<slug:slug>/', PublicLegalDocumentView.as_view(), name='books-legal-document'),
     # Rutas estándar limpias (/api/v1/books/...)
     path('', BookListCreateView.as_view(), name='books-list-root'),
     path('feed/', SocialFeedView.as_view(), name='books-social-feed'),
@@ -57,6 +60,7 @@ urlpatterns = [
     path('user/books/<int:pk>/', UserBookDetailView.as_view(), name='user-book-detail'),
     path('user/books/by-book/<int:book_id>/', UserBookByBookView.as_view(), name='user-book-by-book'),
     path('reviews/', ReviewListCreateView.as_view(), name='reviews'),
+    path('reviews/<int:pk>/', ReviewDetailView.as_view(), name='review-detail'),
     path('erratas/', ErrataListCreateView.as_view(), name='erratas-list-create'),
     path('erratas/<int:pk>/', ErrataDetailUpdateView.as_view(), name='erratas-detail-update'),
 ]

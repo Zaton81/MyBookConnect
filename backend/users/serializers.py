@@ -29,11 +29,11 @@ class UserSerializer(serializers.ModelSerializer):
             'id', 'username', 'first_name', 'last_name', 'email', 'bio', 'avatar',
             'birth_date', 'location', 'privacy_level',
             'show_email', 'show_birth_date', 'show_location', 'show_bio',
-            'following', 'followers', 'is_editor',
+            'following', 'followers', 'is_editor', 'is_staff', 'is_superuser',
             'reviews_count', 'books_read_count', 'following_count', 'followers_count',
             'is_following', 'is_blocked', 'am_i_blocked'
         )
-        read_only_fields = ('id', 'followers', 'is_editor')
+        read_only_fields = ('id', 'followers', 'is_editor', 'is_staff', 'is_superuser')
 
     def get_reviews_count(self, obj):
         return getattr(obj, 'reviews_count', obj.reviews.count())

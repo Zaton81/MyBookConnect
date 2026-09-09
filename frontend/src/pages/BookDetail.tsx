@@ -6,6 +6,8 @@ import DOMPurify from 'dompurify';
 import { createErrata } from '../services/erratas';
 import { AIAssistantModal } from '../components/AIAssistantModal';
 import { AmazonAdSlot } from '../components/AmazonAdSlot';
+import { StarRating } from '../components/StarRating';
+import { BookReviewsSection } from '../components/BookReviewsSection';
 
 export function BookDetail() {
   const { id } = useParams();
@@ -81,6 +83,23 @@ export function BookDetail() {
       .catch(() => {});
   }, [id, token, apiUrl]);
 
+  const refreshBookDetails = () => {
+    if (!id) return;
+    fetch(`${apiUrl}/api/v1/books/${id}/`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data) {
+          if (data.cover && typeof data.cover === 'string' && data.cover.startsWith('/')) {
+            data.cover = `${apiUrl}${data.cover}`;
+          }
+          setBook(data);
+        }
+      })
+      .catch(() => {});
+  };
+
   const handleSaveShelf = async () => {
     if (!token || !userBook) return;
     setSavingShelf(true);
@@ -103,6 +122,7 @@ export function BookDetail() {
         const updated = await res.json();
         setUserBook(updated);
         setIsEditing(false);
+        refreshBookDetails();
       }
     } catch (e) {
       console.error(e);
@@ -272,7 +292,7 @@ export function BookDetail() {
                         <strong>Formato:</strong> {isDigital ? '📱 Digital' : '📖 Físico'}
                       </p>
                       <p>
-                        <strong>Mi nota:</strong> {rating ? `⭐ ${rating}/10` : 'Sin puntuar'}
+                        <strong>Mi nota privada:</strong> {rating ? `⭐ ${rating}/10` : 'Sin puntuar'}
                       </p>
                       {wishlist && (
                         <span className="inline-block px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-bold">
@@ -415,6 +435,17 @@ export function BookDetail() {
                   </>
                 )}
               </div>
+
+              {/* Puntuación Media y Desglose en Estrellas */}
+              <div className="pt-2">
+                <StarRating
+                  rating={book.average_rating}
+                  maxRating={10}
+                  totalReviews={book.reviews_count}
+                  distribution={book.rating_distribution}
+                  size="md"
+                />
+              </div>
             </div>
 
             {/* Categorías / Géneros */}
@@ -494,6 +525,15 @@ export function BookDetail() {
         bookTitle={book.title}
         searchQuery={`${book.title} ${book.author?.name || ''}`}
         variant="banner"
+      />
+
+      {/* ── Sección de Reseñas Públicas de la Comunidad ── */}
+      <BookReviewsSection
+        bookId={book.id}
+        bookTitle={book.title}
+        token={token}
+        currentUser={user}
+        onReviewSaved={refreshBookDetails}
       />
 
       {/* ── Formulario de Erratas ── */}

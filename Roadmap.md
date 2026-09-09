@@ -531,6 +531,37 @@ Importar el mismo libro varias veces no crea duplicados.
 
 ------------------------------------------------------------------------
 
+# Panel de Administración Superseguro y CMS Legal
+
+**Prioridad:** P0 / P1  
+**Objetivo:** Proporcionar a los administradores y editores una interfaz protegida y completa para moderación, gestión del catálogo y administración de políticas legales.
+
+## 1. Control de Acceso y Seguridad (RBAC)
+- Permiso estricto `permissions.IsAdminUser` (`is_staff=True` o `is_superuser=True`).
+- Auditoría de acciones administrativas (quién banea, quién edita, quién resuelve erratas).
+- Protección contra auto-bloqueo o auto-eliminación de administradores.
+
+## 2. Gestión de Usuarios
+- Búsqueda por nombre de usuario y email.
+- Activación y baneo inmediato (`is_active = False`).
+- Asignación y revocación de roles (`is_editor`, `is_staff`).
+- Métricas rápidas (fecha de registro, libros leídos, reseñas).
+
+## 3. Gestión del Catálogo (Libros y Autores)
+- Alta, modificación y baja de libros y autores.
+- Botón de forzar re-enriquecimiento externo manual (descarga de fotos y portadas).
+- Corrección de datos bibliográficos (ISBN, fecha, sinopsis).
+
+## 4. Gestión de Erratas y Sugerencias
+- Listado de erratas comunitarias con filtros por estado (`open`, `approved`, `rejected`).
+- Resolución con notas del editor y aplicación opcional de cambios.
+
+## 5. CMS Legal y Políticas
+- Modificación dinámica de textos legales (Privacidad, Términos y Condiciones, Política de Cookies, Cláusula de Afiliados de Amazon).
+- Registro de fecha de última actualización para cumplimiento RGPD/LSSI.
+
+------------------------------------------------------------------------
+
 # 9. Fase 6 --- Reestructuración de servicios externos
 
 **Prioridad:** P1
