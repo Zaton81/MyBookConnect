@@ -20,10 +20,11 @@ django_asgi_app = get_asgi_application()
 # Importar rutas WebSocket después de inicializar Django para evitar Apps aren't loaded yet
 from messages_app.routing import websocket_urlpatterns  # noqa: E402
 
-# Aquí se agregarán las rutas websocket en el futuro
+from mybookconnect.middleware import JwtAuthMiddlewareStack
+
 application = ProtocolTypeRouter({
 	"http": django_asgi_app,
-	"websocket": AuthMiddlewareStack(
+	"websocket": JwtAuthMiddlewareStack(
 		URLRouter(websocket_urlpatterns)
 	),
 })

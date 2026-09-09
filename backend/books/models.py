@@ -34,6 +34,7 @@ class Book(models.Model):
     created_at = models.DateTimeField(default=timezone.now)
     average_rating = models.FloatField(null=True, blank=True)
     categories = models.ManyToManyField(Category, related_name='books', blank=True)
+    enrichment_attempted = models.BooleanField(default=False)
 
     def __str__(self):
         return f"{self.title}"
