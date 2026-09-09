@@ -1,11 +1,11 @@
 import logging
 import re
-import requests
 from datetime import datetime
+
+import requests
 from django.conf import settings
 from django.core.files.base import ContentFile
 from django.utils.text import slugify
-import unicodedata
 
 from .models import Author, Book
 

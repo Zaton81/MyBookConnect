@@ -1,20 +1,22 @@
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
+
+from messages_app.views import ConversationViewSet, MessageViewSet
+
 from .views import (
-    UserRegistrationView,
-    UserProfileView,
-    UserUpdateView,
-    UserDetailView,
-    FollowUserView,
-    UnfollowUserView,
     BlockUserView,
-    UnblockUserView,
-    UserFollowingListView,
-    UserFollowersListView,
     CheckFollowStatusView,
+    FollowUserView,
+    UnblockUserView,
+    UnfollowUserView,
+    UserDetailView,
+    UserFollowersListView,
+    UserFollowingListView,
+    UserProfileView,
+    UserRegistrationView,
+    UserUpdateView,
     toggle_editor,
 )
-from messages_app.views import ConversationViewSet, MessageViewSet
 
 router = DefaultRouter()
 router.register(r'conversations', ConversationViewSet, basename='conversation')

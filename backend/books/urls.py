@@ -1,14 +1,29 @@
 from django.urls import path
-from .views import (
-    BookListCreateView, BookDetailView,
-    UserBookListCreateView, UserBookDetailView, UserBookByBookView,
-    ReviewListCreateView, AuthorListCreateView, AuthorDetailView,
-    AuthorBooksView, ImportBookView, RecommendationView, AuthorBookRefreshView,
-    ErrataListCreateView, ErrataDetailUpdateView,
-    SocialFeedView, TrendingBooksView, ReadingMatchView,
-)
+
 from .ai_views import (
-    AIAssistantView, AISemanticSearchView, AIBookSummaryView, AIStatusView,
+    AIAssistantView,
+    AIBookSummaryView,
+    AISemanticSearchView,
+    AIStatusView,
+)
+from .views import (
+    AuthorBookRefreshView,
+    AuthorBooksView,
+    AuthorDetailView,
+    AuthorListCreateView,
+    BookDetailView,
+    BookListCreateView,
+    ErrataDetailUpdateView,
+    ErrataListCreateView,
+    ImportBookView,
+    ReadingMatchView,
+    RecommendationView,
+    ReviewListCreateView,
+    SocialFeedView,
+    TrendingBooksView,
+    UserBookByBookView,
+    UserBookDetailView,
+    UserBookListCreateView,
 )
 
 urlpatterns = [

@@ -1,14 +1,15 @@
 import logging
-from rest_framework import generics, permissions
-from rest_framework.response import Response
-from django.shortcuts import get_object_or_404
+
 from django.db.models import Q
+from django.shortcuts import get_object_or_404
+from rest_framework import generics, permissions
 from rest_framework.pagination import PageNumberPagination
+from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import Author, Book, Review, UserBook, Errata, ErrataStatus
-from .serializers import AuthorSerializer, BookSerializer, ReviewSerializer, UserBookSerializer, ErrataSerializer
 from . import services
+from .models import Author, Book, Errata, ErrataStatus, Review, UserBook
+from .serializers import AuthorSerializer, BookSerializer, ErrataSerializer, ReviewSerializer, UserBookSerializer
 
 
 class BookListCreateView(generics.ListCreateAPIView):
@@ -207,16 +208,16 @@ class ReviewListCreateView(generics.ListCreateAPIView):
     def get_queryset(self):
         from django.db.models import Exists, OuterRef
         queryset = Review.objects.all()
-        
+
         book_id = self.request.query_params.get('book')
         if book_id:
             queryset = queryset.filter(book_id=book_id)
-            
+
         user = self.request.user
         if user.is_authenticated:
             following_subquery = user.following.filter(pk=OuterRef('user_id'))
             queryset = queryset.annotate(is_friend=Exists(following_subquery))
-            
+
         return queryset
 
     def perform_create(self, serializer):
@@ -240,7 +241,7 @@ class ImportBookView(APIView):
                 if not book:
                     return Response({'detail': 'No se encontraron resultados'}, status=404)
                 return Response(BookSerializer(book).data, status=201)
-            
+
             books = services.import_multiple_by_title(query_title, offset=offset)
             if not books:
                 return Response({'detail': 'No se encontraron resultados'}, status=404)

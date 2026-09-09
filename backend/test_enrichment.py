@@ -1,6 +1,6 @@
-import requests
 import unicodedata
-import logging
+
+import requests
 
 # Mock constants
 OPEN_LIBRARY_AUTHORS_URL = 'https://openlibrary.org/search/authors.json'
@@ -13,7 +13,7 @@ class MockAuthor:
         self.name = name
         self.biography = None
         self.photo = None
-    
+
     def save(self):
         print(f"SAVED: Bio length={len(self.biography) if self.biography else 0}, Photo={self.photo}")
 
@@ -31,19 +31,19 @@ def test_openlibrary(author):
         rs.raise_for_status()
         data = rs.json()
         docs = data.get('docs') or []
-        
+
         print(f"Found {len(docs)} docs")
-        
+
         if not docs:
             return
 
         def _norm(s: str) -> str:
             if not s: return ""
             return ''.join(c for c in unicodedata.normalize('NFD', s) if unicodedata.category(c) != 'Mn').casefold().strip()
-        
+
         target = _norm(author.name)
         best = None
-        
+
         for d in docs:
             nm = d.get('name')
             print(f"Checking doc: {nm}")
@@ -51,7 +51,7 @@ def test_openlibrary(author):
                 best = d
                 print("Found exact match!")
                 break
-        
+
         if not best:
             for d in docs:
                 alts = d.get('alternate_names') or []
@@ -59,7 +59,7 @@ def test_openlibrary(author):
                     best = d
                     print("Found alternate name match!")
                     break
-        
+
         if not best and docs:
              first_name = _norm(docs[0].get('name', ''))
              if target in first_name or first_name in target:
@@ -89,7 +89,7 @@ def test_openlibrary(author):
         photos = best.get('photos') or []
         if photos:
             photo_id = photos[0]
-        
+
         if photo_id:
             photo_url = f'{OPEN_LIBRARY_COVERS_URL}/a/id/{photo_id}-L.jpg'
             _download_and_attach_image(
@@ -139,11 +139,11 @@ def test_wikipedia(author):
                     sdata = sr.json()
                     titles = sdata[1] if isinstance(sdata, list) and len(sdata) > 1 else []
                     print(f"OpenSearch titles: {titles}")
-                    
+
                     for title in titles:
                         if "bibliografía" in title.lower() or "bibliography" in title.lower():
                             continue
-                        
+
                         print(f"Checking title: {title}")
                         rr_url = WIKIPEDIA_API_URL.format(lang=lang) + requests.utils.quote(title)
                         rr = requests.get(rr_url, timeout=10, headers=headers)
@@ -158,7 +158,7 @@ def test_wikipedia(author):
                         if data: break
             except Exception as e:
                 print(f"Error opensearch: {e}")
-            
+
             if data: break
 
         if not data:
@@ -169,7 +169,7 @@ def test_wikipedia(author):
         if extract:
             print(f"Wiki Bio found: {extract[:100]}...")
             author.biography = extract[:5000]
-        
+
         thumb = data.get('thumbnail')
         if thumb:
             thumb_url = thumb.get('source')

@@ -1,4 +1,5 @@
 import os
+
 import django
 from django.conf import settings
 
@@ -8,9 +9,8 @@ if not settings.configured:
     django.setup()
 
 from django.contrib.auth import get_user_model
-from books.models import Book, UserBook, Review
-from rest_framework.test import APIRequestFactory
-from books.serializers import ReviewSerializer
+
+from books.models import Book, Review, UserBook
 from users.serializers import UserSerializer
 
 User = get_user_model()
@@ -37,7 +37,7 @@ def test_sync_userbook_review():
     # Update UserBook
     ub.notes = 'Updated note'
     ub.save()
-    
+
     review.refresh_from_db()
     if review.text == 'Updated note':
         print("PASS: Review updated from UserBook change.")
@@ -47,13 +47,13 @@ def test_sync_userbook_review():
 def test_user_stats():
     print("\nTesting User Stats...")
     user = User.objects.get(username='test_social_user')
-    
+
     # We just added a review (via sync), so reviews_count should be >= 1
     serializer = UserSerializer(user)
     data = serializer.data
-    
+
     print(f"Stats: Reviews={data.get('reviews_count')}, BooksRead={data.get('books_read_count')}")
-    
+
     if data.get('reviews_count') >= 1:
         print("PASS: reviews_count is correct.")
     else:

@@ -1,12 +1,11 @@
-from django.shortcuts import render
-from rest_framework import serializers, viewsets, permissions, status
-from rest_framework.response import Response
+from django.contrib.auth import get_user_model
+from rest_framework import permissions, serializers, viewsets
 from rest_framework.decorators import action
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
+from rest_framework.response import Response
+
 from .models import Conversation, Message
 from .serializers import ConversationSerializer, MessageSerializer
-from django.contrib.auth import get_user_model
-from django.db.models import Q
-from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 
 User = get_user_model()
 
