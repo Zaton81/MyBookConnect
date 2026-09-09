@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Label, TextInput, Button, Select, Checkbox } from 'flowbite-react';
-import ReactQuill from 'react-quill';
-import 'react-quill/dist/quill.snow.css';
+import { BioEditor } from './BioEditor';
 import { useAuthStore } from '../store/auth';
 
 export function EditProfile() {
@@ -170,11 +169,9 @@ export function EditProfile() {
       </div>
       <div className="mb-4">
         <Label htmlFor="bio" value="Biografía enriquecida" />
-        <ReactQuill
-          id="bio"
-          value={formData.bio}
+        <BioEditor
+          content={formData.bio}
           onChange={(value: string) => setFormData({...formData, bio: value})}
-          theme="snow"
         />
       </div>
 
