@@ -155,3 +155,6 @@ AI_API_KEY = os.getenv('AI_API_KEY', 'ollama')
 AI_MODEL_CHAT = os.getenv('AI_MODEL_CHAT', 'llama3.2')
 AI_MODEL_EMBEDDINGS = os.getenv('AI_MODEL_EMBEDDINGS', 'nomic-embed-text')
 AI_TIMEOUT = int(os.getenv('AI_TIMEOUT', '15'))
+
+# ─── APIs Externas de Libros y Autores ───
+GOOGLE_BOOKS_API_KEY = os.getenv('GOOGLE_BOOKS_API_KEY', '')

@@ -17,9 +17,11 @@ class BookListCreateView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         queryset = Book.objects.select_related('author')
-        q = self.request.query_params.get('q')
+        q = self.request.query_params.get('q') or self.request.query_params.get('search')
         if q:
-            return queryset.filter(Q(title__icontains=q) | Q(isbn__icontains=q))
+            return queryset.filter(
+                Q(title__icontains=q) | Q(isbn__icontains=q) | Q(author__name__icontains=q)
+            )
         return queryset
 
     def perform_create(self, serializer):
@@ -39,23 +41,15 @@ class AuthorDetailView(generics.RetrieveAPIView):
 
     def retrieve(self, request, *args, **kwargs):
         instance: Author = self.get_object()
-        # Solo intentar enriquecer si no se ha intentado antes
-        if not instance.enrichment_attempted:
+        # Enriquecer biografía y foto si falta información
+        if not instance.enrichment_attempted or (not instance.photo and not instance.biography):
             try:
-                # Intentar OpenLibrary primero
-                services.maybe_enrich_author_from_openlibrary(instance)
-                # Las llamadas a Wikidata y Wikipedia ya están incluidas en la función anterior
-                # pero si OpenLibrary no llamó a las otras, forzamos aquí
-                if not instance.biography or not instance.photo:
-                    services.maybe_enrich_author_from_wikidata(instance)
-                if not instance.biography or not instance.photo:
-                    services.maybe_enrich_author_from_wikipedia(instance)
-                # Marcar como intentado independientemente del resultado
+                services.maybe_enrich_author(instance)
                 instance.enrichment_attempted = True
                 instance.save(update_fields=['enrichment_attempted'])
+                instance.refresh_from_db()
             except Exception as e:
                 logging.exception(e)
-                # Marcar como intentado incluso si hubo error
                 instance.enrichment_attempted = True
                 instance.save(update_fields=['enrichment_attempted'])
         serializer = self.get_serializer(instance)
