@@ -103,7 +103,7 @@ export const Home = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 -mt-6 pt-8 pb-16 px-4 sm:px-6 lg:px-8">
+    <div className="space-y-8">
       <div className="max-w-7xl mx-auto space-y-8">
         {/* ── Hero Banner ── */}
         <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-teal-700 via-teal-600 to-emerald-700 text-white p-6 sm:p-10 shadow-xl shadow-teal-900/10">

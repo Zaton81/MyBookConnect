@@ -1,13 +1,15 @@
 import logging
+import re
 import requests
 from datetime import datetime
+from django.conf import settings
 from django.core.files.base import ContentFile
 from django.utils.text import slugify
 import unicodedata
 
 from .models import Author, Book
 
-# Constants for external APIs
+# URLs de APIs externas
 GOOGLE_BOOKS_API_URL = 'https://www.googleapis.com/books/v1/volumes'
 OPEN_LIBRARY_SEARCH_URL = 'https://openlibrary.org/search.json'
 OPEN_LIBRARY_AUTHORS_URL = 'https://openlibrary.org/search/authors.json'
@@ -17,51 +19,231 @@ WIKIPEDIA_OPENSEARCH_URL = 'https://{lang}.wikipedia.org/w/api.php'
 WIKIDATA_SEARCH_URL = 'https://www.wikidata.org/w/api.php'
 WIKIDATA_ENTITY_URL = 'https://www.wikidata.org/wiki/Special:EntityData/{entity}.json'
 
+# Headers estándar válidos para evitar bloqueos antibot (ej. 403 de Wikimedia/Wikipedia)
+DEFAULT_HEADERS = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+    'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8',
+}
+
 logger = logging.getLogger(__name__)
 
+
+def _get_google_books_api_key() -> str:
+    return getattr(settings, 'GOOGLE_BOOKS_API_KEY', '') or ''
+
+
 def import_single_by_query(query_isbn: str):
+    """
+    Importa un libro específico mediante su ISBN consultando Google Books u OpenLibrary.
+    """
+    clean_isbn = re.sub(r'[^\dX]', '', query_isbn.upper().strip())
+    existing = Book.objects.filter(isbn=clean_isbn).first()
+    if existing:
+        return existing
+
     try:
-        params = {'q': f'isbn:{query_isbn}', 'maxResults': 1, 'printType': 'books'}
-        resp = requests.get(GOOGLE_BOOKS_API_URL, params=params, timeout=8, headers={'User-Agent': 'MyBookConnect/1.0'})
+        params = {'q': f'isbn:{clean_isbn}', 'maxResults': 1, 'printType': 'books'}
+        api_key = _get_google_books_api_key()
+        if api_key:
+            params['key'] = api_key
+
+        resp = requests.get(GOOGLE_BOOKS_API_URL, params=params, timeout=8, headers=DEFAULT_HEADERS)
         if resp.ok:
             payload = resp.json()
             items = payload.get('items') or []
             if items:
-                return _create_or_get_from_volume(items[0])
+                return _create_or_get_from_volume(items[0], fallback_isbn=clean_isbn)
     except Exception as e:
-        logger.warning("Error consultando Google Books para isbn %s: %s", query_isbn, e)
+        logger.warning(f"Error consultando Google Books para isbn {clean_isbn}: {e}")
+
+    # Fallback por ISBN en OpenLibrary
+    try:
+        ol_url = f'https://openlibrary.org/api/books?bibkeys=ISBN:{clean_isbn}&format=json&jscmd=data'
+        res = requests.get(ol_url, timeout=8, headers=DEFAULT_HEADERS)
+        if res.ok:
+            data = res.json()
+            book_info = data.get(f'ISBN:{clean_isbn}')
+            if book_info:
+                title = book_info.get('title')
+                authors = book_info.get('authors') or []
+                author_obj = None
+                if authors:
+                    author_name = authors[0].get('name')
+                    if author_name:
+                        author_obj, _ = Author.objects.get_or_create(name=author_name)
+                        maybe_enrich_author(author_obj)
+
+                book = Book.objects.create(
+                    title=title,
+                    author=author_obj,
+                    isbn=clean_isbn,
+                    description=book_info.get('notes') or None,
+                )
+                cover_url = book_info.get('cover', {}).get('large')
+                if cover_url:
+                    _download_and_attach_image(book, 'cover', cover_url, f"{slugify(title)}-{book.id}.jpg")
+                return book
+    except Exception as e:
+        logger.warning(f"Error consultando OpenLibrary para isbn {clean_isbn}: {e}")
+
     return None
 
+
 def import_multiple_by_title(title: str, offset: int = 0):
+    """
+    Busca libros externamente con arquitectura multi-proveedor:
+    1. Google Books (con soporte de API Key y langRestrict)
+    2. Fallback a Wikipedia (búsqueda estructurada + sinopsis + portada oficial)
+    3. Fallback a OpenLibrary
+    """
     books = []
+    clean_title = title.strip()
+
+    # 1. Intentar Google Books
     try:
-        params = {'q': f'intitle:{title}', 'maxResults': 5, 'startIndex': offset, 'printType': 'books'}
-        resp = requests.get(GOOGLE_BOOKS_API_URL, params=params, timeout=8, headers={'User-Agent': 'MyBookConnect/1.0'})
-        if resp.ok:
+        params = {
+            'q': clean_title,
+            'maxResults': 5,
+            'startIndex': offset,
+            'printType': 'books',
+            'langRestrict': 'es',
+        }
+        api_key = _get_google_books_api_key()
+        if api_key:
+            params['key'] = api_key
+
+        resp = requests.get(GOOGLE_BOOKS_API_URL, params=params, timeout=7, headers=DEFAULT_HEADERS)
+        if resp.status_code == 200:
             payload = resp.json()
             items = payload.get('items') or []
             for volume in items:
                 book = _create_or_get_from_volume(volume)
-                if book:
+                if book and book not in books:
                     books.append(book)
         else:
-            logger.warning("Google Books devolvió status %s al buscar título %s", resp.status_code, title)
+            logger.warning(f"Google Books devolvió status {resp.status_code} para '{clean_title}'")
     except Exception as e:
-        logger.warning("Error consultando Google Books para título %s: %s", title, e)
+        logger.warning(f"Error consultando Google Books para título '{clean_title}': {e}")
 
+    # 2. Si Google Books devolvió 429 o vacíos, fallback a Wikipedia
+    if not books and offset == 0:
+        logger.info(f"Iniciando fallback a Wikipedia para libro: {clean_title}")
+        wiki_books = _import_from_wikipedia_by_title(clean_title)
+        if wiki_books:
+            books.extend(wiki_books)
+
+    # 3. Fallback adicional a OpenLibrary si aún no hay resultados
     if not books:
-        books = _import_from_openlibrary_by_title(title, offset=offset)
+        logger.info(f"Iniciando fallback a OpenLibrary para libro: {clean_title}")
+        ol_books = _import_from_openlibrary_by_title(clean_title, offset=offset)
+        if ol_books:
+            books.extend(ol_books)
+
     return books
+
+
+def _import_from_wikipedia_by_title(title: str):
+    """
+    Busca e importa libros desde la API REST de Wikipedia en español e inglés.
+    Wikipedia ofrece sinopsis completas, autores y portadas originales sin cuotas restrictivas.
+    """
+    books = []
+    headers = DEFAULT_HEADERS
+
+    try:
+        search_url = 'https://es.wikipedia.org/w/api.php'
+        search_params = {
+            'action': 'query',
+            'list': 'search',
+            'srsearch': f'{title} libro OR novela OR literatura',
+            'format': 'json',
+            'srlimit': 5,
+        }
+        r = requests.get(search_url, params=search_params, timeout=6, headers=headers)
+        if not r.ok:
+            return []
+
+        search_results = r.json().get('query', {}).get('search', [])
+        for item in search_results:
+            page_title = item.get('title')
+            if not page_title:
+                continue
+
+            # Descartar artículos de películas, parques, etc. si hay especificación clara
+            if any(term in page_title.lower() for term in ['película', 'serie', 'parque', 'álbum']):
+                continue
+
+            summary_url = f"https://es.wikipedia.org/api/rest_v1/page/summary/{requests.utils.quote(page_title)}"
+            sr = requests.get(summary_url, timeout=6, headers=headers)
+            if not sr.ok:
+                continue
+
+            data = sr.json()
+            description = data.get('description', '').lower()
+            # Validar que es una obra escrita
+            if not any(term in description for term in ['novela', 'libro', 'obra', 'cuento', 'poema', 'ensayo', 'trilogía', 'publicación']):
+                continue
+
+            book_title = data.get('title') or page_title
+            synopsis = data.get('extract') or ''
+
+            # Extraer autor de la descripción si contiene "de <Autor>"
+            author_name = None
+            desc_match = re.search(r'(?:de|por)\s+([A-ZÁÉÍÓÚÑ][a-záéíóúñ]+(?:\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+)+)', data.get('description', ''))
+            if desc_match:
+                author_name = desc_match.group(1).strip()
+
+            author_obj = None
+            if author_name:
+                author_obj, _ = Author.objects.get_or_create(name=author_name)
+                maybe_enrich_author(author_obj)
+
+            # Evitar duplicados por título y autor
+            existing = Book.objects.filter(title__iexact=book_title)
+            if author_obj:
+                existing = existing.filter(author=author_obj)
+            existing_book = existing.first()
+            if existing_book:
+                books.append(existing_book)
+                continue
+
+            new_book = Book.objects.create(
+                title=book_title,
+                author=author_obj,
+                description=synopsis[:2000] if synopsis else None,
+            )
+
+            # Descargar portada de Wikimedia
+            img_info = data.get('originalimage') or data.get('thumbnail') or {}
+            img_url = img_info.get('source')
+            if img_url:
+                _download_and_attach_image(
+                    instance=new_book,
+                    field_name='cover',
+                    url=img_url,
+                    filename_hint=f"{slugify(new_book.title)}-{new_book.id}.jpg",
+                )
+
+            books.append(new_book)
+
+    except Exception as e:
+        logger.warning(f"Error importando desde Wikipedia para '{title}': {e}")
+
+    return books
+
 
 def _import_from_openlibrary_by_title(title: str, offset: int = 0):
     try:
         res = requests.get(
             OPEN_LIBRARY_SEARCH_URL,
             params={'title': title, 'offset': offset},
-            timeout=10,
-            headers={'User-Agent': 'MyBookConnect/1.0'}
+            timeout=8,
+            headers=DEFAULT_HEADERS,
         )
-        res.raise_for_status()
+        if not res.ok:
+            return []
+
         data = res.json()
         docs = data.get('docs') or []
         results = []
@@ -74,21 +256,29 @@ def _import_from_openlibrary_by_title(title: str, offset: int = 0):
             author_obj = None
             if author_name:
                 author_obj, _ = Author.objects.get_or_create(name=author_name)
-                maybe_enrich_author_from_openlibrary(author_obj)
+                maybe_enrich_author(author_obj)
 
-            book = Book(
-                title=book_title,
-                author=author_obj,
-                isbn=None,
-                description=None,
-            )
-            if first_year:
-                try:
-                    book.published_date = datetime.strptime(str(first_year), '%Y').date()
-                except ValueError:
-                    pass
-            book.save()
-            if cover_id:
+            # Evitar crear duplicados
+            existing = Book.objects.filter(title__iexact=book_title)
+            if author_obj:
+                existing = existing.filter(author=author_obj)
+            book = existing.first()
+
+            if not book:
+                book = Book(
+                    title=book_title,
+                    author=author_obj,
+                    isbn=None,
+                    description=None,
+                )
+                if first_year:
+                    try:
+                        book.published_date = datetime.strptime(str(first_year), '%Y').date()
+                    except ValueError:
+                        pass
+                book.save()
+
+            if cover_id and not book.cover:
                 ol_cover_url = f'{OPEN_LIBRARY_COVERS_URL}/b/id/{cover_id}-L.jpg'
                 _download_and_attach_image(
                     instance=book,
@@ -99,16 +289,18 @@ def _import_from_openlibrary_by_title(title: str, offset: int = 0):
             results.append(book)
         return results
     except Exception as e:
-        logging.exception(e)
+        logger.warning(f"OpenLibrary query failed: {e}")
         return []
 
-def _create_or_get_from_volume(volume):
+
+def _create_or_get_from_volume(volume, fallback_isbn=None):
     info = volume.get('volumeInfo', {})
-    isbn = None
+    isbn = fallback_isbn
     for ident in info.get('industryIdentifiers', []) or []:
         if ident.get('type') in ('ISBN_13', 'ISBN_10'):
             isbn = ident.get('identifier')
             break
+
     if isbn:
         existing = Book.objects.filter(isbn=isbn).first()
         if existing:
@@ -119,13 +311,26 @@ def _create_or_get_from_volume(volume):
     if authors_list:
         author_name = authors_list[0]
         author_obj, _ = Author.objects.get_or_create(name=author_name)
-        maybe_enrich_author_from_openlibrary(author_obj)
+        maybe_enrich_author(author_obj)
+
+    title = info.get('title') or 'Desconocido'
+
+    # Comprobar si ya existe con este título y autor
+    existing = Book.objects.filter(title__iexact=title)
+    if author_obj:
+        existing = existing.filter(author=author_obj)
+    found = existing.first()
+    if found:
+        if isbn and not found.isbn:
+            found.isbn = isbn
+            found.save(update_fields=['isbn'])
+        return found
 
     book = Book(
-        title=info.get('title') or 'Desconocido',
+        title=title,
         author=author_obj,
         isbn=isbn,
-        description=info.get('description')
+        description=info.get('description'),
     )
     published = info.get('publishedDate')
     if published:
@@ -140,14 +345,21 @@ def _create_or_get_from_volume(volume):
     _attach_best_cover(book=book, info=info, isbn=isbn)
     return book
 
+
 def _download_and_attach_image(instance, field_name: str, url: str, filename_hint: str):
     """
-    Descarga una imagen desde una URL y la adjunta al campo especificado del modelo.
+    Descarga una imagen de forma segura con headers de navegador y la adjunta al modelo.
+    Garantiza que URLs HTTP se actualicen a HTTPS y evita bloqueos antibot.
     """
+    if not url:
+        return False
+
+    # Forzar HTTPS si es posible
+    if url.startswith('http://'):
+        url = 'https://' + url[7:]
+
     try:
-        logger.info(f"Descargando imagen desde: {url}")
-        headers = {'User-Agent': 'MyBookConnect/1.0 (contact@example.com)'}
-        r = requests.get(url, timeout=10, headers=headers)
+        r = requests.get(url, timeout=10, headers=DEFAULT_HEADERS, allow_redirects=True)
         r.raise_for_status()
 
         content_type = r.headers.get('Content-Type', '')
@@ -160,324 +372,219 @@ def _download_and_attach_image(instance, field_name: str, url: str, filename_hin
             logger.warning(f"Imagen descargada es muy pequeña ({len(content)} bytes), ignorando")
             return False
 
-        getattr(instance, field_name).save(filename_hint, ContentFile(content), save=True)
-        logger.info(f"Imagen guardada exitosamente: {filename_hint}")
-        return True
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Error de red al descargar imagen desde {url}: {e}")
-    except Exception as e:
-        logger.exception(f"Error inesperado al descargar imagen desde {url}: {e}")
-    return False
+        # Limpiar nombre de archivo de caracteres especiales o parámetros
+        clean_hint = re.sub(r'[?&].*$', '', filename_hint)
+        if not clean_hint.endswith(('.jpg', '.jpeg', '.png', '.webp')):
+            clean_hint += '.jpg'
 
-def maybe_enrich_author_from_openlibrary(author: Author):
+        getattr(instance, field_name).save(clean_hint, ContentFile(content), save=True)
+        logger.info(f"Imagen guardada exitosamente en {field_name}: {clean_hint}")
+        return True
+    except Exception as e:
+        logger.warning(f"Error descargando imagen desde {url}: {e}")
+        return False
+
+
+def maybe_enrich_author(author: Author):
     """
-    Enriquece la información del autor desde OpenLibrary.
-    Busca biografía y foto del autor.
+    Enriquece de forma exhaustiva al autor:
+    1. Wikipedia (biografía detallada en español y foto en alta resolución)
+    2. Wikidata (como alternativa para retrato o biografía adicional)
+    3. OpenLibrary (para fotos adicionales si aún faltan)
     """
     if author.biography and author.photo:
-        logger.info(f"Autor {author.name} ya tiene biografía y foto, omitiendo OpenLibrary")
         return
-    try:
-        logger.info(f"Buscando {author.name} en OpenLibrary...")
-        rs = requests.get(
-            OPEN_LIBRARY_AUTHORS_URL,
-            params={'q': author.name},
-            timeout=15,
-            headers={'User-Agent': 'MyBookConnect/1.0'},
-        )
-        rs.raise_for_status()
-        data = rs.json()
-        docs = data.get('docs') or []
-        if not docs:
-            logger.warning(f"No se encontró {author.name} en OpenLibrary")
-            return
 
+    # 1. Wikipedia primero (más fiable y sin caídas de SSL)
+    maybe_enrich_author_from_wikipedia(author)
 
-        def _norm(s: str) -> str:
-            if not s: return ""
-            return ''.join(c for c in unicodedata.normalize('NFD', s) if unicodedata.category(c) != 'Mn').casefold().strip()
-        
-        target = _norm(author.name)
-        best = None
-        
-        # Try to find an exact match first
-        for d in docs:
-            nm = d.get('name')
-            if nm and _norm(nm) == target:
-                best = d
-                break
-        
-        # If no exact match, try alternate names
-        if not best:
-            for d in docs:
-                alts = d.get('alternate_names') or []
-                if any(_norm(alt) == target for alt in alts):
-                    best = d
-                    break
-
-        if not best and docs:
-            first_name = _norm(docs[0].get('name', ''))
-            if target in first_name or first_name in target:
-                best = docs[0]
-
-        if not best:
-            return
-
-        olid = best.get('key')
-        logger.info(f"Encontrado autor en OpenLibrary con ID: {olid}")
-
-        # Obtener biografía
-        if olid and not author.biography:
-            detail_url = f'https://openlibrary.org/authors/{olid.split("/")[-1]}.json'
-            rd = requests.get(detail_url, timeout=10, headers={'User-Agent': 'MyBookConnect/1.0'})
-            if rd.ok:
-                detail = rd.json()
-                bio = detail.get('bio')
-                if isinstance(bio, dict):
-                    bio = bio.get('value')
-                if bio:
-                    author.biography = bio
-                    logger.info(f"Biografía obtenida de OpenLibrary para {author.name}")
-
-        # Obtener foto
-        photo_id = None
-        photos = best.get('photos') or []
-        if photos:
-            photo_id = photos[0]
-        
-        if photo_id and not author.photo:
-            photo_url = f'{OPEN_LIBRARY_COVERS_URL}/a/id/{photo_id}-L.jpg'
-            logger.info(f"Intentando descargar foto de autor desde: {photo_url}")
-            _download_and_attach_image(
-                instance=author,
-                field_name='photo',
-                url=photo_url,
-                filename_hint=f"{slugify(author.name)}.jpg"
-            )
-        
-        if author.biography or author.photo:
-            author.save()
-            logger.info(f"Autor {author.name} guardado con datos de OpenLibrary")
-    except Exception as e:
-        logger.exception(f"Error enriqueciendo {author.name} desde OpenLibrary: {e}")
-
+    # 2. Wikidata si falta foto o bio
     if not author.biography or not author.photo:
         maybe_enrich_author_from_wikidata(author)
+
+    # 3. OpenLibrary si todavía falta algo
     if not author.biography or not author.photo:
-        maybe_enrich_author_from_wikipedia(author)
+        maybe_enrich_author_from_openlibrary(author)
+
+
+def maybe_enrich_author_from_wikipedia(author: Author):
+    """
+    Enriquece la información del autor desde Wikipedia usando headers válidos.
+    """
+    if author.biography and author.photo:
+        return
+
+    name = author.name.strip()
+    try:
+        for lang in ('es', 'en'):
+            url = WIKIPEDIA_API_URL.format(lang=lang) + requests.utils.quote(name)
+            r = requests.get(url, timeout=7, headers=DEFAULT_HEADERS)
+            if not r.ok:
+                # Probar con opensearch
+                sr = requests.get(
+                    WIKIPEDIA_OPENSEARCH_URL.format(lang=lang),
+                    params={'action': 'opensearch', 'search': name, 'limit': 3, 'format': 'json'},
+                    timeout=7,
+                    headers=DEFAULT_HEADERS,
+                )
+                if sr.ok:
+                    titles = sr.json()[1] if len(sr.json()) > 1 else []
+                    for t in titles:
+                        sub_url = WIKIPEDIA_API_URL.format(lang=lang) + requests.utils.quote(t)
+                        sub_r = requests.get(sub_url, timeout=7, headers=DEFAULT_HEADERS)
+                        if sub_r.ok:
+                            r = sub_r
+                            break
+
+            if r.ok:
+                data = r.json()
+                desc = data.get('description', '').lower()
+                # Verificar que sea persona o escritor
+                if 'desambiguación' in desc or 'disambiguation' in desc:
+                    continue
+
+                if not author.biography:
+                    extract = data.get('extract')
+                    if extract:
+                        author.biography = extract[:4000]
+
+                if not author.photo:
+                    img_data = data.get('originalimage') or data.get('thumbnail') or {}
+                    img_url = img_data.get('source')
+                    if img_url:
+                        _download_and_attach_image(
+                            instance=author,
+                            field_name='photo',
+                            url=img_url,
+                            filename_hint=f"{slugify(author.name)}.jpg",
+                        )
+
+                if author.biography or author.photo:
+                    author.save()
+                    break
+
+    except Exception as e:
+        logger.warning(f"Error enriqueciendo {author.name} desde Wikipedia: {e}")
+
 
 def maybe_enrich_author_from_wikidata(author: Author):
     """
-    Enriquece la información del autor desde Wikidata.
-    Wikidata suele tener mejores imágenes de autores que otras fuentes.
+    Enriquece autor desde Wikidata buscando retrato P18 y biografía.
     """
     if author.biography and author.photo:
-        logger.info(f"Autor {author.name} ya tiene biografía y foto, omitiendo Wikidata")
         return
-    
+
     try:
-        logger.info(f"Buscando {author.name} en Wikidata...")
-        # Buscar entidad en Wikidata
         search_params = {
             'action': 'wbsearchentities',
             'search': author.name,
             'language': 'es',
             'type': 'item',
             'format': 'json',
-            'limit': 5
+            'limit': 5,
         }
-
-        search_resp = requests.get(WIKIDATA_SEARCH_URL, params=search_params, timeout=10, headers={'User-Agent': 'MyBookConnect/1.0'})
-        search_resp.raise_for_status()
-        search_data = search_resp.json()
-        
-        results = search_data.get('search', [])
-        if not results:
-            logger.warning(f"No se encontró {author.name} en Wikidata")
+        search_resp = requests.get(WIKIDATA_SEARCH_URL, params=search_params, timeout=7, headers=DEFAULT_HEADERS)
+        if not search_resp.ok:
             return
-        
-        # Buscar el resultado que sea una persona (Q5)
-        entity_id = None
-        for result in results:
-            entity_id = result.get('id')
-            # Obtener detalles de la entidad
+
+        results = search_resp.json().get('search', [])
+        for item in results:
+            entity_id = item.get('id')
             entity_url = WIKIDATA_ENTITY_URL.format(entity=entity_id)
-            entity_resp = requests.get(entity_url, timeout=10, headers={'User-Agent': 'MyBookConnect/1.0'})
-            if entity_resp.ok:
-                entity_data = entity_resp.json()
-                entities = entity_data.get('entities', {})
-                entity_info = entities.get(entity_id, {})
-                
-                # Verificar si es una persona (P31: instance of -> Q5: human)
-                claims = entity_info.get('claims', {})
-                instance_of = claims.get('P31', [])
-                is_human = any(
-                    claim.get('mainsnak', {}).get('datavalue', {}).get('value', {}).get('id') == 'Q5'
-                    for claim in instance_of
-                )
-                
-                if is_human:
-                    logger.info(f"Encontrada entidad humana en Wikidata: {entity_id}")
-                    
-                    # Obtener imagen (P18)
-                    if not author.photo and 'P18' in claims:
-                        image_claims = claims['P18']
-                        if image_claims:
-                            image_filename = image_claims[0].get('mainsnak', {}).get('datavalue', {}).get('value')
-                            if image_filename:
-                                # Construir URL de Wikimedia Commons
-                                import hashlib
-                                md5_hash = hashlib.md5(image_filename.replace(' ', '_').encode('utf-8')).hexdigest()
-                                image_url = f"https://upload.wikimedia.org/wikipedia/commons/{md5_hash[0]}/{md5_hash[0:2]}/{image_filename.replace(' ', '_')}"
-                                logger.info(f"Intentando descargar foto de Wikidata: {image_url}")
-                                _download_and_attach_image(
-                                    instance=author,
-                                    field_name='photo',
-                                    url=image_url,
-                                    filename_hint=f"{slugify(author.name)}_wikidata.jpg"
-                                )
-                    
-                    # Obtener descripción en español
-                    if not author.biography:
-                        descriptions = entity_info.get('descriptions', {})
-                        desc_es = descriptions.get('es', {}).get('value')
-                        desc_en = descriptions.get('en', {}).get('value')
-                        
-                        # Preferir descripción en español, sino usar inglés
-                        if desc_es:
-                            author.biography = desc_es
-                            logger.info(f"Descripción en español obtenida de Wikidata para {author.name}")
-                        elif desc_en:
-                            author.biography = f"[EN] {desc_en}"
-                            logger.info(f"Descripción en inglés obtenida de Wikidata para {author.name}")
-                    
-                    if author.biography or author.photo:
-                        author.save()
-                        logger.info(f"Autor {author.name} guardado con datos de Wikidata")
-                    break
-    
+            entity_resp = requests.get(entity_url, timeout=7, headers=DEFAULT_HEADERS)
+            if not entity_resp.ok:
+                continue
+
+            entity_info = entity_resp.json().get('entities', {}).get(entity_id, {})
+            claims = entity_info.get('claims', {})
+
+            # Foto P18
+            if not author.photo and 'P18' in claims:
+                image_claims = claims['P18']
+                if image_claims:
+                    img_filename = image_claims[0].get('mainsnak', {}).get('datavalue', {}).get('value')
+                    if img_filename:
+                        clean_fn = img_filename.replace(' ', '_')
+                        import hashlib
+                        md5_hash = hashlib.md5(clean_fn.encode('utf-8')).hexdigest()
+                        image_url = f"https://upload.wikimedia.org/wikipedia/commons/{md5_hash[0]}/{md5_hash[0:2]}/{requests.utils.quote(clean_fn)}"
+                        _download_and_attach_image(
+                            instance=author,
+                            field_name='photo',
+                            url=image_url,
+                            filename_hint=f"{slugify(author.name)}_wikidata.jpg",
+                        )
+
+            # Descripción / Biografía
+            if not author.biography:
+                descriptions = entity_info.get('descriptions', {})
+                desc = descriptions.get('es', {}).get('value') or descriptions.get('en', {}).get('value')
+                if desc:
+                    author.biography = f"{author.name}: {desc}"
+
+            if author.biography or author.photo:
+                author.save()
+                break
+
     except Exception as e:
-        logger.exception(f"Error enriqueciendo {author.name} desde Wikidata: {e}")
+        logger.warning(f"Error enriqueciendo {author.name} desde Wikidata: {e}")
 
 
-def maybe_enrich_author_from_wikipedia(author: Author):
+def maybe_enrich_author_from_openlibrary(author: Author):
     """
-    Enriquece la información del autor desde Wikipedia.
-    Prioriza contenido en español, pero obtiene inglés si no hay alternativa.
+    Enriquece autor desde OpenLibrary como fallback secundario.
     """
     if author.biography and author.photo:
-        logger.info(f"Autor {author.name} ya tiene biografía y foto, omitiendo Wikipedia")
         return
-    
+
     try:
-        logger.info(f"Buscando {author.name} en Wikipedia...")
-        name = author.name
-        data = None
-        found_lang = None
-        headers = {'User-Agent': 'MyBookConnect/1.0 (contact@example.com)', 'Accept': 'application/json'}
-
-        for lang in ('es', 'en'):
-            logger.info(f"Intentando Wikipedia en {lang}...")
-            url = WIKIPEDIA_API_URL.format(lang=lang) + requests.utils.quote(name)
-            try:
-                r = requests.get(url, timeout=10, headers=headers)
-                if r.ok:
-                    temp_data = r.json()
-                    if temp_data.get('type') != 'https://mediawiki.org/wiki/HyperSwitch/errors/not_found':
-                        desc = temp_data.get('description', '').lower()
-                        if 'disambiguation' not in desc and 'desambiguación' not in desc:
-                            data = temp_data
-                            found_lang = lang
-                            logger.info(f"Encontrado en Wikipedia {lang} (búsqueda directa)")
-            except requests.exceptions.RequestException as e:
-                logger.warning(f"Wikipedia API request failed for URL {url}: {e}")
-
-            if data:
-                break
-
-            sr_url = WIKIPEDIA_OPENSEARCH_URL.format(lang=lang)
-            try:
-                sr = requests.get(
-                    sr_url,
-                    params={'action': 'opensearch', 'search': name, 'limit': 3, 'namespace': 0, 'format': 'json'},
-                    timeout=10,
-                    headers=headers,
-                )
-                if sr.ok:
-                    sdata = sr.json()
-                    titles = sdata[1] if isinstance(sdata, list) and len(sdata) > 1 else []
-                    for title in titles:
-                        if "bibliografía" in title.lower() or "bibliography" in title.lower():
-                            continue
-                        rr_url = WIKIPEDIA_API_URL.format(lang=lang) + requests.utils.quote(title)
-                        rr = requests.get(rr_url, timeout=10, headers=headers)
-                        if rr.ok:
-                            candidate_data = rr.json()
-                            desc = candidate_data.get('description', '').lower()
-                            if 'disambiguation' not in desc and 'desambiguación' not in desc:
-                                data = candidate_data
-                                found_lang = lang
-                                logger.info(f"Encontrado en Wikipedia {lang} (opensearch): {title}")
-                                break
-            except requests.exceptions.RequestException as e:
-                logger.warning(f"Wikipedia API request failed for URL {sr_url}: {e}")
-
-            if data:
-                break
-
-        if not data:
-            logger.warning(f"No se encontró {author.name} en Wikipedia")
+        rs = requests.get(
+            OPEN_LIBRARY_AUTHORS_URL,
+            params={'q': author.name},
+            timeout=8,
+            headers=DEFAULT_HEADERS,
+        )
+        if not rs.ok:
             return
 
-        extract = data.get('extract')
-        if extract and not author.biography:
-            bio_text = extract[:5000]
-            if found_lang == 'en':
-                bio_text = f"[EN] {bio_text}"
-                logger.info(f"Biografía en inglés obtenida de Wikipedia para {author.name}")
-            else:
-                logger.info(f"Biografía en español obtenida de Wikipedia para {author.name}")
-            author.biography = bio_text
+        docs = rs.json().get('docs') or []
+        if not docs:
+            return
 
-        if not author.photo:
-            original_img = data.get('originalimage') or {}
-            img_url = original_img.get('source')
-            if not img_url:
-                thumb = data.get('thumbnail') or {}
-                img_url = thumb.get('source')
-            if img_url:
-                logger.info(f"Intentando descargar foto de Wikipedia: {img_url}")
-                _download_and_attach_image(
-                    instance=author,
-                    field_name='photo',
-                    url=img_url,
-                    filename_hint=f"{slugify(author.name)}_wikipedia.jpg"
-                )
+        best = docs[0]
+        olid = best.get('key')
+        if olid and not author.biography:
+            detail_url = f'https://openlibrary.org/authors/{olid.split("/")[-1]}.json'
+            rd = requests.get(detail_url, timeout=6, headers=DEFAULT_HEADERS)
+            if rd.ok:
+                bio = rd.json().get('bio')
+                if isinstance(bio, dict):
+                    bio = bio.get('value')
+                if bio:
+                    author.biography = bio
+
+        photos = best.get('photos') or []
+        if photos and not author.photo:
+            photo_url = f'{OPEN_LIBRARY_COVERS_URL}/a/id/{photos[0]}-L.jpg'
+            _download_and_attach_image(
+                instance=author,
+                field_name='photo',
+                url=photo_url,
+                filename_hint=f"{slugify(author.name)}.jpg",
+            )
 
         if author.biography or author.photo:
             author.save()
-            logger.info(f"Autor {author.name} guardado con datos de Wikipedia")
 
     except Exception as e:
-        logger.exception(f"Error enriqueciendo {author.name} desde Wikipedia: {e}")
+        logger.warning(f"OpenLibrary author enrichment skipped for {author.name}: {e}")
+
 
 def _attach_best_cover(book: Book, info: dict, isbn: str | None):
-    if isbn:
-        for size in ('-XL', '-L', '-M', '-S'):
-            ol_url = f'{OPEN_LIBRARY_COVERS_URL}/b/isbn/{isbn}{size}.jpg'
-            try:
-                head = requests.head(ol_url, timeout=5)
-                if head.ok and head.headers.get('Content-Type', '').startswith('image/'):
-                    _download_and_attach_image(
-                        instance=book,
-                        field_name='cover',
-                        url=ol_url,
-                        filename_hint=f"{slugify(book.title)}-{book.id}{size}.jpg"
-                    )
-                    return
-            except Exception as e:
-                logging.exception(e)
-                continue
+    """
+    Obtiene la mejor carátula disponible desde Google Books u OpenLibrary.
+    """
+    # 1. Intentar con imageLinks de Google Books (forzando HTTPS)
     image_links = info.get('imageLinks') or {}
     for key in ('extraLarge', 'large', 'medium', 'small', 'thumbnail', 'smallThumbnail'):
         url = image_links.get(key)
@@ -486,95 +593,99 @@ def _attach_best_cover(book: Book, info: dict, isbn: str | None):
                 instance=book,
                 field_name='cover',
                 url=url,
-                filename_hint=f"{slugify(book.title)}-{book.id}.jpg"
+                filename_hint=f"{slugify(book.title)}-{book.id}.jpg",
             ):
                 return
 
+    # 2. Intentar OpenLibrary por ISBN si existe
+    if isbn:
+        for size in ('-L', '-M'):
+            ol_url = f'{OPEN_LIBRARY_COVERS_URL}/b/isbn/{isbn}{size}.jpg'
+            if _download_and_attach_image(
+                instance=book,
+                field_name='cover',
+                url=ol_url,
+                filename_hint=f"{slugify(book.title)}-{book.id}{size}.jpg",
+            ):
+                return
+
+
 def ensure_book_cover(book: Book):
-    """
-    Intenta descargar la portada si no existe.
-    """
     if book.cover:
         return
 
-    logging.info(f"Attempting to fetch missing cover for book: {book.title} (ISBN: {book.isbn})")
-
-    # 1. Intentar con OpenLibrary por ISBN si existe
     if book.isbn:
         for size in ('-L', '-M'):
             ol_url = f'{OPEN_LIBRARY_COVERS_URL}/b/isbn/{book.isbn}{size}.jpg'
             if _download_and_attach_image(book, 'cover', ol_url, f"{slugify(book.title)}-{book.id}{size}.jpg"):
-                logging.info(f"Cover found on OpenLibrary for {book.title}")
                 return
 
-    # 2. Buscar en Google Books para obtener imageLinks
     try:
-        query = f'isbn:{book.isbn}' if book.isbn else f'intitle:{book.title}'
+        query = f'isbn:{book.isbn}' if book.isbn else book.title
         params = {'q': query, 'maxResults': 1, 'printType': 'books'}
-        resp = requests.get(GOOGLE_BOOKS_API_URL, params=params, timeout=10, headers={'User-Agent': 'MyBookConnect/1.0'})
+        api_key = _get_google_books_api_key()
+        if api_key:
+            params['key'] = api_key
+
+        resp = requests.get(GOOGLE_BOOKS_API_URL, params=params, timeout=7, headers=DEFAULT_HEADERS)
         if resp.ok:
-            data = resp.json()
-            items = data.get('items') or []
+            items = resp.json().get('items') or []
             if items:
-                volume_info = items[0].get('volumeInfo', {})
-                _attach_best_cover(book, volume_info, book.isbn)
+                _attach_best_cover(book, items[0].get('volumeInfo', {}), book.isbn)
     except Exception as e:
-        logging.exception(f"Error searching Google Books for cover: {e}")
+        logger.warning(f"Error asegurando portada: {e}")
+
 
 def enrich_book_metadata(book: Book):
-    """
-    Intenta completar metadatos faltantes (descripción, fecha) usando Google Books.
-    """
     if book.description and book.published_date:
         return
 
     try:
-        query = f'isbn:{book.isbn}' if book.isbn else f'intitle:{book.title}'
+        query = f'isbn:{book.isbn}' if book.isbn else book.title
         params = {'q': query, 'maxResults': 1, 'printType': 'books'}
-        resp = requests.get(GOOGLE_BOOKS_API_URL, params=params, timeout=10, headers={'User-Agent': 'MyBookConnect/1.0'})
+        api_key = _get_google_books_api_key()
+        if api_key:
+            params['key'] = api_key
+
+        resp = requests.get(GOOGLE_BOOKS_API_URL, params=params, timeout=7, headers=DEFAULT_HEADERS)
         if resp.ok:
-            data = resp.json()
-            items = data.get('items') or []
+            items = resp.json().get('items') or []
             if items:
                 info = items[0].get('volumeInfo', {})
                 changed = False
                 if not book.description and info.get('description'):
                     book.description = info.get('description')
                     changed = True
-                
-                if not book.published_date:
-                    published = info.get('publishedDate')
-                    if published:
-                        for fmt in ('%Y-%m-%d', '%Y-%m', '%Y'):
-                            try:
-                                dt = datetime.strptime(published, fmt)
-                                book.published_date = dt.date()
-                                changed = True
-                                break
-                            except ValueError:
-                                continue
-                
+                if not book.published_date and info.get('publishedDate'):
+                    for fmt in ('%Y-%m-%d', '%Y-%m', '%Y'):
+                        try:
+                            dt = datetime.strptime(info.get('publishedDate'), fmt)
+                            book.published_date = dt.date()
+                            changed = True
+                            break
+                        except ValueError:
+                            continue
                 if changed:
                     book.save()
     except Exception as e:
-        logging.exception(f"Error enriching book metadata: {e}")
+        logger.warning(f"Error enriqueciendo metadatos del libro: {e}")
+
 
 def import_books_by_author(author_name: str):
-    """
-    Busca libros de un autor en Google Books y los añade a la BD.
-    """
     try:
         params = {'q': f'inauthor:{author_name}', 'maxResults': 10, 'printType': 'books', 'langRestrict': 'es'}
-        resp = requests.get(GOOGLE_BOOKS_API_URL, params=params, timeout=10, headers={'User-Agent': 'MyBookConnect/1.0'})
+        api_key = _get_google_books_api_key()
+        if api_key:
+            params['key'] = api_key
+
+        resp = requests.get(GOOGLE_BOOKS_API_URL, params=params, timeout=7, headers=DEFAULT_HEADERS)
         if resp.ok:
-            data = resp.json()
-            items = data.get('items') or []
+            items = resp.json().get('items') or []
             count = 0
             for volume in items:
                 if _create_or_get_from_volume(volume):
                     count += 1
             return count
     except Exception as e:
-        logging.exception(f"Error importing books by author {author_name}: {e}")
+        logger.warning(f"Error importando libros por autor: {e}")
     return 0
-
