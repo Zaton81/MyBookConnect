@@ -5,6 +5,7 @@ import { Header } from "./components/header";
 import { Logo } from "./components/logo";
 import { FooterSection } from "./components/footer";
 import AuthBox from './components/AuthBox';
+import { useAuthStore } from './store/auth';
 
 const EditProfile = lazy(() => import('./pages/EditProfile').then(m => ({ default: m.EditProfile })));
 const Profile = lazy(() => import('./pages/Profile').then(m => ({ default: m.Profile })));
@@ -14,6 +15,7 @@ const Home = lazy(() => import('./pages/Home').then(m => ({ default: m.Home })))
 const BookDetail = lazy(() => import('./pages/BookDetail').then(m => ({ default: m.BookDetail })));
 const Author = lazy(() => import('./pages/Author').then(m => ({ default: m.Author })));
 const Friends = lazy(() => import('./pages/Friends').then(m => ({ default: m.Friends })));
+const Chat = lazy(() => import('./pages/Chat').then(m => ({ default: m.Chat })));
 
 function ProfileIdRedirect() {
   const { id } = useParams();
@@ -21,25 +23,31 @@ function ProfileIdRedirect() {
 }
 
 export default function App() {
+  const isAuthenticated = useAuthStore(s => s.isAuthenticated);
+
   return (
     <BrowserRouter>
-      <div className="min-h-screen pt-16 p-6 bg-teal-800">
+      <div className="min-h-screen pt-16 p-4 sm:p-6 bg-teal-800">
         <Header />
-        <Suspense fallback={<div className="text-white p-6">Cargando…</div>}>
+        <Suspense fallback={<div className="text-white p-6 text-center font-medium">Cargando…</div>}>
           <Routes>
             <Route
               path="/"
               element={
-                <main>
-                  <div className="mx-auto grid max-w-6xl grid-cols-1 gap-6 md:grid-cols-2">
-                    <div className="flex flex-col items-start justify-center px-6">
-                      <Logo />
+                isAuthenticated ? (
+                  <Navigate to="/home" replace />
+                ) : (
+                  <main>
+                    <div className="mx-auto grid max-w-6xl grid-cols-1 gap-6 md:grid-cols-2 mt-8">
+                      <div className="flex flex-col items-start justify-center px-6">
+                        <Logo />
+                      </div>
+                      <div className="flex items-center justify-center px-6">
+                        <AuthBox />
+                      </div>
                     </div>
-                    <div className="flex items-center justify-center px-6">
-                      <AuthBox />
-                    </div>
-                  </div>
-                </main>
+                  </main>
+                )
               }
             />
 
@@ -108,6 +116,14 @@ export default function App() {
               element={
                 <ProtectedRoute>
                   <Profile />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/chat"
+              element={
+                <ProtectedRoute>
+                  <Chat />
                 </ProtectedRoute>
               }
             />
