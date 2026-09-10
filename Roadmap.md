@@ -754,7 +754,8 @@ En producción no exponer:
 6379
 ```
 
-a Internet.
+a Internet:
+-   [x] Puertos host `5432:5432` y `6379:6379` eliminados en `docker-compose.prod.yml`; PostgreSQL y Redis confinados estrictamente a la red bridge interna (`mybookconnect_default`).
 
 ## Arquitectura
 
@@ -769,6 +770,7 @@ red interna
    ├── PostgreSQL
    └── Redis
 ```
+-   [x] Arquitectura de red aislada y validada con `docker compose -f docker-compose.prod.yml config`.
 
 ## Variables
 
@@ -778,7 +780,8 @@ Eliminar fallbacks peligrosos como:
 POSTGRES_PASSWORD=postgres
 ```
 
-en producción.
+en producción:
+-   [x] Eliminados fallbacks inseguros en `docker-compose.prod.yml`, requiriendo inyección obligatoria vía entorno.
 
 ## Healthcheck
 
@@ -796,7 +799,13 @@ PostgreSQL
 Redis
 ```
 
-sin depender de servicios de IA externos.
+sin depender de servicios de IA externos:
+-   [x] Endpoint implementado en `backend/mybookconnect/health.py` (`HealthCheckView`) y enlazado en `api/v1/health/`.
+-   [x] `throttle_classes = []` para evitar falsos 500 por rate-limiting en monitorización continua.
+-   [x] Verifica conectividad a DB (`connection.cursor().execute("SELECT 1;")`) y Redis Cache (`cache.set`/`cache.get`).
+-   [x] Responde `200 OK` (healthy) o `503 Service Unavailable` con detalle descriptivo en caso de degradación.
+-   [x] Dockerfile de backend actualizado con `CMD curl -f http://localhost:8000/api/v1/health/ || exit 1`.
+-   [x] Pruebas exhaustivas en `backend/tests/test_healthcheck.py` (62/62 tests pasando en suite completa).
 
 ------------------------------------------------------------------------
 
