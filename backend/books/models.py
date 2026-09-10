@@ -248,6 +248,63 @@ def invalidate_book_cache_signal(sender, instance, **kwargs):
         pass
 
 
+@receiver(post_save, sender=Review)
+def record_review_activity_signal(sender, instance, created, **kwargs):
+    if created:
+        try:
+            from users.activity_service import record_activity
+            from users.models import ActivityType
+
+            record_activity(
+                user=instance.user,
+                activity_type=ActivityType.REVIEW_CREATED,
+                book=instance.book,
+                review=instance,
+                metadata={'rating': instance.rating, 'title': instance.title or ''},
+            )
+        except Exception:
+            pass
+
+
+@receiver(post_save, sender=UserBook)
+def record_userbook_activity_signal(sender, instance, created, **kwargs):
+    try:
+        from users.activity_service import record_activity
+        from users.models import ActivityType
+
+        if created:
+            record_activity(
+                user=instance.user,
+                activity_type=ActivityType.BOOK_ADDED,
+                book=instance.book,
+                metadata={'status': instance.status},
+            )
+        else:
+            if instance.status == ReadingStatus.READ or instance.is_read:
+                record_activity(
+                    user=instance.user,
+                    activity_type=ActivityType.BOOK_FINISHED,
+                    book=instance.book,
+                    metadata={'rating': instance.rating},
+                )
+            elif instance.status == ReadingStatus.READING:
+                record_activity(
+                    user=instance.user,
+                    activity_type=ActivityType.BOOK_STARTED,
+                    book=instance.book,
+                    metadata={'progress': instance.progress},
+                )
+            elif instance.rating is not None:
+                record_activity(
+                    user=instance.user,
+                    activity_type=ActivityType.BOOK_RATED,
+                    book=instance.book,
+                    metadata={'rating': instance.rating},
+                )
+    except Exception:
+        pass
+
+
 class LegalDocument(models.Model):
     DOCUMENT_TYPES = [
         ('terms', 'Términos del Servicio'),

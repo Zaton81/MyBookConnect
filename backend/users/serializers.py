@@ -102,3 +102,42 @@ class NotificationSerializer(serializers.ModelSerializer):
         model = Notification
         fields = ('id', 'type', 'title', 'message', 'link', 'read', 'created_at', 'actor')
         read_only_fields = ('id', 'type', 'title', 'message', 'link', 'created_at', 'actor')
+
+
+class ActivityBookSerializer(serializers.Serializer):
+    id = serializers.IntegerField(read_only=True)
+    title = serializers.CharField(read_only=True)
+    author_name = serializers.CharField(source='author.name', default=None, read_only=True)
+    cover = serializers.ImageField(read_only=True)
+    average_rating = serializers.FloatField(read_only=True)
+
+
+class ActivityReviewSerializer(serializers.Serializer):
+    id = serializers.IntegerField(read_only=True)
+    rating = serializers.IntegerField(read_only=True)
+    title = serializers.CharField(read_only=True)
+    text = serializers.CharField(read_only=True)
+
+
+class ActivitySerializer(serializers.ModelSerializer):
+    user = UserBasicSerializer(read_only=True)
+    target_user = UserBasicSerializer(read_only=True)
+    book = ActivityBookSerializer(read_only=True)
+    review = ActivityReviewSerializer(read_only=True)
+    type_display = serializers.CharField(source='get_type_display', read_only=True)
+
+    class Meta:
+        from .models import Activity
+        model = Activity
+        fields = (
+            'id',
+            'user',
+            'type',
+            'type_display',
+            'book',
+            'review',
+            'target_user',
+            'metadata',
+            'created_at',
+        )
+

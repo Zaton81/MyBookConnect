@@ -25,12 +25,6 @@ def _create_or_get_from_volume(volume: dict, fallback_isbn: str | None = None) -
     Crea o recupera un libro a partir de la estructura de volumen devuelta por Google Books.
     Aplica deduplicación multi-nivel por google_volume_id, isbn y (título, autor).
     """
-    google_vol_id = volume.get('id')
-    if google_vol_id:
-        existing_vol = Book.objects.filter(google_volume_id=google_vol_id).first()
-        if existing_vol:
-            return existing_vol
-
     info = volume.get('volumeInfo', {})
     isbn = fallback_isbn
     for ident in info.get('industryIdentifiers', []) or []:
@@ -38,13 +32,26 @@ def _create_or_get_from_volume(volume: dict, fallback_isbn: str | None = None) -
             isbn = ident.get('identifier')
             break
 
+    google_vol_id = volume.get('id')
+    if google_vol_id:
+        existing_vol = Book.objects.filter(google_volume_id=google_vol_id).first()
+        if existing_vol:
+            if not existing_vol.cover:
+                attach_best_cover(book=existing_vol, info=info, isbn=isbn)
+            return existing_vol
+
     if isbn:
         clean_isbn = re.sub(r'[^\dX]', '', isbn.upper().strip())
         existing = Book.objects.filter(isbn=clean_isbn).first()
         if existing:
+            updated_fields = []
             if google_vol_id and not existing.google_volume_id:
                 existing.google_volume_id = google_vol_id
-                existing.save(update_fields=['google_volume_id'])
+                updated_fields.append('google_volume_id')
+            if updated_fields:
+                existing.save(update_fields=updated_fields)
+            if not existing.cover:
+                attach_best_cover(book=existing, info=info, isbn=isbn)
             return existing
 
     author_obj = None
@@ -70,6 +77,8 @@ def _create_or_get_from_volume(volume: dict, fallback_isbn: str | None = None) -
             updated_fields.append('google_volume_id')
         if updated_fields:
             found.save(update_fields=updated_fields)
+        if not found.cover:
+            attach_best_cover(book=found, info=info, isbn=isbn)
         return found
 
     book = Book(

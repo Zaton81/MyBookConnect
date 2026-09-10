@@ -995,9 +995,14 @@ Ejemplo:
 
 ------------------------------------------------------------------------
 
-# 21. Fase 18 --- Feed social
+# 21. Fase 18 --- Feed social [COMPLETADA]
 
-**Prioridad:** P1
+**Prioridad:** P1 - COMPLETADA
+- [x] Modelo Activity con campos (user, type, book, review, target_user, created_at, metadata).
+- [x] Tipos: BOOK_ADDED, BOOK_STARTED, BOOK_FINISHED, BOOK_RATED, REVIEW_CREATED, USER_FOLLOWED, LIST_CREATED.
+- [x] Triggers mediante signals de Django en libros, reseñas y seguimiento.
+- [x] Endpoint GET /api/v1/users/feed/ con paginación, filtros de privacidad, exclusión bidireccional de bloqueados y prefetch.
+- [x] Hidratación y descarga en segundo plano de portadas faltantes en búsqueda y fallback multiproveedor con validación de magic bytes.
 
 Crear:
 

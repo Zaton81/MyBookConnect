@@ -65,3 +65,34 @@ class Notification(models.Model):
 
     def __str__(self):
         return f"Notificación para {self.recipient.username}: {self.title}"
+
+
+class ActivityType(models.TextChoices):
+    BOOK_ADDED = 'BOOK_ADDED', 'Libro añadido'
+    BOOK_STARTED = 'BOOK_STARTED', 'Empezó a leer'
+    BOOK_FINISHED = 'BOOK_FINISHED', 'Terminó de leer'
+    BOOK_RATED = 'BOOK_RATED', 'Puntuó un libro'
+    REVIEW_CREATED = 'REVIEW_CREATED', 'Publicó una reseña'
+    USER_FOLLOWED = 'USER_FOLLOWED', 'Comenzó a seguir'
+    LIST_CREATED = 'LIST_CREATED', 'Creó una lista'
+
+
+class Activity(models.Model):
+    user = models.ForeignKey(User, related_name='activities', on_delete=models.CASCADE)
+    type = models.CharField(max_length=30, choices=ActivityType.choices, db_index=True)
+    book = models.ForeignKey('books.Book', null=True, blank=True, on_delete=models.CASCADE, related_name='activities')
+    review = models.ForeignKey('books.Review', null=True, blank=True, on_delete=models.CASCADE, related_name='activities')
+    target_user = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE, related_name='target_activities')
+    metadata = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['user', '-created_at'], name='idx_activity_user_created'),
+            models.Index(fields=['-created_at'], name='idx_activity_created'),
+            models.Index(fields=['type', '-created_at'], name='idx_activity_type_created'),
+        ]
+
+    def __str__(self):
+        return f"{self.user.username} - {self.get_type_display()} ({self.created_at})"

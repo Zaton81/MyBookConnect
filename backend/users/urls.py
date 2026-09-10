@@ -6,6 +6,7 @@ from messages_app.views import ConversationViewSet, MessageViewSet
 from .views import (
     BlockUserView,
     CheckFollowStatusView,
+    FeedView,
     FollowUserView,
     LogoutView,
     NotificationListView,
@@ -51,6 +52,7 @@ urlpatterns = [
     path('notifications/<int:notification_id>/read/', NotificationMarkReadView.as_view(), name='notification-read'),
     path('notifications/read-all/', NotificationMarkAllReadView.as_view(), name='notification-read-all'),
     path('notifications/unread-count/', NotificationUnreadCountView.as_view(), name='notification-unread-count'),
+    path('feed/', FeedView.as_view(), name='social-feed'),
     *user_action_patterns,
     path('users/', include(user_action_patterns)),
 ] + router.urls

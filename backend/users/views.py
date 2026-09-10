@@ -6,6 +6,8 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from books.pagination import StandardResultsSetPagination
+
 from . import policies
 from .serializers import UserBasicSerializer, UserCreateSerializer, UserSerializer
 
@@ -102,7 +104,9 @@ class FollowUserView(APIView):
 
         request.user.following.add(user_to_follow)
 
-        from .models import Notification, NotificationType
+        from .activity_service import record_activity
+        from .models import ActivityType, Notification, NotificationType
+
         Notification.objects.create(
             recipient=user_to_follow,
             actor=request.user,
@@ -110,6 +114,12 @@ class FollowUserView(APIView):
             title='Nuevo seguidor',
             message=f'{request.user.username} ha comenzado a seguirte.',
             link=f'/users/{request.user.id}',
+        )
+
+        record_activity(
+            user=request.user,
+            activity_type=ActivityType.USER_FOLLOWED,
+            target_user=user_to_follow,
         )
 
         return Response({"detail": f"Ahora sigues a {user_to_follow.username}"}, status=status.HTTP_200_OK)
@@ -271,4 +281,39 @@ class NotificationUnreadCountView(APIView):
         from .models import Notification
         count = Notification.objects.filter(recipient=request.user, read=False).count()
         return Response({'unread_count': count}, status=status.HTTP_200_OK)
+
+
+class FeedPagination(StandardResultsSetPagination):
+    page_size = 15
+
+
+class FeedView(generics.ListAPIView):
+    """
+    Feed social que muestra actividades cronológicas de los usuarios seguidos y del propio usuario.
+    Respeta bloqueos mutuos y políticas de privacidad.
+    """
+    from .serializers import ActivitySerializer
+
+    serializer_class = ActivitySerializer
+    permission_classes = (permissions.IsAuthenticated,)
+    pagination_class = FeedPagination
+
+    def get_queryset(self):
+        from .models import Activity
+
+        user = self.request.user
+        following_ids = list(user.following.values_list('id', flat=True))
+        feed_user_ids = following_ids + [user.id]
+
+        blocked_ids = set(user.blocked_users.values_list('id', flat=True)).union(
+            user.blocked_by.values_list('id', flat=True)
+        )
+        allowed_user_ids = [uid for uid in feed_user_ids if uid not in blocked_ids]
+
+        return (
+            Activity.objects.filter(user_id__in=allowed_user_ids)
+            .select_related('user', 'book', 'book__author', 'review', 'target_user')
+            .order_by('-created_at')
+        )
+
 

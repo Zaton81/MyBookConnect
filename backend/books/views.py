@@ -122,6 +122,19 @@ class BookListCreateView(generics.ListCreateAPIView):
             except Exception as exc:
                 logging.exception(f"Error auto-importing external books for '{clean_q}': {exc}")
 
+        # En segundo plano, encolar descarga de portadas para los libros encontrados sin carátula
+        try:
+            for book_item in results[:10]:
+                if not book_item.cover:
+                    bg_key = f"bg_cover_search_{book_item.id}"
+                    if not cache.get(bg_key):
+                        from .tasks import download_cover_task
+
+                        download_cover_task.delay(book_item.id)
+                        cache.set(bg_key, True, 600)
+        except Exception as exc:
+            logging.warning(f"Error programando descarga de portadas en búsqueda: {exc}")
+
         return results
 
     def perform_create(self, serializer):
