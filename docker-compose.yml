@@ -17,6 +17,25 @@ services:
     volumes:
       - ./backend:/app
 
+  celery_worker:
+    build:
+      context: ./backend
+      target: development
+    container_name: booksocial-celery-worker
+    restart: unless-stopped
+    command: celery -A mybookconnect worker -l INFO --concurrency=2
+    env_file:
+      - .env
+    depends_on:
+      db:
+        condition: service_healthy
+      cache:
+        condition: service_healthy
+      backend:
+        condition: service_started
+    volumes:
+      - ./backend:/app
+
   frontend:
     build:
       context: ./frontend

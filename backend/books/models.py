@@ -194,13 +194,18 @@ class Errata(models.Model):
 @receiver(post_delete, sender=UserBook)
 def update_book_rating(sender, instance, **kwargs):
     book = instance.book
-    review_avg = Review.objects.filter(book=book, rating__isnull=False).aggregate(Avg('rating'))['rating__avg']
-    if review_avg is not None:
-        book.average_rating = round(review_avg, 2)
-    else:
-        ub_avg = UserBook.objects.filter(book=book, rating__isnull=False).aggregate(Avg('rating'))['rating__avg']
-        book.average_rating = round(ub_avg, 2) if ub_avg else None
-    book.save(update_fields=['average_rating'])
+    try:
+        from .tasks import recalculate_book_rating_task
+        recalculate_book_rating_task.delay(book.id)
+    except Exception:
+        # Fallback síncrono si el broker no está disponible o en tests síncronos
+        review_avg = Review.objects.filter(book=book, rating__isnull=False).aggregate(Avg('rating'))['rating__avg']
+        if review_avg is not None:
+            book.average_rating = round(review_avg, 2)
+        else:
+            ub_avg = UserBook.objects.filter(book=book, rating__isnull=False).aggregate(Avg('rating'))['rating__avg']
+            book.average_rating = round(ub_avg, 2) if ub_avg else None
+        book.save(update_fields=['average_rating'])
 
 
 class LegalDocument(models.Model):

@@ -15,7 +15,7 @@ from .serializers import (
     ErrataSerializer,
     LegalDocumentSerializer,
 )
-from .services import maybe_enrich_author, maybe_enrich_book
+from .tasks import enrich_book_task, refresh_author_task
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
@@ -183,9 +183,11 @@ class AdminBookEnrichView(APIView):
 
         book.enrichment_attempted = False
         book.save(update_fields=['enrichment_attempted'])
-        maybe_enrich_book(book)
-        book.refresh_from_db()
-        return Response(BookSerializer(book, context={'request': request}).data)
+        task = enrich_book_task.delay(book.id)
+        data = BookSerializer(book, context={'request': request}).data
+        data['task_id'] = task.id
+        data['status'] = 'queued'
+        return Response(data, status=status.HTTP_202_ACCEPTED)
 
 
 class AdminAuthorListView(generics.ListCreateAPIView):
@@ -218,9 +220,11 @@ class AdminAuthorEnrichView(APIView):
 
         author.enrichment_attempted = False
         author.save(update_fields=['enrichment_attempted'])
-        maybe_enrich_author(author)
-        author.refresh_from_db()
-        return Response(AuthorSerializer(author, context={'request': request}).data)
+        task = refresh_author_task.delay(author.id)
+        data = AuthorSerializer(author, context={'request': request}).data
+        data['task_id'] = task.id
+        data['status'] = 'queued'
+        return Response(data, status=status.HTTP_202_ACCEPTED)
 
 
 class AdminErrataListView(generics.ListAPIView):

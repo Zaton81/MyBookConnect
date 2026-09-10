@@ -504,54 +504,29 @@ books/services/
 
 # 10. Fase 7 --- Celery + Redis
 
-**Prioridad:** P1
+**Prioridad:** P1  
+**Estado:** ✅ Completada
 
-Introducir:
-
-``` text
-Celery
-Redis
-```
-
-## Tareas
+Introducción de arquitectura de procesamiento asíncrono y desacoplamiento de peticiones lentas:
 
 ``` text
-enrich_book
-download_cover
-refresh_author
-generate_embedding
-recalculate_book_rating
-refresh_recommendations
-send_notification
+Celery 5.5
+Redis 7 (cache)
 ```
 
-## Regla
-
-Nunca hacer en una request HTTP operaciones lentas como:
-
-``` text
-Google Books
-OpenLibrary
-Wikipedia
-descarga de imágenes
-embeddings
-```
-
-## Flujo
-
-``` text
-POST /books/import
-       ↓
-crear/identificar libro
-       ↓
-encolar tarea
-       ↓
-respuesta 202
-       ↓
-Celery
-       ↓
-enriquecimiento
-```
+## Tareas y Capacidades Completadas:
+- [x] Aplicación Celery configurada en `mybookconnect/celery.py` y registrada en `mybookconnect/__init__.py`.
+- [x] Opciones de configuración de broker y backend (`redis://cache:6379/0`) en `settings.py` con soporte para `CELERY_TASK_ALWAYS_EAGER` en entornos de test.
+- [x] Servicio `celery_worker` agregado y activo en `docker-compose.yml` y `docker-compose.prod.yml`.
+- [x] Tareas asíncronas implementadas en `books/tasks.py`:
+  - `enrich_book_task`: Enriquecimiento desatendido de sinopsis y datos bibliográficos.
+  - `download_cover_task`: Descarga asíncrona de portadas.
+  - `refresh_author_task`: Enriquecimiento en segundo plano de biografías y retratos de autores.
+  - `recalculate_book_rating_task`: Recálculo atómico de promedios de calificación ante reseñas/votos.
+  - `import_books_by_author_task`: Importación masiva de obras sin bloquear el ciclo HTTP.
+- [x] Señal `update_book_rating` delegada a Celery con fallback síncrono transparente.
+- [x] Endpoints administrativos de enriquecimiento forzado (`AdminBookEnrichView`, `AdminAuthorEnrichView`) adaptados al patrón HTTP 202 Accepted con retorno de `task_id`.
+- [x] Suite de pruebas automatizadas en `test_celery_tasks.py` con fixture eager en `conftest.py` (27/27 tests pasando).
 
 ------------------------------------------------------------------------
 

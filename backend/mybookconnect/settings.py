@@ -159,3 +159,16 @@ AI_TIMEOUT = int(os.getenv('AI_TIMEOUT', '15'))
 
 # ─── APIs Externas de Libros y Autores ───
 GOOGLE_BOOKS_API_KEY = os.getenv('GOOGLE_BOOKS_API_KEY', '')
+
+# ─── Configuración de Celery & Redis ───
+REDIS_HOST = os.getenv('REDIS_HOST', 'cache')
+REDIS_PORT = int(os.getenv('REDIS_PORT', '6379'))
+CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL', f'redis://{REDIS_HOST}:{REDIS_PORT}/0')
+CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND', f'redis://{REDIS_HOST}:{REDIS_PORT}/0')
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = TIME_ZONE
+CELERY_TASK_TRACK_STARTED = True
+CELERY_TASK_TIME_LIMIT = 30 * 60
+CELERY_TASK_ALWAYS_EAGER = os.getenv('CELERY_TASK_ALWAYS_EAGER', 'false').lower() in ('true', '1', 'yes')
