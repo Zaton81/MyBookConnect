@@ -564,13 +564,14 @@ django.core.cache.backends.redis.RedisCache
 
 ## Revisar
 
--   [ ] `select_related`.
--   [ ] `prefetch_related`.
--   [ ] `annotate`.
--   [ ] `Exists`.
--   [ ] índices.
--   [ ] constraints.
--   [ ] consultas N+1.
+-   [x] `select_related` (`author`, `user`, `book`, `sender`).
+-   [x] `prefetch_related` (`categories`, `reading_logs`, `reviews`).
+-   [x] `annotate`.
+-   [x] `Exists`.
+-   [x] Índices compuestos en PostgreSQL (`Book`, `Review`, `UserBook`, `Errata`, `Message`).
+-   [x] Constraints de unicidad e integridad.
+-   [x] Consultas N+1 eliminadas (optimizando serializadores para evitar consultas recursivas `AuthorBasicSerializer`).
+-   [x] Verificación automatizada con suite dedicada `test_database_performance.py` (38/38 tests pasando).
 
 ## Índices
 

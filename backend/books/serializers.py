@@ -12,6 +12,12 @@ class AuthorBookSerializer(serializers.ModelSerializer):
         fields = ('id', 'title', 'cover', 'published_date')
 
 
+class AuthorBasicSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Author
+        fields = ('id', 'name', 'biography', 'photo')
+
+
 class AuthorSerializer(serializers.ModelSerializer):
     books = AuthorBookSerializer(many=True, read_only=True)
 
@@ -27,7 +33,7 @@ class CategorySerializer(serializers.ModelSerializer):
 
 
 class BookSerializer(serializers.ModelSerializer):
-    author = AuthorSerializer(read_only=True)
+    author = AuthorBasicSerializer(read_only=True)
     author_id = serializers.PrimaryKeyRelatedField(
         queryset=Author.objects.all(), source='author', write_only=True, required=False, allow_null=True
     )
@@ -55,6 +61,8 @@ class BookSerializer(serializers.ModelSerializer):
         return distribution
 
     def get_reviews_count(self, obj):
+        if hasattr(obj, 'annotated_reviews_count'):
+            return obj.annotated_reviews_count
         return Review.objects.filter(book=obj).count()
 
 

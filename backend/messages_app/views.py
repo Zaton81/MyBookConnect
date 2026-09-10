@@ -52,7 +52,7 @@ class MessageViewSet(viewsets.ModelViewSet):
         conv = Conversation.objects.filter(id=conv_id, participants=self.request.user).first()
         if not conv:
             return Message.objects.none()
-        return Message.objects.filter(conversation=conv)
+        return Message.objects.filter(conversation=conv).select_related('sender')
 
     def perform_create(self, serializer):
         conv_id = self.request.data.get('conversation')

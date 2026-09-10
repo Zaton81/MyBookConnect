@@ -50,6 +50,14 @@ class Book(models.Model):
     categories = models.ManyToManyField(Category, related_name='books', blank=True)
     enrichment_attempted = models.BooleanField(default=False)
 
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['title'], name='idx_book_title'),
+            models.Index(fields=['title', 'author'], name='idx_book_title_author'),
+            models.Index(fields=['-created_at'], name='idx_book_created_at'),
+        ]
+
     def save(self, *args, **kwargs):
         if self.isbn:
             self.isbn = normalize_isbn(self.isbn)
@@ -102,6 +110,8 @@ class UserBook(models.Model):
             models.Index(fields=['user', 'status']),
             models.Index(fields=['user', 'is_read']),
             models.Index(fields=['user', 'wishlist']),
+            models.Index(fields=['is_read', '-updated_at'], name='idx_userbook_read_updated'),
+            models.Index(fields=['status', '-updated_at'], name='idx_userbook_status_updated'),
         ]
 
     def save(self, *args, **kwargs):
@@ -142,6 +152,11 @@ class Review(models.Model):
         constraints = [
             models.UniqueConstraint(fields=['user', 'book'], name='unique_review_user_book'),
         ]
+        indexes = [
+            models.Index(fields=['book', '-created_at'], name='idx_review_book_created'),
+            models.Index(fields=['user', '-created_at'], name='idx_review_user_created'),
+            models.Index(fields=['-created_at'], name='idx_review_created_at'),
+        ]
 
     def __str__(self):
         return f"Reseña {self.user.username} - {self.book.title}"
@@ -180,7 +195,8 @@ class Errata(models.Model):
     class Meta:
         ordering = ['-created_at']
         indexes = [
-            models.Index(fields=['status']),
+            models.Index(fields=['status', '-created_at'], name='idx_errata_status_created'),
+            models.Index(fields=['book', 'status'], name='idx_errata_book_status'),
         ]
 
     def __str__(self):

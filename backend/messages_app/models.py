@@ -25,6 +25,10 @@ class Message(models.Model):
 
     class Meta:
         ordering = ['created_at']
+        indexes = [
+            models.Index(fields=['conversation', 'created_at'], name='idx_msg_conv_created'),
+            models.Index(fields=['conversation', 'read'], name='idx_msg_conv_read'),
+        ]
 
     def __str__(self):
         return f"Mensaje de {self.sender} en {self.conversation.id}"

@@ -113,7 +113,7 @@ class AuthorBooksView(APIView):
 
 
 class BookDetailView(generics.RetrieveAPIView):
-    queryset = Book.objects.select_related('author')
+    queryset = Book.objects.select_related('author').prefetch_related('categories')
     serializer_class = BookSerializer
     permission_classes = (permissions.AllowAny,)
 
@@ -158,7 +158,7 @@ class UserBookListCreateView(generics.ListCreateAPIView):
     pagination_class = UserBookPagination
 
     def get_queryset(self):
-        queryset = UserBook.objects.filter(user=self.request.user).select_related('book', 'book__author')
+        queryset = UserBook.objects.filter(user=self.request.user).select_related('book', 'book__author').prefetch_related('book__categories')
         params = self.request.query_params
 
         def parse_bool(value):
@@ -248,7 +248,7 @@ class ReviewListCreateView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         from django.db.models import Exists, OuterRef
-        queryset = Review.objects.select_related('user', 'book').order_by('-created_at')
+        queryset = Review.objects.select_related('user', 'book', 'book__author').prefetch_related('book__categories').order_by('-created_at')
 
         book_id = self.request.query_params.get('book')
         if book_id:
