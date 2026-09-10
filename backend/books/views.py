@@ -1,5 +1,6 @@
 import logging
 
+from django.core.cache import cache
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from rest_framework import generics, permissions
@@ -8,6 +9,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from . import services
+from .cache_utils import TTL_BOOK_DETAIL, TTL_TRENDING, book_detail_key, trending_key
 from .models import Author, Book, Errata, ErrataStatus, Review, UserBook
 from .serializers import AuthorSerializer, BookSerializer, ErrataSerializer, ReviewSerializer, UserBookSerializer
 
@@ -116,6 +118,14 @@ class BookDetailView(generics.RetrieveAPIView):
     permission_classes = (permissions.AllowAny,)
 
     def retrieve(self, request, *args, **kwargs):
+        book_id = kwargs.get('pk')
+        cache_key = book_detail_key(book_id)
+
+        # Si ya está en caché, servirlo de inmediato sin consultar la base de datos
+        cached_data = cache.get(cache_key)
+        if cached_data is not None:
+            return Response(cached_data)
+
         instance = self.get_object()
         if not instance.enrichment_attempted:
             instance.enrichment_attempted = True
@@ -129,8 +139,11 @@ class BookDetailView(generics.RetrieveAPIView):
             except Exception as e:
                 logging.exception(f"Error enriching book in detail view: {e}")
                 instance.save(update_fields=['enrichment_attempted'])
+
         serializer = self.get_serializer(instance)
-        return Response(serializer.data)
+        data = serializer.data
+        cache.set(cache_key, data, timeout=TTL_BOOK_DETAIL)
+        return Response(data)
 
 
 class UserBookPagination(PageNumberPagination):
@@ -458,11 +471,16 @@ class SocialFeedView(APIView):
 
 class TrendingBooksView(APIView):
     """
-    Libros más populares y leídos en la plataforma.
+    Libros más populares y leídos en la plataforma con soporte de caché.
     """
     permission_classes = (permissions.IsAuthenticated,)
 
     def get(self, request):
+        cache_key = trending_key('all')
+        cached_results = cache.get(cache_key)
+        if cached_results is not None:
+            return Response({'results': cached_results})
+
         from django.db.models import Count
         trending = Book.objects.annotate(
             readers_count=Count('user_entries', distinct=True),
@@ -480,6 +498,7 @@ class TrendingBooksView(APIView):
                 'readers_count': b.readers_count,
                 'reviews_count': b.reviews_count,
             })
+        cache.set(cache_key, results, timeout=TTL_TRENDING)
         return Response({'results': results})
 
 

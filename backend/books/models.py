@@ -207,6 +207,22 @@ def update_book_rating(sender, instance, **kwargs):
             book.average_rating = round(ub_avg, 2) if ub_avg else None
         book.save(update_fields=['average_rating'])
 
+    try:
+        from .cache_utils import invalidate_book_cache
+        invalidate_book_cache(book.id)
+    except Exception:
+        pass
+
+
+@receiver(post_save, sender=Book)
+@receiver(post_delete, sender=Book)
+def invalidate_book_cache_signal(sender, instance, **kwargs):
+    try:
+        from .cache_utils import invalidate_book_cache
+        invalidate_book_cache(instance.id)
+    except Exception:
+        pass
+
 
 class LegalDocument(models.Model):
     DOCUMENT_TYPES = [

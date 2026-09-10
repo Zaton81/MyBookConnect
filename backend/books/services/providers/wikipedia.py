@@ -2,6 +2,14 @@ import logging
 import re
 
 import requests
+from django.core.cache import cache
+
+from books.cache_utils import (
+    TTL_EXTERNAL_API,
+    TTL_WIKIPEDIA_AUTHOR,
+    wikipedia_author_key,
+    wikipedia_book_key,
+)
 
 from ..base import DEFAULT_HEADERS, WIKIPEDIA_API_URL, WIKIPEDIA_OPENSEARCH_URL, ProviderBookData
 
@@ -9,14 +17,41 @@ logger = logging.getLogger(__name__)
 
 
 class WikipediaProvider:
-    """Proveedor para consultar la API de Wikipedia en español e inglés."""
+    """Proveedor para consultar la API de Wikipedia en español e inglés con soporte de caché Redis."""
 
     def __init__(self, lang: str = 'es'):
         self.lang = lang
 
+    def _parse_item(self, title: str, author_name: str | None, data: dict) -> ProviderBookData:
+        synopsis = data.get('extract') or ''
+        img_info = data.get('originalimage') or data.get('thumbnail') or {}
+        cover_url = img_info.get('source')
+
+        return ProviderBookData(
+            title=title,
+            author_name=author_name,
+            description=synopsis[:2000] if synopsis else None,
+            cover_url=cover_url,
+            raw_payload=data,
+        )
+
     def search_by_title(self, title: str, offset: int = 0, limit: int = 5) -> list[ProviderBookData]:
         clean_title = title.strip()
+        cache_key = wikipedia_book_key(clean_title)
+
+        try:
+            cached_data = cache.get(cache_key)
+            if cached_data is not None:
+                return [
+                    self._parse_item(item['title'], item['author_name'], item['data'])
+                    for item in cached_data
+                ]
+        except Exception as e:
+            logger.warning(f"Error leyendo caché Wikipedia para '{clean_title}': {e}")
+
         books: list[ProviderBookData] = []
+        cache_records: list[dict] = []
+
         try:
             search_url = WIKIPEDIA_OPENSEARCH_URL.format(lang=self.lang)
             search_params = {
@@ -50,25 +85,25 @@ class WikipediaProvider:
                     continue
 
                 book_title = data.get('title') or page_title
-                synopsis = data.get('extract') or ''
-
                 author_name = None
                 desc_match = re.search(r'(?:de|por)\s+([A-ZÁÉÍÓÚÑ][a-záéíóúñ]+(?:\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+)+)', data.get('description', ''))
                 if desc_match:
                     author_name = desc_match.group(1).strip()
 
-                img_info = data.get('originalimage') or data.get('thumbnail') or {}
-                cover_url = img_info.get('source')
+                parsed = self._parse_item(book_title, author_name, data)
+                books.append(parsed)
+                cache_records.append({
+                    'title': book_title,
+                    'author_name': author_name,
+                    'data': data,
+                })
 
-                books.append(
-                    ProviderBookData(
-                        title=book_title,
-                        author_name=author_name,
-                        description=synopsis[:2000] if synopsis else None,
-                        cover_url=cover_url,
-                        raw_payload=data,
-                    )
-                )
+            if cache_records:
+                try:
+                    cache.set(cache_key, cache_records, timeout=TTL_EXTERNAL_API)
+                except Exception as ce:
+                    logger.warning(f"Error guardando en caché Wikipedia libro: {ce}")
+
         except Exception as e:
             logger.warning(f"Error consultando Wikipedia para '{clean_title}': {e}")
 
@@ -79,7 +114,21 @@ class WikipediaProvider:
 
     def search_books_by_author(self, author_name: str, limit: int = 8) -> list[ProviderBookData]:
         clean_author = author_name.strip()
+        cache_key = wikipedia_author_key(clean_author)
+
+        try:
+            cached_data = cache.get(cache_key)
+            if cached_data is not None:
+                return [
+                    self._parse_item(item['title'], clean_author, item['data'])
+                    for item in cached_data
+                ]
+        except Exception as e:
+            logger.warning(f"Error leyendo caché Wikipedia para autor '{clean_author}': {e}")
+
         books: list[ProviderBookData] = []
+        cache_records: list[dict] = []
+
         try:
             sr_params = {
                 'action': 'query',
@@ -107,19 +156,19 @@ class WikipediaProvider:
                         if any(term in desc for term in ['desambiguación', 'escritor', 'biografía', 'persona']):
                             continue
 
-                        synopsis = data.get('extract')
-                        img_info = data.get('originalimage') or data.get('thumbnail') or {}
-                        cover_url = img_info.get('source')
+                        parsed = self._parse_item(clean_title, clean_author, data)
+                        books.append(parsed)
+                        cache_records.append({
+                            'title': clean_title,
+                            'data': data,
+                        })
 
-                        books.append(
-                            ProviderBookData(
-                                title=clean_title,
-                                author_name=clean_author,
-                                description=synopsis[:2000] if synopsis else None,
-                                cover_url=cover_url,
-                                raw_payload=data,
-                            )
-                        )
+                if cache_records:
+                    try:
+                        cache.set(cache_key, cache_records, timeout=TTL_WIKIPEDIA_AUTHOR)
+                    except Exception as ce:
+                        logger.warning(f"Error guardando en caché Wikipedia autor: {ce}")
+
         except Exception as e:
             logger.warning(f"Error consultando libros de autor '{clean_author}' en Wikipedia: {e}")
 

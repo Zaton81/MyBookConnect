@@ -532,32 +532,29 @@ Redis 7 (cache)
 
 # 11. Fase 8 --- Cache
 
-**Prioridad:** P1
+**Prioridad:** P1  
+**Estado:** ✅ Completada
 
-Usar Redis para:
-
-``` text
-external API cache
-book detail cache
-recommendations
-trending
-rate limiting
-```
-
-Namespaces:
+Implementación de estrategia de caché multinivel con Redis (`django.core.cache`):
 
 ``` text
-google:isbn:{isbn}
-openlibrary:work:{id}
-wikipedia:author:{id}
-book:{id}
-recommendations:user:{id}
-trending:{period}
+Redis 7 (cache DB 1)
+django.core.cache.backends.redis.RedisCache
 ```
 
-Definir TTLs.
-
-No cachear indiscriminadamente información privada.
+## Capacidades y Tareas Completadas:
+- [x] Backend nativo `RedisCache` configurado en `settings.py` apuntando a `redis://cache:6379/1` con prefijo `mbc`.
+- [x] Módulo centralizado `books/cache_utils.py` con generadores de claves, sanitización y TTLs estandarizados:
+  - `book:{id}` (TTL: 15 min): Ficha y metadatos de libro.
+  - `trending:{period}` (TTL: 15 min): Ranking de libros más leídos.
+  - `google:isbn:{isbn}` y `google:search:{q}:{offset}` (TTL: 24h / 6h).
+  - `openlibrary:isbn:{isbn}` y `openlibrary:search:{q}:{page}` (TTL: 24h / 6h).
+  - `wikipedia:author:{name}` y `wikipedia:book:{title}` (TTL: 48h / 24h).
+- [x] Caché integrado en proveedores (`GoogleBooksProvider`, `OpenLibraryProvider`, `WikipediaProvider`) previniendo peticiones HTTP duplicadas y consumo innecesario de cuota.
+- [x] Caché en vistas de alto tráfico (`BookDetailView`, `TrendingBooksView`).
+- [x] Invalidación atómica reactiva mediante señales en `Book`, `Review` y `UserBook`.
+- [x] Throttling / limitación de tasa configurado en `REST_FRAMEWORK` (120/min anónimos, 1200/min usuarios autenticados).
+- [x] Pruebas unitarias de aciertos de caché, invalidación y proveedores en `test_caching.py` (34/34 tests pasando).
 
 ------------------------------------------------------------------------
 
