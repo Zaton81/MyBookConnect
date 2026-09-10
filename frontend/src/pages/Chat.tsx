@@ -23,7 +23,7 @@ interface Conversation {
 }
 
 export function Chat() {
-  const { user, token } = useAuthStore();
+  const { user, token, getFollowing } = useAuthStore();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const initialConvId = searchParams.get('conversationId')
@@ -37,9 +37,24 @@ export function Chat() {
   const [loadingConvs, setLoadingConvs] = useState(true);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [followingUsers, setFollowingUsers] = useState<any[]>([]);
+  const [showFollowingPicker, setShowFollowingPicker] = useState(false);
+  const [isStartingChat, setIsStartingChat] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const apiUrl = (import.meta as any).env.VITE_API_URL || 'http://localhost:8000';
+
+  // Cargar seguidos para iniciar chats directos
+  useEffect(() => {
+    if (getFollowing) {
+      getFollowing()
+        .then((res: any) => {
+          const list = Array.isArray(res) ? res : res?.results || [];
+          setFollowingUsers(list);
+        })
+        .catch(console.error);
+    }
+  }, [getFollowing]);
 
   // Scroll al final al recibir o cargar mensajes
   const scrollToBottom = () => {
@@ -49,6 +64,36 @@ export function Chat() {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Iniciar o seleccionar conversación con un usuario seguido
+  const startChatWithUser = async (targetUserId: number) => {
+    if (!token) return;
+    try {
+      setIsStartingChat(true);
+      const res = await fetch(`${apiUrl}/api/v1/chat/conversations/start/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ user_id: targetUserId }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        await fetchConversations();
+        setActiveConvId(data.conversation_id);
+        setShowFollowingPicker(false);
+        setSearchQuery('');
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert(err.error || 'No se pudo iniciar el chat con este usuario');
+      }
+    } catch (e) {
+      console.error('Error iniciando chat:', e);
+    } finally {
+      setIsStartingChat(false);
+    }
+  };
 
   // Cargar lista de conversaciones
   const fetchConversations = useCallback(async () => {
@@ -180,28 +225,86 @@ export function Chat() {
     return name.includes(searchQuery.toLowerCase());
   });
 
+  const filteredFollowing = followingUsers.filter((f) => {
+    if (f.id === user?.id) return false;
+    if (!searchQuery) return true;
+    const name = (f.first_name ? `${f.first_name} ${f.last_name || ''}` : f.username).toLowerCase();
+    const uname = f.username?.toLowerCase() || '';
+    return name.includes(searchQuery.toLowerCase()) || uname.includes(searchQuery.toLowerCase());
+  });
+
   return (
     <div className="max-w-7xl mx-auto py-4 px-2 sm:px-4">
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl overflow-hidden border border-gray-100 dark:border-gray-700 flex flex-col md:flex-row h-[calc(100vh-140px)] min-h-[500px]">
         {/* ── Barra Lateral: Lista de Conversaciones ── */}
         <div className="w-full md:w-80 lg:w-96 border-r border-gray-200 dark:border-gray-700 flex flex-col bg-gray-50/50 dark:bg-gray-800/50">
           <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-            <h1 className="text-xl font-bold text-gray-900 dark:text-white flex items-center justify-between">
-              <span>Mensajes</span>
-              <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-teal-100 text-teal-800 dark:bg-teal-900/40 dark:text-teal-300">
-                {conversations.length} {conversations.length === 1 ? 'chat' : 'chats'}
-              </span>
-            </h1>
+            <div className="flex items-center justify-between">
+              <h1 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                <span>Mensajes</span>
+                <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-teal-100 text-teal-800 dark:bg-teal-900/40 dark:text-teal-300">
+                  {conversations.length}
+                </span>
+              </h1>
+              <button
+                onClick={() => setShowFollowingPicker(!showFollowingPicker)}
+                className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-lg bg-teal-600 hover:bg-teal-700 text-white shadow-sm transition-all transform hover:scale-105"
+                title="Escribir a un usuario que sigues"
+              >
+                <span>{showFollowingPicker ? '✕ Chats' : '＋ Nuevo chat'}</span>
+              </button>
+            </div>
             <div className="mt-3">
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Buscar conversación..."
+                placeholder="Buscar conversación o seguido..."
                 className="w-full text-sm rounded-xl border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-700 dark:text-white focus:ring-teal-500 focus:border-teal-500 py-2 px-3"
               />
             </div>
           </div>
+
+          {/* Selector de seguidos para iniciar chat rápido */}
+          {(showFollowingPicker || (searchQuery.trim().length > 0 && filteredFollowing.length > 0)) && (
+            <div className="p-3 bg-teal-50/80 dark:bg-teal-900/20 border-b border-teal-100 dark:border-teal-800/50 max-h-48 overflow-y-auto">
+              <div className="text-xs font-bold text-teal-900 dark:text-teal-200 mb-2 flex items-center justify-between">
+                <span>Escribir a tus seguidos:</span>
+                <span className="text-[10px] font-normal text-teal-700 dark:text-teal-300">({filteredFollowing.length})</span>
+              </div>
+              {filteredFollowing.length === 0 ? (
+                <div className="text-xs text-gray-500 dark:text-gray-400 py-2 text-center">
+                  No sigues a ningún usuario que coincida.
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  {filteredFollowing.map((f) => (
+                    <button
+                      key={f.id}
+                      onClick={() => startChatWithUser(f.id)}
+                      disabled={isStartingChat}
+                      className="w-full text-left p-2 rounded-lg bg-white dark:bg-gray-800 hover:bg-teal-100/60 dark:hover:bg-teal-900/40 border border-gray-200/60 dark:border-gray-700 flex items-center justify-between gap-2 text-xs transition-colors shadow-xs"
+                    >
+                      <div className="flex items-center gap-2 truncate">
+                        {f.avatar ? (
+                          <img src={f.avatar} alt={f.username} className="w-7 h-7 rounded-full object-cover flex-shrink-0" />
+                        ) : (
+                          <div className="w-7 h-7 rounded-full bg-teal-600 text-white font-bold flex items-center justify-center flex-shrink-0 text-xs">
+                            {f.username?.[0]?.toUpperCase() || 'U'}
+                          </div>
+                        )}
+                        <span className="font-semibold text-gray-900 dark:text-white truncate">
+                          {f.first_name ? `${f.first_name} ${f.last_name || ''}` : f.username}
+                        </span>
+                        <span className="text-[11px] text-gray-500 truncate">@{f.username}</span>
+                      </div>
+                      <span className="text-teal-600 dark:text-teal-400 font-bold flex-shrink-0">💬 Chatear</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="flex-1 overflow-y-auto divide-y divide-gray-100 dark:divide-gray-700/50">
             {loadingConvs ? (

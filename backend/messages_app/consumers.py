@@ -95,9 +95,23 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     @database_sync_to_async
     def _create_message(self, conversation_id: int, sender_id: int, text: str):
+        from users.models import Notification, NotificationType
+
         conv = Conversation.objects.get(id=conversation_id)
         user = User.objects.get(id=sender_id)
         msg = Message.objects.create(conversation=conv, sender=user, text=text)
+
+        # Generar notificación para los demás participantes
+        for participant in conv.participants.exclude(id=sender_id):
+            Notification.objects.create(
+                recipient=participant,
+                actor=user,
+                type=NotificationType.MESSAGE,
+                title=f'Mensaje de {user.username}',
+                message=text[:80],
+                link=f'/chat?conversationId={conv.id}',
+            )
+
         return {
             "id": msg.id,
             "text": msg.text,

@@ -15,6 +15,30 @@ class Conversation(models.Model):
     def __str__(self):
         return f"Conversación {self.id}"
 
+    @classmethod
+    def get_or_create_direct(cls, user1, user2):
+        """
+        Devuelve la conversación 1:1 canónica existente entre user1 y user2,
+        o crea una nueva garantizando que A <-> B y B <-> A resuelvan a la misma.
+        """
+        from django.db import transaction
+
+        if not user1 or not user2 or user1.id == user2.id:
+            raise ValueError("Se requieren dos usuarios distintos para una conversación directa")
+
+        with transaction.atomic():
+            existing = (
+                cls.objects.filter(participants=user1)
+                .filter(participants=user2)
+                .first()
+            )
+            if existing:
+                return existing, False
+
+            conv = cls.objects.create()
+            conv.participants.add(user1, user2)
+            return conv, True
+
 class Message(models.Model):
     conversation = models.ForeignKey(Conversation, related_name='messages', on_delete=models.CASCADE)
     sender = models.ForeignKey(User, related_name='sent_messages', on_delete=models.CASCADE)

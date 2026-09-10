@@ -863,44 +863,9 @@ y:
 B ↔ A
 ```
 
-no creen dos conversaciones.
-
-## Modelo
-
-Considerar:
-
-``` text
-Conversation
-    user_a
-    user_b
-```
-
-con una representación normalizada.
-
-## Mensajes
-
-Para chat 1:1 considerar:
-
-``` text
-ConversationMember
-    user
-    last_read_message
-```
-
-en lugar de un único:
-
-``` text
-Message.read
-```
-
-## Si habrá grupos
-
-Usar:
-
-``` text
-ConversationMember
-MessageRead
-```
+no creen dos conversaciones:
+-   [x] Método canónico `Conversation.get_or_create_direct(user1, user2)` implementado con transacción atómica.
+-   [x] `start_conversation` resuelve de forma determinista a la misma y única instancia.
 
 ## ViewSets
 
@@ -913,17 +878,25 @@ ReadOnlyModelViewSet
 +
 acciones específicas
 ```
+-   [x] `ConversationViewSet` convertido a `ReadOnlyModelViewSet` (expone únicamente `list`, `retrieve` y acción `@action start`).
+-   [x] `MessageViewSet` restringido a `CreateModelMixin`, `ListModelMixin`, `RetrieveModelMixin` y `GenericViewSet` (bloqueando de forma estricta mutaciones y eliminaciones `PUT`, `PATCH` y `DELETE` con `405 Method Not Allowed`).
+
+## Modelo de Seguimiento y Acciones Directas
+-   [x] `can_message` adaptado para permitir mensajería entre usuarios con relación de seguimiento (`following`), respetando bloqueos.
+-   [x] Botón directo de "Enviar mensaje" implementado en `Friends.tsx` para todas las tarjetas de amigos/seguidos.
+-   [x] Buscador y selector rápido de seguidos integrado en la barra lateral de `Chat.tsx` para iniciar conversaciones inmediatas con 1 clic.
 
 ## Tests
 
--   [ ] Acceso autorizado.
--   [ ] Acceso no autorizado.
--   [ ] Usuario bloqueado.
--   [ ] Mensaje ajeno.
--   [ ] Conversación ajena.
--   [ ] WebSocket autenticado.
--   [ ] WebSocket sin autenticación.
--   [ ] Reconexión.
+-   [x] Acceso autorizado.
+-   [x] Acceso no autorizado.
+-   [x] Usuario bloqueado.
+-   [x] Mensaje ajeno.
+-   [x] Conversación ajena.
+-   [x] WebSocket autenticado.
+-   [x] WebSocket sin autenticación (`4001`).
+-   [x] WebSocket no participante (`4003`).
+-   [x] Suite completa de pruebas en `backend/tests/test_chat_websockets.py` (78/78 tests pasando en suite completa).
 
 ------------------------------------------------------------------------
 
@@ -1158,20 +1131,18 @@ MESSAGE
 MENTION
 ```
 
-## Tiempo real
-
-Utilizar Channels para enviar notificaciones nuevas.
+-   [x] Modelo `Notification` implementado en `users.models` con tipos `FOLLOW`, `MESSAGE`, `SYSTEM`.
+-   [x] Endpoints implementados: lista, contador de no leídas (`/api/v1/users/notifications/unread-count/`), marcar individual (`/read/`) y marcar todas (`/read-all/`).
+-   [x] Disparo automático de notificaciones al seguir a un usuario y al recibir mensajes de chat (REST y WebSockets).
 
 ## Frontend
 
 Añadir:
 
-``` text
-contador
-lista
-marcar como leído
-marcar todas como leídas
-```
+-   [x] Contador de no leídas en tiempo real/polling en `Header.tsx`.
+-   [x] Lista interactiva de notificaciones con avatares, timestamps e iconos por tipo.
+-   [x] Marcar individualmente como leída al hacer clic y navegar al recurso.
+-   [x] Marcar todas como leídas mediante acción directa en el panel.
 
 ------------------------------------------------------------------------
 

@@ -1,5 +1,5 @@
 from django.contrib.auth import get_user_model
-from rest_framework import permissions, serializers, viewsets
+from rest_framework import mixins, permissions, serializers, viewsets
 from rest_framework.decorators import action
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
@@ -18,7 +18,7 @@ class IsParticipant(permissions.BasePermission):
         conv = obj if isinstance(obj, Conversation) else getattr(obj, 'conversation', None)
         return can_access_conversation(request.user, conv)
 
-class ConversationViewSet(viewsets.ModelViewSet):
+class ConversationViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = ConversationSerializer
     permission_classes = [permissions.IsAuthenticated]
 
@@ -38,15 +38,17 @@ class ConversationViewSet(viewsets.ModelViewSet):
         if not other:
             return Response({'error': 'Usuario no encontrado'}, status=404)
         if not can_message(request.user, other):
-            return Response({'error': 'Solo puedes chatear con amigos mutuos que no estén bloqueados'}, status=403)
-        # Buscar conversación existente
-        conv = Conversation.objects.filter(participants=request.user).filter(participants=other).first()
-        if not conv:
-            conv = Conversation.objects.create()
-            conv.participants.add(request.user, other)
+            return Response({'error': 'No puedes chatear con este usuario debido a una restricción o bloqueo'}, status=403)
+
+        conv, _ = Conversation.get_or_create_direct(request.user, other)
         return Response({'conversation_id': conv.id})
 
-class MessageViewSet(viewsets.ModelViewSet):
+class MessageViewSet(
+    mixins.CreateModelMixin,
+    mixins.ListModelMixin,
+    mixins.RetrieveModelMixin,
+    viewsets.GenericViewSet,
+):
     serializer_class = MessageSerializer
     permission_classes = [permissions.IsAuthenticated, IsParticipant]
     parser_classes = [MultiPartParser, FormParser, JSONParser]
@@ -62,6 +64,7 @@ class MessageViewSet(viewsets.ModelViewSet):
         return Message.objects.filter(conversation=conv).select_related('sender')
 
     def perform_create(self, serializer):
+        from users.models import Notification, NotificationType
         from users.policies import can_access_conversation, can_message
 
         conv_id = self.request.data.get('conversation')
@@ -72,4 +75,16 @@ class MessageViewSet(viewsets.ModelViewSet):
         for participant in conv.participants.exclude(id=self.request.user.id):
             if not can_message(self.request.user, participant):
                 raise serializers.ValidationError('No puedes enviar mensajes a esta conversación debido a una restricción de privacidad o bloqueo.')
-        serializer.save(sender=self.request.user, conversation=conv)
+
+        msg = serializer.save(sender=self.request.user, conversation=conv)
+
+        # Generar notificación para los demás participantes
+        for participant in conv.participants.exclude(id=self.request.user.id):
+            Notification.objects.create(
+                recipient=participant,
+                actor=self.request.user,
+                type=NotificationType.MESSAGE,
+                title=f'Mensaje de {self.request.user.username}',
+                message=msg.text[:80] if msg.text else 'Te ha enviado una imagen',
+                link=f'/chat?conversationId={conv.id}',
+            )

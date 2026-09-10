@@ -101,6 +101,17 @@ class FollowUserView(APIView):
             return Response({"detail": "Ya sigues a este usuario."}, status=status.HTTP_400_BAD_REQUEST)
 
         request.user.following.add(user_to_follow)
+
+        from .models import Notification, NotificationType
+        Notification.objects.create(
+            recipient=user_to_follow,
+            actor=request.user,
+            type=NotificationType.FOLLOW,
+            title='Nuevo seguidor',
+            message=f'{request.user.username} ha comenzado a seguirte.',
+            link=f'/users/{request.user.id}',
+        )
+
         return Response({"detail": f"Ahora sigues a {user_to_follow.username}"}, status=status.HTTP_200_OK)
 
 
@@ -211,4 +222,53 @@ class LogoutView(APIView):
             return Response({'detail': 'Sesión cerrada exitosamente.'}, status=status.HTTP_200_OK)
         except Exception:
             return Response({'detail': 'Token inválido o ya revocado.'}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class NotificationListView(generics.ListAPIView):
+    """Lista las notificaciones del usuario autenticado."""
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get_serializer_class(self):
+        from .serializers import NotificationSerializer
+        return NotificationSerializer
+
+    def get_queryset(self):
+        from .models import Notification
+        queryset = Notification.objects.filter(recipient=self.request.user).select_related('actor')
+        unread_only = self.request.query_params.get('unread') in ('1', 'true', 'True')
+        if unread_only:
+            queryset = queryset.filter(read=False)
+        return queryset
+
+
+class NotificationMarkReadView(APIView):
+    """Marca una notificación individual como leída."""
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def post(self, request, notification_id):
+        from .models import Notification
+        notif = get_object_or_404(Notification, id=notification_id, recipient=request.user)
+        notif.read = True
+        notif.save(update_fields=['read'])
+        return Response({'status': 'marked_read', 'id': notif.id}, status=status.HTTP_200_OK)
+
+
+class NotificationMarkAllReadView(APIView):
+    """Marca todas las notificaciones del usuario como leídas."""
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def post(self, request):
+        from .models import Notification
+        updated_count = Notification.objects.filter(recipient=request.user, read=False).update(read=True)
+        return Response({'status': 'all_marked_read', 'updated_count': updated_count}, status=status.HTTP_200_OK)
+
+
+class NotificationUnreadCountView(APIView):
+    """Retorna el conteo de notificaciones no leídas para el badge."""
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get(self, request):
+        from .models import Notification
+        count = Notification.objects.filter(recipient=request.user, read=False).count()
+        return Response({'unread_count': count}, status=status.HTTP_200_OK)
 

@@ -92,3 +92,13 @@ class UserCreateSerializer(serializers.ModelSerializer):
         validated_data.pop('password2')
         user = User.objects.create_user(**validated_data)
         return user
+
+
+class NotificationSerializer(serializers.ModelSerializer):
+    actor = UserBasicSerializer(read_only=True)
+
+    class Meta:
+        from .models import Notification
+        model = Notification
+        fields = ('id', 'type', 'title', 'message', 'link', 'read', 'created_at', 'actor')
+        read_only_fields = ('id', 'type', 'title', 'message', 'link', 'created_at', 'actor')

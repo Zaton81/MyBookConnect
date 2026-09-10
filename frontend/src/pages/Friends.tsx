@@ -1,14 +1,46 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Card, Tabs, Spinner } from 'flowbite-react';
 import { useAuthStore } from '../store/auth';
 import { User } from '../types/auth';
 
 export function Friends() {
-  const { getFollowing, getFollowers } = useAuthStore();
+  const { getFollowing, getFollowers, token } = useAuthStore();
+  const navigate = useNavigate();
+  const apiUrl = (import.meta as any).env.VITE_API_URL || 'http://localhost:8000';
   const [following, setFollowing] = useState<User[]>([]);
   const [followers, setFollowers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
+  const [startingChatId, setStartingChatId] = useState<number | null>(null);
+
+  const handleStartChat = async (e: React.MouseEvent, targetUserId: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!token) return;
+    try {
+      setStartingChatId(targetUserId);
+      const res = await fetch(`${apiUrl}/api/v1/chat/conversations/start/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ user_id: targetUserId }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        navigate(`/chat?conversationId=${data.conversation_id}`);
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        alert(errData.error || 'No se pudo iniciar la conversación');
+      }
+    } catch (error) {
+      console.error('Error al iniciar conversación:', error);
+      alert('Error de conexión al iniciar la conversación');
+    } finally {
+      setStartingChatId(null);
+    }
+  };
 
   useEffect(() => {
     const loadData = async () => {
@@ -38,28 +70,41 @@ export function Friends() {
   }
 
   const UserCard = ({ user }: { user: User }) => (
-    <Link to={`/users/${user.id}`}>
-      <Card className="hover:shadow-lg transition-shadow duration-200">
-        <div className="flex items-center space-x-4">
-          {user.avatar && (
+    <Card className="hover:shadow-lg transition-all duration-200 border border-gray-100 dark:border-gray-700">
+      <div className="flex items-center justify-between gap-3">
+        <Link to={`/users/${user.id}`} className="flex items-center space-x-4 flex-1 min-w-0">
+          {user.avatar ? (
             <img
               src={user.avatar}
               alt={user.username}
-              className="w-16 h-16 rounded-full object-cover"
+              className="w-14 h-14 rounded-full object-cover border border-gray-200 dark:border-gray-600 flex-shrink-0"
             />
+          ) : (
+            <div className="w-14 h-14 rounded-full bg-teal-600 text-white flex items-center justify-center font-bold text-lg shadow-sm flex-shrink-0">
+              {user.username?.[0]?.toUpperCase() || 'U'}
+            </div>
           )}
-          <div>
-            <h5 className="text-lg font-bold">
+          <div className="min-w-0">
+            <h5 className="text-base font-bold text-gray-900 dark:text-white truncate">
               {user.first_name ? `${user.first_name} ${user.last_name || ''}` : user.username}
             </h5>
-            <p className="text-sm text-gray-500">@{user.username}</p>
+            <p className="text-xs text-gray-500 truncate">@{user.username}</p>
             {user.bio && (
-              <p className="text-sm text-gray-600 line-clamp-2 mt-1">{user.bio.replace(/<[^>]*>/g, '')}</p>
+              <p className="text-xs text-gray-600 dark:text-gray-300 line-clamp-1 mt-0.5">{user.bio.replace(/<[^>]*>/g, '')}</p>
             )}
           </div>
-        </div>
-      </Card>
-    </Link>
+        </Link>
+        <button
+          onClick={(e) => handleStartChat(e, user.id)}
+          disabled={startingChatId === user.id}
+          className="px-3 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-semibold flex items-center gap-1.5 shadow-sm transition-all transform hover:scale-105 flex-shrink-0 disabled:opacity-50"
+          title={`Enviar mensaje a @${user.username}`}
+        >
+          <span>💬</span>
+          <span>{startingChatId === user.id ? 'Abriendo...' : 'Mensaje'}</span>
+        </button>
+      </div>
+    </Card>
   );
 
   return (

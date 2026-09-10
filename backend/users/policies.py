@@ -100,9 +100,8 @@ def can_message(user: Optional[Any], target: Any) -> bool:
     Determina si `user` puede enviar un mensaje a `target`.
     Reglas:
     - Ambos deben existir y user != target.
-    - Ambos deben estar activos.
-    - Debe existir seguimiento mutuo (amigos mutuos).
     - Ninguno de los dos debe tener bloqueado al otro.
+    - Relación de seguimiento (user sigue a target o target sigue a user) o permisos de administración.
     """
     if not user or not user.is_authenticated or not target:
         return False
@@ -111,10 +110,9 @@ def can_message(user: Optional[Any], target: Any) -> bool:
     # Verificación de bloqueo bidireccional
     if user.blocked_users.filter(id=target.id).exists() or target.blocked_users.filter(id=user.id).exists():
         return False
-    # Verificación de amigos mutuos
-    is_following = user.following.filter(id=target.id).exists()
-    is_follower = target.following.filter(id=user.id).exists()
-    return is_following and is_follower
+    # Verificación de seguimiento: user sigue a target o target sigue a user
+    is_following = user.following.filter(id=target.id).exists() or target.following.filter(id=user.id).exists()
+    return is_following or getattr(user, "is_staff", False) or getattr(user, "is_superuser", False)
 
 
 def filter_visible_reviews(viewer: Optional[Any], queryset: QuerySet) -> QuerySet:

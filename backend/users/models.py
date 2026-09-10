@@ -37,3 +37,31 @@ class User(AbstractUser):
 
     def __str__(self):
         return self.username
+
+
+class NotificationType(models.TextChoices):
+    FOLLOW = 'FOLLOW', 'Nuevo seguidor'
+    MESSAGE = 'MESSAGE', 'Nuevo mensaje'
+    REVIEW = 'REVIEW', 'Nueva reseña'
+    SYSTEM = 'SYSTEM', 'Sistema'
+
+
+class Notification(models.Model):
+    recipient = models.ForeignKey(User, related_name='notifications', on_delete=models.CASCADE)
+    actor = models.ForeignKey(User, related_name='sent_notifications', on_delete=models.CASCADE, null=True, blank=True)
+    type = models.CharField(max_length=20, choices=NotificationType.choices, default=NotificationType.SYSTEM)
+    title = models.CharField(max_length=255)
+    message = models.TextField(blank=True, default='')
+    link = models.CharField(max_length=255, blank=True, default='')
+    read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['recipient', 'read'], name='idx_notif_recipient_read'),
+            models.Index(fields=['recipient', 'created_at'], name='idx_notif_recipient_created'),
+        ]
+
+    def __str__(self):
+        return f"Notificación para {self.recipient.username}: {self.title}"
