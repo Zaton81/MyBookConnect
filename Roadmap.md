@@ -470,50 +470,35 @@ Sustituir `is_read` binario por `ReadingStatus(models.TextChoices)`:
 
 # 9. Fase 6 --- Reestructuración de servicios externos
 
-**Prioridad:** P1
+**Prioridad:** P1  
+**Estado:** ✅ Completada
 
-Separar:
+Separar el monolito `services.py` en arquitectura modular desacoplada:
 
 ``` text
 books/services/
+├── __init__.py
+├── base.py
 ├── import_service.py
 ├── enrichment_service.py
 ├── cover_service.py
 ├── author_service.py
 └── providers/
+    ├── __init__.py
     ├── google_books.py
     ├── openlibrary.py
     └── wikipedia.py
 ```
 
-## Abstracción
-
-Crear un contrato común:
-
-``` python
-class BookProvider(Protocol):
-    ...
-```
-
-## Cada proveedor debe gestionar
-
--   [ ] Timeout.
--   [ ] HTTP errors.
--   [ ] 404.
--   [ ] 429.
--   [ ] 5xx.
--   [ ] JSON inválido.
--   [ ] Datos incompletos.
--   [ ] Retry/backoff.
-
-## Eliminar
-
-``` python
-except Exception:
-    ...
-```
-
-cuando no sea imprescindible.
+## Abstracción y Contratos Completados:
+- [x] Contrato común `BookProvider(Protocol)` y DTOs estandarizados `ProviderBookData`, `ProviderAuthorData`.
+- [x] Implementación de `GoogleBooksProvider` con gestión de API keys, límites de cuota y parseo normalizado.
+- [x] Implementación de `OpenLibraryProvider` con headers identificados obligatorios (`MyBookConnect/1.0`), claves Work/Edition e imágenes de portada.
+- [x] Implementación de `WikipediaProvider` con desambiguación, extracción de autor, sinopsis y portadas de Wikimedia.
+- [x] Servicio desacoplado de portadas `cover_service.py` con validación de Content-Type, tamaño mínimo y soporte seguro HTTPS.
+- [x] Servicio de autores `author_service.py` con cascada Wikipedia -> Wikidata -> OpenLibrary.
+- [x] Fachada retrocompatible en `books/services/__init__.py` garantizando cero regresiones con views DRF y tests existentes.
+- [x] Pruebas unitarias de proveedores, resiliencia ante 429/timeouts y deduplicación en `test_services_providers.py`.
 
 ------------------------------------------------------------------------
 
