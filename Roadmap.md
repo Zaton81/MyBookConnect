@@ -1094,9 +1094,9 @@ deleted_at
 
 ------------------------------------------------------------------------
 
-# 23. Fase 20 --- Notificaciones
+# 23. Fase 20 --- Notificaciones [COMPLETADA]
 
-**Prioridad:** P1
+**Prioridad:** P1 - COMPLETADA
 
 Crear:
 
@@ -1127,9 +1127,9 @@ MESSAGE
 MENTION
 ```
 
--   [x] Modelo `Notification` implementado en `users.models` con tipos `FOLLOW`, `MESSAGE`, `SYSTEM`.
+-   [x] Modelo `Notification` implementado en `users.models` con tipos `FOLLOW`, `MESSAGE`, `REVIEW`, `LIKE`, `COMMENT`, `SYSTEM`.
 -   [x] Endpoints implementados: lista, contador de no leídas (`/api/v1/users/notifications/unread-count/`), marcar individual (`/read/`) y marcar todas (`/read-all/`).
--   [x] Disparo automático de notificaciones al seguir a un usuario y al recibir mensajes de chat (REST y WebSockets).
+-   [x] Disparo automático de notificaciones al seguir a un usuario, al recibir mensajes de chat (REST y WebSockets), y al recibir me gusta y comentarios en reseñas.
 
 ## Frontend
 
@@ -1139,6 +1139,7 @@ Añadir:
 -   [x] Lista interactiva de notificaciones con avatares, timestamps e iconos por tipo.
 -   [x] Marcar individualmente como leída al hacer clic y navegar al recurso.
 -   [x] Marcar todas como leídas mediante acción directa en el panel.
+
 
 ------------------------------------------------------------------------
 
