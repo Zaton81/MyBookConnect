@@ -5,6 +5,9 @@ import { Spinner } from 'flowbite-react';
 import DOMPurify from 'dompurify';
 import { createErrata } from '../services/erratas';
 import { AIAssistantModal } from '../components/AIAssistantModal';
+import { AmazonAdSlot } from '../components/AmazonAdSlot';
+import { StarRating } from '../components/StarRating';
+import { BookReviewsSection } from '../components/BookReviewsSection';
 
 export function BookDetail() {
   const { id } = useParams();
@@ -17,6 +20,11 @@ export function BookDetail() {
 
   // Estado de estantería del usuario
   const [userBook, setUserBook] = useState<any | null>(null);
+  const [readingStatus, setReadingStatus] = useState<'want_to_read' | 'reading' | 'read' | 'abandoned'>('want_to_read');
+  const [progress, setProgress] = useState<number>(0);
+  const [currentPage, setCurrentPage] = useState<number>(0);
+  const [startedAt, setStartedAt] = useState<string>('');
+  const [finishedAt, setFinishedAt] = useState<string>('');
   const [isDigital, setIsDigital] = useState<boolean>(false);
   const [isRead, setIsRead] = useState<boolean>(false);
   const [rating, setRating] = useState<number | ''>('');
@@ -38,15 +46,19 @@ export function BookDetail() {
   const apiUrl = (import.meta as any).env.VITE_API_URL || 'http://localhost:8000';
 
   useEffect(() => {
-    if (!token || !id) return;
+    if (!id) return;
     setLoading(true);
+    setError(null);
+
+    const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
 
     // Cargar detalles del libro
-    fetch(`${apiUrl}/api/v1/books/${id}/`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
+    fetch(`${apiUrl}/api/v1/books/${id}/`, { headers })
       .then(async (r) => {
-        if (!r.ok) throw new Error('No se pudo cargar el libro');
+        if (!r.ok) {
+          if (r.status === 404) throw new Error('Libro no encontrado');
+          throw new Error('No se pudo cargar el libro');
+        }
         return r.json();
       })
       .then((data) => {
@@ -58,27 +70,53 @@ export function BookDetail() {
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
 
-    // Cargar entrada del usuario en su estantería
-    fetch(`${apiUrl}/api/v1/books/user/books/by-book/${id}/`, {
-      headers: { Authorization: `Bearer ${token}` },
+    // Cargar entrada del usuario en su estantería solo si está autenticado
+    if (token) {
+      fetch(`${apiUrl}/api/v1/books/user/books/by-book/${id}/`, { headers })
+        .then(async (r) => {
+          if (r.status === 404) return null;
+          if (!r.ok) return null;
+          return r.json();
+        })
+        .then((found) => {
+          if (found) {
+            setUserBook(found);
+            setReadingStatus(found.status || (found.is_read ? 'read' : 'want_to_read'));
+            setProgress(found.progress ?? (found.is_read ? 100 : 0));
+            setCurrentPage(found.current_page ?? 0);
+            setStartedAt(found.started_at || '');
+            setFinishedAt(found.finished_at || '');
+            setIsDigital(!!found.is_digital);
+            setIsRead(!!found.is_read);
+            setWishlist(!!found.wishlist);
+            setRating(found.rating ?? '');
+            setNotes(found.notes || '');
+          } else {
+            setUserBook(null);
+          }
+        })
+        .catch(() => {});
+    } else {
+      setUserBook(null);
+    }
+  }, [id, token, apiUrl]);
+
+  const refreshBookDetails = () => {
+    if (!id) return;
+    fetch(`${apiUrl}/api/v1/books/${id}/`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
     })
-      .then(async (r) => {
-        if (r.status === 404) return null;
-        if (!r.ok) return null;
-        return r.json();
-      })
-      .then((found) => {
-        if (found) {
-          setUserBook(found);
-          setIsDigital(!!found.is_digital);
-          setIsRead(!!found.is_read);
-          setWishlist(!!found.wishlist);
-          setRating(found.rating ?? '');
-          setNotes(found.notes || '');
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data) {
+          if (data.cover && typeof data.cover === 'string' && data.cover.startsWith('/')) {
+            data.cover = `${apiUrl}${data.cover}`;
+          }
+          setBook(data);
         }
       })
       .catch(() => {});
-  }, [id, token, apiUrl]);
+  };
 
   const handleSaveShelf = async () => {
     if (!token || !userBook) return;
@@ -91,9 +129,14 @@ export function BookDetail() {
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
+          status: readingStatus,
+          progress: Number(progress) || 0,
+          current_page: Number(currentPage) || 0,
+          started_at: startedAt || null,
+          finished_at: finishedAt || null,
           is_digital: isDigital,
-          is_read: isRead,
-          wishlist: wishlist,
+          is_read: readingStatus === 'read',
+          wishlist: readingStatus === 'want_to_read' ? true : wishlist,
           rating: rating === '' ? null : rating,
           notes,
         }),
@@ -101,7 +144,13 @@ export function BookDetail() {
       if (res.ok) {
         const updated = await res.json();
         setUserBook(updated);
+        setReadingStatus(updated.status || readingStatus);
+        setProgress(updated.progress ?? progress);
+        setCurrentPage(updated.current_page ?? currentPage);
+        setStartedAt(updated.started_at || '');
+        setFinishedAt(updated.finished_at || '');
         setIsEditing(false);
+        refreshBookDetails();
       }
     } catch (e) {
       console.error(e);
@@ -110,10 +159,13 @@ export function BookDetail() {
     }
   };
 
-  const handleAddToShelf = async (asRead = false, asWishlist = false) => {
+  const handleAddToShelf = async (
+    targetStatus: 'want_to_read' | 'reading' | 'read' = 'want_to_read'
+  ) => {
     if (!token || !id) return;
     setSavingShelf(true);
     try {
+      const todayStr = new Date().toISOString().split('T')[0];
       const res = await fetch(`${apiUrl}/api/v1/books/user/books/`, {
         method: 'POST',
         headers: {
@@ -122,17 +174,28 @@ export function BookDetail() {
         },
         body: JSON.stringify({
           book_id: id,
-          is_read: asRead,
-          wishlist: asWishlist,
+          status: targetStatus,
+          progress: targetStatus === 'read' ? 100 : 0,
+          current_page: 0,
+          started_at: targetStatus === 'reading' ? todayStr : null,
+          finished_at: targetStatus === 'read' ? todayStr : null,
+          is_read: targetStatus === 'read',
+          wishlist: targetStatus === 'want_to_read',
           is_digital: false,
           owned: true,
         }),
       });
       if (res.ok) {
-        const data = await res.json();
-        setUserBook(data);
-        setIsRead(data.is_read);
-        setWishlist(data.wishlist);
+        const created = await res.json();
+        setUserBook(created);
+        setReadingStatus(created.status || targetStatus);
+        setProgress(created.progress ?? (targetStatus === 'read' ? 100 : 0));
+        setCurrentPage(created.current_page ?? 0);
+        setStartedAt(created.started_at || '');
+        setFinishedAt(created.finished_at || '');
+        setIsRead(targetStatus === 'read');
+        setWishlist(targetStatus === 'want_to_read');
+        refreshBookDetails();
       }
     } catch (e) {
       console.error(e);
@@ -258,87 +321,221 @@ export function BookDetail() {
                       onClick={() => setIsEditing(!isEditing)}
                       className="text-xs font-semibold text-slate-600 hover:text-teal-600 underline"
                     >
-                      {isEditing ? 'Cerrar' : 'Editar'}
+                      {isEditing ? 'Cerrar' : 'Editar estado'}
                     </button>
                   </div>
 
                   {!isEditing ? (
-                    <div className="space-y-1.5 text-xs text-slate-600 dark:text-slate-300">
-                      <p>
-                        <strong>Estado:</strong> {isRead ? '✅ Leído' : '⏳ Pendiente'}
-                      </p>
-                      <p>
-                        <strong>Formato:</strong> {isDigital ? '📱 Digital' : '📖 Físico'}
-                      </p>
-                      <p>
-                        <strong>Mi nota:</strong> {rating ? `⭐ ${rating}/10` : 'Sin puntuar'}
-                      </p>
-                      {wishlist && (
-                        <span className="inline-block px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-bold">
-                          ⭐ En Wishlist
+                    <div className="space-y-2 text-xs text-slate-600 dark:text-slate-300">
+                      {/* Badge de Estado de Lectura */}
+                      <div className="flex items-center justify-between">
+                        {readingStatus === 'reading' && (
+                          <span className="px-2.5 py-1 rounded-xl text-xs font-bold bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-300 border border-indigo-200/60 flex items-center gap-1.5">
+                            <span className="animate-pulse">📖</span> Leyendo
+                          </span>
+                        )}
+                        {readingStatus === 'read' && (
+                          <span className="px-2.5 py-1 rounded-xl text-xs font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 border border-emerald-200/60 flex items-center gap-1.5">
+                            <span>✅</span> Leído
+                          </span>
+                        )}
+                        {readingStatus === 'want_to_read' && (
+                          <span className="px-2.5 py-1 rounded-xl text-xs font-bold bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 border border-amber-200/60 flex items-center gap-1.5">
+                            <span>⏳</span> Quiero leer
+                          </span>
+                        )}
+                        {readingStatus === 'abandoned' && (
+                          <span className="px-2.5 py-1 rounded-xl text-xs font-bold bg-slate-200 text-slate-700 dark:bg-slate-600 dark:text-slate-200 flex items-center gap-1.5">
+                            <span>🚫</span> Abandonado
+                          </span>
+                        )}
+
+                        <span className="text-[11px] font-semibold text-slate-500">
+                          {isDigital ? '📱 Digital' : '📖 Físico'}
                         </span>
+                      </div>
+
+                      {/* Progreso de lectura con barra */}
+                      {readingStatus === 'reading' && (
+                        <div className="space-y-1 pt-1">
+                          <div className="flex justify-between text-[11px] font-semibold text-indigo-700 dark:text-indigo-300">
+                            <span>Progreso: {progress}%</span>
+                            {currentPage > 0 && <span>Pág. {currentPage}</span>}
+                          </div>
+                          <div className="w-full bg-slate-200 dark:bg-slate-600 h-2 rounded-full overflow-hidden">
+                            <div
+                              className="bg-gradient-to-r from-indigo-500 to-teal-400 h-full rounded-full transition-all duration-300"
+                              style={{ width: `${Math.min(100, Math.max(0, progress))}%` }}
+                            />
+                          </div>
+                        </div>
                       )}
-                      {notes && (
-                        <p className="pt-1 italic text-slate-500 line-clamp-2">
-                          "{notes}"
+
+                      {/* Fechas */}
+                      <div className="text-[11px] text-slate-400 space-y-0.5 pt-0.5">
+                        {startedAt && <p>Iniciado: {startedAt}</p>}
+                        {finishedAt && <p>Terminado: {finishedAt}</p>}
+                      </div>
+
+                      <div className="pt-1 border-t border-slate-200/60 dark:border-slate-600">
+                        <p>
+                          <strong>Mi nota privada:</strong> {rating ? `⭐ ${rating}/10` : 'Sin puntuar'}
                         </p>
-                      )}
+                        {notes && (
+                          <p className="pt-1 italic text-slate-500 dark:text-slate-400 line-clamp-2">
+                            "{notes}"
+                          </p>
+                        )}
+                      </div>
                     </div>
                   ) : (
-                    <div className="space-y-2.5 pt-1">
-                      <div className="flex gap-2 text-xs">
-                        <label className="flex items-center gap-1 font-medium">
+                    <div className="space-y-3 pt-1 text-xs">
+                      {/* Selector de Estado */}
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
+                          Estado de lectura:
+                        </label>
+                        <select
+                          value={readingStatus}
+                          onChange={(e) => {
+                            const st = e.target.value as any;
+                            setReadingStatus(st);
+                            if (st === 'read' && progress < 100) setProgress(100);
+                            if (st === 'read' && !finishedAt) {
+                              setFinishedAt(new Date().toISOString().split('T')[0]);
+                            }
+                            if (st === 'reading' && !startedAt) {
+                              setStartedAt(new Date().toISOString().split('T')[0]);
+                            }
+                          }}
+                          className="w-full text-xs rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 py-1.5 px-2"
+                        >
+                          <option value="want_to_read">⏳ Quiero leer (Pendiente)</option>
+                          <option value="reading">📖 Leyendo actualmente</option>
+                          <option value="read">✅ Leído (Terminado)</option>
+                          <option value="abandoned">🚫 Abandonado</option>
+                        </select>
+                      </div>
+
+                      {/* Controles de Progreso si está leyendo o abandonado */}
+                      {(readingStatus === 'reading' || readingStatus === 'abandoned') && (
+                        <div className="p-2.5 bg-indigo-50/50 dark:bg-indigo-900/20 rounded-xl space-y-2 border border-indigo-100 dark:border-indigo-900/40">
+                          <div className="flex items-center justify-between text-[11px] font-semibold">
+                            <span>Progreso:</span>
+                            <span className="font-bold text-indigo-600 dark:text-indigo-400">{progress}%</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="0"
+                            max="100"
+                            value={progress}
+                            onChange={(e) => setProgress(Number(e.target.value))}
+                            className="w-full accent-teal-600 cursor-pointer"
+                          />
+                          <div className="flex items-center gap-2">
+                            <label className="text-[11px] text-slate-600 dark:text-slate-300 whitespace-nowrap">
+                              Pág. actual:
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              value={currentPage || ''}
+                              onChange={(e) => setCurrentPage(Number(e.target.value) || 0)}
+                              placeholder="Ej: 140"
+                              className="w-full text-xs py-1 px-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700"
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Fechas de Lectura */}
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="block text-[10px] text-slate-500 mb-0.5">Fecha inicio:</label>
+                          <input
+                            type="date"
+                            value={startedAt}
+                            onChange={(e) => setStartedAt(e.target.value)}
+                            className="w-full text-[11px] py-1 px-1.5 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] text-slate-500 mb-0.5">Fecha fin:</label>
+                          <input
+                            type="date"
+                            value={finishedAt}
+                            onChange={(e) => setFinishedAt(e.target.value)}
+                            className="w-full text-[11px] py-1 px-1.5 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Formato y Wishlist */}
+                      <div className="flex items-center justify-between gap-2 pt-1">
+                        <label className="flex items-center gap-1.5 text-xs font-medium cursor-pointer">
                           <input
                             type="checkbox"
-                            checked={isRead}
-                            onChange={(e) => setIsRead(e.target.checked)}
+                            checked={isDigital}
+                            onChange={(e) => setIsDigital(e.target.checked)}
                             className="rounded text-teal-600"
                           />
-                          <span>Leído</span>
+                          <span>📱 Digital</span>
                         </label>
-                        <label className="flex items-center gap-1 font-medium">
+                        <label className="flex items-center gap-1.5 text-xs font-medium cursor-pointer">
                           <input
                             type="checkbox"
                             checked={wishlist}
                             onChange={(e) => setWishlist(e.target.checked)}
                             className="rounded text-teal-600"
                           />
-                          <span>Wishlist</span>
+                          <span>⭐ Wishlist</span>
                         </label>
                       </div>
 
-                      <select
-                        value={rating}
-                        onChange={(e) => setRating(e.target.value ? Number(e.target.value) : '')}
-                        className="w-full text-xs rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 py-1.5 px-2"
-                      >
-                        <option value="">Sin nota</option>
-                        {[10, 9, 8, 7, 6, 5, 4, 3, 2, 1].map((n) => (
-                          <option key={n} value={n}>
-                            ⭐ {n}/10
-                          </option>
-                        ))}
-                      </select>
+                      {/* Nota privada */}
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
+                          Mi nota privada:
+                        </label>
+                        <select
+                          value={rating}
+                          onChange={(e) => setRating(e.target.value ? Number(e.target.value) : '')}
+                          className="w-full text-xs rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 py-1.5 px-2"
+                        >
+                          <option value="">Sin puntuar</option>
+                          {[10, 9, 8, 7, 6, 5, 4, 3, 2, 1].map((n) => (
+                            <option key={n} value={n}>
+                              ⭐ {n}/10
+                            </option>
+                          ))}
+                        </select>
+                      </div>
 
-                      <textarea
-                        rows={2}
-                        placeholder="Mis notas personales..."
-                        value={notes}
-                        onChange={(e) => setNotes(e.target.value)}
-                        className="w-full text-xs rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 p-2"
-                      />
+                      {/* Notas personales */}
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
+                          Notas privadas:
+                        </label>
+                        <textarea
+                          rows={2}
+                          placeholder="Citas, pensamientos o notas privadas..."
+                          value={notes}
+                          onChange={(e) => setNotes(e.target.value)}
+                          className="w-full text-xs rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 p-2"
+                        />
+                      </div>
 
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 pt-1">
                         <button
                           onClick={handleSaveShelf}
                           disabled={savingShelf}
-                          className="flex-1 bg-teal-600 hover:bg-teal-700 text-white font-bold py-1.5 rounded-xl text-xs"
+                          className="flex-1 bg-teal-600 hover:bg-teal-700 text-white font-bold py-2 rounded-xl text-xs shadow transition-all disabled:opacity-50"
                         >
-                          Guardar
+                          {savingShelf ? 'Guardando...' : 'Guardar cambios'}
                         </button>
                         <button
                           onClick={handleRemoveFromShelf}
-                          className="bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold px-2 py-1.5 rounded-xl text-xs"
+                          className="bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold px-3 py-2 rounded-xl text-xs transition-colors"
                           title="Eliminar de mi estantería"
                         >
                           🗑
@@ -350,21 +547,32 @@ export function BookDetail() {
               ) : (
                 <div className="space-y-2">
                   <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Añade este libro para llevar el control de tus lecturas.
+                    Añade este libro para registrar tu progreso y lecturas.
                   </p>
                   <button
-                    onClick={() => handleAddToShelf(false, false)}
+                    onClick={() => handleAddToShelf('reading')}
                     disabled={savingShelf}
-                    className="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-2 rounded-xl text-xs transition-all shadow"
+                    className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 rounded-xl text-xs transition-all shadow flex items-center justify-center gap-1.5"
                   >
-                    + Añadir a mi estantería
+                    <span>📖</span>
+                    <span>Empezar a leer</span>
                   </button>
-                  <button
-                    onClick={() => handleAddToShelf(true, false)}
-                    className="w-full bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-semibold py-1.5 rounded-xl text-xs"
-                  >
-                    ✓ Ya lo he leído
-                  </button>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={() => handleAddToShelf('want_to_read')}
+                      disabled={savingShelf}
+                      className="bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-semibold py-1.5 rounded-xl text-xs transition-colors"
+                    >
+                      ⏳ Quiero leer
+                    </button>
+                    <button
+                      onClick={() => handleAddToShelf('read')}
+                      disabled={savingShelf}
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-1.5 rounded-xl text-xs transition-colors"
+                    >
+                      ✓ Ya lo leí
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
@@ -413,6 +621,17 @@ export function BookDetail() {
                     <span className="text-xs text-slate-400 font-mono">ISBN: {book.isbn}</span>
                   </>
                 )}
+              </div>
+
+              {/* Puntuación Media y Desglose en Estrellas */}
+              <div className="pt-2">
+                <StarRating
+                  rating={book.average_rating}
+                  maxRating={10}
+                  totalReviews={book.reviews_count}
+                  distribution={book.rating_distribution}
+                  size="md"
+                />
               </div>
             </div>
 
@@ -487,6 +706,22 @@ export function BookDetail() {
           </div>
         </div>
       </div>
+
+      {/* ── Recomendación / Compra en Amazon (Afiliados) ── */}
+      <AmazonAdSlot
+        bookTitle={book.title}
+        searchQuery={`${book.title} ${book.author?.name || ''}`}
+        variant="banner"
+      />
+
+      {/* ── Sección de Reseñas Públicas de la Comunidad ── */}
+      <BookReviewsSection
+        bookId={book.id}
+        bookTitle={book.title}
+        token={token}
+        currentUser={user}
+        onReviewSaved={refreshBookDetails}
+      />
 
       {/* ── Formulario de Erratas ── */}
       <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-200/80 dark:border-slate-700 p-6 shadow-sm">

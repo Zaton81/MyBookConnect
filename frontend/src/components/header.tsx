@@ -7,10 +7,12 @@ import { useAuthStore } from "../store/auth";
 import { AIAssistantModal } from "./AIAssistantModal";
 
 export function Header() {
-  const { isAuthenticated, logout } = useAuthStore();
+  const { isAuthenticated, logout, user } = useAuthStore();
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
   
   if (!isAuthenticated) return null;
+
+  const isStaff = user && (user.is_staff || user.is_superuser);
 
   const navLinkClasses = ({ isActive }: { isActive: boolean }) =>
     `px-3.5 py-1.5 rounded-xl text-sm font-medium transition-all ${
@@ -40,6 +42,16 @@ export function Header() {
           </div>
 
           <div className="flex items-center gap-2.5 md:order-2">
+            {isStaff && (
+              <Link
+                to="/admin"
+                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs shadow-md shadow-purple-900/20 transition-all transform hover:scale-105"
+                title="Panel de Administración"
+              >
+                <span>🛡️</span>
+                <span className="hidden sm:inline">Admin</span>
+              </Link>
+            )}
             <button
               onClick={() => setIsAiModalOpen(true)}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-400 to-orange-400 hover:from-amber-300 hover:to-orange-300 text-slate-900 font-bold text-xs shadow-md shadow-amber-500/20 transition-all transform hover:scale-105"

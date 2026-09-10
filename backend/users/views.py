@@ -1,11 +1,12 @@
+from django.contrib.auth import get_user_model
+from django.db.models import Count, Exists, OuterRef, Q
+from django.shortcuts import get_object_or_404
 from rest_framework import generics, permissions, status
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework.decorators import api_view, permission_classes
-from django.contrib.auth import get_user_model
-from django.shortcuts import get_object_or_404
-from django.db.models import Count, Exists, OuterRef, Q
-from .serializers import UserSerializer, UserCreateSerializer, UserBasicSerializer
+
+from .serializers import UserBasicSerializer, UserCreateSerializer, UserSerializer
 
 User = get_user_model()
 

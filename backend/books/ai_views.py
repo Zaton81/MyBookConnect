@@ -1,11 +1,14 @@
 import logging
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import permissions, status
-from django.shortcuts import get_object_or_404
+
 from django.db.models import Q
+from django.shortcuts import get_object_or_404
+from rest_framework import permissions, status
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
 from mybookconnect.ai_service import ai_client
-from .models import Book, UserBook, Category
+
+from .models import Book, UserBook
 from .serializers import BookSerializer
 
 logger = logging.getLogger(__name__)
@@ -86,7 +89,6 @@ class AIAssistantView(APIView):
 
         # Si el modelo de IA no está disponible (ej. Ollama apagado), proveer fallback asistido
         if not ai_response.get("success"):
-            last_user_query = messages[-1].get("content", "") if messages else ""
             suggested_books = Book.objects.all().order_by('-average_rating')[:3]
             fallback_titles = [f"**{b.title}** ({b.author.name if b.author else 'Varios'})" for b in suggested_books]
 

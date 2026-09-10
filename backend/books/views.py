@@ -1,27 +1,50 @@
 import logging
-from rest_framework import generics, permissions
-from rest_framework.response import Response
-from django.shortcuts import get_object_or_404
+
+from django.core.cache import cache
 from django.db.models import Q
+from django.shortcuts import get_object_or_404
+from rest_framework import generics, permissions
 from rest_framework.pagination import PageNumberPagination
+from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import Author, Book, Review, UserBook, Errata, ErrataStatus
-from .serializers import AuthorSerializer, BookSerializer, ReviewSerializer, UserBookSerializer, ErrataSerializer
 from . import services
+from .cache_utils import TTL_BOOK_DETAIL, TTL_TRENDING, book_detail_key, trending_key
+from .models import Author, Book, Errata, ErrataStatus, Review, UserBook
+from .serializers import AuthorSerializer, BookSerializer, ErrataSerializer, ReviewSerializer, UserBookSerializer
 
 
 class BookListCreateView(generics.ListCreateAPIView):
     serializer_class = BookSerializer
-    permission_classes = (permissions.IsAuthenticated,)
+    permission_classes = (permissions.IsAuthenticatedOrReadOnly,)
 
     def get_queryset(self):
         queryset = Book.objects.select_related('author')
         q = self.request.query_params.get('q') or self.request.query_params.get('search')
         if q:
-            return queryset.filter(
-                Q(title__icontains=q) | Q(isbn__icontains=q) | Q(author__name__icontains=q)
+            clean_q = q.strip()
+            results = queryset.filter(
+                Q(title__icontains=clean_q) | Q(isbn__icontains=clean_q) | Q(author__name__icontains=clean_q)
             )
+            # Si no hay resultados locales y la consulta tiene al menos 3 caracteres,
+            # buscar e importar automáticamente desde OpenLibrary / Google Books
+            if not results.exists() and len(clean_q) >= 3:
+                try:
+                    isbn_clean = clean_q.replace('-', '').replace(' ', '')
+                    if len(isbn_clean) in (10, 13) and (
+                        isbn_clean[:-1].isdigit() and (isbn_clean[-1].isdigit() or isbn_clean[-1].upper() == 'X')
+                    ):
+                        services.import_single_by_query(query_isbn=isbn_clean)
+                    else:
+                        services.import_multiple_by_title(clean_q, offset=0)
+
+                    results = queryset.filter(
+                        Q(title__icontains=clean_q) | Q(isbn__icontains=clean_q) | Q(author__name__icontains=clean_q)
+                    )
+                except Exception as exc:
+                    logging.exception(f"Error auto-importing external books for '{clean_q}': {exc}")
+
+            return results
         return queryset
 
     def perform_create(self, serializer):
@@ -31,13 +54,13 @@ class BookListCreateView(generics.ListCreateAPIView):
 class AuthorListCreateView(generics.ListCreateAPIView):
     queryset = Author.objects.all()
     serializer_class = AuthorSerializer
-    permission_classes = (permissions.IsAuthenticated,)
+    permission_classes = (permissions.IsAuthenticatedOrReadOnly,)
 
 
 class AuthorDetailView(generics.RetrieveAPIView):
     queryset = Author.objects.all().prefetch_related('books')
     serializer_class = AuthorSerializer
-    permission_classes = (permissions.IsAuthenticated,)
+    permission_classes = (permissions.AllowAny,)
 
     def retrieve(self, request, *args, **kwargs):
         instance: Author = self.get_object()
@@ -58,7 +81,7 @@ class AuthorDetailView(generics.RetrieveAPIView):
 
 class AuthorBooksView(APIView):
     """Listar todos los libros de un autor guardados localmente."""
-    permission_classes = (permissions.IsAuthenticated,)
+    permission_classes = (permissions.AllowAny,)
 
     def get(self, request, pk):
         books = Book.objects.filter(author_id=pk).select_related('author')
@@ -90,11 +113,19 @@ class AuthorBooksView(APIView):
 
 
 class BookDetailView(generics.RetrieveAPIView):
-    queryset = Book.objects.select_related('author')
+    queryset = Book.objects.select_related('author').prefetch_related('categories')
     serializer_class = BookSerializer
-    permission_classes = (permissions.IsAuthenticated,)
+    permission_classes = (permissions.AllowAny,)
 
     def retrieve(self, request, *args, **kwargs):
+        book_id = kwargs.get('pk')
+        cache_key = book_detail_key(book_id)
+
+        # Si ya está en caché, servirlo de inmediato sin consultar la base de datos
+        cached_data = cache.get(cache_key)
+        if cached_data is not None:
+            return Response(cached_data)
+
         instance = self.get_object()
         if not instance.enrichment_attempted:
             instance.enrichment_attempted = True
@@ -108,8 +139,11 @@ class BookDetailView(generics.RetrieveAPIView):
             except Exception as e:
                 logging.exception(f"Error enriching book in detail view: {e}")
                 instance.save(update_fields=['enrichment_attempted'])
+
         serializer = self.get_serializer(instance)
-        return Response(serializer.data)
+        data = serializer.data
+        cache.set(cache_key, data, timeout=TTL_BOOK_DETAIL)
+        return Response(data)
 
 
 class UserBookPagination(PageNumberPagination):
@@ -124,7 +158,7 @@ class UserBookListCreateView(generics.ListCreateAPIView):
     pagination_class = UserBookPagination
 
     def get_queryset(self):
-        queryset = UserBook.objects.filter(user=self.request.user).select_related('book', 'book__author')
+        queryset = UserBook.objects.filter(user=self.request.user).select_related('book', 'book__author').prefetch_related('book__categories')
         params = self.request.query_params
 
         def parse_bool(value):
@@ -152,6 +186,10 @@ class UserBookListCreateView(generics.ListCreateAPIView):
             except ValueError:
                 pass
 
+        status = params.get('status')
+        if status and status in ('want_to_read', 'reading', 'read', 'abandoned'):
+            queryset = queryset.filter(status=status)
+
         search = params.get('search') or params.get('q')
         if search:
             queryset = queryset.filter(book__title__icontains=search)
@@ -164,6 +202,10 @@ class UserBookListCreateView(generics.ListCreateAPIView):
             'wishlist', '-wishlist',
             'is_digital', '-is_digital',
             'owned', '-owned',
+            'progress', '-progress',
+            'current_page', '-current_page',
+            'started_at', '-started_at',
+            'status', '-status',
         }
         if ordering in allowed:
             queryset = queryset.order_by(ordering)
@@ -202,25 +244,65 @@ class UserBookByBookView(APIView):
 
 class ReviewListCreateView(generics.ListCreateAPIView):
     serializer_class = ReviewSerializer
-    permission_classes = (permissions.IsAuthenticated,)
+    permission_classes = (permissions.IsAuthenticatedOrReadOnly,)
 
     def get_queryset(self):
         from django.db.models import Exists, OuterRef
-        queryset = Review.objects.all()
-        
+        queryset = Review.objects.select_related('user', 'book', 'book__author').prefetch_related('book__categories').order_by('-created_at')
+
         book_id = self.request.query_params.get('book')
         if book_id:
             queryset = queryset.filter(book_id=book_id)
-            
+
         user = self.request.user
         if user.is_authenticated:
             following_subquery = user.following.filter(pk=OuterRef('user_id'))
             queryset = queryset.annotate(is_friend=Exists(following_subquery))
-            
+
         return queryset
 
-    def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
+    def create(self, request, *args, **kwargs):
+        from rest_framework import status
+        book_id = request.data.get('book_id')
+        if not book_id:
+            return Response({'detail': 'book_id es requerido'}, status=status.HTTP_400_BAD_REQUEST)
+
+        rating = request.data.get('rating')
+        try:
+            rating_val = int(rating)
+            if not (1 <= rating_val <= 10):
+                raise ValueError()
+        except (ValueError, TypeError):
+            return Response({'detail': 'La puntuación debe ser un valor entre 1 y 10'}, status=status.HTTP_400_BAD_REQUEST)
+
+        title = request.data.get('title', '')
+        text = request.data.get('text', '')
+
+        review, created = Review.objects.update_or_create(
+            user=request.user,
+            book_id=book_id,
+            defaults={
+                'rating': rating_val,
+                'title': title,
+                'text': text,
+            }
+        )
+        serializer = self.get_serializer(review)
+        status_code = status.HTTP_201_CREATED if created else status.HTTP_200_OK
+        return Response(serializer.data, status=status_code)
+
+
+class ReviewDetailView(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = ReviewSerializer
+    permission_classes = (permissions.IsAuthenticated,)
+    queryset = Review.objects.select_related('user', 'book')
+
+    def check_object_permissions(self, request, obj):
+        super().check_object_permissions(request, obj)
+        if request.method not in permissions.SAFE_METHODS:
+            if obj.user != request.user and not (request.user.is_staff or request.user.is_superuser):
+                from rest_framework.exceptions import PermissionDenied
+                raise PermissionDenied('No tienes permiso para modificar esta reseña.')
 
 
 class ImportBookView(APIView):
@@ -240,7 +322,7 @@ class ImportBookView(APIView):
                 if not book:
                     return Response({'detail': 'No se encontraron resultados'}, status=404)
                 return Response(BookSerializer(book).data, status=201)
-            
+
             books = services.import_multiple_by_title(query_title, offset=offset)
             if not books:
                 return Response({'detail': 'No se encontraron resultados'}, status=404)
@@ -389,11 +471,16 @@ class SocialFeedView(APIView):
 
 class TrendingBooksView(APIView):
     """
-    Libros más populares y leídos en la plataforma.
+    Libros más populares y leídos en la plataforma con soporte de caché.
     """
     permission_classes = (permissions.IsAuthenticated,)
 
     def get(self, request):
+        cache_key = trending_key('all')
+        cached_results = cache.get(cache_key)
+        if cached_results is not None:
+            return Response({'results': cached_results})
+
         from django.db.models import Count
         trending = Book.objects.annotate(
             readers_count=Count('user_entries', distinct=True),
@@ -411,6 +498,7 @@ class TrendingBooksView(APIView):
                 'readers_count': b.readers_count,
                 'reviews_count': b.reviews_count,
             })
+        cache.set(cache_key, results, timeout=TTL_TRENDING)
         return Response({'results': results})
 
 

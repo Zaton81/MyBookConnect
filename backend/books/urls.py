@@ -1,17 +1,35 @@
 from django.urls import path
-from .views import (
-    BookListCreateView, BookDetailView,
-    UserBookListCreateView, UserBookDetailView, UserBookByBookView,
-    ReviewListCreateView, AuthorListCreateView, AuthorDetailView,
-    AuthorBooksView, ImportBookView, RecommendationView, AuthorBookRefreshView,
-    ErrataListCreateView, ErrataDetailUpdateView,
-    SocialFeedView, TrendingBooksView, ReadingMatchView,
-)
+
+from .admin_views import PublicLegalDocumentView
 from .ai_views import (
-    AIAssistantView, AISemanticSearchView, AIBookSummaryView, AIStatusView,
+    AIAssistantView,
+    AIBookSummaryView,
+    AISemanticSearchView,
+    AIStatusView,
+)
+from .views import (
+    AuthorBookRefreshView,
+    AuthorBooksView,
+    AuthorDetailView,
+    AuthorListCreateView,
+    BookDetailView,
+    BookListCreateView,
+    ErrataDetailUpdateView,
+    ErrataListCreateView,
+    ImportBookView,
+    ReadingMatchView,
+    RecommendationView,
+    ReviewDetailView,
+    ReviewListCreateView,
+    SocialFeedView,
+    TrendingBooksView,
+    UserBookByBookView,
+    UserBookDetailView,
+    UserBookListCreateView,
 )
 
 urlpatterns = [
+    path('legal/<slug:slug>/', PublicLegalDocumentView.as_view(), name='books-legal-document'),
     # Rutas estándar limpias (/api/v1/books/...)
     path('', BookListCreateView.as_view(), name='books-list-root'),
     path('feed/', SocialFeedView.as_view(), name='books-social-feed'),
@@ -42,6 +60,7 @@ urlpatterns = [
     path('user/books/<int:pk>/', UserBookDetailView.as_view(), name='user-book-detail'),
     path('user/books/by-book/<int:book_id>/', UserBookByBookView.as_view(), name='user-book-by-book'),
     path('reviews/', ReviewListCreateView.as_view(), name='reviews'),
+    path('reviews/<int:pk>/', ReviewDetailView.as_view(), name='review-detail'),
     path('erratas/', ErrataListCreateView.as_view(), name='erratas-list-create'),
     path('erratas/<int:pk>/', ErrataDetailUpdateView.as_view(), name='erratas-detail-update'),
 ]

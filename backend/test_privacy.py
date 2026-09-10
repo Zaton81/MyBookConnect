@@ -1,33 +1,35 @@
 import os
+
 import django
 from django.conf import settings
+
 # Configure Django settings
 if not settings.configured:
     os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'mybookconnect.settings')
     django.setup()
 
-from rest_framework.test import APIRequestFactory, force_authenticate
-from rest_framework import status
 from django.contrib.auth import get_user_model
-from users.views import UserDetailView, FollowUserView, BlockUserView, UnblockUserView
+from rest_framework.test import APIRequestFactory, force_authenticate
+
+from users.views import BlockUserView, FollowUserView, UserDetailView
 
 User = get_user_model()
 
 def test_privacy_and_actions():
     print("Testing Privacy and Social Actions...")
-    
+
     # Create users
     alice, _ = User.objects.get_or_create(username='alice', email='alice@example.com')
     bob, _ = User.objects.get_or_create(username='bob', email='bob@example.com')
     charlie, _ = User.objects.get_or_create(username='charlie', email='charlie@example.com')
-    
+
     # Reset relationships
     alice.following.clear()
     alice.blocked_users.clear()
     bob.following.clear()
     bob.blocked_users.clear()
     charlie.following.clear()
-    
+
     # Set privacy
     alice.privacy_level = 'public'
     alice.save()
@@ -91,12 +93,12 @@ def test_privacy_and_actions():
     force_authenticate(request, user=alice)
     block_view = BlockUserView.as_view()
     response = block_view(request, id=charlie.id)
-    
+
     if response.status_code == 200 and alice.blocked_users.filter(id=charlie.id).exists():
         print("PASS: Block action successful.")
     else:
         print(f"FAIL: Block action failed. {response.status_code}")
-        
+
     # Check if Alice unfollowed Charlie automatically
     if not alice.following.filter(id=charlie.id).exists():
         print("PASS: Auto-unfollow on block successful.")

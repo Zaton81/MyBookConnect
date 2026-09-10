@@ -16,6 +16,8 @@ export interface User {
   following?: number[];
   followers?: number[];
   is_editor?: boolean;
+  is_staff?: boolean;
+  is_superuser?: boolean;
   is_following?: boolean;
   is_blocked?: boolean;
   am_i_blocked?: boolean;
