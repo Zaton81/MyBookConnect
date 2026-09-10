@@ -14,15 +14,35 @@ from .serializers import AuthorSerializer, BookSerializer, ErrataSerializer, Rev
 
 class BookListCreateView(generics.ListCreateAPIView):
     serializer_class = BookSerializer
-    permission_classes = (permissions.IsAuthenticated,)
+    permission_classes = (permissions.IsAuthenticatedOrReadOnly,)
 
     def get_queryset(self):
         queryset = Book.objects.select_related('author')
         q = self.request.query_params.get('q') or self.request.query_params.get('search')
         if q:
-            return queryset.filter(
-                Q(title__icontains=q) | Q(isbn__icontains=q) | Q(author__name__icontains=q)
+            clean_q = q.strip()
+            results = queryset.filter(
+                Q(title__icontains=clean_q) | Q(isbn__icontains=clean_q) | Q(author__name__icontains=clean_q)
             )
+            # Si no hay resultados locales y la consulta tiene al menos 3 caracteres,
+            # buscar e importar automáticamente desde OpenLibrary / Google Books
+            if not results.exists() and len(clean_q) >= 3:
+                try:
+                    isbn_clean = clean_q.replace('-', '').replace(' ', '')
+                    if len(isbn_clean) in (10, 13) and (
+                        isbn_clean[:-1].isdigit() and (isbn_clean[-1].isdigit() or isbn_clean[-1].upper() == 'X')
+                    ):
+                        services.import_single_by_query(query_isbn=isbn_clean)
+                    else:
+                        services.import_multiple_by_title(clean_q, offset=0)
+
+                    results = queryset.filter(
+                        Q(title__icontains=clean_q) | Q(isbn__icontains=clean_q) | Q(author__name__icontains=clean_q)
+                    )
+                except Exception as exc:
+                    logging.exception(f"Error auto-importing external books for '{clean_q}': {exc}")
+
+            return results
         return queryset
 
     def perform_create(self, serializer):
@@ -32,13 +52,13 @@ class BookListCreateView(generics.ListCreateAPIView):
 class AuthorListCreateView(generics.ListCreateAPIView):
     queryset = Author.objects.all()
     serializer_class = AuthorSerializer
-    permission_classes = (permissions.IsAuthenticated,)
+    permission_classes = (permissions.IsAuthenticatedOrReadOnly,)
 
 
 class AuthorDetailView(generics.RetrieveAPIView):
     queryset = Author.objects.all().prefetch_related('books')
     serializer_class = AuthorSerializer
-    permission_classes = (permissions.IsAuthenticated,)
+    permission_classes = (permissions.AllowAny,)
 
     def retrieve(self, request, *args, **kwargs):
         instance: Author = self.get_object()
@@ -59,7 +79,7 @@ class AuthorDetailView(generics.RetrieveAPIView):
 
 class AuthorBooksView(APIView):
     """Listar todos los libros de un autor guardados localmente."""
-    permission_classes = (permissions.IsAuthenticated,)
+    permission_classes = (permissions.AllowAny,)
 
     def get(self, request, pk):
         books = Book.objects.filter(author_id=pk).select_related('author')
@@ -93,7 +113,7 @@ class AuthorBooksView(APIView):
 class BookDetailView(generics.RetrieveAPIView):
     queryset = Book.objects.select_related('author')
     serializer_class = BookSerializer
-    permission_classes = (permissions.IsAuthenticated,)
+    permission_classes = (permissions.AllowAny,)
 
     def retrieve(self, request, *args, **kwargs):
         instance = self.get_object()
@@ -203,7 +223,7 @@ class UserBookByBookView(APIView):
 
 class ReviewListCreateView(generics.ListCreateAPIView):
     serializer_class = ReviewSerializer
-    permission_classes = (permissions.IsAuthenticated,)
+    permission_classes = (permissions.IsAuthenticatedOrReadOnly,)
 
     def get_queryset(self):
         from django.db.models import Exists, OuterRef

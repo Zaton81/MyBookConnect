@@ -41,15 +41,19 @@ export function BookDetail() {
   const apiUrl = (import.meta as any).env.VITE_API_URL || 'http://localhost:8000';
 
   useEffect(() => {
-    if (!token || !id) return;
+    if (!id) return;
     setLoading(true);
+    setError(null);
+
+    const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
 
     // Cargar detalles del libro
-    fetch(`${apiUrl}/api/v1/books/${id}/`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
+    fetch(`${apiUrl}/api/v1/books/${id}/`, { headers })
       .then(async (r) => {
-        if (!r.ok) throw new Error('No se pudo cargar el libro');
+        if (!r.ok) {
+          if (r.status === 404) throw new Error('Libro no encontrado');
+          throw new Error('No se pudo cargar el libro');
+        }
         return r.json();
       })
       .then((data) => {
@@ -61,26 +65,30 @@ export function BookDetail() {
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
 
-    // Cargar entrada del usuario en su estantería
-    fetch(`${apiUrl}/api/v1/books/user/books/by-book/${id}/`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then(async (r) => {
-        if (r.status === 404) return null;
-        if (!r.ok) return null;
-        return r.json();
-      })
-      .then((found) => {
-        if (found) {
-          setUserBook(found);
-          setIsDigital(!!found.is_digital);
-          setIsRead(!!found.is_read);
-          setWishlist(!!found.wishlist);
-          setRating(found.rating ?? '');
-          setNotes(found.notes || '');
-        }
-      })
-      .catch(() => {});
+    // Cargar entrada del usuario en su estantería solo si está autenticado
+    if (token) {
+      fetch(`${apiUrl}/api/v1/books/user/books/by-book/${id}/`, { headers })
+        .then(async (r) => {
+          if (r.status === 404) return null;
+          if (!r.ok) return null;
+          return r.json();
+        })
+        .then((found) => {
+          if (found) {
+            setUserBook(found);
+            setIsDigital(!!found.is_digital);
+            setIsRead(!!found.is_read);
+            setWishlist(!!found.wishlist);
+            setRating(found.rating ?? '');
+            setNotes(found.notes || '');
+          } else {
+            setUserBook(null);
+          }
+        })
+        .catch(() => {});
+    } else {
+      setUserBook(null);
+    }
   }, [id, token, apiUrl]);
 
   const refreshBookDetails = () => {

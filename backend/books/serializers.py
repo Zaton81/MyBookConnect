@@ -68,8 +68,10 @@ class UserBookSerializer(serializers.ModelSerializer):
 
 class ReviewSerializer(serializers.ModelSerializer):
     user = serializers.SlugRelatedField(slug_field='username', read_only=True)
+    username = serializers.CharField(source='user.username', read_only=True)
     user_id = serializers.IntegerField(source='user.id', read_only=True)
     user_avatar = serializers.ImageField(source='user.avatar', read_only=True)
+    avatar = serializers.ImageField(source='user.avatar', read_only=True)
     privacy_level = serializers.CharField(source='user.privacy_level', read_only=True)
     is_friend = serializers.SerializerMethodField()
     book = BookSerializer(read_only=True)
@@ -78,7 +80,7 @@ class ReviewSerializer(serializers.ModelSerializer):
     class Meta:
         model = Review
         fields = (
-            'id', 'user', 'user_id', 'user_avatar', 'privacy_level', 'is_friend',
+            'id', 'user', 'username', 'user_id', 'user_avatar', 'avatar', 'privacy_level', 'is_friend',
             'book', 'book_id', 'rating', 'title', 'text', 'created_at', 'updated_at'
         )
 

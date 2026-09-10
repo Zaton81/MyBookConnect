@@ -56,7 +56,13 @@ export function BookReviewsSection({
         setReviews(results);
 
         if (currentUser) {
-          const found = results.find((r) => r.user === currentUser.id || r.username === currentUser.username);
+          const found = results.find(
+            (r: any) =>
+              (r.user_id && r.user_id === currentUser.id) ||
+              r.user === currentUser.id ||
+              r.user === currentUser.username ||
+              r.username === currentUser.username
+          );
           if (found) {
             setMyExistingReview(found);
             setRating(found.rating);
@@ -254,10 +260,13 @@ export function BookReviewsSection({
         </div>
       ) : (
         <div className="space-y-4 divide-y divide-slate-100 dark:divide-slate-700/60">
-          {reviews.map((rev) => {
-            const avatarUrl = rev.avatar
-              ? (rev.avatar.startsWith('http') ? rev.avatar : `${apiUrl}${rev.avatar}`)
+          {reviews.map((rev: any) => {
+            const authorName = rev.username || (typeof rev.user === 'string' ? rev.user : '') || (rev.user?.username) || 'Lector';
+            const rawAvatar = rev.avatar || rev.user_avatar || rev.user?.avatar;
+            const avatarUrl = rawAvatar
+              ? (rawAvatar.startsWith('http') ? rawAvatar : `${apiUrl}${rawAvatar}`)
               : null;
+            const targetUserId = rev.user_id || (typeof rev.user === 'number' ? rev.user : rev.user?.id);
             const dateStr = rev.created_at
               ? new Date(rev.created_at).toLocaleDateString('es-ES', {
                   year: 'numeric',
@@ -273,21 +282,27 @@ export function BookReviewsSection({
                     {avatarUrl ? (
                       <img
                         src={avatarUrl}
-                        alt={rev.username}
+                        alt={authorName}
                         className="w-9 h-9 rounded-full object-cover border border-slate-200 dark:border-slate-600"
                       />
                     ) : (
                       <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-teal-500 to-emerald-400 flex items-center justify-center text-white font-bold text-xs uppercase shadow-sm">
-                        {rev.username.slice(0, 2)}
+                        {(authorName || 'MB').slice(0, 2).toUpperCase()}
                       </div>
                     )}
                     <div>
-                      <Link
-                        to={`/profile/${rev.username}`}
-                        className="text-xs font-bold text-slate-900 dark:text-white hover:text-teal-600 hover:underline"
-                      >
-                        {rev.username}
-                      </Link>
+                      {targetUserId ? (
+                        <Link
+                          to={`/users/${targetUserId}`}
+                          className="text-xs font-bold text-slate-900 dark:text-white hover:text-teal-600 hover:underline"
+                        >
+                          {authorName}
+                        </Link>
+                      ) : (
+                        <span className="text-xs font-bold text-slate-900 dark:text-white">
+                          {authorName}
+                        </span>
+                      )}
                       <div className="text-[10px] text-slate-400">{dateStr}</div>
                     </div>
                   </div>

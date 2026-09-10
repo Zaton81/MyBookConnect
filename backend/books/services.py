@@ -26,6 +26,11 @@ DEFAULT_HEADERS = {
     'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8',
 }
 
+OPENLIBRARY_HEADERS = {
+    'User-Agent': 'MyBookConnect/1.0 (https://github.com/Zaton81/MyBookConnect; contact@mybookconnect.com)',
+    'Accept': 'application/json',
+}
+
 logger = logging.getLogger(__name__)
 
 
@@ -60,7 +65,7 @@ def import_single_by_query(query_isbn: str):
     # Fallback por ISBN en OpenLibrary
     try:
         ol_url = f'https://openlibrary.org/api/books?bibkeys=ISBN:{clean_isbn}&format=json&jscmd=data'
-        res = requests.get(ol_url, timeout=8, headers=DEFAULT_HEADERS)
+        res = requests.get(ol_url, timeout=8, headers=OPENLIBRARY_HEADERS)
         if res.ok:
             data = res.json()
             book_info = data.get(f'ISBN:{clean_isbn}')
@@ -72,7 +77,6 @@ def import_single_by_query(query_isbn: str):
                     author_name = authors[0].get('name')
                     if author_name:
                         author_obj, _ = Author.objects.get_or_create(name=author_name)
-                        maybe_enrich_author(author_obj)
 
                 book = Book.objects.create(
                     title=title,
@@ -196,7 +200,6 @@ def _import_from_wikipedia_by_title(title: str):
             author_obj = None
             if author_name:
                 author_obj, _ = Author.objects.get_or_create(name=author_name)
-                maybe_enrich_author(author_obj)
 
             # Evitar duplicados por título y autor
             existing = Book.objects.filter(title__iexact=book_title)
@@ -234,11 +237,13 @@ def _import_from_wikipedia_by_title(title: str):
 
 def _import_from_openlibrary_by_title(title: str, offset: int = 0):
     try:
+        clean_title = title.strip()
+        page = 1 + (offset // 8)
         res = requests.get(
             OPEN_LIBRARY_SEARCH_URL,
-            params={'title': title, 'offset': offset},
+            params={'q': clean_title, 'page': page, 'limit': 8},
             timeout=8,
-            headers=DEFAULT_HEADERS,
+            headers=OPENLIBRARY_HEADERS,
         )
         if not res.ok:
             return []
@@ -246,8 +251,8 @@ def _import_from_openlibrary_by_title(title: str, offset: int = 0):
         data = res.json()
         docs = data.get('docs') or []
         results = []
-        for doc in docs[:5]:
-            book_title = doc.get('title') or title
+        for doc in docs[:6]:
+            book_title = doc.get('title') or clean_title
             author_name = (doc.get('author_name') or [None])[0]
             cover_id = doc.get('cover_i')
             first_year = doc.get('first_publish_year')
@@ -255,7 +260,6 @@ def _import_from_openlibrary_by_title(title: str, offset: int = 0):
             author_obj = None
             if author_name:
                 author_obj, _ = Author.objects.get_or_create(name=author_name)
-                maybe_enrich_author(author_obj)
 
             # Evitar crear duplicados
             existing = Book.objects.filter(title__iexact=book_title)
@@ -310,7 +314,6 @@ def _create_or_get_from_volume(volume, fallback_isbn=None):
     if authors_list:
         author_name = authors_list[0]
         author_obj, _ = Author.objects.get_or_create(name=author_name)
-        maybe_enrich_author(author_obj)
 
     title = info.get('title') or 'Desconocido'
 
@@ -358,7 +361,7 @@ def _download_and_attach_image(instance, field_name: str, url: str, filename_hin
         url = 'https://' + url[7:]
 
     try:
-        r = requests.get(url, timeout=10, headers=DEFAULT_HEADERS, allow_redirects=True)
+        r = requests.get(url, timeout=4, headers=DEFAULT_HEADERS, allow_redirects=True)
         r.raise_for_status()
 
         content_type = r.headers.get('Content-Type', '')
@@ -541,7 +544,7 @@ def maybe_enrich_author_from_openlibrary(author: Author):
             OPEN_LIBRARY_AUTHORS_URL,
             params={'q': author.name},
             timeout=8,
-            headers=DEFAULT_HEADERS,
+            headers=OPENLIBRARY_HEADERS,
         )
         if not rs.ok:
             return
