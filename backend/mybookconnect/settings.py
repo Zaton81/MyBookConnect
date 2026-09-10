@@ -158,8 +158,35 @@ SIMPLE_JWT = {
     'AUTH_HEADER_TYPES': ('Bearer',),
 }
 
-CORS_ALLOWED_ORIGINS = os.getenv('CORS_ALLOWED_ORIGINS', 'http://localhost:5173').split()
+# ─── Seguridad y Protección de Producción ───
+CORS_ALLOWED_ORIGINS = os.getenv(
+    'CORS_ALLOWED_ORIGINS',
+    'http://localhost:5173 http://localhost:8000 http://127.0.0.1:8000'
+).split()
 CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_ALL_ORIGINS = False
+
+CSRF_TRUSTED_ORIGINS = os.getenv(
+    'CSRF_TRUSTED_ORIGINS',
+    'http://localhost:5173 http://localhost:8000 http://127.0.0.1:8000'
+).split()
+
+SECURE_CONTENT_TYPE_NOSNIFF = True
+X_FRAME_OPTIONS = 'DENY'
+
+if not DEBUG:
+    SECURE_SSL_REDIRECT = _env_bool('SECURE_SSL_REDIRECT', '0')
+    SESSION_COOKIE_SECURE = _env_bool('SESSION_COOKIE_SECURE', '1')
+    CSRF_COOKIE_SECURE = _env_bool('CSRF_COOKIE_SECURE', '1')
+    SECURE_HSTS_SECONDS = int(os.getenv('SECURE_HSTS_SECONDS', '31536000'))
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = _env_bool('SECURE_HSTS_INCLUDE_SUBDOMAINS', '1')
+    SECURE_HSTS_PRELOAD = _env_bool('SECURE_HSTS_PRELOAD', '1')
+else:
+    SECURE_SSL_REDIRECT = False
+    SESSION_COOKIE_SECURE = False
+    CSRF_COOKIE_SECURE = False
+    SECURE_HSTS_SECONDS = 0
+
 
 # ─── Configuración de IA (Compatible con OpenAI: Ollama, Cloud, etc.) ───
 AI_ENABLED = os.getenv('AI_ENABLED', 'true').lower() in ('true', '1', 'yes')

@@ -709,17 +709,19 @@ SECURE_HSTS_SECONDS
 SECURE_CONTENT_TYPE_NOSNIFF
 ```
 
+-   [x] `DEBUG=False` condicional según variable de entorno.
+-   [x] `SECRET_KEY` obligatoria: validación que lanza `ImproperlyConfigured` si está ausente.
+-   [x] `ALLOWED_HOSTS` configurado mediante `DJANGO_ALLOWED_HOSTS` / `ALLOWED_HOSTS`.
+-   [x] `CSRF_TRUSTED_ORIGINS` configurado con orígenes autorizados explícitos.
+-   [x] `SECURE_CONTENT_TYPE_NOSNIFF = True` y `X_FRAME_OPTIONS = 'DENY'`.
+-   [x] `SESSION_COOKIE_SECURE = True` y `CSRF_COOKIE_SECURE = True` en producción (`not DEBUG`).
+-   [x] `SECURE_HSTS_SECONDS = 31536000` con `include_subdomains` y `preload` en producción.
+-   [x] `SECURE_SSL_REDIRECT` configurable vía variable de entorno.
+
 ## CORS
 
-Lista explícita de orígenes.
-
-No usar:
-
-``` text
-*
-```
-
-con credenciales.
+-   [x] Lista explícita de orígenes configurada (`CORS_ALLOWED_ORIGINS`).
+-   [x] `CORS_ALLOW_ALL_ORIGINS = False` garantizado al permitir credenciales (`CORS_ALLOW_CREDENTIALS = True`).
 
 ## Secretos
 
@@ -732,7 +734,10 @@ API keys
 JWT secrets
 ```
 
-en Git.
+en Git:
+-   [x] `.gitignore` protege rigurosamente `.env` y `.env.*` (únicamente `.env.example` versionado como plantilla).
+-   [x] `docker-compose.prod.yml` libre de contraseñas hardcodeadas; emplea variables de entorno `${POSTGRES_PASSWORD}`.
+-   [x] Pruebas automatizadas en `tests/test_production_security.py` (58/58 tests pasando en backend).
 
 ------------------------------------------------------------------------
 
