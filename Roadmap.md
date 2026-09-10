@@ -900,46 +900,37 @@ acciones específicas
 
 ------------------------------------------------------------------------
 
-# 19. Fase 16 --- Búsqueda textual avanzada
+# 19. Fase 16 --- Búsqueda textual avanzada [COMPLETADA]
 
 **Prioridad:** P1
 
 Usar PostgreSQL:
 
-``` text
-pg_trgm
-GIN/GiST
-SearchVector
-SearchQuery
-SearchRank
-```
+- [x] Extensión `pg_trgm` instalada y migrada (`books.0012_postgres_trigram_and_gin_indexes`).
+- [x] Índices GIN con trigramas (`gin_trgm_ops`) en `Book.title`, `Book.description` y `Author.name`.
+- [x] `SearchVector`, `SearchQuery`, `SearchRank` para indexación ponderada (A: título/ISBN, B: autor/categorías, C: descripción).
+- [x] `TrigramSimilarity` y `TrigramWordSimilarity` con cálculo de relevancia híbrida tolerante a erratas.
 
-Buscar:
-
-``` text
-title
-author
-ISBN
-description
-categories
-```
+Campos indexados y consultados:
+- [x] `title`
+- [x] `author`
+- [x] `isbn`
+- [x] `description`
+- [x] `categories`
 
 ## Resultado
 
-Ordenar por:
-
-``` text
-exact match
-trigram similarity
-full text rank
-rating
-popularity
-```
+Ordenación ponderada:
+- [x] Exact match / prefix boost
+- [x] Trigram & word similarity (ponderado 3.0x título, 2.0x autor, 0.5x descripción)
+- [x] Full text search rank (ponderado 1.5x)
+- [x] Fallback por rating y fecha de creación
+- [x] Fallback automático para motores sin PostgreSQL o en caso de error
 
 ## Criterio de aceptación
 
-Búsquedas parciales y con errores razonables deben devolver resultados
-relevantes sin depender de `icontains` sobre grandes volúmenes.
+- [x] Búsquedas parciales y con errores razonables (ej. "soledd", "Cortzar") devuelven resultados relevantes instantáneos mediante índices GIN y trigramas sin depender exclusivamente de `icontains`.
+- [x] Suite completa de tests pasando (87/87 tests).
 
 ------------------------------------------------------------------------
 

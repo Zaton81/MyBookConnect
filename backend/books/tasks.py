@@ -41,6 +41,12 @@ def download_cover_task(self, book_id: int) -> bool:
             return False
 
         ensure_book_cover(book)
+        if book.cover:
+            from django.core.cache import cache
+
+            from .cache_utils import book_detail_key
+
+            cache.delete(book_detail_key(book.id))
         return bool(book.cover)
     except Exception as exc:
         logger.warning(f"download_cover_task error para libro {book_id}: {exc}")

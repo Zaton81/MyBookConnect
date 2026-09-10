@@ -1,0 +1,28 @@
+# Generated manually for Phase 16: PostgreSQL pg_trgm extension and GIN indexes
+
+from django.contrib.postgres.indexes import GinIndex
+from django.contrib.postgres.operations import TrigramExtension
+from django.db import migrations
+
+
+class Migration(migrations.Migration):
+
+    dependencies = [
+        ('books', '0011_alter_book_options_and_more'),
+    ]
+
+    operations = [
+        TrigramExtension(),
+        migrations.AddIndex(
+            model_name='author',
+            index=GinIndex(fields=['name'], name='idx_author_name_trgm', opclasses=['gin_trgm_ops']),
+        ),
+        migrations.AddIndex(
+            model_name='book',
+            index=GinIndex(fields=['title'], name='idx_book_title_trgm', opclasses=['gin_trgm_ops']),
+        ),
+        migrations.AddIndex(
+            model_name='book',
+            index=GinIndex(fields=['description'], name='idx_book_desc_trgm', opclasses=['gin_trgm_ops']),
+        ),
+    ]

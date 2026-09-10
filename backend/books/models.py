@@ -1,6 +1,7 @@
 import re
 
 from django.conf import settings
+from django.contrib.postgres.indexes import GinIndex
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.db.models import Avg
@@ -22,6 +23,11 @@ class Author(models.Model):
     biography = models.TextField(blank=True, null=True)
     photo = models.ImageField(upload_to='author_photos/', null=True, blank=True)
     enrichment_attempted = models.BooleanField(default=False)
+
+    class Meta:
+        indexes = [
+            GinIndex(fields=['name'], name='idx_author_name_trgm', opclasses=['gin_trgm_ops']),
+        ]
 
     def __str__(self):
         return self.name
@@ -56,6 +62,8 @@ class Book(models.Model):
             models.Index(fields=['title'], name='idx_book_title'),
             models.Index(fields=['title', 'author'], name='idx_book_title_author'),
             models.Index(fields=['-created_at'], name='idx_book_created_at'),
+            GinIndex(fields=['title'], name='idx_book_title_trgm', opclasses=['gin_trgm_ops']),
+            GinIndex(fields=['description'], name='idx_book_desc_trgm', opclasses=['gin_trgm_ops']),
         ]
 
     def save(self, *args, **kwargs):

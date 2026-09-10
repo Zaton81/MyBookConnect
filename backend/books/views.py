@@ -19,33 +19,110 @@ class BookListCreateView(generics.ListCreateAPIView):
     permission_classes = (permissions.IsAuthenticatedOrReadOnly,)
 
     def get_queryset(self):
-        queryset = Book.objects.select_related('author')
+        queryset = Book.objects.select_related('author').prefetch_related('categories')
         q = self.request.query_params.get('q') or self.request.query_params.get('search')
-        if q:
-            clean_q = q.strip()
-            results = queryset.filter(
-                Q(title__icontains=clean_q) | Q(isbn__icontains=clean_q) | Q(author__name__icontains=clean_q)
-            )
-            # Si no hay resultados locales y la consulta tiene al menos 3 caracteres,
-            # buscar e importar automáticamente desde OpenLibrary / Google Books
-            if not results.exists() and len(clean_q) >= 3:
-                try:
-                    isbn_clean = clean_q.replace('-', '').replace(' ', '')
-                    if len(isbn_clean) in (10, 13) and (
-                        isbn_clean[:-1].isdigit() and (isbn_clean[-1].isdigit() or isbn_clean[-1].upper() == 'X')
-                    ):
-                        services.import_single_by_query(query_isbn=isbn_clean)
-                    else:
-                        services.import_multiple_by_title(clean_q, offset=0)
+        if not q:
+            return queryset
 
-                    results = queryset.filter(
-                        Q(title__icontains=clean_q) | Q(isbn__icontains=clean_q) | Q(author__name__icontains=clean_q)
+        clean_q = q.strip()
+        from django.db import connection
+
+        def _execute_search(query_str):
+            if connection.vendor == 'postgresql':
+                try:
+                    from django.contrib.postgres.search import (
+                        SearchQuery,
+                        SearchRank,
+                        SearchVector,
+                        TrigramSimilarity,
+                        TrigramWordSimilarity,
+                    )
+                    from django.db.models import FloatField, Value
+                    from django.db.models.functions import Coalesce, Greatest
+
+                    vector = (
+                        SearchVector('title', weight='A')
+                        + SearchVector('isbn', weight='A')
+                        + SearchVector('author__name', weight='B')
+                        + SearchVector('categories__name', weight='B')
+                        + SearchVector('description', weight='C')
+                    )
+                    search_query = SearchQuery(query_str, search_type='plain')
+                    rank = SearchRank(vector, search_query)
+                    title_sim = Greatest(
+                        TrigramSimilarity('title', query_str),
+                        TrigramWordSimilarity(query_str, 'title')
+                    )
+                    author_sim = Greatest(
+                        TrigramSimilarity('author__name', query_str),
+                        TrigramWordSimilarity(query_str, 'author__name')
+                    )
+                    desc_sim = TrigramWordSimilarity(query_str, 'description')
+
+                    relevance = (
+                        Coalesce(title_sim, Value(0.0), output_field=FloatField()) * 3.0
+                        + Coalesce(author_sim, Value(0.0), output_field=FloatField()) * 2.0
+                        + Coalesce(desc_sim, Value(0.0), output_field=FloatField()) * 0.5
+                        + Coalesce(rank, Value(0.0), output_field=FloatField()) * 1.5
+                    )
+
+                    filter_condition = (
+                        Q(title__icontains=query_str)
+                        | Q(isbn__icontains=query_str)
+                        | Q(author__name__icontains=query_str)
+                        | Q(categories__name__icontains=query_str)
+                        | Q(title__trigram_similar=query_str)
+                        | Q(title__trigram_word_similar=query_str)
+                        | Q(author__name__trigram_similar=query_str)
+                        | Q(author__name__trigram_word_similar=query_str)
+                        | Q(search_rank__gte=0.01)
+                    )
+
+                    return (
+                        queryset.annotate(
+                            search_rank=rank,
+                            title_sim=title_sim,
+                            author_sim=author_sim,
+                            relevance=relevance,
+                        )
+                        .filter(filter_condition)
+                        .distinct()
+                        .order_by('-relevance', '-average_rating', '-created_at')
                     )
                 except Exception as exc:
-                    logging.exception(f"Error auto-importing external books for '{clean_q}': {exc}")
+                    logging.warning(f"Error executing postgres full text search, falling back to icontains: {exc}")
 
-            return results
-        return queryset
+            return (
+                queryset.filter(
+                    Q(title__icontains=query_str)
+                    | Q(isbn__icontains=query_str)
+                    | Q(author__name__icontains=query_str)
+                    | Q(categories__name__icontains=query_str)
+                    | Q(description__icontains=query_str)
+                )
+                .distinct()
+                .order_by('-average_rating', '-created_at')
+            )
+
+        results = _execute_search(clean_q)
+
+        # Si no hay resultados locales y la consulta tiene al menos 3 caracteres,
+        # buscar e importar automáticamente desde OpenLibrary / Google Books
+        if not results.exists() and len(clean_q) >= 3:
+            try:
+                isbn_clean = clean_q.replace('-', '').replace(' ', '')
+                if len(isbn_clean) in (10, 13) and (
+                    isbn_clean[:-1].isdigit() and (isbn_clean[-1].isdigit() or isbn_clean[-1].upper() == 'X')
+                ):
+                    services.import_single_by_query(query_isbn=isbn_clean)
+                else:
+                    services.import_multiple_by_title(clean_q, offset=0)
+
+                results = _execute_search(clean_q)
+            except Exception as exc:
+                logging.exception(f"Error auto-importing external books for '{clean_q}': {exc}")
+
+        return results
 
     def perform_create(self, serializer):
         serializer.save()
@@ -75,6 +152,19 @@ class AuthorDetailView(generics.RetrieveAPIView):
                 logging.exception(e)
                 instance.enrichment_attempted = True
                 instance.save(update_fields=['enrichment_attempted'])
+
+        # En segundo plano, buscar e importar más libros del autor si no se ha hecho recientemente
+        if instance.name:
+            bg_author_key = f"bg_author_books_{instance.id}"
+            if not cache.get(bg_author_key):
+                try:
+                    from .tasks import import_books_by_author_task
+
+                    import_books_by_author_task.delay(instance.name)
+                    cache.set(bg_author_key, True, 3600)  # Cooldown de 1 hora
+                except Exception as exc:
+                    logging.warning(f"No se pudo encolar import_books_by_author_task para {instance.name}: {exc}")
+
         serializer = self.get_serializer(instance)
         return Response(serializer.data)
 
@@ -86,6 +176,19 @@ class AuthorBooksView(APIView):
     def get(self, request, pk):
         books = Book.objects.filter(author_id=pk).select_related('author')
         local = BookSerializer(books, many=True).data
+
+        # En segundo plano, asegurar búsqueda de más libros del autor si no se ha hecho recientemente
+        bg_author_key = f"bg_author_books_{pk}"
+        if not cache.get(bg_author_key):
+            try:
+                author_obj = Author.objects.filter(pk=pk).first()
+                if author_obj and author_obj.name:
+                    from .tasks import import_books_by_author_task
+
+                    import_books_by_author_task.delay(author_obj.name)
+                    cache.set(bg_author_key, True, 3600)
+            except Exception as exc:
+                logging.warning(f"No se pudo encolar import_books_by_author_task para autor {pk}: {exc}")
 
         # Búsqueda externa opcional cuando hay pocos locales
         external = []
@@ -121,24 +224,33 @@ class BookDetailView(generics.RetrieveAPIView):
         book_id = kwargs.get('pk')
         cache_key = book_detail_key(book_id)
 
-        # Si ya está en caché, servirlo de inmediato sin consultar la base de datos
+        # Si ya está en caché, servirlo de inmediato y verificar si le falta portada
         cached_data = cache.get(cache_key)
         if cached_data is not None:
+            if not cached_data.get('cover'):
+                bg_cover_key = f"bg_cover_search_{book_id}"
+                if not cache.get(bg_cover_key):
+                    try:
+                        from .tasks import download_cover_task
+
+                        download_cover_task.delay(int(book_id))
+                        cache.set(bg_cover_key, True, 600)  # Cooldown de 10 minutos
+                    except Exception as exc:
+                        logging.warning(f"No se pudo encolar download_cover_task para libro {book_id}: {exc}")
             return Response(cached_data)
 
         instance = self.get_object()
-        if not instance.enrichment_attempted:
-            instance.enrichment_attempted = True
-            try:
-                if not instance.cover:
-                    services.ensure_book_cover(instance)
-                if not instance.description or not instance.published_date:
-                    services.enrich_book_metadata(instance)
-                instance.save(update_fields=['enrichment_attempted'])
-                instance.refresh_from_db()
-            except Exception as e:
-                logging.exception(f"Error enriching book in detail view: {e}")
-                instance.save(update_fields=['enrichment_attempted'])
+        # Si el libro no tiene portada, intentar descargarla en segundo plano con Celery
+        if not instance.cover:
+            bg_cover_key = f"bg_cover_search_{instance.id}"
+            if not cache.get(bg_cover_key):
+                try:
+                    from .tasks import download_cover_task
+
+                    download_cover_task.delay(instance.id)
+                    cache.set(bg_cover_key, True, 600)  # Cooldown de 10 minutos
+                except Exception as exc:
+                    logging.warning(f"No se pudo encolar download_cover_task para libro {instance.id}: {exc}")
 
         serializer = self.get_serializer(instance)
         data = serializer.data
@@ -264,7 +376,8 @@ class ReviewListCreateView(generics.ListCreateAPIView):
 
     def create(self, request, *args, **kwargs):
         from rest_framework import status
-        book_id = request.data.get('book_id')
+
+        book_id = request.data.get('book_id') or request.data.get('book')
         if not book_id:
             return Response({'detail': 'book_id es requerido'}, status=status.HTTP_400_BAD_REQUEST)
 

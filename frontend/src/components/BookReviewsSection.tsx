@@ -101,6 +101,7 @@ export function BookReviewsSection({
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
+          book_id: Number(bookId),
           book: Number(bookId),
           rating: rating,
           title: reviewTitle.trim() || null,
