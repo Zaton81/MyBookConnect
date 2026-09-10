@@ -256,16 +256,27 @@ def _import_from_openlibrary_by_title(title: str, offset: int = 0):
             author_name = (doc.get('author_name') or [None])[0]
             cover_id = doc.get('cover_i')
             first_year = doc.get('first_publish_year')
+            work_key = doc.get('key')
+            edition_keys = doc.get('edition_key') or []
+            edition_key = edition_keys[0] if edition_keys else None
+
+            # Deduplicación por identificador externo
+            book = None
+            if work_key:
+                book = Book.objects.filter(openlibrary_work_id=work_key).first()
+            if not book and edition_key:
+                book = Book.objects.filter(openlibrary_edition_id=edition_key).first()
 
             author_obj = None
             if author_name:
                 author_obj, _ = Author.objects.get_or_create(name=author_name)
 
-            # Evitar crear duplicados
-            existing = Book.objects.filter(title__iexact=book_title)
-            if author_obj:
-                existing = existing.filter(author=author_obj)
-            book = existing.first()
+            # Evitar crear duplicados por título y autor
+            if not book:
+                existing = Book.objects.filter(title__iexact=book_title)
+                if author_obj:
+                    existing = existing.filter(author=author_obj)
+                book = existing.first()
 
             if not book:
                 book = Book(
@@ -273,6 +284,8 @@ def _import_from_openlibrary_by_title(title: str, offset: int = 0):
                     author=author_obj,
                     isbn=None,
                     description=None,
+                    openlibrary_work_id=work_key,
+                    openlibrary_edition_id=edition_key,
                 )
                 if first_year:
                     try:
@@ -280,6 +293,16 @@ def _import_from_openlibrary_by_title(title: str, offset: int = 0):
                     except ValueError:
                         pass
                 book.save()
+            else:
+                updated_fields = []
+                if work_key and not book.openlibrary_work_id:
+                    book.openlibrary_work_id = work_key
+                    updated_fields.append('openlibrary_work_id')
+                if edition_key and not book.openlibrary_edition_id:
+                    book.openlibrary_edition_id = edition_key
+                    updated_fields.append('openlibrary_edition_id')
+                if updated_fields:
+                    book.save(update_fields=updated_fields)
 
             if cover_id and not book.cover:
                 ol_cover_url = f'{OPEN_LIBRARY_COVERS_URL}/b/id/{cover_id}-L.jpg'
@@ -297,6 +320,12 @@ def _import_from_openlibrary_by_title(title: str, offset: int = 0):
 
 
 def _create_or_get_from_volume(volume, fallback_isbn=None):
+    google_vol_id = volume.get('id')
+    if google_vol_id:
+        existing_vol = Book.objects.filter(google_volume_id=google_vol_id).first()
+        if existing_vol:
+            return existing_vol
+
     info = volume.get('volumeInfo', {})
     isbn = fallback_isbn
     for ident in info.get('industryIdentifiers', []) or []:
@@ -307,6 +336,9 @@ def _create_or_get_from_volume(volume, fallback_isbn=None):
     if isbn:
         existing = Book.objects.filter(isbn=isbn).first()
         if existing:
+            if google_vol_id and not existing.google_volume_id:
+                existing.google_volume_id = google_vol_id
+                existing.save(update_fields=['google_volume_id'])
             return existing
 
     author_obj = None
@@ -323,15 +355,22 @@ def _create_or_get_from_volume(volume, fallback_isbn=None):
         existing = existing.filter(author=author_obj)
     found = existing.first()
     if found:
+        updated_fields = []
         if isbn and not found.isbn:
             found.isbn = isbn
-            found.save(update_fields=['isbn'])
+            updated_fields.append('isbn')
+        if google_vol_id and not found.google_volume_id:
+            found.google_volume_id = google_vol_id
+            updated_fields.append('google_volume_id')
+        if updated_fields:
+            found.save(update_fields=updated_fields)
         return found
 
     book = Book(
         title=title,
         author=author_obj,
         isbn=isbn,
+        google_volume_id=google_vol_id,
         description=info.get('description'),
     )
     published = info.get('publishedDate')

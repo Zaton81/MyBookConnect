@@ -18,6 +18,12 @@ interface UserBookItem {
     average_rating?: number;
     description?: string;
   };
+  status?: 'want_to_read' | 'reading' | 'read' | 'abandoned';
+  status_display?: string;
+  progress?: number;
+  current_page?: number;
+  started_at?: string;
+  finished_at?: string;
   is_read: boolean;
   rating?: number;
   is_digital: boolean;
@@ -35,6 +41,7 @@ export function Library() {
   const [loading, setLoading] = useState(true);
   const [order, setOrder] = useState('fecha');
   const [filters, setFilters] = useState({
+    status: '',
     is_read: '',
     wishlist: '',
     is_digital: '',
@@ -55,6 +62,7 @@ export function Library() {
       setLoading(true);
       try {
         const params = new URLSearchParams();
+        if (filters.status) params.set('status', filters.status);
         if (filters.is_read) params.set('is_read', filters.is_read);
         if (filters.wishlist) params.set('wishlist', filters.wishlist);
         if (filters.is_digital) params.set('is_digital', filters.is_digital);
@@ -137,8 +145,9 @@ export function Library() {
   const totalPages = Math.ceil(totalCount / pageSize) || 1;
 
   // Estadísticas rápidas
-  const readCount = books.filter((b) => b.is_read).length;
-  const wishlistCount = books.filter((b) => b.wishlist).length;
+  const readingCount = books.filter((b) => b.status === 'reading').length;
+  const readCount = books.filter((b) => b.status === 'read' || b.is_read).length;
+  const wantCount = books.filter((b) => b.status === 'want_to_read' || b.wishlist).length;
 
   return (
     <div className="space-y-6">
@@ -150,25 +159,30 @@ export function Library() {
             <span>Mi Biblioteca</span>
           </h1>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-            Gestiona tus lecturas, listas de deseos y libros en propiedad.
+            Gestiona tus lecturas, progreso, listas de deseos y libros en propiedad.
           </p>
         </div>
 
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-4 px-4 py-2 bg-slate-50 dark:bg-slate-700/50 rounded-2xl border border-slate-200/60 dark:border-slate-600 text-xs">
+          <div className="flex items-center gap-3 sm:gap-4 px-4 py-2 bg-slate-50 dark:bg-slate-700/50 rounded-2xl border border-slate-200/60 dark:border-slate-600 text-xs">
             <div>
               <span className="block font-bold text-base text-teal-600 dark:text-teal-400">{totalCount}</span>
-              <span className="text-slate-500">Total</span>
+              <span className="text-slate-500 text-[10px]">Total</span>
+            </div>
+            <div className="w-px h-6 bg-slate-200 dark:bg-slate-600" />
+            <div>
+              <span className="block font-bold text-base text-indigo-600 dark:text-indigo-400">{readingCount}</span>
+              <span className="text-slate-500 text-[10px]">Leyendo</span>
             </div>
             <div className="w-px h-6 bg-slate-200 dark:bg-slate-600" />
             <div>
               <span className="block font-bold text-base text-emerald-600 dark:text-emerald-400">{readCount}</span>
-              <span className="text-slate-500">Leídos</span>
+              <span className="text-slate-500 text-[10px]">Leídos</span>
             </div>
             <div className="w-px h-6 bg-slate-200 dark:bg-slate-600" />
             <div>
-              <span className="block font-bold text-base text-amber-600 dark:text-amber-400">{wishlistCount}</span>
-              <span className="text-slate-500">Wishlist</span>
+              <span className="block font-bold text-base text-amber-600 dark:text-amber-400">{wantCount}</span>
+              <span className="text-slate-500 text-[10px]">Por leer</span>
             </div>
           </div>
 
@@ -180,6 +194,33 @@ export function Library() {
             <span className="hidden sm:inline">Añadir Libro</span>
           </button>
         </div>
+      </div>
+
+      {/* ── Pestañas Rápidas de Estados de Lectura ── */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+        {[
+          { label: 'Todos', value: '', icon: '📚' },
+          { label: 'Leyendo', value: 'reading', icon: '📖' },
+          { label: 'Por leer', value: 'want_to_read', icon: '⏳' },
+          { label: 'Leídos', value: 'read', icon: '✅' },
+          { label: 'Abandonados', value: 'abandoned', icon: '🚫' },
+        ].map((tab) => (
+          <button
+            key={tab.value}
+            onClick={() => {
+              setFilters((f) => ({ ...f, status: tab.value }));
+              setPage(1);
+            }}
+            className={`px-4 py-2 rounded-2xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5 shadow-sm ${
+              filters.status === tab.value
+                ? 'bg-teal-600 text-white shadow-teal-600/20'
+                : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200/80 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700'
+            }`}
+          >
+            <span>{tab.icon}</span>
+            <span>{tab.label}</span>
+          </button>
+        ))}
       </div>
 
       {/* ── Barra de Búsqueda y Filtros ── */}
@@ -373,6 +414,22 @@ export function Library() {
                         'Autor desconocido'
                       )}
                     </p>
+
+                    {/* Barra de Progreso si está Leyendo */}
+                    {ub.status === 'reading' && (
+                      <div className="space-y-1 bg-indigo-50/60 dark:bg-indigo-900/20 p-2 rounded-xl border border-indigo-100 dark:border-indigo-900/40 mt-1">
+                        <div className="flex justify-between text-[10px] font-bold text-indigo-700 dark:text-indigo-300">
+                          <span>Leyendo: {ub.progress || 0}%</span>
+                          {ub.current_page ? <span>Pág. {ub.current_page}</span> : null}
+                        </div>
+                        <div className="w-full bg-slate-200 dark:bg-slate-700 h-1.5 rounded-full overflow-hidden">
+                          <div
+                            className="bg-indigo-600 h-full rounded-full transition-all duration-300"
+                            style={{ width: `${Math.min(100, Math.max(0, ub.progress || 0))}%` }}
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Puntuación Personal */}
@@ -396,35 +453,35 @@ export function Library() {
                 </div>
 
                 {/* Botonera de Estado */}
-                <div className="p-3 bg-slate-50/70 dark:bg-slate-700/30 border-t border-slate-100 dark:border-slate-700/60 flex items-center justify-between text-xs">
-                  <button
-                    onClick={() => updateField(ub.id, 'is_read', !ub.is_read)}
-                    className={`px-2.5 py-1 rounded-lg font-semibold transition-colors ${
-                      ub.is_read
-                        ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300'
-                        : 'bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-300 hover:bg-slate-300'
-                    }`}
+                <div className="p-3 bg-slate-50/70 dark:bg-slate-700/30 border-t border-slate-100 dark:border-slate-700/60 flex items-center justify-between text-xs gap-1.5">
+                  <select
+                    value={ub.status || (ub.is_read ? 'read' : 'want_to_read')}
+                    onChange={(e) => updateField(ub.id, 'status', e.target.value)}
+                    className="text-[11px] font-bold rounded-lg border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 py-1 px-1.5 focus:ring-teal-500"
                   >
-                    {ub.is_read ? '✓ Leído' : '⏳ Por leer'}
-                  </button>
+                    <option value="want_to_read">⏳ Por leer</option>
+                    <option value="reading">📖 Leyendo</option>
+                    <option value="read">✅ Leído</option>
+                    <option value="abandoned">🚫 Abandonado</option>
+                  </select>
 
                   <button
                     onClick={() => updateField(ub.id, 'wishlist', !ub.wishlist)}
-                    className={`p-1.5 rounded-lg transition-colors ${
+                    className={`p-1 rounded-lg transition-colors ${
                       ub.wishlist
                         ? 'text-amber-500 font-bold'
                         : 'text-slate-400 hover:text-amber-500'
                     }`}
                     title={ub.wishlist ? 'Quitar de Wishlist' : 'Añadir a Wishlist'}
                   >
-                    {ub.wishlist ? '⭐ Deseado' : '☆ Desear'}
+                    {ub.wishlist ? '⭐' : '☆'}
                   </button>
 
                   <button
                     onClick={() => navigate(`/books/${b.id}`)}
-                    className="text-teal-600 hover:text-teal-700 font-medium hover:underline text-[11px]"
+                    className="text-teal-600 hover:text-teal-700 font-medium hover:underline text-[11px] whitespace-nowrap"
                   >
-                    Ver ficha ➔
+                    Ficha ➔
                   </button>
                 </div>
               </div>

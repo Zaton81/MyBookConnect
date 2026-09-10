@@ -1,9 +1,20 @@
+import re
+
 from django.conf import settings
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.db.models import Avg
 from django.db.models.signals import post_delete, post_save
 from django.dispatch import receiver
 from django.utils import timezone
+
+
+def normalize_isbn(value: str | None) -> str | None:
+    """Normaliza un ISBN eliminando guiones, espacios y convirtiendo a mayúsculas."""
+    if not value:
+        return None
+    cleaned = re.sub(r'[^0-9X]', '', str(value).upper().strip())
+    return cleaned if cleaned else None
 
 
 class Author(models.Model):
@@ -28,6 +39,9 @@ class Book(models.Model):
     title = models.CharField(max_length=300)
     author = models.ForeignKey(Author, null=True, blank=True, on_delete=models.SET_NULL, related_name='books')
     isbn = models.CharField(max_length=30, blank=True, null=True, db_index=True)
+    google_volume_id = models.CharField(max_length=50, null=True, blank=True, db_index=True)
+    openlibrary_work_id = models.CharField(max_length=50, null=True, blank=True, db_index=True)
+    openlibrary_edition_id = models.CharField(max_length=50, null=True, blank=True, db_index=True)
     cover = models.ImageField(upload_to='covers/', null=True, blank=True)
     description = models.TextField(blank=True, null=True)
     published_date = models.DateField(blank=True, null=True)
@@ -36,13 +50,42 @@ class Book(models.Model):
     categories = models.ManyToManyField(Category, related_name='books', blank=True)
     enrichment_attempted = models.BooleanField(default=False)
 
+    def save(self, *args, **kwargs):
+        if self.isbn:
+            self.isbn = normalize_isbn(self.isbn)
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return f"{self.title}"
+
+
+class ReadingStatus(models.TextChoices):
+    WANT_TO_READ = 'want_to_read', 'Quiero leer'
+    READING = 'reading', 'Leyendo'
+    READ = 'read', 'Leído'
+    ABANDONED = 'abandoned', 'Abandonado'
 
 
 class UserBook(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='user_books')
     book = models.ForeignKey(Book, on_delete=models.CASCADE, related_name='user_entries')
+    status = models.CharField(
+        max_length=20,
+        choices=ReadingStatus.choices,
+        default=ReadingStatus.WANT_TO_READ,
+        db_index=True,
+    )
+    progress = models.PositiveSmallIntegerField(
+        default=0,
+        validators=[MinValueValidator(0), MaxValueValidator(100)],
+        help_text="Porcentaje de lectura de 0 a 100",
+    )
+    current_page = models.PositiveIntegerField(
+        default=0,
+        help_text="Página actual de lectura",
+    )
+    started_at = models.DateField(null=True, blank=True)
+    finished_at = models.DateField(null=True, blank=True)
     is_read = models.BooleanField(default=False)
     rating = models.PositiveSmallIntegerField(null=True, blank=True)
     is_digital = models.BooleanField(default=False)
@@ -56,12 +99,33 @@ class UserBook(models.Model):
         indexes = [
             models.Index(fields=['user', '-updated_at']),
             models.Index(fields=['user', 'book']),
+            models.Index(fields=['user', 'status']),
             models.Index(fields=['user', 'is_read']),
             models.Index(fields=['user', 'wishlist']),
         ]
 
+    def save(self, *args, **kwargs):
+        # Sincronización bidireccional entre status e is_read para compatibilidad
+        if self.status == ReadingStatus.READ:
+            self.is_read = True
+            if self.progress < 100:
+                self.progress = 100
+            if not self.finished_at:
+                self.finished_at = timezone.now().date()
+        elif self.is_read and self.status == ReadingStatus.WANT_TO_READ:
+            self.status = ReadingStatus.READ
+            if not self.finished_at:
+                self.finished_at = timezone.now().date()
+        elif self.status != ReadingStatus.READ:
+            self.is_read = False
+
+        if self.status == ReadingStatus.READING and not self.started_at:
+            self.started_at = timezone.now().date()
+
+        super().save(*args, **kwargs)
+
     def __str__(self):
-        return f"{self.user.username} - {self.book.title}"
+        return f"{self.user.username} - {self.book.title} ({self.get_status_display()})"
 
 
 class Review(models.Model):

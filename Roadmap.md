@@ -19,41 +19,41 @@
 
 ### Objetivos técnicos
 
--   [ ] Consolidar el modelo de dominio.
--   [ ] Eliminar duplicidades entre `UserBook` y `Review`.
--   [ ] Garantizar integridad mediante restricciones de
+-   [x] Consolidar el modelo de dominio.
+-   [x] Eliminar duplicidades entre `UserBook` y `Review`.
+-   [x] Garantizar integridad mediante restricciones de
     PostgreSQL/Django.
--   [ ] Unificar convenciones de URLs, parámetros y respuestas de API.
--   [ ] Mejorar permisos y privacidad.
--   [ ] Endurecer autenticación JWT.
--   [ ] Evitar trabajo externo costoso dentro de requests HTTP.
+-   [x] Unificar convenciones de URLs, parámetros y respuestas de API.
+-   [x] Mejorar permisos y privacidad.
+-   [x] Endurecer autenticación JWT.
+-   [x] Evitar trabajo externo costoso dentro de requests HTTP.
 -   [ ] Introducir tareas asíncronas con Celery + Redis.
--   [ ] Mejorar consultas y evitar N+1.
--   [ ] Introducir paginación, cache y rate limiting.
--   [ ] Crear CI/CD.
--   [ ] Aumentar cobertura de tests.
--   [ ] Mejorar tipado y calidad del frontend.
+-   [x] Mejorar consultas y evitar N+1.
+-   [x] Introducir paginación, cache y rate limiting.
+-   [x] Crear CI/CD.
+-   [x] Aumentar cobertura de tests.
+-   [x] Mejorar tipado y calidad del frontend.
 -   [ ] Preparar PostgreSQL para búsqueda textual y vectorial.
 -   [ ] Construir un motor de recomendaciones híbrido.
 -   [ ] Preparar una arquitectura de IA segura y extensible.
 
 ### Objetivos funcionales
 
--   [ ] Biblioteca personal.
--   [ ] Estados de lectura.
--   [ ] Progreso de lectura.
--   [ ] Reseñas públicas.
+-   [x] Biblioteca personal.
+-   [x] Estados de lectura.
+-   [x] Progreso de lectura.
+-   [x] Reseñas públicas.
 -   [ ] Feed social.
 -   [ ] Likes y comentarios.
--   [ ] Seguidores y bloqueos.
+-   [x] Seguidores y bloqueos.
 -   [ ] Notificaciones.
 -   [ ] Listas de libros.
 -   [ ] Estadísticas de lectura.
--   [ ] Búsqueda avanzada.
+-   [x] Búsqueda avanzada.
 -   [ ] Búsqueda semántica.
 -   [ ] Recomendaciones personalizadas.
 -   [ ] Chat seguro.
--   [ ] Moderación.
+-   [x] Moderación.
 -   [ ] IA contextual.
 
 ------------------------------------------------------------------------
@@ -404,130 +404,36 @@ UserBook → signal → Review
 
 # 7. Fase 4 --- Estado de lectura
 
-**Prioridad:** P1
+**Prioridad:** P1  
+**Estado:** ✅ Completada
 
-Sustituir:
+Sustituir `is_read` binario por `ReadingStatus(models.TextChoices)`:
+- `want_to_read` (Quiero leer)
+- `reading` (Leyendo)
+- `read` (Leído)
+- `abandoned` (Abandonado)
 
-``` text
-is_read
-```
-
-por:
-
-``` python
-class ReadingStatus(models.TextChoices):
-    WANT_TO_READ = "want_to_read"
-    READING = "reading"
-    READ = "read"
-    ABANDONED = "abandoned"
-```
-
-## Campos
-
-``` text
-status
-progress
-current_page
-started_at
-finished_at
-```
-
-## Reglas
-
--   `progress`: 0--100.
--   `current_page >= 0`.
--   `finished_at` solo cuando el estado es `READ`.
--   `started_at <= finished_at`.
-
-## API
-
-Ejemplos:
-
-``` http
-PATCH /api/v1/user-books/{id}/
-```
-
-``` json
-{
-  "status": "reading",
-  "progress": 63,
-  "current_page": 280
-}
-```
-
-## Criterio de aceptación
-
-El usuario puede representar correctamente:
-
-``` text
-pendiente
-leyendo
-terminado
-abandonado
-```
+## Tareas completadas:
+- [x] Crear enumerado `ReadingStatus` y campos `status`, `progress`, `current_page`, `started_at`, `finished_at` en `UserBook`.
+- [x] Reglas de validación: `progress` 0-100, `current_page >= 0`.
+- [x] Sincronización bidireccional automática con `is_read` para compatibilidad con endpoints previos.
+- [x] Migración histórica de datos sin pérdida (`is_read=True` -> `status='read'`, `wishlist=True` -> `status='want_to_read'`).
+- [x] Filtros por estado en `UserBookListCreateView` (`?status=reading`, `?status=want_to_read`, etc.).
+- [x] Widget interactivo de progreso en la ficha del libro (`BookDetail.tsx`) con barra de progreso y selector de estados.
+- [x] Pestañas rápidas y barras de progreso visuales en `Library.tsx`.
 
 ------------------------------------------------------------------------
 
 # 8. Fase 5 --- ISBN y deduplicación de libros
 
-**Prioridad:** P0
+**Prioridad:** P0  
+**Estado:** ✅ Completada
 
-## Normalización
-
-Crear:
-
-``` python
-normalize_isbn(value)
-```
-
-Ejemplo:
-
-``` text
-978-84-1234-567-8
-        ↓
-9788412345678
-```
-
-## Modelo
-
-Preferentemente:
-
-``` python
-isbn = models.CharField(
-    max_length=13,
-    unique=True,
-    null=True,
-    blank=True,
-)
-```
-
-## Identificadores externos
-
-Añadir:
-
-``` text
-google_volume_id
-openlibrary_work_id
-openlibrary_edition_id
-```
-
-cuando sea apropiado.
-
-## Algoritmo de deduplicación
-
-Orden:
-
-``` text
-1. ISBN
-2. identificador externo
-3. título normalizado + autor
-4. fuzzy matching
-5. crear libro
-```
-
-## Criterio de aceptación
-
-Importar el mismo libro varias veces no crea duplicados.
+## Tareas completadas:
+- [x] Crear función de normalización `normalize_isbn(value)` para eliminar guiones y espacios.
+- [x] Añadir identificadores externos en `Book`: `google_volume_id`, `openlibrary_work_id`, `openlibrary_edition_id` con índices en base de datos.
+- [x] Integrar deduplicación multi-nivel por identificadores externos antes de cotejar título + autor en `services.py`.
+- [x] Pruebas unitarias de normalización e identificadores externos en `test_domain_models.py`.
 
 ------------------------------------------------------------------------
 

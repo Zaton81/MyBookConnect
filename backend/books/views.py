@@ -173,6 +173,10 @@ class UserBookListCreateView(generics.ListCreateAPIView):
             except ValueError:
                 pass
 
+        status = params.get('status')
+        if status and status in ('want_to_read', 'reading', 'read', 'abandoned'):
+            queryset = queryset.filter(status=status)
+
         search = params.get('search') or params.get('q')
         if search:
             queryset = queryset.filter(book__title__icontains=search)
@@ -185,6 +189,10 @@ class UserBookListCreateView(generics.ListCreateAPIView):
             'wishlist', '-wishlist',
             'is_digital', '-is_digital',
             'owned', '-owned',
+            'progress', '-progress',
+            'current_page', '-current_page',
+            'started_at', '-started_at',
+            'status', '-status',
         }
         if ordering in allowed:
             queryset = queryset.order_by(ordering)

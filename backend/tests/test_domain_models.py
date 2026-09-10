@@ -123,3 +123,60 @@ class TestDomainModels:
         assert dist[8] == 1
         assert dist[1] == 0
         assert serializer.data['reviews_count'] == 2
+
+    def test_reading_status_and_progress_tracking(self, test_user, sample_book):
+        from books.models import ReadingStatus
+
+        # 1. Start reading
+        ub = UserBook.objects.create(
+            user=test_user,
+            book=sample_book,
+            status=ReadingStatus.READING,
+            current_page=150,
+            progress=40,
+        )
+        assert ub.status == ReadingStatus.READING
+        assert ub.is_read is False
+        assert ub.progress == 40
+        assert ub.current_page == 150
+        assert ub.started_at is not None
+        assert ub.finished_at is None
+
+        # 2. Complete reading
+        ub.status = ReadingStatus.READ
+        ub.save()
+        ub.refresh_from_db()
+        assert ub.is_read is True
+        assert ub.progress == 100
+        assert ub.finished_at is not None
+
+        # 3. Serialization check
+        from books.serializers import UserBookSerializer
+        data = UserBookSerializer(ub).data
+        assert data['status'] == 'read'
+        assert data['status_display'] == 'Leído'
+        assert data['progress'] == 100
+
+    def test_isbn_normalization_and_external_ids(self, sample_book):
+        from books.models import normalize_isbn
+        from books.serializers import BookSerializer
+
+        assert normalize_isbn('978-84-376-0494-7') == '9788437604947'
+        assert normalize_isbn('  0-13-235088-2  ') == '0132350882'
+        assert normalize_isbn(None) is None
+
+        sample_book.isbn = '978-84-123-4567-8'
+        sample_book.google_volume_id = 'gvol12345'
+        sample_book.openlibrary_work_id = 'OL99999W'
+        sample_book.openlibrary_edition_id = 'OL88888M'
+        sample_book.save()
+        sample_book.refresh_from_db()
+
+        assert sample_book.isbn == '9788412345678'
+        assert sample_book.google_volume_id == 'gvol12345'
+        assert sample_book.openlibrary_work_id == 'OL99999W'
+
+        data = BookSerializer(sample_book).data
+        assert data['google_volume_id'] == 'gvol12345'
+        assert data['openlibrary_work_id'] == 'OL99999W'
+        assert data['openlibrary_edition_id'] == 'OL88888M'

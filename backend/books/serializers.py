@@ -38,8 +38,9 @@ class BookSerializer(serializers.ModelSerializer):
     class Meta:
         model = Book
         fields = (
-            'id', 'title', 'author', 'author_id', 'isbn', 'cover',
-            'description', 'published_date', 'average_rating', 'created_at',
+            'id', 'title', 'author', 'author_id', 'isbn',
+            'google_volume_id', 'openlibrary_work_id', 'openlibrary_edition_id',
+            'cover', 'description', 'published_date', 'average_rating', 'created_at',
             'categories', 'rating_distribution', 'reviews_count'
         )
 
@@ -60,10 +61,15 @@ class BookSerializer(serializers.ModelSerializer):
 class UserBookSerializer(serializers.ModelSerializer):
     book = BookSerializer(read_only=True)
     book_id = serializers.PrimaryKeyRelatedField(queryset=Book.objects.all(), source='book', write_only=True)
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
 
     class Meta:
         model = UserBook
-        fields = ('id', 'book', 'book_id', 'is_read', 'rating', 'is_digital', 'owned', 'wishlist', 'notes', 'updated_at')
+        fields = (
+            'id', 'book', 'book_id', 'status', 'status_display', 'progress',
+            'current_page', 'started_at', 'finished_at',
+            'is_read', 'rating', 'is_digital', 'owned', 'wishlist', 'notes', 'updated_at'
+        )
 
 
 class ReviewSerializer(serializers.ModelSerializer):
