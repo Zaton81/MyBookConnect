@@ -3,15 +3,23 @@ import logging
 from django.core.cache import cache
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from rest_framework import generics, permissions
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from . import services
 from .cache_utils import TTL_BOOK_DETAIL, TTL_TRENDING, book_detail_key, trending_key
-from .models import Author, Book, Errata, ErrataStatus, Review, UserBook
+from .models import Author, Book, Errata, ErrataStatus, Review, ReviewComment, ReviewLike, UserBook
 from .pagination import StandardResultsSetPagination
-from .serializers import AuthorSerializer, BookSerializer, ErrataSerializer, ReviewSerializer, UserBookSerializer
+from .serializers import (
+    AuthorSerializer,
+    BookSerializer,
+    ErrataSerializer,
+    ReviewCommentSerializer,
+    ReviewSerializer,
+    UserBookSerializer,
+)
 
 
 class BookListCreateView(generics.ListCreateAPIView):
@@ -370,11 +378,19 @@ class ReviewListCreateView(generics.ListCreateAPIView):
     permission_classes = (permissions.IsAuthenticatedOrReadOnly,)
 
     def get_queryset(self):
-        from django.db.models import Exists, OuterRef
+        from django.db.models import Count, Exists, OuterRef, Q
 
         from users.policies import filter_visible_reviews
 
-        queryset = Review.objects.select_related('user', 'book', 'book__author').prefetch_related('book__categories').order_by('-created_at')
+        queryset = (
+            Review.objects.select_related('user', 'book', 'book__author')
+            .prefetch_related('book__categories')
+            .annotate(
+                annotated_likes_count=Count('likes', distinct=True),
+                annotated_comments_count=Count('comments', filter=Q(comments__deleted_at__isnull=True), distinct=True),
+            )
+            .order_by('-created_at')
+        )
 
         book_id = self.request.query_params.get('book')
         if book_id:
@@ -383,9 +399,14 @@ class ReviewListCreateView(generics.ListCreateAPIView):
         user = self.request.user
         if user.is_authenticated:
             following_subquery = user.following.filter(pk=OuterRef('user_id'))
-            queryset = queryset.annotate(is_friend=Exists(following_subquery))
+            user_liked_subquery = ReviewLike.objects.filter(review=OuterRef('pk'), user=user)
+            queryset = queryset.annotate(
+                is_friend=Exists(following_subquery),
+                annotated_user_has_liked=Exists(user_liked_subquery),
+            )
 
         return filter_visible_reviews(user, queryset)
+
 
     def create(self, request, *args, **kwargs):
         from rest_framework import status
@@ -436,6 +457,139 @@ class ReviewDetailView(generics.RetrieveUpdateDestroyAPIView):
         else:
             if not can_edit_review(request.user, obj):
                 raise PermissionDenied('No tienes permiso para modificar esta reseña.')
+
+
+class ReviewLikeToggleView(APIView):
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def post(self, request, review_id):
+        from rest_framework.exceptions import PermissionDenied
+
+        from users.models import Notification, NotificationType
+        from users.policies import can_view_review
+
+        review = get_object_or_404(Review.objects.select_related('user', 'book'), id=review_id)
+        if not can_view_review(request.user, review):
+            raise PermissionDenied('No tienes permiso para ver esta reseña.')
+
+        if (
+            review.user.blocked_users.filter(id=request.user.id).exists()
+            or request.user.blocked_users.filter(id=review.user_id).exists()
+        ):
+            return Response({'detail': 'No puedes interactuar con esta reseña.'}, status=403)
+
+        like = ReviewLike.objects.filter(user=request.user, review=review).first()
+        if like:
+            like.delete()
+            liked = False
+        else:
+            ReviewLike.objects.create(user=request.user, review=review)
+            liked = True
+            if review.user_id != request.user.id:
+                Notification.objects.create(
+                    recipient=review.user,
+                    actor=request.user,
+                    type=NotificationType.LIKE,
+                    title=f"{request.user.username} le dio me gusta a tu reseña",
+                    message=f"A {request.user.username} le gustó tu reseña de '{review.book.title}'",
+                    link=f"/books/{review.book_id}?review={review.id}",
+                )
+
+        return Response({
+            'liked': liked,
+            'likes_count': review.likes.count(),
+        })
+
+
+class ReviewCommentListCreateView(APIView):
+    permission_classes = (permissions.IsAuthenticatedOrReadOnly,)
+
+    def get(self, request, review_id):
+        from rest_framework.exceptions import PermissionDenied
+
+        from users.policies import can_view_review
+
+        review = get_object_or_404(Review.objects.select_related('user'), id=review_id)
+        if not can_view_review(request.user, review):
+            raise PermissionDenied('No tienes permiso para ver esta reseña.')
+
+        comments = (
+            ReviewComment.objects.filter(review=review, deleted_at__isnull=True)
+            .select_related('user')
+            .order_by('created_at')
+        )
+
+        if request.user.is_authenticated:
+            blocked_by_user = set(request.user.blocked_users.values_list('id', flat=True))
+            blocking_user = set(request.user.blocked_by.values_list('id', flat=True))
+            excluded = blocked_by_user.union(blocking_user)
+            if excluded:
+                comments = comments.exclude(user_id__in=excluded)
+
+        serializer = ReviewCommentSerializer(comments, many=True, context={'request': request})
+        return Response(serializer.data)
+
+    def post(self, request, review_id):
+        from rest_framework import status
+        from rest_framework.exceptions import PermissionDenied
+
+        from users.models import Notification, NotificationType
+        from users.policies import can_view_review
+
+        if not request.user.is_authenticated:
+            return Response({'detail': 'Autenticación requerida.'}, status=status.HTTP_401_UNAUTHORIZED)
+
+        review = get_object_or_404(Review.objects.select_related('user', 'book'), id=review_id)
+        if not can_view_review(request.user, review):
+            raise PermissionDenied('No tienes permiso para ver esta reseña.')
+
+        if (
+            review.user.blocked_users.filter(id=request.user.id).exists()
+            or request.user.blocked_users.filter(id=review.user_id).exists()
+        ):
+            return Response({'detail': 'No puedes interactuar con esta reseña.'}, status=status.HTTP_403_FORBIDDEN)
+
+        content = (request.data.get('content') or '').strip()
+        if not content:
+            return Response({'detail': 'El comentario no puede estar vacío.'}, status=status.HTTP_400_BAD_REQUEST)
+        if len(content) > 1000:
+            return Response({'detail': 'El comentario excede el máximo permitido (1000 caracteres).'}, status=status.HTTP_400_BAD_REQUEST)
+
+        comment = ReviewComment.objects.create(
+            user=request.user,
+            review=review,
+            content=content,
+        )
+
+        if review.user_id != request.user.id:
+            Notification.objects.create(
+                recipient=review.user,
+                actor=request.user,
+                type=NotificationType.COMMENT,
+                title=f"{request.user.username} comentó en tu reseña",
+                message=content[:120],
+                link=f"/books/{review.book_id}?review={review.id}",
+            )
+
+        serializer = ReviewCommentSerializer(comment, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+class ReviewCommentDeleteView(APIView):
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def delete(self, request, review_id, comment_id):
+        from rest_framework import status
+
+        comment = get_object_or_404(ReviewComment, id=comment_id, review_id=review_id, deleted_at__isnull=True)
+
+        if comment.user_id != request.user.id and not request.user.is_staff and not request.user.is_superuser:
+            return Response({'detail': 'No tienes permiso para eliminar este comentario.'}, status=status.HTTP_403_FORBIDDEN)
+
+        comment.deleted_at = timezone.now()
+        comment.save(update_fields=['deleted_at'])
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
 
 
 class ImportBookView(APIView):

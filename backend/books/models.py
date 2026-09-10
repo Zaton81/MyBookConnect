@@ -170,6 +170,44 @@ class Review(models.Model):
         return f"Reseña {self.user.username} - {self.book.title}"
 
 
+class ReviewLike(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='review_likes')
+    review = models.ForeignKey(Review, on_delete=models.CASCADE, related_name='likes')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        constraints = [
+            models.UniqueConstraint(fields=['user', 'review'], name='unique_review_like_user_review'),
+        ]
+        indexes = [
+            models.Index(fields=['review', '-created_at'], name='idx_rvlike_review_created'),
+            models.Index(fields=['user', '-created_at'], name='idx_rvlike_user_created'),
+        ]
+
+    def __str__(self):
+        return f"{self.user.username} liked Review {self.review_id}"
+
+
+class ReviewComment(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='review_comments')
+    review = models.ForeignKey(Review, on_delete=models.CASCADE, related_name='comments')
+    content = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    deleted_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['created_at']
+        indexes = [
+            models.Index(fields=['review', 'created_at'], name='idx_rvcomment_review_created'),
+            models.Index(fields=['review', 'deleted_at'], name='idx_rvcomment_review_del'),
+        ]
+
+    def __str__(self):
+        return f"Comentario de {self.user.username} en Reseña {self.review_id}"
+
+
 class ErrataType(models.TextChoices):
     ERRATA = 'errata', 'Errata'
     SUGGESTION = 'suggestion', 'Sugerencia'

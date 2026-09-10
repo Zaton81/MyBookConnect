@@ -1054,9 +1054,9 @@ personalización
 
 ------------------------------------------------------------------------
 
-# 22. Fase 19 --- Likes y comentarios
+# 22. Fase 19 --- Likes y comentarios [COMPLETADA]
 
-**Prioridad:** P1
+**Prioridad:** P1 - COMPLETADA
 
 ## ReviewLike
 
@@ -1085,12 +1085,12 @@ deleted_at
 
 ## Tests
 
--   [ ] Like/unlike.
--   [ ] Duplicado.
--   [ ] Comentario.
--   [ ] Borrado.
--   [ ] Permisos.
--   [ ] Usuario bloqueado.
+-   [x] Like/unlike.
+-   [x] Duplicado.
+-   [x] Comentario.
+-   [x] Borrado.
+-   [x] Permisos.
+-   [x] Usuario bloqueado.
 
 ------------------------------------------------------------------------
 

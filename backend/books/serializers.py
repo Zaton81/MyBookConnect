@@ -1,7 +1,16 @@
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
-from .models import Author, Book, Category, Errata, LegalDocument, Review, UserBook
+from .models import (
+    Author,
+    Book,
+    Category,
+    Errata,
+    LegalDocument,
+    Review,
+    ReviewComment,
+    UserBook,
+)
 
 User = get_user_model()
 
@@ -80,6 +89,28 @@ class UserBookSerializer(serializers.ModelSerializer):
         )
 
 
+class ReviewCommentUserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ('id', 'username', 'avatar')
+
+
+class ReviewCommentSerializer(serializers.ModelSerializer):
+    user = ReviewCommentUserSerializer(read_only=True)
+    is_owner = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ReviewComment
+        fields = ('id', 'review', 'user', 'content', 'created_at', 'updated_at', 'is_owner')
+        read_only_fields = ('id', 'review', 'user', 'created_at', 'updated_at', 'is_owner')
+
+    def get_is_owner(self, obj):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            return obj.user_id == request.user.id or request.user.is_staff or request.user.is_superuser
+        return False
+
+
 class ReviewSerializer(serializers.ModelSerializer):
     user = serializers.SlugRelatedField(slug_field='username', read_only=True)
     username = serializers.CharField(source='user.username', read_only=True)
@@ -90,12 +121,16 @@ class ReviewSerializer(serializers.ModelSerializer):
     is_friend = serializers.SerializerMethodField()
     book = BookSerializer(read_only=True)
     book_id = serializers.PrimaryKeyRelatedField(queryset=Book.objects.all(), source='book', write_only=True)
+    likes_count = serializers.SerializerMethodField()
+    user_has_liked = serializers.SerializerMethodField()
+    comments_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Review
         fields = (
             'id', 'user', 'username', 'user_id', 'user_avatar', 'avatar', 'privacy_level', 'is_friend',
-            'book', 'book_id', 'rating', 'title', 'text', 'created_at', 'updated_at'
+            'book', 'book_id', 'rating', 'title', 'text', 'created_at', 'updated_at',
+            'likes_count', 'user_has_liked', 'comments_count'
         )
 
     def get_is_friend(self, obj):
@@ -105,6 +140,33 @@ class ReviewSerializer(serializers.ModelSerializer):
         if request and request.user.is_authenticated:
             return request.user.following.filter(id=obj.user.id).exists()
         return False
+
+    def get_likes_count(self, obj):
+        annotated = getattr(obj, 'annotated_likes_count', None)
+        if annotated is not None:
+            return annotated
+        if hasattr(obj, 'likes_count'):
+            return obj.likes_count
+        return obj.likes.count()
+
+    def get_user_has_liked(self, obj):
+        annotated = getattr(obj, 'annotated_user_has_liked', None)
+        if annotated is not None:
+            return bool(annotated)
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            return obj.likes.filter(user=request.user).exists()
+        return False
+
+    def get_comments_count(self, obj):
+        annotated = getattr(obj, 'annotated_comments_count', None)
+        if annotated is not None:
+            return annotated
+        if hasattr(obj, 'comments_count'):
+            return obj.comments_count
+        return obj.comments.filter(deleted_at__isnull=True).count()
+
+
 
 
 class ErrataSerializer(serializers.ModelSerializer):

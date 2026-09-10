@@ -13,6 +13,22 @@ interface ReviewItem {
   text?: string | null;
   created_at: string;
   updated_at: string;
+  likes_count?: number;
+  user_has_liked?: boolean;
+  comments_count?: number;
+}
+
+interface CommentItem {
+  id: number;
+  review: number;
+  user: {
+    id: number;
+    username: string;
+    avatar?: string | null;
+  };
+  content: string;
+  created_at: string;
+  is_owner: boolean;
 }
 
 interface BookReviewsSectionProps {
@@ -36,6 +52,14 @@ export function BookReviewsSection({
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  // Likes y Comentarios
+  const [expandedComments, setExpandedComments] = useState<Record<number, boolean>>({});
+  const [commentsData, setCommentsData] = useState<Record<number, CommentItem[]>>({});
+  const [loadingComments, setLoadingComments] = useState<Record<number, boolean>>({});
+  const [newCommentText, setNewCommentText] = useState<Record<number, string>>({});
+  const [submittingComment, setSubmittingComment] = useState<Record<number, boolean>>({});
+  const [likePending, setLikePending] = useState<Record<number, boolean>>({});
+
   // Formulario de reseña
   const [rating, setRating] = useState<number>(10);
   const [reviewTitle, setReviewTitle] = useState('');
@@ -43,6 +67,7 @@ export function BookReviewsSection({
   const [myExistingReview, setMyExistingReview] = useState<ReviewItem | null>(null);
 
   const apiUrl = (import.meta as any).env.VITE_API_URL || 'http://localhost:8000';
+
 
   const fetchReviews = async () => {
     try {
@@ -83,6 +108,124 @@ export function BookReviewsSection({
       fetchReviews();
     }
   }, [bookId, token, currentUser]);
+
+  const toggleLike = async (reviewId: number) => {
+    if (!token) {
+      alert('Inicia sesión para indicar que te gusta esta reseña.');
+      return;
+    }
+    if (likePending[reviewId]) return;
+
+    setLikePending((prev) => ({ ...prev, [reviewId]: true }));
+    try {
+      const res = await fetch(`${apiUrl}/api/v1/books/reviews/${reviewId}/like/`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setReviews((prev) =>
+          prev.map((r) =>
+            r.id === reviewId
+              ? { ...r, likes_count: data.likes_count, user_has_liked: data.liked }
+              : r
+          )
+        );
+      }
+    } catch (err) {
+      console.error('Error toggling like:', err);
+    } finally {
+      setLikePending((prev) => ({ ...prev, [reviewId]: false }));
+    }
+  };
+
+  const loadComments = async (reviewId: number) => {
+    setLoadingComments((prev) => ({ ...prev, [reviewId]: true }));
+    try {
+      const res = await fetch(`${apiUrl}/api/v1/books/reviews/${reviewId}/comments/`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setCommentsData((prev) => ({ ...prev, [reviewId]: Array.isArray(data) ? data : [] }));
+      }
+    } catch (err) {
+      console.error('Error loading comments:', err);
+    } finally {
+      setLoadingComments((prev) => ({ ...prev, [reviewId]: false }));
+    }
+  };
+
+  const toggleComments = (reviewId: number) => {
+    const nextState = !expandedComments[reviewId];
+    setExpandedComments((prev) => ({ ...prev, [reviewId]: nextState }));
+    if (nextState && !commentsData[reviewId]) {
+      loadComments(reviewId);
+    }
+  };
+
+  const handleAddComment = async (reviewId: number, e: React.FormEvent) => {
+    e.preventDefault();
+    const content = (newCommentText[reviewId] || '').trim();
+    if (!content || !token) return;
+
+    setSubmittingComment((prev) => ({ ...prev, [reviewId]: true }));
+    try {
+      const res = await fetch(`${apiUrl}/api/v1/books/reviews/${reviewId}/comments/`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ content }),
+      });
+      if (res.ok) {
+        const newC = await res.json();
+        setCommentsData((prev) => ({
+          ...prev,
+          [reviewId]: [...(prev[reviewId] || []), newC],
+        }));
+        setNewCommentText((prev) => ({ ...prev, [reviewId]: '' }));
+        setReviews((prev) =>
+          prev.map((r) =>
+            r.id === reviewId ? { ...r, comments_count: (r.comments_count || 0) + 1 } : r
+          )
+        );
+      }
+    } catch (err) {
+      console.error('Error adding comment:', err);
+    } finally {
+      setSubmittingComment((prev) => ({ ...prev, [reviewId]: false }));
+    }
+  };
+
+  const handleDeleteComment = async (reviewId: number, commentId: number) => {
+    if (!token || !window.confirm('¿Deseas eliminar tu comentario?')) return;
+
+    try {
+      const res = await fetch(`${apiUrl}/api/v1/books/reviews/${reviewId}/comments/${commentId}/`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok || res.status === 204) {
+        setCommentsData((prev) => ({
+          ...prev,
+          [reviewId]: (prev[reviewId] || []).filter((c) => c.id !== commentId),
+        }));
+        setReviews((prev) =>
+          prev.map((r) =>
+            r.id === reviewId ? { ...r, comments_count: Math.max(0, (r.comments_count || 1) - 1) } : r
+          )
+        );
+      }
+    } catch (err) {
+      console.error('Error deleting comment:', err);
+    }
+  };
+
 
   const handleSubmitReview = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -330,8 +473,145 @@ export function BookReviewsSection({
                     {rev.text}
                   </p>
                 )}
+
+                {/* Barra de interacción social: Likes y Comentarios */}
+                <div className="flex items-center gap-4 pt-2 border-t border-slate-100 dark:border-slate-700/50 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => toggleLike(rev.id)}
+                    disabled={likePending[rev.id]}
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl font-medium transition-all ${
+                      rev.user_has_liked
+                        ? 'bg-rose-50 text-rose-600 dark:bg-rose-950/40 dark:text-rose-400 font-bold'
+                        : 'text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-700/50'
+                    }`}
+                    title={rev.user_has_liked ? 'Ya no me gusta' : 'Me gusta'}
+                  >
+                    <span>{rev.user_has_liked ? '❤️' : '🤍'}</span>
+                    <span>{rev.likes_count || 0}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => toggleComments(rev.id)}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-700/50 transition-all font-medium"
+                  >
+                    <span>💬</span>
+                    <span>
+                      {rev.comments_count || 0} {rev.comments_count === 1 ? 'comentario' : 'comentarios'}
+                    </span>
+                  </button>
+                </div>
+
+                {/* Hilo de comentarios expandible */}
+                {expandedComments[rev.id] && (
+                  <div className="mt-3 pl-3 sm:pl-4 border-l-2 border-teal-500/40 dark:border-teal-400/30 space-y-3 animate-in fade-in duration-200">
+                    {loadingComments[rev.id] ? (
+                      <div className="text-[11px] text-slate-400 py-2">
+                        Cargando comentarios...
+                      </div>
+                    ) : (commentsData[rev.id] || []).length === 0 ? (
+                      <div className="text-[11px] text-slate-400 italic py-1">
+                        No hay comentarios todavía en esta reseña. ¡Sé el primero en responder!
+                      </div>
+                    ) : (
+                      <div className="space-y-2 pt-1">
+                        {(commentsData[rev.id] || []).map((c) => {
+                          const cAvatar = c.user?.avatar
+                            ? (c.user.avatar.startsWith('http') ? c.user.avatar : `${apiUrl}${c.user.avatar}`)
+                            : null;
+                          const cDate = c.created_at
+                            ? new Date(c.created_at).toLocaleDateString('es-ES', {
+                                month: 'short',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })
+                            : '';
+
+                          return (
+                            <div
+                              key={c.id}
+                              className="p-2.5 rounded-xl bg-slate-50/80 dark:bg-slate-700/30 border border-slate-100 dark:border-slate-700/60 text-xs flex items-start justify-between gap-2"
+                            >
+                              <div className="flex items-start gap-2.5">
+                                {cAvatar ? (
+                                  <img
+                                    src={cAvatar}
+                                    alt={c.user?.username || ''}
+                                    className="w-6 h-6 rounded-full object-cover border border-slate-200 dark:border-slate-600 mt-0.5"
+                                  />
+                                ) : (
+                                  <div className="w-6 h-6 rounded-full bg-teal-600/80 text-white font-bold text-[10px] flex items-center justify-center mt-0.5">
+                                    {(c.user?.username || 'U').slice(0, 1).toUpperCase()}
+                                  </div>
+                                )}
+                                <div className="space-y-0.5">
+                                  <div className="flex items-center gap-2">
+                                    <Link
+                                      to={`/users/${c.user?.id}`}
+                                      className="font-bold text-slate-800 dark:text-slate-200 hover:text-teal-600 text-[11px]"
+                                    >
+                                      {c.user?.username}
+                                    </Link>
+                                    <span className="text-[10px] text-slate-400">{cDate}</span>
+                                  </div>
+                                  <p className="text-slate-600 dark:text-slate-300 leading-snug text-xs">
+                                    {c.content}
+                                  </p>
+                                </div>
+                              </div>
+
+                              {c.is_owner && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteComment(rev.id, c.id)}
+                                  className="text-slate-400 hover:text-rose-500 p-1 text-[11px] transition-colors"
+                                  title="Eliminar comentario"
+                                >
+                                  🗑️
+                                </button>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* Formulario para añadir comentario */}
+                    {token ? (
+                      <form
+                        onSubmit={(e) => handleAddComment(rev.id, e)}
+                        className="flex items-center gap-2 pt-1"
+                      >
+                        <input
+                          type="text"
+                          value={newCommentText[rev.id] || ''}
+                          onChange={(e) =>
+                            setNewCommentText((prev) => ({ ...prev, [rev.id]: e.target.value }))
+                          }
+                          placeholder="Escribe una respuesta o comentario..."
+                          maxLength={500}
+                          className="flex-1 text-xs rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 focus:ring-2 focus:ring-teal-500 focus:outline-none"
+                        />
+                        <button
+                          type="submit"
+                          disabled={submittingComment[rev.id] || !(newCommentText[rev.id] || '').trim()}
+                          className="px-3 py-2 rounded-xl text-xs font-bold bg-teal-600 hover:bg-teal-700 text-white disabled:opacity-50 transition-all shadow-sm shrink-0"
+                        >
+                          {submittingComment[rev.id] ? '...' : 'Comentar'}
+                        </button>
+                      </form>
+                    ) : (
+                      <div className="text-[11px] text-slate-400 pt-1">
+                        Inicia sesión para dejar un comentario en esta reseña.
+                      </div>
+                    )}
+                  </div>
+                )}
               </article>
             );
+
           })}
         </div>
       )}

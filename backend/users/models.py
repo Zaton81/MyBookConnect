@@ -43,6 +43,8 @@ class NotificationType(models.TextChoices):
     FOLLOW = 'FOLLOW', 'Nuevo seguidor'
     MESSAGE = 'MESSAGE', 'Nuevo mensaje'
     REVIEW = 'REVIEW', 'Nueva reseña'
+    LIKE = 'LIKE', 'Me gusta en reseña'
+    COMMENT = 'COMMENT', 'Comentario en reseña'
     SYSTEM = 'SYSTEM', 'Sistema'
 
 
