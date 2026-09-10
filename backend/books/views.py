@@ -246,6 +246,9 @@ class ReviewListCreateView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         from django.db.models import Exists, OuterRef
+
+        from users.policies import filter_visible_reviews
+
         queryset = Review.objects.select_related('user', 'book', 'book__author').prefetch_related('book__categories').order_by('-created_at')
 
         book_id = self.request.query_params.get('book')
@@ -257,7 +260,7 @@ class ReviewListCreateView(generics.ListCreateAPIView):
             following_subquery = user.following.filter(pk=OuterRef('user_id'))
             queryset = queryset.annotate(is_friend=Exists(following_subquery))
 
-        return queryset
+        return filter_visible_reviews(user, queryset)
 
     def create(self, request, *args, **kwargs):
         from rest_framework import status
@@ -292,14 +295,20 @@ class ReviewListCreateView(generics.ListCreateAPIView):
 
 class ReviewDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = ReviewSerializer
-    permission_classes = (permissions.IsAuthenticated,)
+    permission_classes = (permissions.IsAuthenticatedOrReadOnly,)
     queryset = Review.objects.select_related('user', 'book')
 
     def check_object_permissions(self, request, obj):
         super().check_object_permissions(request, obj)
-        if request.method not in permissions.SAFE_METHODS:
-            if obj.user != request.user and not (request.user.is_staff or request.user.is_superuser):
-                from rest_framework.exceptions import PermissionDenied
+        from rest_framework.exceptions import PermissionDenied
+
+        from users.policies import can_edit_review, can_view_review
+
+        if request.method in permissions.SAFE_METHODS:
+            if not can_view_review(request.user, obj):
+                raise PermissionDenied('No tienes permiso para ver esta reseña.')
+        else:
+            if not can_edit_review(request.user, obj):
                 raise PermissionDenied('No tienes permiso para modificar esta reseña.')
 
 

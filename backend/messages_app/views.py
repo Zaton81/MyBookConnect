@@ -13,7 +13,10 @@ User = get_user_model()
 
 class IsParticipant(permissions.BasePermission):
     def has_object_permission(self, request, view, obj):
-        return request.user in obj.participants.all()
+        from users.policies import can_access_conversation
+
+        conv = obj if isinstance(obj, Conversation) else getattr(obj, 'conversation', None)
+        return can_access_conversation(request.user, conv)
 
 class ConversationViewSet(viewsets.ModelViewSet):
     serializer_class = ConversationSerializer
@@ -26,15 +29,16 @@ class ConversationViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['post'], url_path='start')
     def start_conversation(self, request):
+        from users.policies import can_message
+
         other_id = request.data.get('user_id')
         if not other_id:
             return Response({'error': 'user_id requerido'}, status=400)
         other = User.objects.filter(id=other_id).first()
         if not other:
             return Response({'error': 'Usuario no encontrado'}, status=404)
-        # Solo permitir si son amigos mutuos
-        if not (other in request.user.following.all() and request.user in other.following.all()):
-            return Response({'error': 'Solo puedes chatear con amigos mutuos'}, status=403)
+        if not can_message(request.user, other):
+            return Response({'error': 'Solo puedes chatear con amigos mutuos que no estén bloqueados'}, status=403)
         # Buscar conversación existente
         conv = Conversation.objects.filter(participants=request.user).filter(participants=other).first()
         if not conv:
@@ -58,8 +62,14 @@ class MessageViewSet(viewsets.ModelViewSet):
         return Message.objects.filter(conversation=conv).select_related('sender')
 
     def perform_create(self, serializer):
+        from users.policies import can_access_conversation, can_message
+
         conv_id = self.request.data.get('conversation')
-        conv = Conversation.objects.filter(id=conv_id, participants=self.request.user).first()
-        if not conv:
+        conv = Conversation.objects.filter(id=conv_id).first()
+        if not conv or not can_access_conversation(self.request.user, conv):
             raise serializers.ValidationError('Conversación no encontrada o sin permisos')
+        # Verificar que no exista bloqueo activo con los participantes
+        for participant in conv.participants.exclude(id=self.request.user.id):
+            if not can_message(self.request.user, participant):
+                raise serializers.ValidationError('No puedes enviar mensajes a esta conversación debido a una restricción de privacidad o bloqueo.')
         serializer.save(sender=self.request.user, conversation=conv)

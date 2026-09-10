@@ -17,8 +17,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
         if not user or not user.is_authenticated:
             await self.close(code=4001)
             return
-        is_participant = await self._is_participant(user.id, self.conversation_id)
-        if not is_participant:
+        can_access = await self._can_access(user.id, self.conversation_id)
+        if not can_access:
             await self.close(code=4003)
             return
         await self.channel_layer.group_add(self.group_name, self.channel_name)
@@ -37,6 +37,14 @@ class ChatConsumer(AsyncWebsocketConsumer):
             text = payload.get("text", "").strip()
             if not text:
                 return
+            can_send = await self._can_send_message(user.id, self.conversation_id)
+            if not can_send:
+                await self.send(text_data=json.dumps({
+                    "event": "error",
+                    "detail": "No puedes enviar mensajes a esta conversación debido a una restricción de privacidad o bloqueo.",
+                }))
+                return
+
             msg = await self._create_message(self.conversation_id, user.id, text)
             event = {
                 "type": "chat.message",
@@ -65,9 +73,25 @@ class ChatConsumer(AsyncWebsocketConsumer):
         await self.send(text_data=json.dumps({"event": "read", "conversation": event["conversation"]}))
 
     @database_sync_to_async
-    def _is_participant(self, user_id: int, conversation_id: int) -> bool:
-        conv = Conversation.objects.filter(id=conversation_id, participants__id=user_id).exists()
-        return bool(conv)
+    def _can_access(self, user_id: int, conversation_id: int) -> bool:
+        from users.policies import can_access_conversation
+
+        conv = Conversation.objects.filter(id=conversation_id).first()
+        user = User.objects.filter(id=user_id).first()
+        return bool(conv and user and can_access_conversation(user, conv))
+
+    @database_sync_to_async
+    def _can_send_message(self, sender_id: int, conversation_id: int) -> bool:
+        from users.policies import can_access_conversation, can_message
+
+        conv = Conversation.objects.filter(id=conversation_id).first()
+        user = User.objects.filter(id=sender_id).first()
+        if not conv or not user or not can_access_conversation(user, conv):
+            return False
+        for participant in conv.participants.exclude(id=sender_id):
+            if not can_message(user, participant):
+                return False
+        return True
 
     @database_sync_to_async
     def _create_message(self, conversation_id: int, sender_id: int, text: str):

@@ -822,23 +822,26 @@ can_edit_review(user, review)
 can_access_conversation(user, conversation)
 can_message(user, target)
 ```
+-   [x] Módulo centralizado implementado en `backend/users/policies.py`.
+-   [x] Queryset helpers `filter_visible_reviews` y `filter_visible_users` implementados.
 
 ## Bloqueos
 
 Definir explícitamente qué ocurre al bloquear:
 
--   [ ] Ver perfil.
--   [ ] Buscar usuario.
--   [ ] Seguir.
--   [ ] Ver reviews.
--   [ ] Ver actividad.
--   [ ] Enviar mensajes.
--   [ ] Aparecer en recomendaciones.
--   [ ] Aparecer en búsquedas.
+-   [x] **Ver perfil:** si el target bloqueó al viewer, acceso 403 denegado. Si el viewer bloqueó al target, solo se le permite acceso básico para desbloquear.
+-   [x] **Buscar usuario:** `UserSearchListView` y `filter_visible_users` excluyen mutuamente a usuarios bloqueados y bloqueadores en `/api/v1/users/search/`.
+-   [x] **Seguir:** `FollowUserView` impide seguir si hay bloqueo en cualquiera de las dos direcciones. Al bloquear a un usuario, se rompe inmediatamente el seguimiento mutuo bidireccional (`request.user.following.remove(target)`, `target.following.remove(request.user)`).
+-   [x] **Ver reviews:** `filter_visible_reviews` y `ReviewDetailView` ocultan automáticamente reseñas de usuarios bloqueados o bloqueadores, perfiles privados y perfiles amigos sin relación activa de seguimiento.
+-   [x] **Ver actividad:** exclusión garantizada en filtros de privacidad por usuario y autor.
+-   [x] **Enviar mensajes:** validación en `ConversationViewSet.start_conversation`, `MessageViewSet.perform_create` y `ChatConsumer` (WebSockets) denegando creación o emisión si existe restricción o bloqueo.
+-   [x] **Aparecer en recomendaciones:** integración de exclusión mediante `filter_visible_users` y aislamiento de grafos sociales bloqueados.
+-   [x] **Aparecer en búsquedas:** excluidos bidireccionalmente de los resultados de búsqueda global de usuarios.
 
 ## Criterio de aceptación
 
-Las reglas de privacidad no deben estar duplicadas en múltiples views.
+-   [x] Las reglas de privacidad no están duplicadas en múltiples views; centralizadas en `users.policies`.
+-   [x] Suite de pruebas automatizadas en `backend/tests/test_permissions_privacy.py` (71/71 tests pasando en suite completa).
 
 ------------------------------------------------------------------------
 

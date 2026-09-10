@@ -15,6 +15,7 @@ from .views import (
     UserFollowingListView,
     UserProfileView,
     UserRegistrationView,
+    UserSearchListView,
     UserUpdateView,
     toggle_editor,
 )
@@ -39,6 +40,7 @@ urlpatterns = [
     path('logout/', LogoutView.as_view(), name='logout'),
     path('profile/', UserProfileView.as_view(), name='profile'),
     path('profile/update/', UserUpdateView.as_view(), name='profile-update'),
+    path('search/', UserSearchListView.as_view(), name='user-search'),
     path('following/', UserFollowingListView.as_view(), name='following-list'),
     path('followers/', UserFollowersListView.as_view(), name='followers-list'),
     *user_action_patterns,

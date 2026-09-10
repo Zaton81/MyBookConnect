@@ -6,6 +6,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from . import policies
 from .serializers import UserBasicSerializer, UserCreateSerializer, UserSerializer
 
 User = get_user_model()
@@ -68,25 +69,15 @@ class UserDetailView(generics.RetrieveAPIView):
         instance = self.get_object()
         user = request.user
 
-        if instance == user:
-            serializer = self.get_serializer(instance)
-            return Response(serializer.data)
-
-        if instance.blocked_users.filter(id=user.id).exists():
-            return Response({"detail": "No puedes ver este perfil."}, status=status.HTTP_403_FORBIDDEN)
-
-        has_blocked = user.blocked_users.filter(id=instance.id).exists()
-
-        if not has_blocked:
+        if not policies.can_view_profile(user, instance):
+            if instance.blocked_users.filter(id=user.id).exists():
+                return Response({"detail": "No puedes ver este perfil."}, status=status.HTTP_403_FORBIDDEN)
             if instance.privacy_level == 'private':
                 return Response({"detail": "Este perfil es privado."}, status=status.HTTP_403_FORBIDDEN)
-
-            if instance.privacy_level == 'friends':
-                if not user.following.filter(id=instance.id).exists():
-                    return Response(
-                        {"detail": "Este perfil es solo para amigos."},
-                        status=status.HTTP_403_FORBIDDEN,
-                    )
+            return Response(
+                {"detail": "Este perfil es solo para amigos."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
 
         serializer = self.get_serializer(instance)
         return Response(serializer.data)
@@ -100,7 +91,10 @@ class FollowUserView(APIView):
         if request.user == user_to_follow:
             return Response({"detail": "No puedes seguirte a ti mismo."}, status=status.HTTP_400_BAD_REQUEST)
 
-        if user_to_follow.blocked_users.filter(id=request.user.id).exists():
+        if (
+            user_to_follow.blocked_users.filter(id=request.user.id).exists()
+            or request.user.blocked_users.filter(id=user_to_follow.id).exists()
+        ):
             return Response({"detail": "No puedes seguir a este usuario."}, status=status.HTTP_403_FORBIDDEN)
 
         if user_to_follow in request.user.following.all():
@@ -128,7 +122,9 @@ class BlockUserView(APIView):
             return Response({"detail": "No puedes bloquearte a ti mismo."}, status=status.HTTP_400_BAD_REQUEST)
 
         request.user.blocked_users.add(user_to_block)
+        # Ruptura bidireccional inmediata del seguimiento
         request.user.following.remove(user_to_block)
+        user_to_block.following.remove(request.user)
         return Response({"detail": f"Has bloqueado a {user_to_block.username}"}, status=status.HTTP_200_OK)
 
 
@@ -139,6 +135,23 @@ class UnblockUserView(APIView):
         user_to_unblock = get_object_or_404(User, id=user_id)
         request.user.blocked_users.remove(user_to_unblock)
         return Response({"detail": f"Has desbloqueado a {user_to_unblock.username}"}, status=status.HTTP_200_OK)
+
+
+class UserSearchListView(generics.ListAPIView):
+    """Búsqueda de usuarios filtrando aquellos bloqueados o que bloquearon al solicitante."""
+    permission_classes = (permissions.IsAuthenticated,)
+    serializer_class = UserBasicSerializer
+
+    def get_queryset(self):
+        query = self.request.query_params.get('q', '').strip()
+        if not query:
+            return User.objects.none()
+        queryset = User.objects.filter(
+            Q(username__icontains=query)
+            | Q(first_name__icontains=query)
+            | Q(last_name__icontains=query)
+        ).distinct()
+        return policies.filter_visible_users(self.request.user, queryset)
 
 
 class UserFollowingListView(generics.ListAPIView):
