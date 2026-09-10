@@ -138,6 +138,8 @@ REST_FRAMEWORK = {
         'anon': '120/minute',
         'user': '1200/minute',
     },
+    'DEFAULT_PAGINATION_CLASS': 'books.pagination.StandardResultsSetPagination',
+    'PAGE_SIZE': 20,
 }
 
 SPECTACULAR_SETTINGS = {

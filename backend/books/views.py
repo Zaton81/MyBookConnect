@@ -4,13 +4,13 @@ from django.core.cache import cache
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from rest_framework import generics, permissions
-from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from . import services
 from .cache_utils import TTL_BOOK_DETAIL, TTL_TRENDING, book_detail_key, trending_key
 from .models import Author, Book, Errata, ErrataStatus, Review, UserBook
+from .pagination import StandardResultsSetPagination
 from .serializers import AuthorSerializer, BookSerializer, ErrataSerializer, ReviewSerializer, UserBookSerializer
 
 
@@ -146,10 +146,8 @@ class BookDetailView(generics.RetrieveAPIView):
         return Response(data)
 
 
-class UserBookPagination(PageNumberPagination):
-    page_size = 10
-    page_size_query_param = 'page_size'
-    page_query_param = 'page'
+class UserBookPagination(StandardResultsSetPagination):
+    pass
 
 
 class UserBookListCreateView(generics.ListCreateAPIView):

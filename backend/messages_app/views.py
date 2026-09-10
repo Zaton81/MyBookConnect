@@ -4,6 +4,8 @@ from rest_framework.decorators import action
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 
+from books.pagination import StandardCursorPagination
+
 from .models import Conversation, Message
 from .serializers import ConversationSerializer, MessageSerializer
 
@@ -44,6 +46,7 @@ class MessageViewSet(viewsets.ModelViewSet):
     serializer_class = MessageSerializer
     permission_classes = [permissions.IsAuthenticated, IsParticipant]
     parser_classes = [MultiPartParser, FormParser, JSONParser]
+    pagination_class = StandardCursorPagination
 
     def get_queryset(self):
         conv_id = self.request.query_params.get('conversation')

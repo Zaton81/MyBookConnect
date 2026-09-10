@@ -17,8 +17,8 @@ export function Friends() {
           getFollowing(),
           getFollowers(),
         ]);
-        setFollowing(followingData);
-        setFollowers(followersData);
+        setFollowing(Array.isArray(followingData) ? followingData : (followingData as any)?.results || []);
+        setFollowers(Array.isArray(followersData) ? followersData : (followersData as any)?.results || []);
       } catch (error) {
         console.error('Error cargando amigos:', error);
       } finally {

@@ -121,11 +121,13 @@ export const useAuthStore = create<AuthStore>()(
       },
 
       getFollowing: async () => {
-        return api.get('/api/v1/users/following/');
+        const res: any = await api.get('/api/v1/users/following/');
+        return Array.isArray(res) ? res : (res?.results || []);
       },
 
       getFollowers: async () => {
-        return api.get('/api/v1/users/followers/');
+        const res: any = await api.get('/api/v1/users/followers/');
+        return Array.isArray(res) ? res : (res?.results || []);
       },
     }),
     {

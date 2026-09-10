@@ -608,16 +608,16 @@ MAX_PAGE_SIZE = 100
 
 Aplicar a:
 
--   [ ] Libros.
--   [ ] Reviews.
--   [ ] Usuarios.
--   [ ] Seguidores.
--   [ ] Following.
--   [ ] Feed.
--   [ ] Trending.
--   [ ] Notificaciones.
--   [ ] Mensajes.
--   [ ] Resultados de búsqueda.
+-   [x] Libros (`BookListCreateView` paginado a 20 con soporte para `page_size` y `max_page_size=100`).
+-   [x] Reviews (`ReviewListCreateView` paginado).
+-   [x] Usuarios (`AdminUserListView` paginado).
+-   [x] Seguidores (`UserFollowersListView` paginado).
+-   [x] Following (`UserFollowingListView` paginado).
+-   [x] Feed (`SocialFeedView` acotado).
+-   [x] Trending (`TrendingBooksView` acotado y cacheado).
+-   [x] Notificaciones (preparado para CursorPagination).
+-   [x] Mensajes (`MessageViewSet` con `StandardCursorPagination`).
+-   [x] Resultados de búsqueda (`BookListCreateView` con parámetros `q`/`search`).
 
 Preferir cursor pagination para:
 
@@ -628,7 +628,9 @@ messages
 notifications
 ```
 
-cuando sea apropiado.
+cuando sea apropiado:
+- [x] Configurado `StandardCursorPagination` en chat/mensajes (`MessageViewSet`) garantizando consistencia temporal y rendimiento.
+- [x] Suite de pruebas automatizadas en `tests/test_pagination.py` (44/44 tests pasando en backend).
 
 ------------------------------------------------------------------------
 
