@@ -1,4 +1,5 @@
 import logging
+from http.cookies import SimpleCookie
 from urllib.parse import parse_qs
 
 from channels.db import database_sync_to_async
@@ -30,28 +31,50 @@ def get_user_from_token(token_str: str):
 class JwtAuthMiddleware:
     """
     Middleware ASGI para Channels que autentica usuarios mediante token JWT
-    pasado en la query string (?token=...) o en los headers (authorization: Bearer ...).
+    pasado preferentemente en cookies seguras o headers de autorización,
+    manteniendo query string (?token=...) como compatibilidad retroactiva.
     """
     def __init__(self, app):
         self.app = app
 
     async def __call__(self, scope, receive, send):
         token_str = None
+        headers = dict(scope.get("headers", []))
 
-        # 1. Intentar obtener el token desde la query string (?token=<token>)
-        query_string = scope.get("query_string", b"").decode("utf-8")
-        query_params = parse_qs(query_string)
-        if "token" in query_params:
-            token_str = query_params["token"][0]
+        # 1. Intentar obtener el token desde cookies (HttpOnly / Secure)
+        if "cookies" in scope and isinstance(scope["cookies"], dict):
+            token_str = (
+                scope["cookies"].get("jwt_access_token")
+                or scope["cookies"].get("access_token")
+                or scope["cookies"].get("token")
+            )
 
-        # 2. Si no viene en query string, buscar en los headers
-        if not token_str:
-            headers = dict(scope.get("headers", []))
-            auth_header = headers.get(b"authorization", b"").decode("utf-8")
+        if not token_str and b"cookie" in headers:
+            try:
+                cookie_header = headers[b"cookie"].decode("utf-8")
+                cookie = SimpleCookie()
+                cookie.load(cookie_header)
+                for cookie_name in ("jwt_access_token", "access_token", "token"):
+                    if cookie_name in cookie:
+                        token_str = cookie[cookie_name].value
+                        break
+            except Exception as e:
+                logger.debug("Error analizando cookies en WebSocket: %s", e)
+
+        # 2. Si no viene en cookies, buscar en los headers (Authorization: Bearer ...)
+        if not token_str and b"authorization" in headers:
+            auth_header = headers[b"authorization"].decode("utf-8")
             if auth_header.startswith("Bearer "):
                 token_str = auth_header[7:].strip()
 
-        # 3. Validar token y asignar usuario al scope
+        # 3. Fallback: query string (?token=<token>)
+        if not token_str:
+            query_string = scope.get("query_string", b"").decode("utf-8")
+            query_params = parse_qs(query_string)
+            if "token" in query_params:
+                token_str = query_params["token"][0]
+
+        # 4. Validar token y asignar usuario al scope
         if token_str:
             scope["user"] = await get_user_from_token(token_str)
         else:

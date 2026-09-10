@@ -69,6 +69,10 @@ export const useAuthStore = create<AuthStore>()(
       },
 
       logout: () => {
+        const { refreshToken } = get();
+        if (refreshToken) {
+          api.post('/api/v1/auth/logout/', { refresh: refreshToken }).catch(() => {});
+        }
         set({
           user: null,
           token: null,

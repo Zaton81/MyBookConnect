@@ -179,3 +179,23 @@ def toggle_editor(request, user_id):
     user.is_editor = not getattr(user, 'is_editor', False)
     user.save(update_fields=['is_editor'])
     return Response({'id': user.id, 'is_editor': user.is_editor})
+
+
+class LogoutView(APIView):
+    """
+    Invalida el refresh token provisto añadiéndolo a la lista negra (Blacklist).
+    """
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def post(self, request):
+        refresh_token = request.data.get('refresh')
+        if not refresh_token:
+            return Response({'detail': 'El token refresh es requerido.'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            from rest_framework_simplejwt.tokens import RefreshToken
+            token = RefreshToken(refresh_token)
+            token.blacklist()
+            return Response({'detail': 'Sesión cerrada exitosamente.'}, status=status.HTTP_200_OK)
+        except Exception:
+            return Response({'detail': 'Token inválido o ya revocado.'}, status=status.HTTP_400_BAD_REQUEST)
+

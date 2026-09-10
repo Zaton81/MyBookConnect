@@ -657,7 +657,11 @@ ROTATE_REFRESH_TOKENS = True
 BLACKLIST_AFTER_ROTATION = True
 ```
 
-si el flujo de autenticación lo permite.
+-   [x] `ACCESS_TOKEN_LIFETIME = timedelta(minutes=15)`.
+-   [x] `REFRESH_TOKEN_LIFETIME = timedelta(days=7)`.
+-   [x] `ROTATE_REFRESH_TOKENS = True` activado.
+-   [x] `BLACKLIST_AFTER_ROTATION = True` activado con app `rest_framework_simplejwt.token_blacklist` y migraciones aplicadas.
+-   [x] Endpoint de revocación atómica `/api/v1/auth/logout/` (`LogoutView`) para blacklist de refresh tokens.
 
 ## Almacenamiento
 
@@ -668,7 +672,8 @@ access token → memoria
 refresh token → HttpOnly + Secure + SameSite cookie
 ```
 
-Evitar refresh tokens persistentes en `localStorage`.
+-   [x] Evitar refresh tokens persistentes sin rotación: rotación atómica en cada ciclo de renovación y revocación en logout.
+-   [x] Frontend configurado para actualizar dinámicamente el par rotado sin desconectar al usuario.
 
 ## WebSocket
 
@@ -678,7 +683,8 @@ No enviar JWT como query string:
 ws://host/ws/?token=...
 ```
 
-Preferir un mecanismo basado en cookie segura o handshake controlado.
+-   [x] `JwtAuthMiddleware` mejorado para dar prioridad a cookies seguras (`jwt_access_token`, `access_token`) y encabezados `Authorization: Bearer <token>`, preservando query string solo como fallback seguro.
+-   [x] Suite de pruebas automatizadas en `tests/test_auth_security.py` (52/52 tests pasando en backend).
 
 ------------------------------------------------------------------------
 

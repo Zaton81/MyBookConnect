@@ -7,6 +7,7 @@ from .views import (
     BlockUserView,
     CheckFollowStatusView,
     FollowUserView,
+    LogoutView,
     UnblockUserView,
     UnfollowUserView,
     UserDetailView,
@@ -35,6 +36,7 @@ user_action_patterns = [
 
 urlpatterns = [
     path('register/', UserRegistrationView.as_view(), name='register'),
+    path('logout/', LogoutView.as_view(), name='logout'),
     path('profile/', UserProfileView.as_view(), name='profile'),
     path('profile/update/', UserUpdateView.as_view(), name='profile-update'),
     path('following/', UserFollowingListView.as_view(), name='following-list'),
