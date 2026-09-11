@@ -124,7 +124,6 @@ def precompute_trending_task(self) -> dict[str, int]:
 
         summary = {}
         for period in ('week', 'month', 'year', 'all'):
-            # Invalida o recalcula
             items = get_trending_books(period=period, limit=12)
             summary[period] = len(items)
 
@@ -133,4 +132,26 @@ def precompute_trending_task(self) -> dict[str, int]:
     except Exception as exc:
         logger.warning(f"Error en precompute_trending_task: {exc}")
         raise self.retry(exc=exc) from exc
+
+
+@shared_task(bind=True, max_retries=2, default_retry_delay=60)
+def precompute_user_recommendations_task(self, user_id: int) -> int:
+    """
+    Precalcula y calienta en caché las recomendaciones híbridas de un usuario
+    para optimizar la carga instantánea de su página de inicio.
+    """
+    try:
+        from django.contrib.auth import get_user_model
+
+        from .services.recommendation_service import get_user_recommendations
+
+        User = get_user_model()
+        user = User.objects.get(pk=user_id)
+        recommendations = get_user_recommendations(user=user, limit=10, strategy='hybrid')
+        logger.info(f"precompute_user_recommendations_task: {len(recommendations)} recomendaciones calculadas para usuario {user_id}")
+        return len(recommendations)
+    except Exception as exc:
+        logger.warning(f"Error en precompute_user_recommendations_task para usuario {user_id}: {exc}")
+        raise self.retry(exc=exc) from exc
+
 

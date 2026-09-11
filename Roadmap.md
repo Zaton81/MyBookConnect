@@ -1242,53 +1242,30 @@ Crear un score temporal ponderado con decaimiento temporal y ventanas selecciona
 
 # 27. Fase 24 --- Motor de recomendaciones
 
-**Prioridad:** P2
+**Prioridad:** P2  
+**Estado:** ✅ Completada
 
-## Primera versión: basada en reglas
+Motor de recomendaciones híbrido configurable con explicabilidad y soporte contextual:
+- **Preferencias de género e historial (35%)**: Ponderación por valoraciones ($\ge 4$) y libros leídos/deseados.
+- **Afinidad de autor (20%)**: Recompensa a autores favoritos del usuario.
+- **Comportamiento social (20%)**: Libros leídos o bien valorados por usuarios seguidos (`following`).
+- **Similitud semántica y temática (15%)**: Coincidencia temática con sinopsis y títulos favoritos.
+- **Descubrimiento y serendipia (10%)**: Impulso a libros de alta valoración comunitaria ($\ge 4.0$) en géneros adyacentes.
+- **Explicabilidad ("Reasons")**: Cada recomendación detalla el motivo intuitivo del cálculo.
+- **Recomendaciones contextuales de libro a libro**: Filtrado colaborativo ("quienes leyeron X también leyeron Y") en `BookDetail`.
+- **Caché en Redis e invalidación reactiva**: TTL 15m con refresco en `UserBook` y `Review`.
+- **Tarea Celery de precomputación**: `precompute_user_recommendations_task`.
+- **Frontend**: Nueva sección *"✨ Recomendados para ti"* en `Home.tsx` y carrusel *"Lectores también disfrutaron"* en `BookDetail.tsx`.
 
-Factores:
-
-``` text
-géneros
-autores
-ratings
-historial
-wishlist
-libros terminados
-```
-
-## Segunda versión: social
-
-Añadir:
-
-``` text
-usuarios seguidos
-libros que leen
-libros que valoran
-```
-
-## Tercera versión: semántica
-
-Añadir:
-
-``` text
-embeddings
-```
-
-## Cuarta versión: híbrida
-
-Ejemplo:
-
-``` text
-35% preferencias
-20% similitud semántica
-15% comportamiento social
-10% autores
-10% popularidad
-10% descubrimiento
-```
-
-Los pesos deben ser configurables.
+## Tareas completadas:
+- [x] Crear servicio `recommendation_service.py` con motor híbrido multi-estrategia (`hybrid`, `rules`, `social`, `semantic`).
+- [x] Motor de explicabilidad transparente con motivos humanizados por libro recomendado.
+- [x] Filtrado colaborativo contextual para libros en `get_book_recommendations`.
+- [x] Estrategia de caché Redis e invalidación reactiva en signals de `UserBook` y `Review`.
+- [x] Endpoints API REST: `GET /api/v1/books/recommendations/` y `GET /api/v1/books/<pk>/recommendations/`.
+- [x] Tarea Celery de precomputación `precompute_user_recommendations_task`.
+- [x] Componentes visuales en `Home.tsx` e integración en `BookDetail.tsx`.
+- [x] Suite de tests completa en `test_phase24_recommendations.py` (8/8 tests superados).
 
 ------------------------------------------------------------------------
 

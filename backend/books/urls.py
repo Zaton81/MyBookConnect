@@ -32,6 +32,7 @@ from .views import (
     UserBookByBookView,
     UserBookDetailView,
     UserBookListCreateView,
+    UserRecommendationsView,
 )
 
 router = DefaultRouter()
@@ -43,6 +44,7 @@ urlpatterns = [
     path('', BookListCreateView.as_view(), name='books-list-root'),
     path('feed/', SocialFeedView.as_view(), name='books-social-feed'),
     path('trending/', TrendingBooksView.as_view(), name='books-trending'),
+    path('recommendations/', UserRecommendationsView.as_view(), name='user-recommendations'),
     path('statistics/', ReadingStatsView.as_view(), name='books-statistics'),
     path('match/<int:user_id>/', ReadingMatchView.as_view(), name='user-reading-match'),
     path('import/', ImportBookView.as_view(), name='books-import-root'),

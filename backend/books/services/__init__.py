@@ -49,6 +49,10 @@ from .providers import (
     OpenLibraryProvider,
     WikipediaProvider,
 )
+from .recommendation_service import (
+    get_book_recommendations,
+    get_user_recommendations,
+)
 from .stats_service import get_user_reading_stats
 from .trending_service import get_trending_books
 
@@ -58,6 +62,8 @@ __all__ = [
     'import_multiple_by_title',
     'import_books_by_author',
     'get_trending_books',
+    'get_user_recommendations',
+    'get_book_recommendations',
     'maybe_enrich_author',
     'maybe_enrich_author_from_wikipedia',
     'maybe_enrich_author_from_wikidata',

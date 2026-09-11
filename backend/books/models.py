@@ -291,10 +291,16 @@ def invalidate_book_cache_signal(sender, instance, **kwargs):
 @receiver(post_delete, sender=Review)
 def handle_review_signals(sender, instance, **kwargs):
     created = kwargs.get('created', False)
-    # Invalida caché de estadísticas de lectura del usuario
+    # Invalida caché de estadísticas y recomendaciones
     try:
-        from .cache_utils import invalidate_user_stats_cache
+        from .cache_utils import (
+            invalidate_book_recommendations_cache,
+            invalidate_user_recommendations_cache,
+            invalidate_user_stats_cache,
+        )
         invalidate_user_stats_cache(instance.user_id)
+        invalidate_user_recommendations_cache(instance.user_id)
+        invalidate_book_recommendations_cache(instance.book_id)
     except Exception:
         pass
 
@@ -318,10 +324,16 @@ def handle_review_signals(sender, instance, **kwargs):
 @receiver(post_delete, sender=UserBook)
 def handle_userbook_signals(sender, instance, **kwargs):
     created = kwargs.get('created', False)
-    # Invalida caché de estadísticas de lectura del usuario
+    # Invalida caché de estadísticas y recomendaciones
     try:
-        from .cache_utils import invalidate_user_stats_cache
+        from .cache_utils import (
+            invalidate_book_recommendations_cache,
+            invalidate_user_recommendations_cache,
+            invalidate_user_stats_cache,
+        )
         invalidate_user_stats_cache(instance.user_id)
+        invalidate_user_recommendations_cache(instance.user_id)
+        invalidate_book_recommendations_cache(instance.book_id)
     except Exception:
         pass
 

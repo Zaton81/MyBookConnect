@@ -17,6 +17,16 @@ interface TrendingBook {
   trending_score?: number;
 }
 
+interface RecommendedBook {
+  id: number;
+  title: string;
+  cover?: string;
+  author_name: string;
+  average_rating?: number;
+  score: number;
+  reason: string;
+}
+
 interface FeedItem {
   id: string;
   type: 'review' | 'finished_reading';
@@ -40,6 +50,7 @@ export const Home = () => {
   const { user, token } = useAuthStore();
   const navigate = useNavigate();
 
+  const [recommendations, setRecommendations] = useState<RecommendedBook[]>([]);
   const [trending, setTrending] = useState<TrendingBook[]>([]);
   const [trendingPeriod, setTrendingPeriod] = useState<'week' | 'month' | 'all'>('week');
   const [trendingLoading, setTrendingLoading] = useState(false);
@@ -49,7 +60,7 @@ export const Home = () => {
 
   const apiUrl = (import.meta as any).env.VITE_API_URL || 'http://localhost:8000';
 
-  // Carga inicial del feed y tendencias
+  // Carga inicial del dashboard: recomendaciones, feed y tendencias
   useEffect(() => {
     if (!user) {
       navigate('/');
@@ -61,10 +72,16 @@ export const Home = () => {
         setLoading(true);
         const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
-        const [trendingRes, feedRes] = await Promise.all([
+        const [recsRes, trendingRes, feedRes] = await Promise.all([
+          fetch(`${apiUrl}/api/v1/books/recommendations/?limit=6`, { headers }),
           fetch(`${apiUrl}/api/v1/books/trending/?period=week`, { headers }),
           fetch(`${apiUrl}/api/v1/books/feed/`, { headers }),
         ]);
+
+        if (recsRes.ok) {
+          const rData = await recsRes.json();
+          setRecommendations(rData.results || []);
+        }
 
         if (trendingRes.ok) {
           const tData = await trendingRes.json();
@@ -178,6 +195,68 @@ export const Home = () => {
             📚
           </div>
         </div>
+
+        {/* ── Sección de Recomendados para ti (Fase 24) ── */}
+        {recommendations.length > 0 && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                  <span>✨</span>
+                  <span>Recomendados para ti</span>
+                </h2>
+                <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">
+                  Sugerencias personalizadas basadas en tus afinidades, lecturas y amigos
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 sm:gap-6">
+              {recommendations.map((book) => (
+                <div
+                  key={book.id}
+                  onClick={() => navigate(`/books/${book.id}`)}
+                  className="group bg-white dark:bg-gray-800 rounded-2xl p-3 border border-teal-100 dark:border-teal-900/40 shadow-sm hover:shadow-lg hover:border-teal-300 dark:hover:border-teal-600 transition-all duration-200 cursor-pointer flex flex-col justify-between"
+                >
+                  <div>
+                    <div className="relative aspect-[2/3] w-full overflow-hidden rounded-xl bg-gray-100 dark:bg-gray-700 mb-3 shadow-inner">
+                      {book.cover ? (
+                        <img
+                          src={resolveMediaUrl(book.cover)}
+                          alt={book.title}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center p-2 text-center text-xs font-semibold text-gray-400 dark:text-gray-500">
+                          {book.title}
+                        </div>
+                      )}
+                    </div>
+
+                    <h3 className="font-bold text-sm text-gray-900 dark:text-white truncate group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors">
+                      {book.title}
+                    </h3>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                      {book.author_name || 'Autor desconocido'}
+                    </p>
+                    <div className="mt-1">
+                      {book.average_rating ? renderStars(book.average_rating) : (
+                        <span className="text-[11px] text-gray-400">Sin reseñas aún</span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="mt-2.5 pt-2 border-t border-gray-100 dark:border-gray-700/60">
+                    <span className="inline-block text-[10px] font-medium text-teal-800 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/60 px-2 py-0.5 rounded-md border border-teal-200/60 dark:border-teal-800/40 line-clamp-2">
+                      💡 {book.reason}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* ── Sección de Libros en Tendencia ── */}
         <div className="space-y-4">

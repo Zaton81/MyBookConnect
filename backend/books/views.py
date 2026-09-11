@@ -680,28 +680,58 @@ class ImportBookView(APIView):
             return Response({'detail': 'Ocurrió un error al importar el libro.'}, status=500)
 
 
-class RecommendationView(generics.ListAPIView):
-    serializer_class = BookSerializer
+class UserRecommendationsView(APIView):
+    """
+    Endpoint para obtener recomendaciones personalizadas de libros para el usuario autenticado.
+    Soporta estrategias de scoring: 'hybrid' (por defecto), 'rules', 'social', 'semantic'.
+    """
     permission_classes = (permissions.IsAuthenticated,)
 
-    def get_queryset(self):
-        book_id = self.kwargs.get('pk')
+    def get(self, request):
+        limit = request.query_params.get('limit', 10)
         try:
-            book = Book.objects.get(pk=book_id)
-        except Book.DoesNotExist:
-            return Book.objects.none()
+            limit = max(1, min(30, int(limit)))
+        except (ValueError, TypeError):
+            limit = 10
 
-        categories = book.categories.all()
-        if not categories:
-            return Book.objects.filter(author=book.author).exclude(id=book.id).order_by('-average_rating')[:5]
+        strategy = request.query_params.get('strategy', 'hybrid').lower().strip()
+        if strategy not in ('hybrid', 'rules', 'social', 'semantic'):
+            strategy = 'hybrid'
 
-        user_books = UserBook.objects.filter(user=self.request.user).values_list('book_id', flat=True)
+        results = services.get_user_recommendations(
+            user=request.user,
+            limit=limit,
+            strategy=strategy,
+            request=request,
+        )
+        return Response({
+            'count': len(results),
+            'strategy': strategy,
+            'results': results,
+        })
 
-        return Book.objects.filter(categories__in=categories) \
-            .exclude(id=book.id) \
-            .exclude(id__in=user_books) \
-            .distinct() \
-            .order_by('-average_rating')[:5]
+
+class RecommendationView(APIView):
+    """
+    Endpoint para obtener recomendaciones contextuales a partir de un libro específico (Item-to-Item).
+    Combina filtrado colaborativo ("quienes leyeron X también leyeron Y") con afinidad temática.
+    """
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get(self, request, pk):
+        limit = request.query_params.get('limit', 6)
+        try:
+            limit = max(1, min(20, int(limit)))
+        except (ValueError, TypeError):
+            limit = 6
+
+        results = services.get_book_recommendations(
+            book_id=pk,
+            limit=limit,
+            user=request.user,
+            request=request,
+        )
+        return Response(results)
 
 
 class AuthorBookRefreshView(APIView):
