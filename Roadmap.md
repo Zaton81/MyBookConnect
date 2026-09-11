@@ -47,8 +47,8 @@
 -   [ ] Likes y comentarios.
 -   [x] Seguidores y bloqueos.
 -   [ ] Notificaciones.
--   [ ] Listas de libros.
--   [ ] Estadísticas de lectura.
+-   [x] Listas de libros.
+-   [x] Estadísticas de lectura.
 -   [x] Búsqueda avanzada.
 -   [ ] Búsqueda semántica.
 -   [ ] Recomendaciones personalizadas.
@@ -1188,41 +1188,32 @@ PUBLIC
 
 # 25. Fase 22 --- Estadísticas de lectura
 
-**Prioridad:** P2
+**Prioridad:** P2  
+**Estado:** ✅ Completada
 
-Crear métricas:
-
-``` text
-libros leídos
-libros empezados
-libros abandonados
-páginas
-valoración media
-géneros
-autores
-libros por mes
-```
-
-## Dashboard
+Métricas implementadas con agregaciones PostgreSQL y caché Redis (`stats:user:{user_id}`, TTL: 15 min):
 
 ``` text
-📚 37 libros
-⭐ 4,2 media
-📖 12 en progreso
-📅 8 este año
+- Libros leídos (total_read)
+- Libros en progreso (currently_reading)
+- Libros por leer / wishlist (want_to_read)
+- Libros abandonados (abandoned)
+- Páginas leídas (total_pages_read)
+- Valoración media (average_rating)
+- Distribución de puntuaciones (1 a 10)
+- Top 5 géneros literarios con conteo y porcentajes
+- Top 5 autores más leídos
+- Evolución mensual de lectura (últimos 12 meses)
+- Libros terminados en el año en curso
 ```
 
-## Datos
-
-No calcular estadísticas pesadas en cada request.
-
-Usar:
-
-``` text
-cache
-aggregations
-background jobs
-```
+## Dashboard y Frontend:
+- [x] Servicio backend `books.services.stats_service.get_user_reading_stats` optimizado.
+- [x] Endpoint `GET /api/v1/books/statistics/` (con soporte para `?user_id=X` y respeto de privacidad).
+- [x] Página interactiva `ReadingStats.tsx` con KPI cards, gráfico de barras mensual, barras de porcentaje por género, ranking de autores y distribución de notas.
+- [x] Integración en navegación (`Header.tsx`), en perfil (`Profile.tsx`) y rutas (`App.tsx`).
+- [x] Invalidación atómica de caché ante cambios en `UserBook` y `Review`.
+- [x] Suite de pruebas automatizadas en `test_phase22_reading_stats.py`.
 
 ------------------------------------------------------------------------
 

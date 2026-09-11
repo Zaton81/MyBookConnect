@@ -35,6 +35,7 @@ from .enrichment_service import (
     enrich_book_metadata,
     maybe_enrich_book,
 )
+from .stats_service import get_user_reading_stats
 from .import_service import (
     _create_or_get_from_volume,
     _import_books_by_author_from_wikipedia,
@@ -62,6 +63,7 @@ __all__ = [
     'ensure_book_cover',
     'enrich_book_metadata',
     'maybe_enrich_book',
+    'get_user_reading_stats',
     'download_and_attach_image',
     '_download_and_attach_image',
     'attach_best_cover',

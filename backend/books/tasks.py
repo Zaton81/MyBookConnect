@@ -16,7 +16,10 @@ logger = logging.getLogger(__name__)
 
 @shared_task(bind=True, max_retries=3, default_retry_delay=60)
 def enrich_book_task(self, book_id: int) -> bool:
-    """Enriquece metadatos y portada del libro en segundo plano."""
+    """
+    Enriquece metadatos (autor, categorías, sinopsis, fecha) y portada del libro
+    en segundo plano e invalida la clave de caché del detalle del libro.
+    """
     try:
         book = Book.objects.filter(id=book_id).first()
         if not book:
@@ -24,6 +27,11 @@ def enrich_book_task(self, book_id: int) -> bool:
             return False
 
         maybe_enrich_book(book)
+        from django.core.cache import cache
+
+        from .cache_utils import book_detail_key
+
+        cache.delete(book_detail_key(book.id))
         logger.info(f"enrich_book_task: Libro {book_id} ({book.title}) enriquecido con éxito")
         return True
     except Exception as exc:

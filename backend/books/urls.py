@@ -1,4 +1,5 @@
 from django.urls import path
+from rest_framework.routers import DefaultRouter
 
 from .admin_views import PublicLegalDocumentView
 from .ai_views import (
@@ -17,7 +18,9 @@ from .views import (
     ErrataDetailUpdateView,
     ErrataListCreateView,
     ImportBookView,
+    ReadingListViewSet,
     ReadingMatchView,
+    ReadingStatsView,
     RecommendationView,
     ReviewCommentDeleteView,
     ReviewCommentListCreateView,
@@ -31,12 +34,16 @@ from .views import (
     UserBookListCreateView,
 )
 
+router = DefaultRouter()
+router.register('reading-lists', ReadingListViewSet, basename='reading-lists')
+
 urlpatterns = [
     path('legal/<slug:slug>/', PublicLegalDocumentView.as_view(), name='books-legal-document'),
     # Rutas estándar limpias (/api/v1/books/...)
     path('', BookListCreateView.as_view(), name='books-list-root'),
     path('feed/', SocialFeedView.as_view(), name='books-social-feed'),
     path('trending/', TrendingBooksView.as_view(), name='books-trending'),
+    path('statistics/', ReadingStatsView.as_view(), name='books-statistics'),
     path('match/<int:user_id>/', ReadingMatchView.as_view(), name='user-reading-match'),
     path('import/', ImportBookView.as_view(), name='books-import-root'),
 
@@ -69,4 +76,4 @@ urlpatterns = [
     path('reviews/<int:review_id>/comments/<int:comment_id>/', ReviewCommentDeleteView.as_view(), name='review-comment-delete'),
     path('erratas/', ErrataListCreateView.as_view(), name='erratas-list-create'),
     path('erratas/<int:pk>/', ErrataDetailUpdateView.as_view(), name='erratas-detail-update'),
-]
+] + router.urls

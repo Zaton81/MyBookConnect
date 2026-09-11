@@ -8,6 +8,7 @@ from django.db.models import Avg
 from django.db.models.signals import post_delete, post_save
 from django.dispatch import receiver
 from django.utils import timezone
+from django.utils.text import slugify
 
 
 def normalize_isbn(value: str | None) -> str | None:
@@ -287,7 +288,16 @@ def invalidate_book_cache_signal(sender, instance, **kwargs):
 
 
 @receiver(post_save, sender=Review)
-def record_review_activity_signal(sender, instance, created, **kwargs):
+@receiver(post_delete, sender=Review)
+def handle_review_signals(sender, instance, **kwargs):
+    created = kwargs.get('created', False)
+    # Invalida caché de estadísticas de lectura del usuario
+    try:
+        from .cache_utils import invalidate_user_stats_cache
+        invalidate_user_stats_cache(instance.user_id)
+    except Exception:
+        pass
+
     if created:
         try:
             from users.activity_service import record_activity
@@ -305,7 +315,16 @@ def record_review_activity_signal(sender, instance, created, **kwargs):
 
 
 @receiver(post_save, sender=UserBook)
-def record_userbook_activity_signal(sender, instance, created, **kwargs):
+@receiver(post_delete, sender=UserBook)
+def handle_userbook_signals(sender, instance, **kwargs):
+    created = kwargs.get('created', False)
+    # Invalida caché de estadísticas de lectura del usuario
+    try:
+        from .cache_utils import invalidate_user_stats_cache
+        invalidate_user_stats_cache(instance.user_id)
+    except Exception:
+        pass
+
     try:
         from users.activity_service import record_activity
         from users.models import ActivityType
@@ -364,3 +383,97 @@ class LegalDocument(models.Model):
 
     def __str__(self):
         return self.title
+
+
+class ReadingListPrivacy(models.TextChoices):
+    PUBLIC = 'public', 'Pública'
+    FOLLOWERS = 'followers', 'Solo seguidores'
+    PRIVATE = 'private', 'Privada'
+
+
+class ReadingList(models.Model):
+    """
+    Lista de lectura personalizada (Fase 21).
+    Permite organizar colecciones temáticas (Favoritos, Por leer 2027, etc.)
+    con visibilidad configurable y ordenamiento de libros.
+    """
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='reading_lists')
+    name = models.CharField(max_length=200)
+    slug = models.SlugField(max_length=220)
+    description = models.TextField(blank=True, default='')
+    privacy = models.CharField(
+        max_length=20,
+        choices=ReadingListPrivacy.choices,
+        default=ReadingListPrivacy.PUBLIC,
+        db_index=True,
+    )
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-updated_at']
+        constraints = [
+            models.UniqueConstraint(fields=['user', 'slug'], name='unique_user_reading_list_slug')
+        ]
+        indexes = [
+            models.Index(fields=['user', '-updated_at'], name='idx_readinglist_user_updated'),
+            models.Index(fields=['privacy', '-updated_at'], name='idx_readinglist_priv_updated'),
+        ]
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            base_slug = slugify(self.name) or 'lista'
+            slug = base_slug
+            counter = 1
+            while ReadingList.objects.filter(user=self.user, slug=slug).exclude(pk=self.pk).exists():
+                slug = f"{base_slug}-{counter}"
+                counter += 1
+            self.slug = slug
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.name} ({self.user.username})"
+
+
+class ReadingListItem(models.Model):
+    """
+    Elemento individual dentro de una lista de lectura con posición y notas opcionales.
+    """
+    reading_list = models.ForeignKey(ReadingList, on_delete=models.CASCADE, related_name='items')
+    book = models.ForeignKey(Book, on_delete=models.CASCADE, related_name='reading_list_items')
+    position = models.PositiveIntegerField(default=0)
+    notes = models.TextField(blank=True, default='')
+    added_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ['position', 'added_at']
+        constraints = [
+            models.UniqueConstraint(fields=['reading_list', 'book'], name='unique_reading_list_book')
+        ]
+        indexes = [
+            models.Index(fields=['reading_list', 'position'], name='idx_readinglistitem_pos'),
+        ]
+
+    def __str__(self):
+        return f"{self.reading_list.name} - {self.book.title} (#{self.position})"
+
+
+class ReadingListFollow(models.Model):
+    """
+    Seguimiento de listas de lectura públicas por parte de otros usuarios.
+    """
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='followed_reading_lists')
+    reading_list = models.ForeignKey(ReadingList, on_delete=models.CASCADE, related_name='followers')
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['user', 'reading_list'], name='unique_reading_list_follow')
+        ]
+        indexes = [
+            models.Index(fields=['user', '-created_at'], name='idx_readinglistfollow_user'),
+        ]
+
+    def __str__(self):
+        return f"{self.user.username} sigue {self.reading_list.name}"
+

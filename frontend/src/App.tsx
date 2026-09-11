@@ -21,6 +21,8 @@ const PrivacyPolicy = lazy(() => import('./pages/legal/PrivacyPolicy').then(m =>
 const TermsOfService = lazy(() => import('./pages/legal/TermsOfService').then(m => ({ default: m.TermsOfService })));
 const CookiePolicy = lazy(() => import('./pages/legal/CookiePolicy').then(m => ({ default: m.CookiePolicy })));
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard').then(m => ({ default: m.AdminDashboard })));
+const ReadingLists = lazy(() => import('./pages/ReadingLists').then(m => ({ default: m.ReadingLists })));
+const ReadingStats = lazy(() => import('./pages/ReadingStats').then(m => ({ default: m.ReadingStats })));
 
 function ProfileIdRedirect() {
   const { id } = useParams();
@@ -88,6 +90,34 @@ export default function App() {
                 element={
                   <ProtectedRoute>
                     <Library />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/reading-lists"
+                element={
+                  <ProtectedRoute>
+                    <ReadingLists />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/lists"
+                element={<Navigate to="/reading-lists" replace />}
+              />
+              <Route
+                path="/statistics"
+                element={
+                  <ProtectedRoute>
+                    <ReadingStats />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/users/:id/statistics"
+                element={
+                  <ProtectedRoute>
+                    <ReadingStats />
                   </ProtectedRoute>
                 }
               />

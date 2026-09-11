@@ -271,6 +271,12 @@ export function Header() {
             <NavLink to="/library" className={navLinkClasses}>
               Mi Biblioteca
             </NavLink>
+            <NavLink to="/reading-lists" className={navLinkClasses}>
+              Listas
+            </NavLink>
+            <NavLink to="/statistics" className={navLinkClasses}>
+              Estadísticas
+            </NavLink>
             <NavLink to="/books/add" className={navLinkClasses}>
               + Añadir Libro
             </NavLink>

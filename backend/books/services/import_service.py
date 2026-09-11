@@ -13,6 +13,7 @@ from .base import (
     get_google_books_api_key,
 )
 from .cover_service import attach_best_cover, download_and_attach_image
+from .enrichment_service import attach_categories_to_book
 from .providers.google_books import GoogleBooksProvider
 from .providers.openlibrary import OpenLibraryProvider
 from .providers.wikipedia import WikipediaProvider
@@ -75,10 +76,26 @@ def _create_or_get_from_volume(volume: dict, fallback_isbn: str | None = None) -
         if google_vol_id and not found.google_volume_id:
             found.google_volume_id = google_vol_id
             updated_fields.append('google_volume_id')
+        if not found.description and info.get('description'):
+            found.description = info.get('description')
+            updated_fields.append('description')
         if updated_fields:
             found.save(update_fields=updated_fields)
         if not found.cover:
             attach_best_cover(book=found, info=info, isbn=isbn)
+
+        if not found.categories.exists():
+            raw_cats = info.get('categories') or []
+            extracted_cats = []
+            for cat in raw_cats:
+                if isinstance(cat, str):
+                    for part in cat.split('/'):
+                        p = part.strip()
+                        if p and p not in extracted_cats:
+                            extracted_cats.append(p)
+            if extracted_cats:
+                attach_categories_to_book(found, extracted_cats)
+
         return found
 
     book = Book(
@@ -99,6 +116,19 @@ def _create_or_get_from_volume(volume: dict, fallback_isbn: str | None = None) -
                 continue
     book.save()
     attach_best_cover(book=book, info=info, isbn=isbn)
+
+    # Hidratar categorías para libro recién creado
+    raw_cats = info.get('categories') or []
+    extracted_cats = []
+    for cat in raw_cats:
+        if isinstance(cat, str):
+            for part in cat.split('/'):
+                p = part.strip()
+                if p and p not in extracted_cats:
+                    extracted_cats.append(p)
+    if extracted_cats:
+        attach_categories_to_book(book, extracted_cats)
+
     return book
 
 
@@ -135,6 +165,8 @@ def import_single_by_query(query_isbn: str) -> Book | None:
                 isbn=clean_isbn,
                 description=ol_data.description,
             )
+            if ol_data.categories:
+                attach_categories_to_book(book, ol_data.categories)
             if ol_data.cover_url:
                 download_and_attach_image(book, 'cover', ol_data.cover_url, f"{slugify(book.title)}-{book.id}.jpg")
             return book
@@ -242,6 +274,8 @@ def _import_from_openlibrary_by_title(title: str, offset: int = 0) -> list[Book]
                 url=item.cover_url,
                 filename_hint=f"{slugify(book.title)}-{book.id}.jpg",
             )
+        if item.categories and not book.categories.exists():
+            attach_categories_to_book(book, item.categories)
         results.append(book)
 
     return results

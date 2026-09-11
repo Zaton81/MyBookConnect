@@ -7,6 +7,9 @@ from .models import (
     Category,
     Errata,
     LegalDocument,
+    ReadingList,
+    ReadingListFollow,
+    ReadingListItem,
     Review,
     ReviewComment,
     UserBook,
@@ -211,3 +214,60 @@ class AdminUserSerializer(serializers.ModelSerializer):
             'date_joined', 'last_login', 'privacy_level', 'books_count', 'reviews_count'
         )
         read_only_fields = ('id', 'username', 'date_joined', 'last_login', 'books_count', 'reviews_count')
+
+
+class ReadingListUserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ('id', 'username', 'avatar')
+
+
+class ReadingListItemSerializer(serializers.ModelSerializer):
+    book = BookSerializer(read_only=True)
+    book_id = serializers.PrimaryKeyRelatedField(
+        queryset=Book.objects.all(), source='book', write_only=True
+    )
+
+    class Meta:
+        model = ReadingListItem
+        fields = ('id', 'reading_list', 'book', 'book_id', 'position', 'notes', 'added_at')
+        read_only_fields = ('id', 'reading_list', 'added_at')
+
+
+class ReadingListSerializer(serializers.ModelSerializer):
+    user = ReadingListUserSerializer(read_only=True)
+    items = ReadingListItemSerializer(many=True, read_only=True)
+    items_count = serializers.SerializerMethodField()
+    followers_count = serializers.SerializerMethodField()
+    is_following = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ReadingList
+        fields = (
+            'id', 'user', 'name', 'slug', 'description', 'privacy',
+            'created_at', 'updated_at', 'items', 'items_count',
+            'followers_count', 'is_following'
+        )
+        read_only_fields = ('id', 'user', 'slug', 'created_at', 'updated_at')
+
+    def get_items_count(self, obj):
+        return obj.items.count()
+
+    def get_followers_count(self, obj):
+        return obj.followers.count()
+
+    def get_is_following(self, obj):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            return obj.followers.filter(user=request.user).exists()
+        return False
+
+
+class ReadingListCreateUpdateSerializer(serializers.ModelSerializer):
+    user = ReadingListUserSerializer(read_only=True)
+
+    class Meta:
+        model = ReadingList
+        fields = ('id', 'user', 'name', 'slug', 'description', 'privacy')
+        read_only_fields = ('id', 'user', 'slug')
+

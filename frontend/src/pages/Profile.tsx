@@ -197,13 +197,21 @@ export function Profile() {
             </div>
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             {isOwnProfile ? (
-              <Button color="light" onClick={() => navigate('/profile/edit')}>
-                Editar perfil
-              </Button>
+              <>
+                <Button color="teal" size="sm" onClick={() => navigate('/statistics')}>
+                  📊 Estadísticas
+                </Button>
+                <Button color="light" size="sm" onClick={() => navigate('/profile/edit')}>
+                  Editar perfil
+                </Button>
+              </>
             ) : (
               <>
+                <Button color="light" size="sm" onClick={() => navigate(`/statistics?user_id=${profileUser.id}`)}>
+                  📊 Estadísticas
+                </Button>
                 {!profileUser.is_blocked && (
                   isFollowing || profileUser.is_following ? (
                     <Button color="light" size="sm" onClick={() => handleAction('unfollow')}>

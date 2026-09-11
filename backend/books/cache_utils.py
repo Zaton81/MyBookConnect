@@ -8,6 +8,7 @@ logger = logging.getLogger(__name__)
 # TTLs estandarizados en segundos
 TTL_BOOK_DETAIL = 900          # 15 minutos
 TTL_TRENDING = 900             # 15 minutos
+TTL_STATS = 900                # 15 minutos
 TTL_EXTERNAL_API = 86400       # 24 horas
 TTL_WIKIPEDIA_AUTHOR = 172800  # 48 horas
 
@@ -85,3 +86,21 @@ def invalidate_trending_cache() -> None:
         cache.delete(trending_key('all'))
     except Exception as exc:
         logger.warning(f"Error invalidando caché de tendencias: {exc}")
+
+
+def user_stats_key(user_id: int | str) -> str:
+    """Namespace de estadísticas de lectura del usuario: stats:user:{user_id}"""
+    return f"stats:user:{user_id}"
+
+
+def invalidate_user_stats_cache(user_id: int | str) -> None:
+    """
+    Invalida atómicamente la caché de estadísticas de lectura de un usuario
+    cuando se modifican sus lecturas o valoraciones.
+    """
+    try:
+        cache.delete(user_stats_key(user_id))
+        logger.debug(f"Caché de estadísticas invalidada para usuario {user_id}")
+    except Exception as exc:
+        logger.warning(f"Error invalidando caché de estadísticas para usuario {user_id}: {exc}")
+

@@ -4,6 +4,7 @@ import { useAuthStore } from '../store/auth';
 import { Spinner } from 'flowbite-react';
 import { AIAssistantModal } from '../components/AIAssistantModal';
 import { AmazonAdSlot } from '../components/AmazonAdSlot';
+import { resolveMediaUrl } from '../utils/media';
 
 interface TrendingBook {
   id: number;
@@ -181,7 +182,7 @@ export const Home = () => {
                   <div className="relative aspect-[2/3] w-full overflow-hidden rounded-xl bg-gray-100 dark:bg-gray-700 mb-3 shadow-inner">
                     {book.cover ? (
                       <img
-                        src={book.cover}
+                        src={resolveMediaUrl(book.cover)}
                         alt={book.title}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                         loading="lazy"
@@ -259,7 +260,7 @@ export const Home = () => {
                       <div className="flex items-center space-x-3">
                         {item.user.avatar ? (
                           <img
-                            src={item.user.avatar}
+                            src={resolveMediaUrl(item.user.avatar)}
                             alt={item.user.username}
                             className="w-10 h-10 rounded-full object-cover cursor-pointer hover:opacity-80"
                             onClick={() => navigate(`/users/${item.user.id}`)}
@@ -301,7 +302,7 @@ export const Home = () => {
                     >
                       {item.book.cover ? (
                         <img
-                          src={item.book.cover}
+                          src={resolveMediaUrl(item.book.cover)}
                           alt={item.book.title}
                           className="w-12 h-16 object-cover rounded shadow shrink-0"
                         />

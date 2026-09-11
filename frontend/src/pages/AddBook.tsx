@@ -332,6 +332,18 @@ export function AddBook() {
                             Año: {new Date(book.published_date).getFullYear() || book.published_date}
                           </span>
                         )}
+                        {book.categories && book.categories.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-1.5">
+                            {book.categories.slice(0, 3).map((c: any) => (
+                              <span
+                                key={c.id || c.name}
+                                className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-teal-50 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300 border border-teal-100 dark:border-teal-800/40"
+                              >
+                                {c.name}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </div>
 
                       <div className="pt-2 flex items-center gap-2">
