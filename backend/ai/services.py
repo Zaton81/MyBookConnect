@@ -8,8 +8,14 @@ from typing import Any
 from django.db.models import Q
 
 from ai.clients.factory import get_ai_provider
-from ai.policies import validate_and_sanitize_chat_messages
+from ai.policies import (
+    AIRateLimitExceededError,
+    check_ai_rate_limit,
+    detect_prompt_injection,
+    validate_and_sanitize_chat_messages,
+)
 from ai.prompts import build_assistant_system_prompt, build_book_summary_prompt
+from ai.tools import execute_tool, get_tools_definitions
 from books.models import Book, UserBook
 
 logger = logging.getLogger(__name__)
@@ -47,8 +53,25 @@ def get_assistant_reply(
     :param book_id: ID opcional de libro sobre el que se formula la consulta.
     :return: Diccionario con la respuesta del asistente, metadatos y estado de disponibilidad.
     """
+    # 0. Verificación de Rate Limiting
+    if not check_ai_rate_limit(user):
+        raise AIRateLimitExceededError(
+            "Has superado el límite de consultas por minuto. Por favor, espera un momento antes de volver a consultar."
+        )
+
     # 1. Validación y sanitización estricta
     sanitized_messages = validate_and_sanitize_chat_messages(raw_messages)
+
+    # 1.1 Detección defensiva de inyección en el último mensaje de usuario
+    for msg in reversed(sanitized_messages):
+        if msg['role'] == 'user':
+            if detect_prompt_injection(msg['content']):
+                logger.warning(
+                    "Intento de prompt injection detectado para usuario %s",
+                    getattr(user, 'username', 'anon'),
+                )
+                msg['content'] = f"[Aviso: Directiva insegura neutralizada]: {msg['content']}"
+            break
 
     # 2. Recopilación de contexto de biblioteca del usuario
     recent_read = (
@@ -212,3 +235,29 @@ def semantic_search_books(query: str, limit: int = 10) -> Any:
             )
 
     return Book.objects.filter(q_cond).distinct().order_by('-average_rating')[:limit]
+
+
+def execute_assistant_tool(
+    user: Any,
+    tool_name: str,
+    arguments: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """
+    Despacha la ejecución segura de una herramienta solicitada por el asistente de IA
+    validando permisos en el backend.
+
+    :param user: Instancia del usuario autenticado.
+    :param tool_name: Nombre de la herramienta a invocar (ej: 'catalog_search').
+    :param arguments: Argumentos validados para la herramienta.
+    :return: Resultado estructurado de la ejecución.
+    """
+    return execute_tool(name=tool_name, user=user, arguments=arguments)
+
+
+def get_available_assistant_tools() -> list[dict[str, Any]]:
+    """
+    Retorna la lista de definiciones de herramientas disponibles en formato OpenAI Tools.
+
+    :return: Lista de esquemas JSON de las herramientas registradas.
+    """
+    return get_tools_definitions()

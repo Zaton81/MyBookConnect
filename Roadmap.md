@@ -1372,9 +1372,9 @@ AI_TIMEOUT
 
 ------------------------------------------------------------------------
 
-# 30. Fase 27 --- Seguridad del asistente IA
+# 30. Fase 27 --- Seguridad del asistente IA [COMPLETADA]
 
-**Prioridad:** P1/P2
+**Prioridad:** P1/P2 - COMPLETADA
 
 ## No confiar en el historial enviado por frontend
 
@@ -1421,6 +1421,19 @@ Nunca:
 ``` text
 LLM → ejecución directa
 ```
+
+## Tareas completadas:
+- [x] Validación estricta del historial en `policies.py`: roles restringidos (`user`, `assistant`), límite individual (máx. 3000 chars), límite acumulado total (máx. 12000 chars con poda automática) y neutralización de caracteres de control nulos.
+- [x] Detección de Prompt Injection (`detect_prompt_injection`) en `policies.py` para mitigación proactiva de jailbreaks, DAN mode y sobrescritura de instrucciones del sistema.
+- [x] Sanitización de entradas no confiables (`sanitize_untrusted_input`) neutralizando tokens de control especiales de LLM (`<|im_start|>`, `[INST]`, etc.) en reseñas, sinopsis y consultas.
+- [x] Delimitadores semánticos estructurados (`<user_context>`, `<book_context>`, `<book_reference>`) y cláusulas de inmutabilidad de instrucciones en `prompts.py`.
+- [x] Rate Limiting defensivo por usuario (`check_ai_rate_limit`) soportado en caché Redis con respuesta HTTP 429 Too Many Requests ante excesos.
+- [x] Módulo completo de Function / Tool Calling seguro en `backend/ai/tools/`:
+  - `AITool` abstracta con esquemas JSON Schema y verificación previa de permisos.
+  - Implementación de herramientas de lectura: `CatalogSearchTool`, `BookDetailTool`, `UserReadingStatusTool` y `AddToWishlistTool`.
+  - Despachador seguro `execute_tool` con mediación estricta de backend y captura de excepciones.
+- [x] Endpoints API REST para herramientas: `GET /api/v1/books/ai/tools/` y `POST /api/v1/books/ai/tools/execute/`.
+- [x] Suite completa de tests automatizados de seguridad en `test_phase27_ai_security.py` (19/19 superados, 100% éxito).
 
 ------------------------------------------------------------------------
 

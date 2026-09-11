@@ -1,8 +1,9 @@
 """
-Vistas de API para las funcionalidades de Inteligencia Artificial (Fase 26).
+Vistas de API para las funcionalidades de Inteligencia Artificial (Fases 26 y 27).
 
 Expone endpoints para consulta de estado de proveedores, asistente conversacional
-BookAI contextualizado, análisis temático de libros y búsqueda semántica.
+BookAI contextualizado, análisis temático de libros, búsqueda semántica y
+ejecución controlada de herramientas seguras (Function Calling).
 """
 
 import logging
@@ -12,13 +13,16 @@ from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from ai.policies import AIPolicyViolationError
+from ai.policies import AIPolicyViolationError, AIRateLimitExceededError
 from ai.services import (
+    execute_assistant_tool,
     get_ai_status,
     get_assistant_reply,
+    get_available_assistant_tools,
     get_book_ai_summary,
     semantic_search_books,
 )
+from ai.tools import ToolExecutionError, ToolPermissionDeniedError
 from books.models import Book
 from books.serializers import BookSerializer
 
@@ -67,6 +71,11 @@ class AIAssistantView(APIView):
                 book_id=book_id,
             )
             return Response(reply_data, status=status.HTTP_200_OK)
+        except AIRateLimitExceededError as rate_err:
+            return Response(
+                {'detail': str(rate_err)},
+                status=status.HTTP_429_TOO_MANY_REQUESTS,
+            )
         except AIPolicyViolationError as policy_err:
             return Response(
                 {'detail': str(policy_err)},
@@ -123,3 +132,72 @@ class AIBookSummaryView(APIView):
         book = get_object_or_404(Book, pk=pk)
         summary_data = get_book_ai_summary(book=book)
         return Response(summary_data, status=status.HTTP_200_OK)
+
+
+class AIToolsListView(APIView):
+    """
+    Retorna la lista de herramientas disponibles para el asistente en formato Function Calling.
+    """
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get(self, request):
+        """
+        Lista las definiciones de esquemas de herramientas seguras disponibles.
+
+        :param request: Objeto HttpRequest autenticado.
+        :return: Response con array de esquemas de tools compatibles con OpenAI.
+        """
+        tools = get_available_assistant_tools()
+        return Response({"tools": tools, "count": len(tools)}, status=status.HTTP_200_OK)
+
+
+class AIToolExecuteView(APIView):
+    """
+    Punto de entrada seguro para la ejecución de herramientas del asistente.
+    El backend valida la identidad, permisos y argumentos antes de ejecutar cualquier acción.
+    """
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def post(self, request):
+        """
+        Ejecuta una herramienta solicitada de forma controlada.
+
+        :param request: Objeto HttpRequest con tool_name y arguments.
+        :return: Response con el resultado de la ejecución.
+        """
+        tool_name = request.data.get('tool_name')
+        arguments = request.data.get('arguments') or {}
+
+        if not tool_name:
+            return Response(
+                {'detail': "El campo 'tool_name' es obligatorio."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            result = execute_assistant_tool(
+                user=request.user,
+                tool_name=tool_name,
+                arguments=arguments,
+            )
+            return Response({
+                "tool_name": tool_name,
+                "result": result,
+                "status": "success",
+            }, status=status.HTTP_200_OK)
+        except ToolPermissionDeniedError as perm_err:
+            return Response(
+                {'detail': str(perm_err)},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        except ToolExecutionError as tool_err:
+            return Response(
+                {'detail': str(tool_err)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except Exception as exc:
+            logger.exception("Error al ejecutar herramienta '%s': %s", tool_name, exc)
+            return Response(
+                {'detail': f"Error interno al ejecutar la herramienta: {str(exc)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
