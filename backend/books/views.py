@@ -10,7 +10,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from . import services
-from .cache_utils import TTL_BOOK_DETAIL, TTL_TRENDING, book_detail_key, trending_key
+from .cache_utils import TTL_BOOK_DETAIL, book_detail_key
 from .media_utils import build_media_url
 from .models import (
     Author,
@@ -819,52 +819,16 @@ class SocialFeedView(APIView):
 
 class TrendingBooksView(APIView):
     """
-    Libros más populares y leídos en la plataforma con soporte de caché.
-    Almacena en caché rutas relativas y resuelve dinámicamente las URLs absolutas
-    al servir la respuesta (respetando MEDIA_BASE_URL y request).
+    Libros en tendencia en la plataforma basados en el algoritmo de decaimiento temporal (Fase 23).
+    Acepta parámetro query `?period=week|month|year|all` (por defecto 'week').
+    Resuelve dinámicamente las URLs de medios absolutas y emplea caché Redis por periodo.
     """
     permission_classes = (permissions.IsAuthenticated,)
 
     def get(self, request):
-        cache_key = trending_key('all')
-        cached_results = cache.get(cache_key)
-        if cached_results is not None:
-            results = [
-                {
-                    **item,
-                    'cover': build_media_url(item.get('cover_path') or item.get('cover'), request=request),
-                }
-                for item in cached_results
-            ]
-            return Response({'results': results})
-
-        from django.db.models import Count
-        trending = Book.objects.annotate(
-            readers_count=Count('user_entries', distinct=True),
-            reviews_count=Count('reviews', distinct=True)
-        ).select_related('author').order_by('-readers_count', '-average_rating', '-created_at')[:12]
-
-        cached_items = []
-        for b in trending:
-            cached_items.append({
-                'id': b.id,
-                'title': b.title,
-                'cover_path': b.cover.url if b.cover else None,
-                'author_name': b.author.name if b.author else '',
-                'average_rating': b.average_rating,
-                'readers_count': b.readers_count,
-                'reviews_count': b.reviews_count,
-            })
-        cache.set(cache_key, cached_items, timeout=TTL_TRENDING)
-
-        results = [
-            {
-                **item,
-                'cover': build_media_url(item.get('cover_path'), request=request),
-            }
-            for item in cached_items
-        ]
-        return Response({'results': results})
+        period = request.query_params.get('period', 'week')
+        results = services.get_trending_books(period=period, limit=12, request=request)
+        return Response({'results': results, 'period': period})
 
 
 class ReadingMatchView(APIView):

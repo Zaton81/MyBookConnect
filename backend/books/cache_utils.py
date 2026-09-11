@@ -24,7 +24,7 @@ def book_detail_key(book_id: int | str) -> str:
     return f"book:{book_id}"
 
 
-def trending_key(period: str = 'all') -> str:
+def trending_key(period: str = 'week') -> str:
     """Namespace de libros populares/tendencias: trending:{period}"""
     return f"trending:{_sanitize_key_part(period)}"
 
@@ -81,9 +81,10 @@ def invalidate_book_cache(book_id: int | str) -> None:
 
 
 def invalidate_trending_cache() -> None:
-    """Invalida la caché del endpoint de tendencias."""
+    """Invalida la caché de todos los periodos del ranking de tendencias."""
     try:
-        cache.delete(trending_key('all'))
+        for p in ('week', 'month', 'year', 'all'):
+            cache.delete(trending_key(p))
     except Exception as exc:
         logger.warning(f"Error invalidando caché de tendencias: {exc}")
 

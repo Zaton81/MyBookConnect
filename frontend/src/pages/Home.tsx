@@ -14,6 +14,7 @@ interface TrendingBook {
   average_rating?: number;
   readers_count: number;
   reviews_count: number;
+  trending_score?: number;
 }
 
 interface FeedItem {
@@ -40,12 +41,15 @@ export const Home = () => {
   const navigate = useNavigate();
 
   const [trending, setTrending] = useState<TrendingBook[]>([]);
+  const [trendingPeriod, setTrendingPeriod] = useState<'week' | 'month' | 'all'>('week');
+  const [trendingLoading, setTrendingLoading] = useState(false);
   const [feed, setFeed] = useState<FeedItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
 
   const apiUrl = (import.meta as any).env.VITE_API_URL || 'http://localhost:8000';
 
+  // Carga inicial del feed y tendencias
   useEffect(() => {
     if (!user) {
       navigate('/');
@@ -58,7 +62,7 @@ export const Home = () => {
         const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
         const [trendingRes, feedRes] = await Promise.all([
-          fetch(`${apiUrl}/api/v1/books/trending/`, { headers }),
+          fetch(`${apiUrl}/api/v1/books/trending/?period=week`, { headers }),
           fetch(`${apiUrl}/api/v1/books/feed/`, { headers }),
         ]);
 
@@ -81,6 +85,25 @@ export const Home = () => {
     loadDashboardData();
   }, [user, token, navigate, apiUrl]);
 
+  // Cambio interactivo del periodo de tendencias
+  const handlePeriodChange = async (period: 'week' | 'month' | 'all') => {
+    if (period === trendingPeriod) return;
+    setTrendingPeriod(period);
+    try {
+      setTrendingLoading(true);
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      const res = await fetch(`${apiUrl}/api/v1/books/trending/?period=${period}`, { headers });
+      if (res.ok) {
+        const data = await res.json();
+        setTrending(data.results || []);
+      }
+    } catch (e) {
+      console.error('Error switching trending period', e);
+    } finally {
+      setTrendingLoading(false);
+    }
+  };
+
   if (!user) return null;
 
   const renderStars = (rating?: number) => {
@@ -102,6 +125,13 @@ export const Home = () => {
     if (diffHours < 24) return `Hace ${diffHours} h`;
     const diffDays = Math.floor(diffHours / 24);
     return `Hace ${diffDays} d`;
+  };
+
+  const getRankBadge = (index: number) => {
+    if (index === 0) return { label: '#1 🥇', bg: 'bg-amber-500 text-white shadow-amber-500/40' };
+    if (index === 1) return { label: '#2 🥈', bg: 'bg-slate-400 text-white shadow-slate-400/40' };
+    if (index === 2) return { label: '#3 🥉', bg: 'bg-amber-700 text-white shadow-amber-700/40' };
+    return { label: `#${index + 1}`, bg: 'bg-gray-900/80 backdrop-blur-sm text-white' };
   };
 
   return (
@@ -151,69 +181,126 @@ export const Home = () => {
 
         {/* ── Sección de Libros en Tendencia ── */}
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
                 <span>🔥</span>
                 <span>Tendencias de la Comunidad</span>
               </h2>
               <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">
-                Los libros más leídos y valorados por la comunidad
+                Los libros con mayor actividad, lecturas y valoración comunitaria
               </p>
+            </div>
+
+            {/* Selector de periodo */}
+            <div className="inline-flex p-1 bg-gray-100 dark:bg-gray-800 rounded-xl self-start sm:self-auto border border-gray-200 dark:border-gray-700 shadow-inner text-xs font-semibold">
+              <button
+                type="button"
+                onClick={() => handlePeriodChange('week')}
+                className={`px-3 py-1.5 rounded-lg transition-all ${
+                  trendingPeriod === 'week'
+                    ? 'bg-white dark:bg-gray-700 text-teal-700 dark:text-teal-400 shadow-sm font-bold'
+                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                }`}
+              >
+                Esta semana
+              </button>
+              <button
+                type="button"
+                onClick={() => handlePeriodChange('month')}
+                className={`px-3 py-1.5 rounded-lg transition-all ${
+                  trendingPeriod === 'month'
+                    ? 'bg-white dark:bg-gray-700 text-teal-700 dark:text-teal-400 shadow-sm font-bold'
+                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                }`}
+              >
+                Este mes
+              </button>
+              <button
+                type="button"
+                onClick={() => handlePeriodChange('all')}
+                className={`px-3 py-1.5 rounded-lg transition-all ${
+                  trendingPeriod === 'all'
+                    ? 'bg-white dark:bg-gray-700 text-teal-700 dark:text-teal-400 shadow-sm font-bold'
+                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                }`}
+              >
+                Histórico
+              </button>
             </div>
           </div>
 
-          {loading ? (
+          {loading || trendingLoading ? (
             <div className="flex justify-center items-center py-12">
               <Spinner size="xl" color="info" />
             </div>
           ) : trending.length === 0 ? (
             <div className="text-center py-8 bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 text-gray-500 text-sm">
-              Aún no hay suficientes lecturas registradas para calcular tendencias. ¡Sé el primero en calificar tus libros!
+              Aún no hay suficientes actividades registradas en este periodo para calcular tendencias. ¡Sé el primero en interactuar con tus libros!
             </div>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 sm:gap-6">
-              {trending.map((book) => (
-                <div
-                  key={book.id}
-                  onClick={() => navigate(`/books/${book.id}`)}
-                  className="group bg-white dark:bg-gray-800 rounded-2xl p-3 border border-gray-100 dark:border-gray-700 shadow-sm hover:shadow-lg transition-all duration-200 cursor-pointer flex flex-col justify-between"
-                >
-                  <div className="relative aspect-[2/3] w-full overflow-hidden rounded-xl bg-gray-100 dark:bg-gray-700 mb-3 shadow-inner">
-                    {book.cover ? (
-                      <img
-                        src={resolveMediaUrl(book.cover)}
-                        alt={book.title}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                        loading="lazy"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center p-2 text-center text-xs font-semibold text-gray-400 dark:text-gray-500">
-                        {book.title}
-                      </div>
-                    )}
-                    {book.readers_count > 0 && (
-                      <span className="absolute bottom-2 left-2 bg-gray-900/80 backdrop-blur-sm text-white text-[10px] font-bold px-2 py-0.5 rounded-md shadow">
-                        {book.readers_count} {book.readers_count === 1 ? 'lector' : 'lectores'}
-                      </span>
-                    )}
-                  </div>
+              {trending.map((book, index) => {
+                const rank = getRankBadge(index);
+                return (
+                  <div
+                    key={book.id}
+                    onClick={() => navigate(`/books/${book.id}`)}
+                    className="group bg-white dark:bg-gray-800 rounded-2xl p-3 border border-gray-100 dark:border-gray-700 shadow-sm hover:shadow-lg transition-all duration-200 cursor-pointer flex flex-col justify-between"
+                  >
+                    <div className="relative aspect-[2/3] w-full overflow-hidden rounded-xl bg-gray-100 dark:bg-gray-700 mb-3 shadow-inner">
+                      {book.cover ? (
+                        <img
+                          src={resolveMediaUrl(book.cover)}
+                          alt={book.title}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center p-2 text-center text-xs font-semibold text-gray-400 dark:text-gray-500">
+                          {book.title}
+                        </div>
+                      )}
 
-                  <div>
-                    <h3 className="font-bold text-sm text-gray-900 dark:text-white truncate group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors">
-                      {book.title}
-                    </h3>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                      {book.author_name || 'Autor desconocido'}
-                    </p>
-                    <div className="mt-1">
-                      {book.average_rating ? renderStars(book.average_rating) : (
-                        <span className="text-[11px] text-gray-400">Sin reseñas aún</span>
+                      {/* Medalla de ranking */}
+                      <span className={`absolute top-2 left-2 ${rank.bg} text-[10px] font-extrabold px-2 py-0.5 rounded-md shadow`}>
+                        {rank.label}
+                      </span>
+
+                      {/* Score de tendencia si existe */}
+                      {book.trending_score !== undefined && book.trending_score > 0 && (
+                        <span
+                          className="absolute top-2 right-2 bg-rose-600/90 backdrop-blur-sm text-white text-[10px] font-bold px-1.5 py-0.5 rounded-md shadow flex items-center gap-0.5"
+                          title={`Score de tendencia: ${book.trending_score}`}
+                        >
+                          <span>🔥</span>
+                          <span>{book.trending_score}</span>
+                        </span>
+                      )}
+
+                      {book.readers_count > 0 && (
+                        <span className="absolute bottom-2 left-2 bg-gray-900/80 backdrop-blur-sm text-white text-[10px] font-bold px-2 py-0.5 rounded-md shadow">
+                          {book.readers_count} {book.readers_count === 1 ? 'lector' : 'lectores'}
+                        </span>
                       )}
                     </div>
+
+                    <div>
+                      <h3 className="font-bold text-sm text-gray-900 dark:text-white truncate group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors">
+                        {book.title}
+                      </h3>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                        {book.author_name || 'Autor desconocido'}
+                      </p>
+                      <div className="mt-1">
+                        {book.average_rating ? renderStars(book.average_rating) : (
+                          <span className="text-[11px] text-gray-400">Sin reseñas aún</span>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

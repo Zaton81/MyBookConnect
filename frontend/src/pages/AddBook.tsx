@@ -13,6 +13,7 @@ interface SearchBook {
     name: string;
   };
   description?: string;
+  categories?: Array<{ id?: number; name: string }>;
 }
 
 export function AddBook() {

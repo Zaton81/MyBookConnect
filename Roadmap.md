@@ -1219,31 +1219,24 @@ Métricas implementadas con agregaciones PostgreSQL y caché Redis (`stats:user:
 
 # 26. Fase 23 --- Trending
 
-**Prioridad:** P2
+**Prioridad:** P2  
+**Estado:** ✅ Completada
 
-Crear un score temporal.
+Crear un score temporal ponderado con decaimiento temporal y ventanas seleccionables:
+- Ponderaciones: Reseñas (5.0), Lecturas recientes (3.0), Wishlists (2.0), Likes sociales (1.5), Comentarios (1.0).
+- Decaimiento por ventanas: `week` (7 días), `month` (30 días), `year` (365 días), `all` (histórico acumulado).
+- Cacheado en Redis (`trending:{period}`, TTL 15 min).
+- Tarea Celery de precomputación en background (`precompute_trending_task`).
+- Selector de periodo interactivo y medallas (#1 🥇, #2 🥈, #3 🥉) en `Home.tsx`.
 
-Variables:
-
-``` text
-reviews recientes
-lecturas recientes
-wishlists
-views
-likes
-actividad social
-```
-
-Aplicar decaimiento temporal.
-
-Ejemplo conceptual:
-
-``` text
-score =
-    activity_weight * recency_decay
-```
-
-Cachear resultados.
+## Tareas completadas:
+- [x] Crear servicio de tendencias modular `trending_service.py` con agregaciones condicionales en PostgreSQL.
+- [x] Ponderación de señales de actividad comunitaria con decaimiento temporal.
+- [x] Filtros por periodo en `TrendingBooksView` (`?period=week|month|year|all`).
+- [x] Claves y namespaces estandarizados de caché en Redis e invalidación `invalidate_trending_cache()`.
+- [x] Tarea periódica de precomputación Celery `precompute_trending_task`.
+- [x] Componente frontend en `Home.tsx` con tabs de periodo, insignias de ranking y microanimaciones.
+- [x] Suite de pruebas automatizadas en `test_phase23_trending.py` y `test_caching.py`.
 
 ------------------------------------------------------------------------
 

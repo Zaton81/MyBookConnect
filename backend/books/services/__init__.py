@@ -50,12 +50,14 @@ from .providers import (
     WikipediaProvider,
 )
 from .stats_service import get_user_reading_stats
+from .trending_service import get_trending_books
 
 __all__ = [
     # Funciones públicas principales
     'import_single_by_query',
     'import_multiple_by_title',
     'import_books_by_author',
+    'get_trending_books',
     'maybe_enrich_author',
     'maybe_enrich_author_from_wikipedia',
     'maybe_enrich_author_from_wikidata',

@@ -111,3 +111,26 @@ def import_books_by_author_task(self, author_name: str) -> int:
     except Exception as exc:
         logger.warning(f"import_books_by_author_task error para '{author_name}': {exc}")
         raise self.retry(exc=exc) from exc
+
+
+@shared_task(bind=True, max_retries=2, default_retry_delay=60)
+def precompute_trending_task(self) -> dict[str, int]:
+    """
+    Precomputa y almacena en caché las tendencias para los distintos periodos
+    ('week', 'month', 'year', 'all') manteniendo las peticiones por debajo de 15ms.
+    """
+    try:
+        from .services.trending_service import get_trending_books
+
+        summary = {}
+        for period in ('week', 'month', 'year', 'all'):
+            # Invalida o recalcula
+            items = get_trending_books(period=period, limit=12)
+            summary[period] = len(items)
+
+        logger.info(f"precompute_trending_task completada con éxito: {summary}")
+        return summary
+    except Exception as exc:
+        logger.warning(f"Error en precompute_trending_task: {exc}")
+        raise self.retry(exc=exc) from exc
+
