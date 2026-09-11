@@ -3,6 +3,7 @@ Utilidades centralizadas para resolución de URLs de archivos multimedia.
 Garantiza portabilidad entre entornos locales y producción sin URLs 'hardcodeadas'.
 """
 import os
+
 from django.conf import settings
 
 

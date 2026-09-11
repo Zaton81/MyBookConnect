@@ -8,7 +8,6 @@ from .models import (
     Errata,
     LegalDocument,
     ReadingList,
-    ReadingListFollow,
     ReadingListItem,
     Review,
     ReviewComment,

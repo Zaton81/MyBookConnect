@@ -35,7 +35,6 @@ from .enrichment_service import (
     enrich_book_metadata,
     maybe_enrich_book,
 )
-from .stats_service import get_user_reading_stats
 from .import_service import (
     _create_or_get_from_volume,
     _import_books_by_author_from_wikipedia,
@@ -50,6 +49,7 @@ from .providers import (
     OpenLibraryProvider,
     WikipediaProvider,
 )
+from .stats_service import get_user_reading_stats
 
 __all__ = [
     # Funciones públicas principales

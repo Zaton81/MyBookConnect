@@ -15,7 +15,6 @@ Incluye estrategia de caché Redis con TTL de 15 minutos e invalidación atómic
 
 import calendar
 import logging
-from datetime import date
 from typing import Any
 
 from django.core.cache import cache
@@ -76,7 +75,7 @@ def get_user_reading_stats(user_id: int) -> dict[str, Any]:
             avg_rating = round(float(ub_avg), 2)
 
     # Distribución de calificaciones (1 a 10)
-    ratings_distribution = {i: 0 for i in range(1, 11)}
+    ratings_distribution = dict.fromkeys(range(1, 11), 0)
     review_ratings = (
         Review.objects.filter(user_id=user_id, rating__isnull=False)
         .values('rating')
