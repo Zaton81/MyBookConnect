@@ -189,7 +189,19 @@ def _import_from_wikipedia_by_title(title: str) -> list[Book]:
         if item.author_name:
             author_obj, _ = Author.objects.get_or_create(name=item.author_name)
 
-        existing = Book.objects.filter(title__iexact=item.title)
+        chosen_title = item.title
+        raw_desc = item.description or ''
+        # Si el término buscado en español está en la sinopsis de Wikipedia (ej. El guardián entre el centeno para The Catcher in the Rye),
+        # incorporar el título en español para permitir búsqueda bilingüe perfecta
+        clean_search = title.strip()
+        if clean_search.lower() != item.title.lower() and clean_search.lower() in raw_desc.lower():
+            chosen_title = f"{clean_search.title()} ({item.title})"
+        elif clean_search.lower() not in item.title.lower() and len(clean_search) > 4:
+            raw_desc = f"Título de búsqueda: {clean_search}. {raw_desc}"
+
+        existing = Book.objects.filter(title__iexact=chosen_title)
+        if not existing.exists():
+            existing = Book.objects.filter(title__iexact=item.title)
         if author_obj:
             existing = existing.filter(author=author_obj)
         existing_book = existing.first()
@@ -198,9 +210,9 @@ def _import_from_wikipedia_by_title(title: str) -> list[Book]:
             continue
 
         new_book = Book.objects.create(
-            title=item.title,
+            title=chosen_title,
             author=author_obj,
-            description=item.description,
+            description=raw_desc,
         )
 
         if item.cover_url:

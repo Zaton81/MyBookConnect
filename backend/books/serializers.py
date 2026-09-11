@@ -9,6 +9,7 @@ from .models import (
     LegalDocument,
     ReadingList,
     ReadingListItem,
+    RecommendationFeedback,
     Review,
     ReviewComment,
     UserBook,
@@ -75,6 +76,14 @@ class BookSerializer(serializers.ModelSerializer):
         if hasattr(obj, 'annotated_reviews_count'):
             return obj.annotated_reviews_count
         return Review.objects.filter(book=obj).count()
+
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        request = self.context.get('request') if hasattr(self, 'context') else None
+        from .media_utils import build_media_url
+        if instance.cover:
+            ret['cover'] = build_media_url(instance.cover, request=request)
+        return ret
 
 
 class UserBookSerializer(serializers.ModelSerializer):
@@ -269,4 +278,34 @@ class ReadingListCreateUpdateSerializer(serializers.ModelSerializer):
         model = ReadingList
         fields = ('id', 'user', 'name', 'slug', 'description', 'privacy')
         read_only_fields = ('id', 'user', 'slug')
+
+
+class RecommendationFeedbackSerializer(serializers.ModelSerializer):
+    """
+    Serializador para registrar y representar eventos de feedback de recomendaciones.
+    """
+    user_username = serializers.CharField(source='user.username', read_only=True)
+    book_id = serializers.PrimaryKeyRelatedField(
+        queryset=Book.objects.all(),
+        source='book',
+        write_only=True,
+    )
+    book_title = serializers.CharField(source='book.title', read_only=True)
+
+    class Meta:
+        model = RecommendationFeedback
+        fields = (
+            'id',
+            'recommendation_id',
+            'user',
+            'user_username',
+            'book_id',
+            'book_title',
+            'action',
+            'strategy',
+            'algorithm_version',
+            'metadata',
+            'created_at',
+        )
+        read_only_fields = ('id', 'user', 'user_username', 'book_title', 'created_at')
 

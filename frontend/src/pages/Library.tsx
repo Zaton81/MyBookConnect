@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useAuthStore } from '../store/auth';
 import { useNavigate, Link } from 'react-router-dom';
 import { Spinner } from 'flowbite-react';
+import { resolveMediaUrl } from '../utils/media';
 
 const DEFAULT_PAGE_SIZE = 12;
 
@@ -365,7 +366,7 @@ export function Library() {
 
                     {b.cover ? (
                       <img
-                        src={b.cover}
+                        src={resolveMediaUrl(b.cover)}
                         alt={b.title}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 cursor-pointer"
                         onClick={() => navigate(`/books/${b.id}`)}

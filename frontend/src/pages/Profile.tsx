@@ -4,6 +4,7 @@ import { Button, Card, Dropdown, Spinner } from 'flowbite-react';
 import { useAuthStore } from '../store/auth';
 import { User } from '../types/auth';
 import DOMPurify from 'dompurify';
+import { resolveMediaUrl } from '../utils/media';
 
 export function Profile() {
   const { userId, id } = useParams<{ userId?: string; id?: string }>();
@@ -297,7 +298,7 @@ export function Profile() {
                     >
                       {b.cover ? (
                         <img
-                          src={b.cover}
+                          src={resolveMediaUrl(b.cover)}
                           alt={b.title}
                           className="w-16 h-20 object-cover rounded shadow group-hover:scale-105 transition-transform"
                         />

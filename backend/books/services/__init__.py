@@ -49,6 +49,10 @@ from .providers import (
     OpenLibraryProvider,
     WikipediaProvider,
 )
+from .recommendation_feedback_service import (
+    get_recommendation_metrics,
+    record_recommendation_event,
+)
 from .recommendation_service import (
     get_book_recommendations,
     get_user_recommendations,
@@ -64,6 +68,8 @@ __all__ = [
     'get_trending_books',
     'get_user_recommendations',
     'get_book_recommendations',
+    'record_recommendation_event',
+    'get_recommendation_metrics',
     'maybe_enrich_author',
     'maybe_enrich_author_from_wikipedia',
     'maybe_enrich_author_from_wikidata',

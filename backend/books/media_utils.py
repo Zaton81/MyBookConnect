@@ -30,6 +30,12 @@ def build_media_url(file_field_or_url, request=None) -> str | None:
 
     rel_path = url if url.startswith('/') else f'/{url}'
 
+    # Garantizar que las rutas relativas incluyan el prefijo MEDIA_URL (/media/)
+    media_prefix = getattr(settings, 'MEDIA_URL', '/media/')
+    clean_prefix = '/' + media_prefix.strip('/') + '/'
+    if not rel_path.startswith(clean_prefix):
+        rel_path = f"{clean_prefix}{rel_path.lstrip('/')}"
+
     configured_base = getattr(settings, 'MEDIA_BASE_URL', None) or os.getenv('MEDIA_BASE_URL', '').rstrip('/')
     if configured_base:
         return f"{configured_base}{rel_path}"

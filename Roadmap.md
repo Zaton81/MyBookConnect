@@ -1269,9 +1269,9 @@ Motor de recomendaciones híbrido configurable con explicabilidad y soporte cont
 
 ------------------------------------------------------------------------
 
-# 28. Fase 25 --- Feedback de recomendaciones
+# 28. Fase 25 --- Feedback de recomendaciones [COMPLETADA]
 
-**Prioridad:** P2
+**Prioridad:** P2 - COMPLETADA
 
 Registrar:
 
@@ -1304,6 +1304,17 @@ wishlist rate
 start rate
 completion rate
 ```
+
+## Tareas completadas:
+- [x] Modelo `RecommendationFeedback` en `backend/books/models.py` con indexación optimizada y enum de acciones.
+- [x] Migración de base de datos `0015_recommendationfeedback.py` aplicada correctamente.
+- [x] Servicio `recommendation_feedback_service.py` con `record_recommendation_event` y `get_recommendation_metrics` (cálculo de CTR, wishlist rate, start rate, completion rate y desgloses por estrategia/versión).
+- [x] Serializador `RecommendationFeedbackSerializer` y vistas de API REST `RecommendationFeedbackView` (soporte individual y batch) y `RecommendationMetricsView` en `backend/books/views.py`.
+- [x] Rutas API `/api/v1/books/recommendations/feedback/` y `/api/v1/books/recommendations/metrics/` configuradas en `urls.py`.
+- [x] Instrumentación en frontend (`Home.tsx`) para disparar eventos de impresión (`recommendation_shown`) por lotes y clicks (`recommendation_clicked`) interactivos.
+- [x] Corrección definitiva en resolución de portadas `/media/covers/` tanto en backend (`media_utils.py`, `serializers.py`) como en frontend (`media.ts`, `AddBook.tsx`, `BookDetail.tsx`, `Library.tsx`, `Profile.tsx`).
+- [x] Mejora en motor de búsqueda y auto-importación: soporte de búsqueda bilingüe para Wikipedia y forzado de búsqueda externa cuando hay pocos resultados locales o el título específico no coincide.
+- [x] Suite de pruebas automatizadas `test_phase25_feedback.py` (7/7 superadas) con 100% de éxito.
 
 ------------------------------------------------------------------------
 

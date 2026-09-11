@@ -320,7 +320,7 @@ export function BookDetail() {
             <div className="relative aspect-[2/3] w-56 sm:w-64 rounded-2xl overflow-hidden shadow-2xl border-4 border-white dark:border-slate-700 bg-slate-100 dark:bg-slate-700">
               {book.cover ? (
                 <img
-                  src={book.cover}
+                  src={resolveMediaUrl(book.cover)}
                   alt={book.title}
                   className="w-full h-full object-cover"
                 />

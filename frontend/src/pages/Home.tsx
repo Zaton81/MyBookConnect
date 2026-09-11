@@ -80,7 +80,27 @@ export const Home = () => {
 
         if (recsRes.ok) {
           const rData = await recsRes.json();
-          setRecommendations(rData.results || []);
+          const recResults = rData.results || [];
+          setRecommendations(recResults);
+
+          // Feedback de recomendaciones (Fase 25): registrar impresiones (recommendation_shown)
+          if (recResults.length > 0 && token) {
+            const shownEvents = recResults.map((b: RecommendedBook, index: number) => ({
+              book_id: b.id,
+              action: 'recommendation_shown',
+              strategy: rData.strategy || 'hybrid',
+              algorithm_version: 'v1.0',
+              metadata: { position: index + 1, score: b.score, reason: b.reason },
+            }));
+            fetch(`${apiUrl}/api/v1/books/recommendations/feedback/`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify(shownEvents),
+            }).catch((err) => console.error('Error tracking recommendation impressions', err));
+          }
         }
 
         if (trendingRes.ok) {
@@ -142,6 +162,26 @@ export const Home = () => {
     if (diffHours < 24) return `Hace ${diffHours} h`;
     const diffDays = Math.floor(diffHours / 24);
     return `Hace ${diffDays} d`;
+  };
+
+  const handleRecommendationClick = (book: RecommendedBook, index: number) => {
+    if (token) {
+      fetch(`${apiUrl}/api/v1/books/recommendations/feedback/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          book_id: book.id,
+          action: 'recommendation_clicked',
+          strategy: 'hybrid',
+          algorithm_version: 'v1.0',
+          metadata: { position: index + 1, score: book.score },
+        }),
+      }).catch((err) => console.error('Error tracking recommendation click', err));
+    }
+    navigate(`/books/${book.id}`);
   };
 
   const getRankBadge = (index: number) => {
@@ -212,10 +252,10 @@ export const Home = () => {
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 sm:gap-6">
-              {recommendations.map((book) => (
+              {recommendations.map((book, index) => (
                 <div
                   key={book.id}
-                  onClick={() => navigate(`/books/${book.id}`)}
+                  onClick={() => handleRecommendationClick(book, index)}
                   className="group bg-white dark:bg-gray-800 rounded-2xl p-3 border border-teal-100 dark:border-teal-900/40 shadow-sm hover:shadow-lg hover:border-teal-300 dark:hover:border-teal-600 transition-all duration-200 cursor-pointer flex flex-col justify-between"
                 >
                   <div>

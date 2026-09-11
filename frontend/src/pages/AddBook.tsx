@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuthStore } from '../store/auth';
 import { useNavigate } from 'react-router-dom';
 import { Modal, Spinner } from 'flowbite-react';
+import { resolveMediaUrl } from '../utils/media';
 
 interface SearchBook {
   id: number;
@@ -48,7 +49,7 @@ export function AddBook() {
 
   const apiUrl = (import.meta as any).env.VITE_API_URL || 'http://localhost:8000';
 
-  const handleSearch = async (q: string, currentOffset: number, signal: AbortSignal) => {
+  const handleSearch = async (q: string, currentOffset: number, signal?: AbortSignal, forceExternal: boolean = false) => {
     if (!token || q.length < 2) {
       setSearchResults([]);
       return;
@@ -69,9 +70,18 @@ export function AddBook() {
         localResults = Array.isArray(data) ? data : data.results || [];
       }
 
-      // 2. Si no hay suficientes resultados locales, consultar fuentes externas
-      if (localResults.length < 3 && currentOffset === 0) {
-        setSearchSource('Consultando Google Books y Wikipedia...');
+      // Verificar si hay una coincidencia cercana con el título buscado
+      const normQ = q.toLowerCase().replace(/[^\w\s]/gi, '').trim();
+      const hasCloseMatch = localResults.some((b) => {
+        const normTitle = (b.title || '').toLowerCase().replace(/[^\w\s]/gi, '');
+        return normTitle.includes(normQ) || normQ.includes(normTitle);
+      });
+
+      // 2. Si no hay coincidencia cercana, si hay pocos resultados o si se fuerza, buscar externamente
+      const shouldQueryExternal = forceExternal || (!hasCloseMatch && q.length >= 3 && currentOffset === 0) || (localResults.length < 3 && currentOffset === 0);
+
+      if (shouldQueryExternal) {
+        setSearchSource('Consultando Google Books, OpenLibrary y Wikipedia...');
         const isIsbn = /^\d[\d-]{8,}[\dX]?$/.test(q.replace(/[\s-]/g, ''));
         const importBody = isIsbn ? { isbn: q } : { title: q, offset: currentOffset };
 
@@ -91,8 +101,11 @@ export function AddBook() {
 
           // Combinar resultados locales y externos sin duplicados por ID
           const map = new Map<number, SearchBook>();
-          localResults.forEach((b) => map.set(b.id, b));
+          // Colocar los externos primero si coinciden con la búsqueda
           created.forEach((b) => map.set(b.id, b));
+          localResults.forEach((b) => {
+            if (!map.has(b.id)) map.set(b.id, b);
+          });
           setSearchResults(Array.from(map.values()));
           return;
         }
@@ -291,6 +304,19 @@ export function AddBook() {
                 <span>{searchSource}</span>
               </p>
             )}
+
+            {search.trim().length >= 2 && !isSearching && (
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => handleSearch(search.trim(), 0, undefined, true)}
+                  className="text-xs text-teal-600 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-300 font-semibold underline flex items-center gap-1"
+                >
+                  <span>🌐</span>
+                  <span>¿No ves la edición exacta? Buscar en Google Books, OpenLibrary y Wikipedia</span>
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Resultados */}
@@ -308,7 +334,7 @@ export function AddBook() {
                     <div className="w-20 h-28 rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-700 shrink-0 shadow-sm">
                       {book.cover ? (
                         <img
-                          src={book.cover}
+                          src={resolveMediaUrl(book.cover)}
                           alt={book.title}
                           className="w-full h-full object-cover"
                           loading="lazy"
@@ -505,7 +531,7 @@ export function AddBook() {
             <div className="flex gap-3 items-center p-3 rounded-xl bg-slate-50 dark:bg-slate-700/50">
               {selectedBook.cover ? (
                 <img
-                  src={selectedBook.cover}
+                  src={resolveMediaUrl(selectedBook.cover)}
                   alt={selectedBook.title}
                   className="w-12 h-16 object-cover rounded shadow"
                 />

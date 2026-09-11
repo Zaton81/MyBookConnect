@@ -34,6 +34,7 @@ from .serializers import (
     ReadingListCreateUpdateSerializer,
     ReadingListItemSerializer,
     ReadingListSerializer,
+    RecommendationFeedbackSerializer,
     ReviewCommentSerializer,
     ReviewSerializer,
     UserBookSerializer,
@@ -97,6 +98,7 @@ class BookListCreateView(generics.ListCreateAPIView):
                         | Q(isbn__icontains=query_str)
                         | Q(author__name__icontains=query_str)
                         | Q(categories__name__icontains=query_str)
+                        | Q(description__icontains=query_str)
                         | Q(title__trigram_similar=query_str)
                         | Q(title__trigram_word_similar=query_str)
                         | Q(author__name__trigram_similar=query_str)
@@ -132,9 +134,19 @@ class BookListCreateView(generics.ListCreateAPIView):
 
         results = _execute_search(clean_q)
 
-        # Si no hay resultados locales y la consulta tiene al menos 3 caracteres,
-        # buscar e importar automáticamente desde OpenLibrary / Google Books
-        if not results.exists() and len(clean_q) >= 3:
+        # Determinar si existe al menos una coincidencia fuerte con el término buscado
+        has_strong_match = False
+        first_item = results.first()
+        if first_item:
+            rel = getattr(first_item, 'relevance', 0.0)
+            title_lower = (first_item.title or '').lower()
+            q_lower = clean_q.lower()
+            if rel >= 0.4 or q_lower in title_lower or title_lower in q_lower:
+                has_strong_match = True
+
+        # Si no hay resultados o no hay coincidencia fuerte y la consulta tiene al menos 3 caracteres,
+        # buscar e importar automáticamente desde fuentes externas (Google Books, OpenLibrary, Wikipedia)
+        if (not has_strong_match or not results.exists()) and len(clean_q) >= 3:
             try:
                 isbn_clean = clean_q.replace('-', '').replace(' ', '')
                 if len(isbn_clean) in (10, 13) and (
@@ -732,6 +744,113 @@ class RecommendationView(APIView):
             request=request,
         )
         return Response(results)
+
+
+class RecommendationFeedbackView(APIView):
+    """
+    Endpoint para registrar eventos de interacción sobre libros recomendados.
+    Soporta eventos individuales (dict) o por lotes (list) para registrar
+    múltiples impresiones simultáneamente al mostrar recomendaciones.
+    """
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def post(self, request):
+        """
+        Procesa el registro de uno o varios eventos de retroalimentación de recomendaciones.
+
+        :param request: Objeto HttpRequest que contiene los datos del evento en request.data.
+        :return: Response con el recuento de eventos registrados y los datos serializados.
+        """
+        payload = request.data
+        if not payload:
+            return Response(
+                {'detail': 'El cuerpo de la petición no puede estar vacío.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        items = payload if isinstance(payload, list) else [payload]
+        created_records = []
+
+        for item in items:
+            book_id = item.get('book_id')
+            action = item.get('action')
+            if not book_id or not action:
+                return Response(
+                    {'detail': 'Los campos "book_id" y "action" son obligatorios en cada evento.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            recommendation_id = item.get('recommendation_id', '')
+            strategy = item.get('strategy', 'hybrid')
+            algorithm_version = item.get('algorithm_version', 'v1.0')
+            metadata = item.get('metadata') or {}
+
+            try:
+                feedback = services.record_recommendation_event(
+                    user=request.user,
+                    book_id=book_id,
+                    action=action,
+                    recommendation_id=recommendation_id,
+                    strategy=strategy,
+                    algorithm_version=algorithm_version,
+                    metadata=metadata,
+                )
+                created_records.append(feedback)
+            except ValueError as val_err:
+                return Response({'detail': str(val_err)}, status=status.HTTP_400_BAD_REQUEST)
+            except Exception as exc:
+                logging.exception("Error al registrar feedback de recomendación: %s", exc)
+                return Response(
+                    {'detail': 'Error interno al registrar el evento.'},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                )
+
+        serializer = RecommendationFeedbackSerializer(created_records, many=True)
+        return Response(
+            {'status': 'success', 'count': len(created_records), 'data': serializer.data},
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class RecommendationMetricsView(APIView):
+    """
+    Endpoint para consultar métricas y analítica de conversión de recomendaciones
+    (CTR, tasa de guardado en wishlist, inicio y finalización de lectura).
+    Permite filtrar por estrategia, versión de algoritmo y ventana temporal.
+    """
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get(self, request):
+        """
+        Calcula y retorna los indicadores de rendimiento de recomendaciones según los filtros especificados.
+
+        :param request: Objeto HttpRequest con parámetros de consulta opcionales (strategy, algorithm_version, days, scope).
+        :return: Response con métricas agregadas (totales, ratios y desgloses).
+        """
+        strategy = request.query_params.get('strategy')
+        algorithm_version = request.query_params.get('algorithm_version')
+        days_str = request.query_params.get('days')
+        scope = request.query_params.get('scope', 'global').lower().strip()
+
+        days = None
+        if days_str:
+            try:
+                days = int(days_str)
+            except ValueError:
+                days = None
+
+        # Si el usuario no es staff/editor y pide scope global, o si especifica scope='me', filtramos por su usuario
+        user_filter = None
+        if scope == 'me' or not (request.user.is_staff or getattr(request.user, 'is_editor', False)):
+            user_filter = request.user
+
+        metrics = services.get_recommendation_metrics(
+            user=user_filter,
+            strategy=strategy,
+            algorithm_version=algorithm_version,
+            days=days,
+        )
+        return Response(metrics, status=status.HTTP_200_OK)
 
 
 class AuthorBookRefreshView(APIView):

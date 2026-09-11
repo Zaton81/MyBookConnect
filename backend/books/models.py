@@ -489,3 +489,40 @@ class ReadingListFollow(models.Model):
     def __str__(self):
         return f"{self.user.username} sigue {self.reading_list.name}"
 
+
+class RecommendationFeedbackAction(models.TextChoices):
+    RECOMMENDATION_SHOWN = 'recommendation_shown', 'Recomendación mostrada'
+    RECOMMENDATION_CLICKED = 'recommendation_clicked', 'Recomendación clickeada'
+    BOOK_OPENED = 'book_opened', 'Libro abierto'
+    WISHLIST_ADDED = 'wishlist_added', 'Añadido a lista de deseos'
+    READING_STARTED = 'reading_started', 'Lectura iniciada'
+    READING_FINISHED = 'reading_finished', 'Lectura finalizada'
+    RATED = 'rated', 'Valorado'
+
+
+class RecommendationFeedback(models.Model):
+    """
+    Registra eventos de interacción y conversión sobre libros recomendados para medir
+    CTR, tasas de conversión (wishlist, lectura, finalización) y optimizar algoritmos.
+    """
+    recommendation_id = models.CharField(max_length=100, blank=True, default='', db_index=True)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='recommendation_feedbacks')
+    book = models.ForeignKey(Book, on_delete=models.CASCADE, related_name='recommendation_feedbacks')
+    action = models.CharField(max_length=30, choices=RecommendationFeedbackAction.choices, db_index=True)
+    strategy = models.CharField(max_length=50, blank=True, default='hybrid', db_index=True)
+    algorithm_version = models.CharField(max_length=50, default='v1.0', db_index=True)
+    metadata = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(default=timezone.now, db_index=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['user', 'action', '-created_at'], name='idx_recfb_user_act_date'),
+            models.Index(fields=['book', 'action'], name='idx_recfb_book_act'),
+            models.Index(fields=['algorithm_version', 'action'], name='idx_recfb_algo_act'),
+            models.Index(fields=['strategy', 'action'], name='idx_recfb_strat_act'),
+        ]
+
+    def __str__(self):
+        return f"{self.user.username} - {self.action} - {self.book.title} ({self.strategy})"
+

@@ -16,6 +16,9 @@ export function resolveMediaUrl(pathOrUrl?: string | null): string {
 
   const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
   const base = apiUrl.replace(/\/api(\/.*)?$/, '').replace(/\/+$/, '');
-  const cleanPath = pathOrUrl.startsWith('/') ? pathOrUrl : `/${pathOrUrl}`;
+  let cleanPath = pathOrUrl.startsWith('/') ? pathOrUrl : `/${pathOrUrl}`;
+  if (!cleanPath.startsWith('/media/')) {
+    cleanPath = `/media${cleanPath}`;
+  }
   return `${base}${cleanPath}`;
 }
