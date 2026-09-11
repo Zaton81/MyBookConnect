@@ -190,12 +190,15 @@ else:
     SECURE_HSTS_SECONDS = 0
 
 
-# ─── Configuración de IA (Compatible con OpenAI: Ollama, Cloud, etc.) ───
+# ─── Configuración de IA (Fase 26: Abstracción Multi-Proveedor) ───
 AI_ENABLED = os.getenv('AI_ENABLED', 'true').lower() in ('true', '1', 'yes')
+AI_PROVIDER = os.getenv('AI_PROVIDER', 'ollama').lower().strip()
 AI_API_BASE_URL = os.getenv('AI_API_BASE_URL', 'http://localhost:11434/v1').rstrip('/')
 AI_API_KEY = os.getenv('AI_API_KEY', 'ollama')
-AI_MODEL_CHAT = os.getenv('AI_MODEL_CHAT', 'llama3.2')
-AI_MODEL_EMBEDDINGS = os.getenv('AI_MODEL_EMBEDDINGS', 'nomic-embed-text')
+AI_MODEL = os.getenv('AI_MODEL', os.getenv('AI_MODEL_CHAT', 'llama3.2'))
+AI_MODEL_CHAT = AI_MODEL
+AI_EMBEDDING_MODEL = os.getenv('AI_EMBEDDING_MODEL', os.getenv('AI_MODEL_EMBEDDINGS', 'nomic-embed-text'))
+AI_MODEL_EMBEDDINGS = AI_EMBEDDING_MODEL
 AI_TIMEOUT = int(os.getenv('AI_TIMEOUT', '15'))
 
 # ─── APIs Externas de Libros y Autores ───

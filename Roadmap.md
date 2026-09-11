@@ -1318,15 +1318,21 @@ completion rate
 
 ------------------------------------------------------------------------
 
-# 29. Fase 26 --- IA
+# 29. Fase 26 --- IA [COMPLETADA]
 
-**Prioridad:** P2
+**Prioridad:** P2 - COMPLETADA
 
 Separar:
 
 ``` text
 ai/
 ├── clients/
+│   ├── base.py
+│   ├── factory.py
+│   ├── ollama_client.py
+│   ├── openai_client.py
+│   └── openrouter_client.py
+├── config.py
 ├── embeddings.py
 ├── prompts.py
 ├── services.py
@@ -1353,6 +1359,16 @@ AI_MODEL
 AI_EMBEDDING_MODEL
 AI_TIMEOUT
 ```
+
+## Tareas completadas:
+- [x] Paquete modular `backend/ai/` implementado con separación estricta de responsabilidades (`clients/`, `config.py`, `embeddings.py`, `prompts.py`, `policies.py`, `services.py`).
+- [x] Abstracción `AIProvider` con factoría dinámica `get_ai_provider` y clientes para `OllamaProvider`, `OpenAIProvider` y `OpenRouterProvider`.
+- [x] Variables desacopladas en `settings.py`: `AI_PROVIDER`, `AI_MODEL`, `AI_EMBEDDING_MODEL`, `AI_TIMEOUT`, `AI_API_BASE_URL` y `AI_API_KEY`.
+- [x] Políticas de seguridad en `policies.py`: sanitización de mensajes, rechazo de rol `system` no autorizado y acotación defensiva de longitud.
+- [x] Motor de prompts centralizado en `prompts.py` y cálculo de embeddings vectoriales con similitud coseno en `embeddings.py`.
+- [x] Servicios de orquestación de alto nivel en `services.py` (`get_assistant_reply`, `get_book_ai_summary`, `get_ai_status`, `semantic_search_books`) con soporte de fallback offline.
+- [x] Adaptación retrocompatible transparente de `mybookconnect/ai_service.py` y refactorización de `books/ai_views.py`.
+- [x] Suite completa de tests automatizados en `test_phase26_ai.py` (19/19 superados, 100% éxito).
 
 ------------------------------------------------------------------------
 
