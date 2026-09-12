@@ -169,6 +169,11 @@ class Review(models.Model):
     text = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    is_moderated = models.BooleanField(
+        default=False,
+        db_index=True,
+        help_text="Indica si la reseña ha sido ocultada por moderación",
+    )
 
     class Meta:
         ordering = ['-created_at']

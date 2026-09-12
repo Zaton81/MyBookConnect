@@ -34,21 +34,26 @@ class IsAdminOrSuperUser(permissions.BasePermission):
         )
 
 
-class IsAdminOrEditor(permissions.BasePermission):
+class IsModeratorOrAdmin(permissions.BasePermission):
     """
-    Permite acceso a administradores o editores para la gestión editorial de libros/autores/erratas.
+    Permite acceso a moderadores o administradores para la gestión de denuncias y moderación (Fase 29).
     """
     def has_permission(self, request, view):
-        return bool(
-            request.user
-            and request.user.is_authenticated
-            and request.user.is_active
-            and (
-                request.user.is_staff
-                or request.user.is_superuser
-                or getattr(request.user, 'is_editor', False)
-            )
-        )
+        if not (request.user and request.user.is_authenticated and request.user.is_active):
+            return False
+        from users.policies import can_moderate
+        return can_moderate(request.user)
+
+
+class IsAdminOrEditor(permissions.BasePermission):
+    """
+    Permite acceso a administradores, moderadores o editores para la gestión editorial de libros/autores/erratas.
+    """
+    def has_permission(self, request, view):
+        if not (request.user and request.user.is_authenticated and request.user.is_active):
+            return False
+        from users.policies import can_edit_catalog
+        return can_edit_catalog(request.user)
 
 
 class AdminStatsView(APIView):

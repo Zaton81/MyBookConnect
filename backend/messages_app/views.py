@@ -61,7 +61,13 @@ class MessageViewSet(
         conv = Conversation.objects.filter(id=conv_id, participants=self.request.user).first()
         if not conv:
             return Message.objects.none()
-        return Message.objects.filter(conversation=conv).select_related('sender')
+
+        from users.policies import can_moderate
+
+        qs = Message.objects.filter(conversation=conv).select_related('sender')
+        if not can_moderate(self.request.user):
+            qs = qs.filter(is_moderated=False)
+        return qs
 
     def perform_create(self, serializer):
         from users.models import Notification, NotificationType

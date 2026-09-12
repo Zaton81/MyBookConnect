@@ -1,5 +1,11 @@
 from django.urls import path
 
+from users.moderation_views import (
+    AdminModerationStatsView,
+    AdminReportDetailView,
+    AdminReportListView,
+)
+
 from .admin_views import (
     AdminAuthorDetailView,
     AdminAuthorEnrichView,
@@ -41,4 +47,9 @@ urlpatterns = [
     # CMS Legal
     path('legal/', AdminLegalDocumentListView.as_view(), name='admin-legal-list'),
     path('legal/<slug:slug>/', AdminLegalDocumentDetailView.as_view(), name='admin-legal-detail'),
+
+    # Moderación y Denuncias (Fase 29)
+    path('reports/', AdminReportListView.as_view(), name='admin-reports-list'),
+    path('reports/stats/', AdminModerationStatsView.as_view(), name='admin-reports-stats'),
+    path('reports/<int:pk>/', AdminReportDetailView.as_view(), name='admin-reports-detail'),
 ]

@@ -1,8 +1,11 @@
 from datetime import date
 
 from django.contrib.auth.models import AbstractUser
+from django.contrib.contenttypes.fields import GenericForeignKey
+from django.contrib.contenttypes.models import ContentType
 from django.core.validators import MinValueValidator
 from django.db import models
+from django.utils import timezone
 
 from mybookconnect.media_security import validate_avatar_image
 
@@ -11,6 +14,15 @@ class PrivacyChoices(models.TextChoices):
     PUBLIC = 'public', 'Público'
     FRIENDS = 'friends', 'Solo amigos'
     PRIVATE = 'private', 'Privado'
+
+
+class UserRole(models.TextChoices):
+    """Jerarquía de roles del sistema (Fase 29)."""
+    USER = 'USER', 'Usuario'
+    EDITOR = 'EDITOR', 'Editor'
+    MODERATOR = 'MODERATOR', 'Moderador'
+    ADMIN = 'ADMIN', 'Administrador'
+
 
 class User(AbstractUser):
     bio = models.TextField(max_length=500, blank=True)
@@ -25,6 +37,13 @@ class User(AbstractUser):
     following = models.ManyToManyField('self', symmetrical=False, related_name='followers', blank=True)
     blocked_users = models.ManyToManyField('self', symmetrical=False, related_name='blocked_by', blank=True)
     is_editor = models.BooleanField(default=False)
+    role = models.CharField(
+        max_length=20,
+        choices=UserRole.choices,
+        default=UserRole.USER,
+        db_index=True,
+        help_text="Jerarquía y rol del usuario (USER, EDITOR, MODERATOR, ADMIN)",
+    )
 
     birth_date = models.DateField(null=True, blank=True,
         validators=[MinValueValidator(limit_value=date(1900, 1, 1))])
@@ -42,6 +61,26 @@ class User(AbstractUser):
 
     class Meta:
         ordering = ['-date_joined']
+
+    @property
+    def is_moderator(self) -> bool:
+        """Determina si el usuario tiene privilegios de moderación o administración."""
+        return self.role in (UserRole.MODERATOR, UserRole.ADMIN) or self.is_staff or self.is_superuser
+
+    @property
+    def is_editor_user(self) -> bool:
+        """Determina si el usuario tiene privilegios editoriales o superiores."""
+        return self.is_editor or self.role in (UserRole.EDITOR, UserRole.MODERATOR, UserRole.ADMIN) or self.is_staff or self.is_superuser
+
+    def save(self, *args, **kwargs):
+        """Mantiene sincronizado el rol con banderas booleanas heredadas."""
+        if (self.is_superuser or self.is_staff) and self.role == UserRole.USER:
+            self.role = UserRole.ADMIN
+        elif self.is_editor and self.role == UserRole.USER:
+            self.role = UserRole.EDITOR
+        elif self.role == UserRole.EDITOR and not self.is_editor:
+            self.is_editor = True
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return self.username
@@ -106,3 +145,93 @@ class Activity(models.Model):
 
     def __str__(self):
         return f"{self.user.username} - {self.get_type_display()} ({self.created_at})"
+
+
+class ReportStatus(models.TextChoices):
+    OPEN = 'OPEN', 'Abierto'
+    UNDER_REVIEW = 'UNDER_REVIEW', 'En revisión'
+    RESOLVED = 'RESOLVED', 'Resuelto'
+    REJECTED = 'REJECTED', 'Rechazado'
+
+
+class ReportReason(models.TextChoices):
+    SPAM = 'SPAM', 'Spam o publicidad no deseada'
+    HARASSMENT = 'HARASSMENT', 'Acoso o intimidación'
+    HATE_SPEECH = 'HATE_SPEECH', 'Incitación al odio o violencia'
+    INAPPROPRIATE = 'INAPPROPRIATE', 'Contenido explícito o inapropiado'
+    SPOILER = 'SPOILER', 'Spoilers sin advertencia'
+    COPYRIGHT = 'COPYRIGHT', 'Infracción de derechos de autor'
+    OTHER = 'OTHER', 'Otro motivo'
+
+
+class Report(models.Model):
+    """
+    Modelo de denuncias y moderación de contenido (Fase 29).
+    Permite registrar denuncias de usuarios sobre:
+    - Cuentas de usuario (User)
+    - Reseñas (Review)
+    - Comentarios en reseñas (ReviewComment)
+    - Mensajes de chat (Message)
+    """
+    reporter = models.ForeignKey(
+        User,
+        related_name='filed_reports',
+        on_delete=models.CASCADE,
+        help_text="Usuario que realiza la denuncia",
+    )
+    content_type = models.ForeignKey(
+        ContentType,
+        on_delete=models.CASCADE,
+        help_text="Modelo del objeto reportado",
+    )
+    object_id = models.PositiveIntegerField(db_index=True, help_text="ID primario del objeto reportado")
+    content_object = GenericForeignKey('content_type', 'object_id')
+
+    reason = models.CharField(
+        max_length=30,
+        choices=ReportReason.choices,
+        default=ReportReason.OTHER,
+        help_text="Motivo de la denuncia",
+    )
+    description = models.TextField(
+        blank=True,
+        help_text="Detalles adicionales proporcionados por el denunciante",
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=ReportStatus.choices,
+        default=ReportStatus.OPEN,
+        db_index=True,
+        help_text="Estado actual de la denuncia",
+    )
+    resolution_notes = models.TextField(
+        blank=True,
+        help_text="Notas y justificación del moderador al resolver o rechazar",
+    )
+    action_taken = models.CharField(
+        max_length=50,
+        blank=True,
+        help_text="Acción efectuada: HIDE_CONTENT, BAN_USER, DISMISS, WARNING",
+    )
+    resolved_by = models.ForeignKey(
+        User,
+        null=True,
+        blank=True,
+        related_name='resolved_reports',
+        on_delete=models.SET_NULL,
+        help_text="Moderador o administrador que resolvió la denuncia",
+    )
+    resolved_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(default=timezone.now, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['status', '-created_at'], name='idx_report_status_created'),
+            models.Index(fields=['content_type', 'object_id'], name='idx_report_content_obj'),
+            models.Index(fields=['reporter', 'status'], name='idx_report_reporter_status'),
+        ]
+
+    def __str__(self):
+        return f"Reporte #{self.id} ({self.get_status_display()}) por @{self.reporter.username}"

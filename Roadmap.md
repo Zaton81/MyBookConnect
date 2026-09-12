@@ -1461,46 +1461,66 @@ Soporte de almacenamiento pluggable configurado en `settings.py` (`STORAGES`):
 
 ------------------------------------------------------------------------
 
-# 32. Fase 29 --- Moderación
+# 32. Fase 29 --- Moderación [COMPLETADA]
 
-**Prioridad:** P2
+**Prioridad:** P2 - COMPLETADA
 
-Crear:
+## Modelo de Denuncias (Report)
+- [x] Modelo `Report` polimórfico mediante `GenericForeignKey('content_type', 'object_id')` aplicable a:
+  - `User` (perfiles)
+  - `Review` (reseñas literarias)
+  - `ReviewComment` (comentarios en reseñas)
+  - `Message` (mensajes directos de chat)
+- [x] Estados implementados: `OPEN`, `UNDER_REVIEW`, `RESOLVED`, `REJECTED`.
+- [x] Motivos tipificados: `SPAM`, `HARASSMENT`, `HATE_SPEECH`, `INAPPROPRIATE`, `SPOILER`, `COPYRIGHT`, `OTHER`.
+- [x] Validación estricta anti-abuso:
+  - Prohibición rigurosa de auto-denuncias (un usuario no puede denunciar su propio contenido o perfil).
+  - Prohibición de duplicar denuncias activas sobre el mismo objeto por el mismo denunciante.
+- [x] Campos de auditoría y resolución: `resolution_notes`, `resolved_by`, `resolved_at`, `action_taken`.
 
-``` text
-Report
-```
+## Jerarquía de Roles
+- [x] Evolución del sistema de permisos hacia una jerarquía formal en `User`:
+  - `USER`: Lector estándar.
+  - `EDITOR`: Permisos sobre catálogo editorial (libros, autores, erratas).
+  - `MODERATOR`: Gestión y resolución de expedientes disciplinarios y cola de denuncias.
+  - `ADMIN`: Control total del sistema y gestión de staff.
+- [x] Retrocompatibilidad total:
+  - `is_staff=True` asigna automáticamente rol `ADMIN`.
+  - `is_editor=True` asigna automáticamente rol `EDITOR`.
+  - Propiedades helper: `user.is_moderator`, `user.is_editor_user`.
+- [x] Políticas en `users.policies`:
+  - `can_moderate(user)` y `can_edit_catalog(user)`.
+  - `filter_visible_reviews` actualizado para ocultar reseñas marcadas con `is_moderated=True` a usuarios comunes.
+- [x] Permiso DRF `IsModeratorOrAdmin`.
 
-Aplicable a:
+## Medidas Disciplinarias y Efectos de Moderación
+- [x] `HIDE_CONTENT`: Marca `is_moderated=True` en `Review` y `Message`, o soft-delete con `deleted_at` en `ReviewComment`.
+- [x] `BAN_USER`: Desactiva la cuenta del usuario infractor (`is_active=False`).
+- [x] `WARNING`: Apercebimiento formal registrado en el expediente.
+- [x] `DISMISS`: Resolución sin sanción tras confirmación de ausencia de infracción.
 
-``` text
-User
-Review
-Comment
-Message
-```
+## Endpoints API REST
+- [x] `POST /api/v1/reports/`: Emisión de denuncias por usuarios autenticados.
+- [x] `GET /api/v1/reports/my/`: Consulta de historial de denuncias enviadas por el usuario.
+- [x] `GET /api/v1/admin/reports/`: Cola de moderación con filtros por estado (`status`), motivo (`reason`) y tipo (`target_type`).
+- [x] `GET /api/v1/admin/reports/<id>/`: Detalle ampliado con vista previa del contenido denunciado y datos de resolución.
+- [x] `PATCH /api/v1/admin/reports/<id>/`: Resolución de denuncias y ejecución automática de medidas disciplinarias.
+- [x] `GET /api/v1/admin/reports/stats/`: Métricas cuantitativas agregadas de la cola de moderación.
 
-Estados:
+## Frontend (AdminDashboard.tsx)
+- [x] Acceso ampliado para moderadores (`user.role === 'MODERATOR' || user.role === 'ADMIN'`).
+- [x] Nueva pestaña interactiva `🛡️ Moderación & Denuncias`:
+  - Tarjetas de resumen métrico (abiertas, en revisión, resueltas, total).
+  - Filtros avanzados por estado, motivo y tipo de contenido.
+  - Tabla de denuncias con badges contextuales y previsualización de fragmentos de contenido denunciado.
+  - Modal de resolución disciplinaria con selección de medida (`HIDE_CONTENT`, `BAN_USER`, etc.) y notas del moderador.
+- [x] Gestión de roles en la tabla de usuarios con selector dinámico (`USER`, `EDITOR`, `MODERATOR`, `ADMIN`).
 
-``` text
-OPEN
-UNDER_REVIEW
-RESOLVED
-REJECTED
-```
-
-## Roles
-
-Evolucionar desde un único `is_editor` hacia permisos/roles:
-
-``` text
-USER
-EDITOR
-MODERATOR
-ADMIN
-```
-
-Preferiblemente aprovechando permisos de Django cuando tenga sentido.
+## Pruebas y Validación
+- [x] Suite automatizada `test_phase29_moderation.py` con 16/16 tests superados (100% de éxito).
+- [x] Suite global de regresión superada (207/207 tests pasando).
+- [x] Linter backend `ruff check .` con 0 errores.
+- [x] Tipado y build frontend `pnpm run typecheck` y `pnpm run build` limpios sin advertencias de tipos.
 
 ------------------------------------------------------------------------
 

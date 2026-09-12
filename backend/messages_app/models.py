@@ -54,6 +54,11 @@ class Message(models.Model):
     )
     created_at = models.DateTimeField(default=timezone.now)
     read = models.BooleanField(default=False)
+    is_moderated = models.BooleanField(
+        default=False,
+        db_index=True,
+        help_text="Indica si el mensaje ha sido ocultado por moderación",
+    )
 
     class Meta:
         ordering = ['created_at']

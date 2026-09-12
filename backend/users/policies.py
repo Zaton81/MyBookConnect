@@ -115,15 +115,53 @@ def can_message(user: Optional[Any], target: Any) -> bool:
     return is_following or getattr(user, "is_staff", False) or getattr(user, "is_superuser", False)
 
 
+def can_moderate(user: Optional[Any]) -> bool:
+    """
+    Determina si un usuario tiene permisos de moderación o administración (Fase 29).
+    Aplica a usuarios con rol MODERATOR o ADMIN, y usuarios staff o superusuario.
+    """
+    if not user or not user.is_authenticated:
+        return False
+    from users.models import UserRole
+    user_role = getattr(user, 'role', UserRole.USER)
+    return (
+        user_role in (UserRole.MODERATOR, UserRole.ADMIN)
+        or getattr(user, 'is_staff', False)
+        or getattr(user, 'is_superuser', False)
+    )
+
+
+def can_edit_catalog(user: Optional[Any]) -> bool:
+    """
+    Determina si un usuario tiene permisos editoriales para modificar libros, autores o erratas.
+    Aplica a roles EDITOR, MODERATOR, ADMIN, usuarios con is_editor=True, o staff/superuser.
+    """
+    if not user or not user.is_authenticated:
+        return False
+    from users.models import UserRole
+    user_role = getattr(user, 'role', UserRole.USER)
+    return (
+        user_role in (UserRole.EDITOR, UserRole.MODERATOR, UserRole.ADMIN)
+        or getattr(user, 'is_editor', False)
+        or getattr(user, 'is_staff', False)
+        or getattr(user, 'is_superuser', False)
+    )
+
+
 def filter_visible_reviews(viewer: Optional[Any], queryset: QuerySet) -> QuerySet:
     """
-    Filtra un queryset de Review para excluir reseñas según las políticas de privacidad:
+    Filtra un queryset de Review para excluir reseñas según las políticas de privacidad y moderación:
+    - Excluye reseñas marcadas como is_moderated=True (salvo para moderadores o administradores).
     - Si el viewer es anónimo: solo reseñas de usuarios con perfil público.
     - Si el viewer está autenticado:
       - Excluye autores que el viewer haya bloqueado o que hayan bloqueado al viewer.
       - Excluye autores con perfil privado (salvo las propias reseñas del viewer).
       - Autores con perfil 'friends': solo si el viewer sigue al autor (o es el propio viewer).
     """
+    # Excluir reseñas ocultadas por moderación a menos que el usuario sea moderador
+    if not can_moderate(viewer):
+        queryset = queryset.filter(is_moderated=False)
+
     if not viewer or not viewer.is_authenticated:
         return queryset.filter(user__privacy_level=PrivacyChoices.PUBLIC)
 
