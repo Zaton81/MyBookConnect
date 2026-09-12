@@ -29,5 +29,5 @@ COPY --chown=appuser:appgroup . .
 USER appuser
 EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-    CMD curl -f http://localhost:8000/api/schema/ || exit 1
+    CMD curl -f http://localhost:8000/api/v1/health/ || exit 1
 CMD ["daphne", "-b", "0.0.0.0", "-p", "8000", "mybookconnect.asgi:application"]

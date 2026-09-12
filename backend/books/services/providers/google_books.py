@@ -40,6 +40,16 @@ class GoogleBooksProvider:
                 cover_url = image_links.get(key)
                 break
 
+        # Extraer categorías/géneros
+        raw_categories = info.get('categories') or []
+        categories: list[str] = []
+        for cat in raw_categories:
+            if isinstance(cat, str):
+                parts = [p.strip() for p in cat.split('/') if p.strip()]
+                for p in parts:
+                    if p not in categories:
+                        categories.append(p)
+
         return ProviderBookData(
             title=title,
             author_name=author_name,
@@ -48,6 +58,7 @@ class GoogleBooksProvider:
             published_date_raw=published_date_raw,
             cover_url=cover_url,
             google_volume_id=google_vol_id,
+            categories=categories,
             raw_payload=volume,
         )
 

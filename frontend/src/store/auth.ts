@@ -69,6 +69,10 @@ export const useAuthStore = create<AuthStore>()(
       },
 
       logout: () => {
+        const { refreshToken } = get();
+        if (refreshToken) {
+          api.post('/api/v1/auth/logout/', { refresh: refreshToken }).catch(() => {});
+        }
         set({
           user: null,
           token: null,
@@ -121,11 +125,13 @@ export const useAuthStore = create<AuthStore>()(
       },
 
       getFollowing: async () => {
-        return api.get('/api/v1/users/following/');
+        const res: any = await api.get('/api/v1/users/following/');
+        return Array.isArray(res) ? res : (res?.results || []);
       },
 
       getFollowers: async () => {
-        return api.get('/api/v1/users/followers/');
+        const res: any = await api.get('/api/v1/users/followers/');
+        return Array.isArray(res) ? res : (res?.results || []);
       },
     }),
     {

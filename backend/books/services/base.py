@@ -46,6 +46,7 @@ class ProviderBookData:
     google_volume_id: str | None = None
     openlibrary_work_id: str | None = None
     openlibrary_edition_id: str | None = None
+    categories: list[str] = field(default_factory=list)
     raw_payload: dict[str, Any] = field(default_factory=dict)
 
 

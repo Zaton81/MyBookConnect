@@ -1,7 +1,19 @@
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
-from .models import Author, Book, Category, Errata, LegalDocument, Review, UserBook
+from .models import (
+    Author,
+    Book,
+    Category,
+    Errata,
+    LegalDocument,
+    ReadingList,
+    ReadingListItem,
+    RecommendationFeedback,
+    Review,
+    ReviewComment,
+    UserBook,
+)
 
 User = get_user_model()
 
@@ -11,11 +23,45 @@ class AuthorBookSerializer(serializers.ModelSerializer):
         model = Book
         fields = ('id', 'title', 'cover', 'published_date')
 
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        request = self.context.get('request') if hasattr(self, 'context') else None
+        from .media_utils import build_media_url
+        if instance.cover:
+            ret['cover'] = build_media_url(instance.cover, request=request)
+        return ret
+
 
 class AuthorBasicSerializer(serializers.ModelSerializer):
     class Meta:
         model = Author
         fields = ('id', 'name', 'biography', 'photo')
+
+    def validate_photo(self, value):
+        """
+        Valida y sanitiza la fotografía del autor.
+        Asegura formato permitido, dimensiones, cuota <= 5MB y elimina metadatos EXIF.
+        """
+        if not value:
+            return value
+        from django.core.exceptions import ValidationError as DjangoValidationError
+
+        from mybookconnect.media_security import sanitize_image, validate_author_photo
+
+        try:
+            validate_author_photo(value)
+            return sanitize_image(value)
+        except DjangoValidationError as err:
+            msg = err.messages if hasattr(err, 'messages') else str(err)
+            raise serializers.ValidationError(msg) from err
+
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        request = self.context.get('request') if hasattr(self, 'context') else None
+        from .media_utils import build_media_url
+        if instance.photo:
+            ret['photo'] = build_media_url(instance.photo, request=request)
+        return ret
 
 
 class AuthorSerializer(serializers.ModelSerializer):
@@ -24,6 +70,32 @@ class AuthorSerializer(serializers.ModelSerializer):
     class Meta:
         model = Author
         fields = ('id', 'name', 'biography', 'photo', 'books')
+
+    def validate_photo(self, value):
+        """
+        Valida y sanitiza la fotografía del autor.
+        Asegura formato permitido, dimensiones, cuota <= 5MB y elimina metadatos EXIF.
+        """
+        if not value:
+            return value
+        from django.core.exceptions import ValidationError as DjangoValidationError
+
+        from mybookconnect.media_security import sanitize_image, validate_author_photo
+
+        try:
+            validate_author_photo(value)
+            return sanitize_image(value)
+        except DjangoValidationError as err:
+            msg = err.messages if hasattr(err, 'messages') else str(err)
+            raise serializers.ValidationError(msg) from err
+
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        request = self.context.get('request') if hasattr(self, 'context') else None
+        from .media_utils import build_media_url
+        if instance.photo:
+            ret['photo'] = build_media_url(instance.photo, request=request)
+        return ret
 
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -65,6 +137,32 @@ class BookSerializer(serializers.ModelSerializer):
             return obj.annotated_reviews_count
         return Review.objects.filter(book=obj).count()
 
+    def validate_cover(self, value):
+        """
+        Valida y sanitiza la portada del libro.
+        Asegura formato permitido, dimensiones, cuota <= 10MB y elimina metadatos EXIF.
+        """
+        if not value:
+            return value
+        from django.core.exceptions import ValidationError as DjangoValidationError
+
+        from mybookconnect.media_security import sanitize_image, validate_cover_image
+
+        try:
+            validate_cover_image(value)
+            return sanitize_image(value)
+        except DjangoValidationError as err:
+            msg = err.messages if hasattr(err, 'messages') else str(err)
+            raise serializers.ValidationError(msg) from err
+
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        request = self.context.get('request') if hasattr(self, 'context') else None
+        from .media_utils import build_media_url
+        if instance.cover:
+            ret['cover'] = build_media_url(instance.cover, request=request)
+        return ret
+
 
 class UserBookSerializer(serializers.ModelSerializer):
     book = BookSerializer(read_only=True)
@@ -80,6 +178,28 @@ class UserBookSerializer(serializers.ModelSerializer):
         )
 
 
+class ReviewCommentUserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ('id', 'username', 'avatar')
+
+
+class ReviewCommentSerializer(serializers.ModelSerializer):
+    user = ReviewCommentUserSerializer(read_only=True)
+    is_owner = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ReviewComment
+        fields = ('id', 'review', 'user', 'content', 'created_at', 'updated_at', 'is_owner')
+        read_only_fields = ('id', 'review', 'user', 'created_at', 'updated_at', 'is_owner')
+
+    def get_is_owner(self, obj):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            return obj.user_id == request.user.id or request.user.is_staff or request.user.is_superuser
+        return False
+
+
 class ReviewSerializer(serializers.ModelSerializer):
     user = serializers.SlugRelatedField(slug_field='username', read_only=True)
     username = serializers.CharField(source='user.username', read_only=True)
@@ -90,12 +210,16 @@ class ReviewSerializer(serializers.ModelSerializer):
     is_friend = serializers.SerializerMethodField()
     book = BookSerializer(read_only=True)
     book_id = serializers.PrimaryKeyRelatedField(queryset=Book.objects.all(), source='book', write_only=True)
+    likes_count = serializers.SerializerMethodField()
+    user_has_liked = serializers.SerializerMethodField()
+    comments_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Review
         fields = (
             'id', 'user', 'username', 'user_id', 'user_avatar', 'avatar', 'privacy_level', 'is_friend',
-            'book', 'book_id', 'rating', 'title', 'text', 'created_at', 'updated_at'
+            'book', 'book_id', 'rating', 'title', 'text', 'created_at', 'updated_at',
+            'likes_count', 'user_has_liked', 'comments_count'
         )
 
     def get_is_friend(self, obj):
@@ -105,6 +229,33 @@ class ReviewSerializer(serializers.ModelSerializer):
         if request and request.user.is_authenticated:
             return request.user.following.filter(id=obj.user.id).exists()
         return False
+
+    def get_likes_count(self, obj):
+        annotated = getattr(obj, 'annotated_likes_count', None)
+        if annotated is not None:
+            return annotated
+        if hasattr(obj, 'likes_count'):
+            return obj.likes_count
+        return obj.likes.count()
+
+    def get_user_has_liked(self, obj):
+        annotated = getattr(obj, 'annotated_user_has_liked', None)
+        if annotated is not None:
+            return bool(annotated)
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            return obj.likes.filter(user=request.user).exists()
+        return False
+
+    def get_comments_count(self, obj):
+        annotated = getattr(obj, 'annotated_comments_count', None)
+        if annotated is not None:
+            return annotated
+        if hasattr(obj, 'comments_count'):
+            return obj.comments_count
+        return obj.comments.filter(deleted_at__isnull=True).count()
+
+
 
 
 class ErrataSerializer(serializers.ModelSerializer):
@@ -145,7 +296,94 @@ class AdminUserSerializer(serializers.ModelSerializer):
         model = User
         fields = (
             'id', 'username', 'email', 'first_name', 'last_name',
-            'is_active', 'is_staff', 'is_superuser', 'is_editor',
+            'is_active', 'is_staff', 'is_superuser', 'is_editor', 'role',
             'date_joined', 'last_login', 'privacy_level', 'books_count', 'reviews_count'
         )
         read_only_fields = ('id', 'username', 'date_joined', 'last_login', 'books_count', 'reviews_count')
+
+
+class ReadingListUserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ('id', 'username', 'avatar')
+
+
+class ReadingListItemSerializer(serializers.ModelSerializer):
+    book = BookSerializer(read_only=True)
+    book_id = serializers.PrimaryKeyRelatedField(
+        queryset=Book.objects.all(), source='book', write_only=True
+    )
+
+    class Meta:
+        model = ReadingListItem
+        fields = ('id', 'reading_list', 'book', 'book_id', 'position', 'notes', 'added_at')
+        read_only_fields = ('id', 'reading_list', 'added_at')
+
+
+class ReadingListSerializer(serializers.ModelSerializer):
+    user = ReadingListUserSerializer(read_only=True)
+    items = ReadingListItemSerializer(many=True, read_only=True)
+    items_count = serializers.SerializerMethodField()
+    followers_count = serializers.SerializerMethodField()
+    is_following = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ReadingList
+        fields = (
+            'id', 'user', 'name', 'slug', 'description', 'privacy',
+            'created_at', 'updated_at', 'items', 'items_count',
+            'followers_count', 'is_following'
+        )
+        read_only_fields = ('id', 'user', 'slug', 'created_at', 'updated_at')
+
+    def get_items_count(self, obj):
+        return obj.items.count()
+
+    def get_followers_count(self, obj):
+        return obj.followers.count()
+
+    def get_is_following(self, obj):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            return obj.followers.filter(user=request.user).exists()
+        return False
+
+
+class ReadingListCreateUpdateSerializer(serializers.ModelSerializer):
+    user = ReadingListUserSerializer(read_only=True)
+
+    class Meta:
+        model = ReadingList
+        fields = ('id', 'user', 'name', 'slug', 'description', 'privacy')
+        read_only_fields = ('id', 'user', 'slug')
+
+
+class RecommendationFeedbackSerializer(serializers.ModelSerializer):
+    """
+    Serializador para registrar y representar eventos de feedback de recomendaciones.
+    """
+    user_username = serializers.CharField(source='user.username', read_only=True)
+    book_id = serializers.PrimaryKeyRelatedField(
+        queryset=Book.objects.all(),
+        source='book',
+        write_only=True,
+    )
+    book_title = serializers.CharField(source='book.title', read_only=True)
+
+    class Meta:
+        model = RecommendationFeedback
+        fields = (
+            'id',
+            'recommendation_id',
+            'user',
+            'user_username',
+            'book_id',
+            'book_title',
+            'action',
+            'strategy',
+            'algorithm_version',
+            'metadata',
+            'created_at',
+        )
+        read_only_fields = ('id', 'user', 'user_username', 'book_title', 'created_at')
+

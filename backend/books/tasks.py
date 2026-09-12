@@ -16,7 +16,10 @@ logger = logging.getLogger(__name__)
 
 @shared_task(bind=True, max_retries=3, default_retry_delay=60)
 def enrich_book_task(self, book_id: int) -> bool:
-    """Enriquece metadatos y portada del libro en segundo plano."""
+    """
+    Enriquece metadatos (autor, categorías, sinopsis, fecha) y portada del libro
+    en segundo plano e invalida la clave de caché del detalle del libro.
+    """
     try:
         book = Book.objects.filter(id=book_id).first()
         if not book:
@@ -24,6 +27,11 @@ def enrich_book_task(self, book_id: int) -> bool:
             return False
 
         maybe_enrich_book(book)
+        from django.core.cache import cache
+
+        from .cache_utils import book_detail_key
+
+        cache.delete(book_detail_key(book.id))
         logger.info(f"enrich_book_task: Libro {book_id} ({book.title}) enriquecido con éxito")
         return True
     except Exception as exc:
@@ -41,6 +49,12 @@ def download_cover_task(self, book_id: int) -> bool:
             return False
 
         ensure_book_cover(book)
+        if book.cover:
+            from django.core.cache import cache
+
+            from .cache_utils import book_detail_key
+
+            cache.delete(book_detail_key(book.id))
         return bool(book.cover)
     except Exception as exc:
         logger.warning(f"download_cover_task error para libro {book_id}: {exc}")
@@ -97,3 +111,47 @@ def import_books_by_author_task(self, author_name: str) -> int:
     except Exception as exc:
         logger.warning(f"import_books_by_author_task error para '{author_name}': {exc}")
         raise self.retry(exc=exc) from exc
+
+
+@shared_task(bind=True, max_retries=2, default_retry_delay=60)
+def precompute_trending_task(self) -> dict[str, int]:
+    """
+    Precomputa y almacena en caché las tendencias para los distintos periodos
+    ('week', 'month', 'year', 'all') manteniendo las peticiones por debajo de 15ms.
+    """
+    try:
+        from .services.trending_service import get_trending_books
+
+        summary = {}
+        for period in ('week', 'month', 'year', 'all'):
+            items = get_trending_books(period=period, limit=12)
+            summary[period] = len(items)
+
+        logger.info(f"precompute_trending_task completada con éxito: {summary}")
+        return summary
+    except Exception as exc:
+        logger.warning(f"Error en precompute_trending_task: {exc}")
+        raise self.retry(exc=exc) from exc
+
+
+@shared_task(bind=True, max_retries=2, default_retry_delay=60)
+def precompute_user_recommendations_task(self, user_id: int) -> int:
+    """
+    Precalcula y calienta en caché las recomendaciones híbridas de un usuario
+    para optimizar la carga instantánea de su página de inicio.
+    """
+    try:
+        from django.contrib.auth import get_user_model
+
+        from .services.recommendation_service import get_user_recommendations
+
+        User = get_user_model()
+        user = User.objects.get(pk=user_id)
+        recommendations = get_user_recommendations(user=user, limit=10, strategy='hybrid')
+        logger.info(f"precompute_user_recommendations_task: {len(recommendations)} recomendaciones calculadas para usuario {user_id}")
+        return len(recommendations)
+    except Exception as exc:
+        logger.warning(f"Error en precompute_user_recommendations_task para usuario {user_id}: {exc}")
+        raise self.retry(exc=exc) from exc
+
+

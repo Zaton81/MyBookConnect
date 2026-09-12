@@ -41,6 +41,15 @@ class OpenLibraryProvider:
 
         published_date_raw = str(first_year) if first_year else None
 
+        categories: list[str] = []
+        for s in (doc.get('subject') or doc.get('subject_facet') or []):
+            if isinstance(s, str):
+                clean_s = s.strip()
+                if clean_s and clean_s not in categories and len(clean_s) <= 80:
+                    categories.append(clean_s)
+            if len(categories) >= 8:
+                break
+
         return ProviderBookData(
             title=book_title,
             author_name=author_name,
@@ -50,6 +59,7 @@ class OpenLibraryProvider:
             cover_url=cover_url,
             openlibrary_work_id=work_key,
             openlibrary_edition_id=edition_key,
+            categories=categories,
             raw_payload=doc,
         )
 
@@ -118,8 +128,26 @@ class OpenLibraryProvider:
         authors = book_info.get('authors') or []
         author_name = authors[0].get('name') if authors else None
         cover_url = book_info.get('cover', {}).get('large')
-        description = book_info.get('notes') or None
+
+        # Manejo robusto de descripción (string o dict {'type': ..., 'value': ...})
+        description = None
+        raw_desc = book_info.get('description') or book_info.get('notes')
+        if isinstance(raw_desc, dict):
+            description = raw_desc.get('value')
+        elif isinstance(raw_desc, str):
+            description = raw_desc
+
         published_date_raw = book_info.get('publish_date')
+
+        categories: list[str] = []
+        for s in (book_info.get('subjects') or []):
+            name = s.get('name') if isinstance(s, dict) else str(s)
+            if name:
+                clean_name = name.strip()
+                if clean_name and clean_name not in categories and len(clean_name) <= 80:
+                    categories.append(clean_name)
+            if len(categories) >= 8:
+                break
 
         return ProviderBookData(
             title=title,
@@ -128,5 +156,6 @@ class OpenLibraryProvider:
             description=description,
             published_date_raw=published_date_raw,
             cover_url=cover_url,
+            categories=categories,
             raw_payload=book_info,
         )

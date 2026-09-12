@@ -6,7 +6,13 @@ from messages_app.views import ConversationViewSet, MessageViewSet
 from .views import (
     BlockUserView,
     CheckFollowStatusView,
+    FeedView,
     FollowUserView,
+    LogoutView,
+    NotificationListView,
+    NotificationMarkAllReadView,
+    NotificationMarkReadView,
+    NotificationUnreadCountView,
     UnblockUserView,
     UnfollowUserView,
     UserDetailView,
@@ -14,6 +20,7 @@ from .views import (
     UserFollowingListView,
     UserProfileView,
     UserRegistrationView,
+    UserSearchListView,
     UserUpdateView,
     toggle_editor,
 )
@@ -35,10 +42,17 @@ user_action_patterns = [
 
 urlpatterns = [
     path('register/', UserRegistrationView.as_view(), name='register'),
+    path('logout/', LogoutView.as_view(), name='logout'),
     path('profile/', UserProfileView.as_view(), name='profile'),
     path('profile/update/', UserUpdateView.as_view(), name='profile-update'),
+    path('search/', UserSearchListView.as_view(), name='user-search'),
     path('following/', UserFollowingListView.as_view(), name='following-list'),
     path('followers/', UserFollowersListView.as_view(), name='followers-list'),
+    path('notifications/', NotificationListView.as_view(), name='notification-list'),
+    path('notifications/<int:notification_id>/read/', NotificationMarkReadView.as_view(), name='notification-read'),
+    path('notifications/read-all/', NotificationMarkAllReadView.as_view(), name='notification-read-all'),
+    path('notifications/unread-count/', NotificationUnreadCountView.as_view(), name='notification-unread-count'),
+    path('feed/', FeedView.as_view(), name='social-feed'),
     *user_action_patterns,
     path('users/', include(user_action_patterns)),
 ] + router.urls

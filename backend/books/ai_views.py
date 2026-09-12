@@ -1,149 +1,118 @@
+"""
+Vistas de API para las funcionalidades de Inteligencia Artificial (Fases 26 y 27).
+
+Expone endpoints para consulta de estado de proveedores, asistente conversacional
+BookAI contextualizado, análisis temático de libros, búsqueda semántica y
+ejecución controlada de herramientas seguras (Function Calling).
+"""
+
 import logging
 
-from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from mybookconnect.ai_service import ai_client
-
-from .models import Book, UserBook
-from .serializers import BookSerializer
+from ai.policies import AIPolicyViolationError, AIRateLimitExceededError
+from ai.services import (
+    execute_assistant_tool,
+    get_ai_status,
+    get_assistant_reply,
+    get_available_assistant_tools,
+    get_book_ai_summary,
+    semantic_search_books,
+)
+from ai.tools import ToolExecutionError, ToolPermissionDeniedError
+from books.models import Book
+from books.serializers import BookSerializer
 
 logger = logging.getLogger(__name__)
 
 
 class AIStatusView(APIView):
     """
-    Informa sobre el estado del motor de IA (proveedor configurado, modelo, online/offline).
+    Informa sobre el estado operativo del motor de IA (proveedor configurado,
+    modelo activo, conectividad online/offline).
     """
     permission_classes = (permissions.IsAuthenticated,)
 
     def get(self, request):
-        is_online = ai_client.is_available()
-        return Response({
-            "enabled": ai_client.enabled,
-            "is_online": is_online,
-            "provider_url": ai_client.base_url,
-            "chat_model": ai_client.model_chat,
-            "embeddings_model": ai_client.model_embeddings,
-        })
+        """
+        Retorna la configuración y disponibilidad del proveedor de IA en tiempo real.
+
+        :param request: Objeto HttpRequest autenticado.
+        :return: Response con enabled, is_online, provider, chat_model, etc.
+        """
+        status_data = get_ai_status()
+        return Response(status_data, status=status.HTTP_200_OK)
 
 
 class AIAssistantView(APIView):
     """
     Asistente literario conversacional contextualizado con la biblioteca del usuario.
-    Compatible con cualquier proveedor OpenAI (Ollama, OpenAI, Groq, etc.).
+    Compatible con proveedores locales (Ollama) y en la nube (OpenAI, OpenRouter).
     """
     permission_classes = (permissions.IsAuthenticated,)
 
     def post(self, request):
+        """
+        Procesa una consulta conversacional con el asistente BookAI.
+
+        :param request: Objeto HttpRequest con messages y contextBookId opcional en el cuerpo.
+        :return: Response con el mensaje del asistente, modelo y metadatos de disponibilidad.
+        """
         messages = request.data.get('messages', [])
         book_id = request.data.get('book_id')
 
-        if not messages or not isinstance(messages, list):
+        try:
+            reply_data = get_assistant_reply(
+                user=request.user,
+                raw_messages=messages,
+                book_id=book_id,
+            )
+            return Response(reply_data, status=status.HTTP_200_OK)
+        except AIRateLimitExceededError as rate_err:
             return Response(
-                {'detail': 'Se requiere una lista de mensajes en formato [{"role": "user", "content": "..."}]'},
+                {'detail': str(rate_err)},
+                status=status.HTTP_429_TOO_MANY_REQUESTS,
+            )
+        except AIPolicyViolationError as policy_err:
+            return Response(
+                {'detail': str(policy_err)},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-
-        # Recopilar contexto del usuario
-        user = request.user
-        recent_read = UserBook.objects.filter(
-            user=user, is_read=True
-        ).select_related('book').order_by('-updated_at')[:5]
-
-        read_titles = [ub.book.title for ub in recent_read if ub.book]
-
-        context_lines = [
-            f"El usuario actual es @{user.username}.",
-        ]
-        if read_titles:
-            context_lines.append(f"Libros que ha leído recientemente: {', '.join(read_titles)}.")
-
-        if book_id:
-            book = Book.objects.filter(id=book_id).first()
-            if book:
-                context_lines.append(
-                    f"El usuario está consultando específicamente sobre el libro '{book.title}' "
-                    f"escrito por {book.author.name if book.author else 'desconocido'}. "
-                    f"Descripción: {book.description[:300] if book.description else 'Sin descripción'}."
-                )
-
-        system_prompt = (
-            "Eres BookAI, el asistente literario inteligente de MyBookConnect. "
-            "Eres cordial, perspicaz, conciso y apasionado por los libros y la lectura. "
-            "Recomienda libros basados en gustos, resuelve dudas sobre tramas sin spoilers mayores, "
-            "compara obras o autores, y sugiere lecturas fascinantes. "
-            "Responde en español y utiliza formato markdown elegante con negritas y listas cuando sea oportuno.\n\n"
-            "Contexto de la conversación:\n" + "\n".join(context_lines)
-        )
-
-        ai_response = ai_client.chat_completion(
-            messages=messages,
-            system_prompt=system_prompt,
-            temperature=0.7,
-            max_tokens=800,
-        )
-
-        # Si el modelo de IA no está disponible (ej. Ollama apagado), proveer fallback asistido
-        if not ai_response.get("success"):
-            suggested_books = Book.objects.all().order_by('-average_rating')[:3]
-            fallback_titles = [f"**{b.title}** ({b.author.name if b.author else 'Varios'})" for b in suggested_books]
-
-            fallback_content = (
-                f"¡Hola {user.username}! Actualmente el motor de IA local no está respondiendo "
-                f"(puedes iniciar Ollama en tu sistema con `ollama run {ai_client.model_chat}`).\n\n"
-                f"Mientras tanto, aquí tienes libros muy aclamados por la comunidad de MyBookConnect:\n"
-                + "\n".join([f"- {t}" for t in fallback_titles])
+        except Exception as exc:
+            logger.exception("Error al procesar consulta del asistente de IA: %s", exc)
+            return Response(
+                {'detail': 'Error interno al procesar la consulta con el asistente de IA.'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
-            return Response({
-                "message": {
-                    "role": "assistant",
-                    "content": fallback_content,
-                },
-                "provider": "fallback-system",
-                "model": "rule-based",
-                "ai_online": False,
-            })
-
-        return Response({
-            "message": {
-                "role": "assistant",
-                "content": ai_response["content"],
-            },
-            "provider": ai_response.get("provider"),
-            "model": ai_response.get("model"),
-            "ai_online": True,
-        })
 
 
 class AISemanticSearchView(APIView):
     """
-    Búsqueda semántica por conceptos, estados de ánimo o temáticas.
+    Búsqueda semántica por conceptos, estados de ánimo o temáticas literarias.
     """
     permission_classes = (permissions.IsAuthenticated,)
 
     def get(self, request):
+        """
+        Busca libros en la base de datos que coincidan semánticamente con la consulta.
+
+        :param request: Objeto HttpRequest con parámetro 'query'.
+        :return: Response con lista serializada de libros afines.
+        """
         query = request.query_params.get('query', '').strip()
         if not query:
-            return Response({'results': []})
+            return Response({'query': '', 'results': [], 'count': 0}, status=status.HTTP_200_OK)
 
-        # Buscar en título, descripción y categorías
-        books = Book.objects.filter(
-            Q(title__icontains=query) |
-            Q(description__icontains=query) |
-            Q(categories__name__icontains=query) |
-            Q(author__name__icontains=query)
-        ).distinct().order_by('-average_rating')[:10]
-
-        serializer = BookSerializer(books, many=True, context={'request': request})
+        books_qs = semantic_search_books(query=query, limit=10)
+        serializer = BookSerializer(books_qs, many=True, context={'request': request})
         return Response({
             "query": query,
             "results": serializer.data,
-            "count": books.count(),
-        })
+            "count": books_qs.count(),
+        }, status=status.HTTP_200_OK)
 
 
 class AIBookSummaryView(APIView):
@@ -153,32 +122,82 @@ class AIBookSummaryView(APIView):
     permission_classes = (permissions.IsAuthenticated,)
 
     def post(self, request, pk):
+        """
+        Genera una ficha analítica breve y objetiva del libro especificado.
+
+        :param request: Objeto HttpRequest autenticado.
+        :param pk: Clave primaria del libro a analizar.
+        :return: Response con el texto analítico generado o fallback catalogado.
+        """
         book = get_object_or_404(Book, pk=pk)
+        summary_data = get_book_ai_summary(book=book)
+        return Response(summary_data, status=status.HTTP_200_OK)
 
-        prompt = (
-            f"Analiza el siguiente libro:\n"
-            f"Título: {book.title}\n"
-            f"Autor: {book.author.name if book.author else 'Desconocido'}\n"
-            f"Sinopsis: {book.description or 'No disponible'}\n\n"
-            f"Genera una ficha analítica breve con los siguientes puntos:\n"
-            f"1. **Temas Centrales** (3 viñetas)\n"
-            f"2. **Tono y Estilo Literario** (2 oraciones)\n"
-            f"3. **Para quién es ideal esta lectura** (1 recomendación clave)"
-        )
 
-        response = ai_client.chat_completion(
-            messages=[{"role": "user", "content": prompt}],
-            system_prompt="Eres un crítico literario experto y conciso.",
-            max_tokens=500,
-        )
+class AIToolsListView(APIView):
+    """
+    Retorna la lista de herramientas disponibles para el asistente en formato Function Calling.
+    """
+    permission_classes = (permissions.IsAuthenticated,)
 
-        if response.get("success"):
-            return Response({"summary": response["content"], "ai_online": True})
-        else:
-            fallback = (
-                f"**Análisis de '{book.title}'**:\n\n"
-                f"- **Género principal**: {', '.join([c.name for c in book.categories.all()]) or 'Literatura General'}\n"
-                f"- **Sinopsis breve**: {book.description[:250] if book.description else 'Información en proceso de catalogación.'}...\n"
-                f"- *(Inicia Ollama o configura un proveedor cloud para análisis neuronal profundo)*"
+    def get(self, request):
+        """
+        Lista las definiciones de esquemas de herramientas seguras disponibles.
+
+        :param request: Objeto HttpRequest autenticado.
+        :return: Response con array de esquemas de tools compatibles con OpenAI.
+        """
+        tools = get_available_assistant_tools()
+        return Response({"tools": tools, "count": len(tools)}, status=status.HTTP_200_OK)
+
+
+class AIToolExecuteView(APIView):
+    """
+    Punto de entrada seguro para la ejecución de herramientas del asistente.
+    El backend valida la identidad, permisos y argumentos antes de ejecutar cualquier acción.
+    """
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def post(self, request):
+        """
+        Ejecuta una herramienta solicitada de forma controlada.
+
+        :param request: Objeto HttpRequest con tool_name y arguments.
+        :return: Response con el resultado de la ejecución.
+        """
+        tool_name = request.data.get('tool_name')
+        arguments = request.data.get('arguments') or {}
+
+        if not tool_name:
+            return Response(
+                {'detail': "El campo 'tool_name' es obligatorio."},
+                status=status.HTTP_400_BAD_REQUEST,
             )
-            return Response({"summary": fallback, "ai_online": False})
+
+        try:
+            result = execute_assistant_tool(
+                user=request.user,
+                tool_name=tool_name,
+                arguments=arguments,
+            )
+            return Response({
+                "tool_name": tool_name,
+                "result": result,
+                "status": "success",
+            }, status=status.HTTP_200_OK)
+        except ToolPermissionDeniedError as perm_err:
+            return Response(
+                {'detail': str(perm_err)},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        except ToolExecutionError as tool_err:
+            return Response(
+                {'detail': str(tool_err)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except Exception as exc:
+            logger.exception("Error al ejecutar herramienta '%s': %s", tool_name, exc)
+            return Response(
+                {'detail': f"Error interno al ejecutar la herramienta: {str(exc)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )

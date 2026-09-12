@@ -3,15 +3,42 @@ import logging
 from django.core.cache import cache
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
-from rest_framework import generics, permissions
-from rest_framework.pagination import PageNumberPagination
+from django.utils import timezone
+from rest_framework import generics, permissions, status, viewsets
+from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from . import services
-from .cache_utils import TTL_BOOK_DETAIL, TTL_TRENDING, book_detail_key, trending_key
-from .models import Author, Book, Errata, ErrataStatus, Review, UserBook
-from .serializers import AuthorSerializer, BookSerializer, ErrataSerializer, ReviewSerializer, UserBookSerializer
+from .cache_utils import TTL_BOOK_DETAIL, book_detail_key
+from .media_utils import build_media_url
+from .models import (
+    Author,
+    Book,
+    Errata,
+    ErrataStatus,
+    ReadingList,
+    ReadingListFollow,
+    ReadingListItem,
+    ReadingListPrivacy,
+    Review,
+    ReviewComment,
+    ReviewLike,
+    UserBook,
+)
+from .pagination import StandardResultsSetPagination
+from .serializers import (
+    AuthorSerializer,
+    BookSerializer,
+    ErrataSerializer,
+    ReadingListCreateUpdateSerializer,
+    ReadingListItemSerializer,
+    ReadingListSerializer,
+    RecommendationFeedbackSerializer,
+    ReviewCommentSerializer,
+    ReviewSerializer,
+    UserBookSerializer,
+)
 
 
 class BookListCreateView(generics.ListCreateAPIView):
@@ -19,33 +46,134 @@ class BookListCreateView(generics.ListCreateAPIView):
     permission_classes = (permissions.IsAuthenticatedOrReadOnly,)
 
     def get_queryset(self):
-        queryset = Book.objects.select_related('author')
+        queryset = Book.objects.select_related('author').prefetch_related('categories')
         q = self.request.query_params.get('q') or self.request.query_params.get('search')
-        if q:
-            clean_q = q.strip()
-            results = queryset.filter(
-                Q(title__icontains=clean_q) | Q(isbn__icontains=clean_q) | Q(author__name__icontains=clean_q)
-            )
-            # Si no hay resultados locales y la consulta tiene al menos 3 caracteres,
-            # buscar e importar automáticamente desde OpenLibrary / Google Books
-            if not results.exists() and len(clean_q) >= 3:
-                try:
-                    isbn_clean = clean_q.replace('-', '').replace(' ', '')
-                    if len(isbn_clean) in (10, 13) and (
-                        isbn_clean[:-1].isdigit() and (isbn_clean[-1].isdigit() or isbn_clean[-1].upper() == 'X')
-                    ):
-                        services.import_single_by_query(query_isbn=isbn_clean)
-                    else:
-                        services.import_multiple_by_title(clean_q, offset=0)
+        if not q:
+            return queryset
 
-                    results = queryset.filter(
-                        Q(title__icontains=clean_q) | Q(isbn__icontains=clean_q) | Q(author__name__icontains=clean_q)
+        clean_q = q.strip()
+        from django.db import connection
+
+        def _execute_search(query_str):
+            if connection.vendor == 'postgresql':
+                try:
+                    from django.contrib.postgres.search import (
+                        SearchQuery,
+                        SearchRank,
+                        SearchVector,
+                        TrigramSimilarity,
+                        TrigramWordSimilarity,
+                    )
+                    from django.db.models import FloatField, Value
+                    from django.db.models.functions import Coalesce, Greatest
+
+                    vector = (
+                        SearchVector('title', weight='A')
+                        + SearchVector('isbn', weight='A')
+                        + SearchVector('author__name', weight='B')
+                        + SearchVector('categories__name', weight='B')
+                        + SearchVector('description', weight='C')
+                    )
+                    search_query = SearchQuery(query_str, search_type='plain')
+                    rank = SearchRank(vector, search_query)
+                    title_sim = Greatest(
+                        TrigramSimilarity('title', query_str),
+                        TrigramWordSimilarity(query_str, 'title')
+                    )
+                    author_sim = Greatest(
+                        TrigramSimilarity('author__name', query_str),
+                        TrigramWordSimilarity(query_str, 'author__name')
+                    )
+                    desc_sim = TrigramWordSimilarity(query_str, 'description')
+
+                    relevance = (
+                        Coalesce(title_sim, Value(0.0), output_field=FloatField()) * 3.0
+                        + Coalesce(author_sim, Value(0.0), output_field=FloatField()) * 2.0
+                        + Coalesce(desc_sim, Value(0.0), output_field=FloatField()) * 0.5
+                        + Coalesce(rank, Value(0.0), output_field=FloatField()) * 1.5
+                    )
+
+                    filter_condition = (
+                        Q(title__icontains=query_str)
+                        | Q(isbn__icontains=query_str)
+                        | Q(author__name__icontains=query_str)
+                        | Q(categories__name__icontains=query_str)
+                        | Q(description__icontains=query_str)
+                        | Q(title__trigram_similar=query_str)
+                        | Q(title__trigram_word_similar=query_str)
+                        | Q(author__name__trigram_similar=query_str)
+                        | Q(author__name__trigram_word_similar=query_str)
+                        | Q(search_rank__gte=0.01)
+                    )
+
+                    return (
+                        queryset.annotate(
+                            search_rank=rank,
+                            title_sim=title_sim,
+                            author_sim=author_sim,
+                            relevance=relevance,
+                        )
+                        .filter(filter_condition)
+                        .distinct()
+                        .order_by('-relevance', '-average_rating', '-created_at')
                     )
                 except Exception as exc:
-                    logging.exception(f"Error auto-importing external books for '{clean_q}': {exc}")
+                    logging.warning(f"Error executing postgres full text search, falling back to icontains: {exc}")
 
-            return results
-        return queryset
+            return (
+                queryset.filter(
+                    Q(title__icontains=query_str)
+                    | Q(isbn__icontains=query_str)
+                    | Q(author__name__icontains=query_str)
+                    | Q(categories__name__icontains=query_str)
+                    | Q(description__icontains=query_str)
+                )
+                .distinct()
+                .order_by('-average_rating', '-created_at')
+            )
+
+        results = _execute_search(clean_q)
+
+        # Determinar si existe al menos una coincidencia fuerte con el término buscado
+        has_strong_match = False
+        first_item = results.first()
+        if first_item:
+            rel = getattr(first_item, 'relevance', 0.0)
+            title_lower = (first_item.title or '').lower()
+            q_lower = clean_q.lower()
+            if rel >= 0.4 or q_lower in title_lower or title_lower in q_lower:
+                has_strong_match = True
+
+        # Si no hay resultados o no hay coincidencia fuerte y la consulta tiene al menos 3 caracteres,
+        # buscar e importar automáticamente desde fuentes externas (Google Books, OpenLibrary, Wikipedia)
+        if (not has_strong_match or not results.exists()) and len(clean_q) >= 3:
+            try:
+                isbn_clean = clean_q.replace('-', '').replace(' ', '')
+                if len(isbn_clean) in (10, 13) and (
+                    isbn_clean[:-1].isdigit() and (isbn_clean[-1].isdigit() or isbn_clean[-1].upper() == 'X')
+                ):
+                    services.import_single_by_query(query_isbn=isbn_clean)
+                else:
+                    services.import_multiple_by_title(clean_q, offset=0)
+
+                results = _execute_search(clean_q)
+            except Exception as exc:
+                logging.exception(f"Error auto-importing external books for '{clean_q}': {exc}")
+
+        # En segundo plano, encolar descarga de portadas para los libros encontrados sin carátula
+        try:
+            for book_item in results[:10]:
+                if not book_item.cover:
+                    bg_key = f"bg_cover_search_{book_item.id}"
+                    if not cache.get(bg_key):
+                        from .tasks import download_cover_task
+
+                        download_cover_task.delay(book_item.id)
+                        cache.set(bg_key, True, 600)
+        except Exception as exc:
+            logging.warning(f"Error programando descarga de portadas en búsqueda: {exc}")
+
+        return results
 
     def perform_create(self, serializer):
         serializer.save()
@@ -58,14 +186,19 @@ class AuthorListCreateView(generics.ListCreateAPIView):
 
 
 class AuthorDetailView(generics.RetrieveAPIView):
+    """
+    Vista de detalle de autor.
+    Rellena de forma proactiva biografía y fotografía si faltan, consultando
+    múltiples proveedores externos (Wikipedia, Wikidata, OpenLibrary).
+    """
     queryset = Author.objects.all().prefetch_related('books')
     serializer_class = AuthorSerializer
     permission_classes = (permissions.AllowAny,)
 
     def retrieve(self, request, *args, **kwargs):
         instance: Author = self.get_object()
-        # Enriquecer biografía y foto si falta información
-        if not instance.enrichment_attempted or (not instance.photo and not instance.biography):
+        # Enriquecer biografía y foto si falta cualquiera de los dos o no se ha intentado
+        if not instance.enrichment_attempted or not instance.photo or not instance.biography:
             try:
                 services.maybe_enrich_author(instance)
                 instance.enrichment_attempted = True
@@ -75,6 +208,19 @@ class AuthorDetailView(generics.RetrieveAPIView):
                 logging.exception(e)
                 instance.enrichment_attempted = True
                 instance.save(update_fields=['enrichment_attempted'])
+
+        # En segundo plano, buscar e importar más libros del autor si no se ha hecho recientemente
+        if instance.name:
+            bg_author_key = f"bg_author_books_{instance.id}"
+            if not cache.get(bg_author_key):
+                try:
+                    from .tasks import import_books_by_author_task
+
+                    import_books_by_author_task.delay(instance.name)
+                    cache.set(bg_author_key, True, 3600)  # Cooldown de 1 hora
+                except Exception as exc:
+                    logging.warning(f"No se pudo encolar import_books_by_author_task para {instance.name}: {exc}")
+
         serializer = self.get_serializer(instance)
         return Response(serializer.data)
 
@@ -86,6 +232,19 @@ class AuthorBooksView(APIView):
     def get(self, request, pk):
         books = Book.objects.filter(author_id=pk).select_related('author')
         local = BookSerializer(books, many=True).data
+
+        # En segundo plano, asegurar búsqueda de más libros del autor si no se ha hecho recientemente
+        bg_author_key = f"bg_author_books_{pk}"
+        if not cache.get(bg_author_key):
+            try:
+                author_obj = Author.objects.filter(pk=pk).first()
+                if author_obj and author_obj.name:
+                    from .tasks import import_books_by_author_task
+
+                    import_books_by_author_task.delay(author_obj.name)
+                    cache.set(bg_author_key, True, 3600)
+            except Exception as exc:
+                logging.warning(f"No se pudo encolar import_books_by_author_task para autor {pk}: {exc}")
 
         # Búsqueda externa opcional cuando hay pocos locales
         external = []
@@ -113,6 +272,11 @@ class AuthorBooksView(APIView):
 
 
 class BookDetailView(generics.RetrieveAPIView):
+    """
+    Vista de detalle de libro.
+    Detecta automáticamente si falta portada, autor, sinopsis o categorías,
+    disparando el enriquecimiento asíncrono para mantener el catálogo completo.
+    """
     queryset = Book.objects.select_related('author').prefetch_related('categories')
     serializer_class = BookSerializer
     permission_classes = (permissions.AllowAny,)
@@ -121,24 +285,66 @@ class BookDetailView(generics.RetrieveAPIView):
         book_id = kwargs.get('pk')
         cache_key = book_detail_key(book_id)
 
-        # Si ya está en caché, servirlo de inmediato sin consultar la base de datos
+        # Si ya está en caché, servirlo de inmediato y verificar si le falta algún dato
         cached_data = cache.get(cache_key)
         if cached_data is not None:
+            if not cached_data.get('cover'):
+                bg_cover_key = f"bg_cover_search_{book_id}"
+                if not cache.get(bg_cover_key):
+                    try:
+                        from .tasks import download_cover_task
+
+                        download_cover_task.delay(int(book_id))
+                        cache.set(bg_cover_key, True, 600)  # Cooldown de 10 minutos
+                    except Exception as exc:
+                        logging.warning(f"No se pudo encolar download_cover_task para libro {book_id}: {exc}")
+
+            missing_cached_meta = (
+                not cached_data.get('author')
+                or not cached_data.get('description')
+                or not cached_data.get('categories')
+            )
+            if missing_cached_meta:
+                bg_enrich_key = f"bg_enrich_book_{book_id}"
+                if not cache.get(bg_enrich_key):
+                    try:
+                        from .tasks import enrich_book_task
+
+                        enrich_book_task.delay(int(book_id))
+                        cache.set(bg_enrich_key, True, 600)  # Cooldown de 10 minutos
+                    except Exception as exc:
+                        logging.warning(f"No se pudo encolar enrich_book_task para libro {book_id}: {exc}")
             return Response(cached_data)
 
         instance = self.get_object()
-        if not instance.enrichment_attempted:
-            instance.enrichment_attempted = True
-            try:
-                if not instance.cover:
-                    services.ensure_book_cover(instance)
-                if not instance.description or not instance.published_date:
-                    services.enrich_book_metadata(instance)
-                instance.save(update_fields=['enrichment_attempted'])
-                instance.refresh_from_db()
-            except Exception as e:
-                logging.exception(f"Error enriching book in detail view: {e}")
-                instance.save(update_fields=['enrichment_attempted'])
+        # Si el libro no tiene portada, intentar descargarla en segundo plano
+        if not instance.cover:
+            bg_cover_key = f"bg_cover_search_{instance.id}"
+            if not cache.get(bg_cover_key):
+                try:
+                    from .tasks import download_cover_task
+
+                    download_cover_task.delay(instance.id)
+                    cache.set(bg_cover_key, True, 600)  # Cooldown de 10 minutos
+                except Exception as exc:
+                    logging.warning(f"No se pudo encolar download_cover_task para libro {instance.id}: {exc}")
+
+        # Si al libro le falta autor, sinopsis o categorías, enriquecer en segundo plano
+        missing_metadata = (
+            not instance.author
+            or not instance.description
+            or not instance.categories.exists()
+        )
+        if missing_metadata:
+            bg_enrich_key = f"bg_enrich_book_{instance.id}"
+            if not cache.get(bg_enrich_key):
+                try:
+                    from .tasks import enrich_book_task
+
+                    enrich_book_task.delay(instance.id)
+                    cache.set(bg_enrich_key, True, 600)  # Cooldown de 10 minutos
+                except Exception as exc:
+                    logging.warning(f"No se pudo encolar enrich_book_task para libro {instance.id}: {exc}")
 
         serializer = self.get_serializer(instance)
         data = serializer.data
@@ -146,10 +352,8 @@ class BookDetailView(generics.RetrieveAPIView):
         return Response(data)
 
 
-class UserBookPagination(PageNumberPagination):
-    page_size = 10
-    page_size_query_param = 'page_size'
-    page_query_param = 'page'
+class UserBookPagination(StandardResultsSetPagination):
+    pass
 
 
 class UserBookListCreateView(generics.ListCreateAPIView):
@@ -247,8 +451,19 @@ class ReviewListCreateView(generics.ListCreateAPIView):
     permission_classes = (permissions.IsAuthenticatedOrReadOnly,)
 
     def get_queryset(self):
-        from django.db.models import Exists, OuterRef
-        queryset = Review.objects.select_related('user', 'book', 'book__author').prefetch_related('book__categories').order_by('-created_at')
+        from django.db.models import Count, Exists, OuterRef, Q
+
+        from users.policies import filter_visible_reviews
+
+        queryset = (
+            Review.objects.select_related('user', 'book', 'book__author')
+            .prefetch_related('book__categories')
+            .annotate(
+                annotated_likes_count=Count('likes', distinct=True),
+                annotated_comments_count=Count('comments', filter=Q(comments__deleted_at__isnull=True), distinct=True),
+            )
+            .order_by('-created_at')
+        )
 
         book_id = self.request.query_params.get('book')
         if book_id:
@@ -257,13 +472,19 @@ class ReviewListCreateView(generics.ListCreateAPIView):
         user = self.request.user
         if user.is_authenticated:
             following_subquery = user.following.filter(pk=OuterRef('user_id'))
-            queryset = queryset.annotate(is_friend=Exists(following_subquery))
+            user_liked_subquery = ReviewLike.objects.filter(review=OuterRef('pk'), user=user)
+            queryset = queryset.annotate(
+                is_friend=Exists(following_subquery),
+                annotated_user_has_liked=Exists(user_liked_subquery),
+            )
 
-        return queryset
+        return filter_visible_reviews(user, queryset)
+
 
     def create(self, request, *args, **kwargs):
         from rest_framework import status
-        book_id = request.data.get('book_id')
+
+        book_id = request.data.get('book_id') or request.data.get('book')
         if not book_id:
             return Response({'detail': 'book_id es requerido'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -294,15 +515,154 @@ class ReviewListCreateView(generics.ListCreateAPIView):
 
 class ReviewDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = ReviewSerializer
-    permission_classes = (permissions.IsAuthenticated,)
+    permission_classes = (permissions.IsAuthenticatedOrReadOnly,)
     queryset = Review.objects.select_related('user', 'book')
 
     def check_object_permissions(self, request, obj):
         super().check_object_permissions(request, obj)
-        if request.method not in permissions.SAFE_METHODS:
-            if obj.user != request.user and not (request.user.is_staff or request.user.is_superuser):
-                from rest_framework.exceptions import PermissionDenied
+        from rest_framework.exceptions import PermissionDenied
+
+        from users.policies import can_edit_review, can_view_review
+
+        if request.method in permissions.SAFE_METHODS:
+            if not can_view_review(request.user, obj):
+                raise PermissionDenied('No tienes permiso para ver esta reseña.')
+        else:
+            if not can_edit_review(request.user, obj):
                 raise PermissionDenied('No tienes permiso para modificar esta reseña.')
+
+
+class ReviewLikeToggleView(APIView):
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def post(self, request, review_id):
+        from rest_framework.exceptions import PermissionDenied
+
+        from users.models import Notification, NotificationType
+        from users.policies import can_view_review
+
+        review = get_object_or_404(Review.objects.select_related('user', 'book'), id=review_id)
+        if not can_view_review(request.user, review):
+            raise PermissionDenied('No tienes permiso para ver esta reseña.')
+
+        if (
+            review.user.blocked_users.filter(id=request.user.id).exists()
+            or request.user.blocked_users.filter(id=review.user_id).exists()
+        ):
+            return Response({'detail': 'No puedes interactuar con esta reseña.'}, status=403)
+
+        like = ReviewLike.objects.filter(user=request.user, review=review).first()
+        if like:
+            like.delete()
+            liked = False
+        else:
+            ReviewLike.objects.create(user=request.user, review=review)
+            liked = True
+            if review.user_id != request.user.id:
+                Notification.objects.create(
+                    recipient=review.user,
+                    actor=request.user,
+                    type=NotificationType.LIKE,
+                    title=f"{request.user.username} le dio me gusta a tu reseña",
+                    message=f"A {request.user.username} le gustó tu reseña de '{review.book.title}'",
+                    link=f"/books/{review.book_id}?review={review.id}",
+                )
+
+        return Response({
+            'liked': liked,
+            'likes_count': review.likes.count(),
+        })
+
+
+class ReviewCommentListCreateView(APIView):
+    permission_classes = (permissions.IsAuthenticatedOrReadOnly,)
+
+    def get(self, request, review_id):
+        from rest_framework.exceptions import PermissionDenied
+
+        from users.policies import can_view_review
+
+        review = get_object_or_404(Review.objects.select_related('user'), id=review_id)
+        if not can_view_review(request.user, review):
+            raise PermissionDenied('No tienes permiso para ver esta reseña.')
+
+        comments = (
+            ReviewComment.objects.filter(review=review, deleted_at__isnull=True)
+            .select_related('user')
+            .order_by('created_at')
+        )
+
+        if request.user.is_authenticated:
+            blocked_by_user = set(request.user.blocked_users.values_list('id', flat=True))
+            blocking_user = set(request.user.blocked_by.values_list('id', flat=True))
+            excluded = blocked_by_user.union(blocking_user)
+            if excluded:
+                comments = comments.exclude(user_id__in=excluded)
+
+        serializer = ReviewCommentSerializer(comments, many=True, context={'request': request})
+        return Response(serializer.data)
+
+    def post(self, request, review_id):
+        from rest_framework import status
+        from rest_framework.exceptions import PermissionDenied
+
+        from users.models import Notification, NotificationType
+        from users.policies import can_view_review
+
+        if not request.user.is_authenticated:
+            return Response({'detail': 'Autenticación requerida.'}, status=status.HTTP_401_UNAUTHORIZED)
+
+        review = get_object_or_404(Review.objects.select_related('user', 'book'), id=review_id)
+        if not can_view_review(request.user, review):
+            raise PermissionDenied('No tienes permiso para ver esta reseña.')
+
+        if (
+            review.user.blocked_users.filter(id=request.user.id).exists()
+            or request.user.blocked_users.filter(id=review.user_id).exists()
+        ):
+            return Response({'detail': 'No puedes interactuar con esta reseña.'}, status=status.HTTP_403_FORBIDDEN)
+
+        content = (request.data.get('content') or '').strip()
+        if not content:
+            return Response({'detail': 'El comentario no puede estar vacío.'}, status=status.HTTP_400_BAD_REQUEST)
+        if len(content) > 1000:
+            return Response({'detail': 'El comentario excede el máximo permitido (1000 caracteres).'}, status=status.HTTP_400_BAD_REQUEST)
+
+        comment = ReviewComment.objects.create(
+            user=request.user,
+            review=review,
+            content=content,
+        )
+
+        if review.user_id != request.user.id:
+            Notification.objects.create(
+                recipient=review.user,
+                actor=request.user,
+                type=NotificationType.COMMENT,
+                title=f"{request.user.username} comentó en tu reseña",
+                message=content[:120],
+                link=f"/books/{review.book_id}?review={review.id}",
+            )
+
+        serializer = ReviewCommentSerializer(comment, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+class ReviewCommentDeleteView(APIView):
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def delete(self, request, review_id, comment_id):
+        from rest_framework import status
+
+        comment = get_object_or_404(ReviewComment, id=comment_id, review_id=review_id, deleted_at__isnull=True)
+
+        if comment.user_id != request.user.id and not request.user.is_staff and not request.user.is_superuser:
+            return Response({'detail': 'No tienes permiso para eliminar este comentario.'}, status=status.HTTP_403_FORBIDDEN)
+
+        comment.deleted_at = timezone.now()
+        comment.save(update_fields=['deleted_at'])
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
 
 
 class ImportBookView(APIView):
@@ -332,28 +692,165 @@ class ImportBookView(APIView):
             return Response({'detail': 'Ocurrió un error al importar el libro.'}, status=500)
 
 
-class RecommendationView(generics.ListAPIView):
-    serializer_class = BookSerializer
+class UserRecommendationsView(APIView):
+    """
+    Endpoint para obtener recomendaciones personalizadas de libros para el usuario autenticado.
+    Soporta estrategias de scoring: 'hybrid' (por defecto), 'rules', 'social', 'semantic'.
+    """
     permission_classes = (permissions.IsAuthenticated,)
 
-    def get_queryset(self):
-        book_id = self.kwargs.get('pk')
+    def get(self, request):
+        limit = request.query_params.get('limit', 10)
         try:
-            book = Book.objects.get(pk=book_id)
-        except Book.DoesNotExist:
-            return Book.objects.none()
+            limit = max(1, min(30, int(limit)))
+        except (ValueError, TypeError):
+            limit = 10
 
-        categories = book.categories.all()
-        if not categories:
-            return Book.objects.filter(author=book.author).exclude(id=book.id).order_by('-average_rating')[:5]
+        strategy = request.query_params.get('strategy', 'hybrid').lower().strip()
+        if strategy not in ('hybrid', 'rules', 'social', 'semantic'):
+            strategy = 'hybrid'
 
-        user_books = UserBook.objects.filter(user=self.request.user).values_list('book_id', flat=True)
+        results = services.get_user_recommendations(
+            user=request.user,
+            limit=limit,
+            strategy=strategy,
+            request=request,
+        )
+        return Response({
+            'count': len(results),
+            'strategy': strategy,
+            'results': results,
+        })
 
-        return Book.objects.filter(categories__in=categories) \
-            .exclude(id=book.id) \
-            .exclude(id__in=user_books) \
-            .distinct() \
-            .order_by('-average_rating')[:5]
+
+class RecommendationView(APIView):
+    """
+    Endpoint para obtener recomendaciones contextuales a partir de un libro específico (Item-to-Item).
+    Combina filtrado colaborativo ("quienes leyeron X también leyeron Y") con afinidad temática.
+    """
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get(self, request, pk):
+        limit = request.query_params.get('limit', 6)
+        try:
+            limit = max(1, min(20, int(limit)))
+        except (ValueError, TypeError):
+            limit = 6
+
+        results = services.get_book_recommendations(
+            book_id=pk,
+            limit=limit,
+            user=request.user,
+            request=request,
+        )
+        return Response(results)
+
+
+class RecommendationFeedbackView(APIView):
+    """
+    Endpoint para registrar eventos de interacción sobre libros recomendados.
+    Soporta eventos individuales (dict) o por lotes (list) para registrar
+    múltiples impresiones simultáneamente al mostrar recomendaciones.
+    """
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def post(self, request):
+        """
+        Procesa el registro de uno o varios eventos de retroalimentación de recomendaciones.
+
+        :param request: Objeto HttpRequest que contiene los datos del evento en request.data.
+        :return: Response con el recuento de eventos registrados y los datos serializados.
+        """
+        payload = request.data
+        if not payload:
+            return Response(
+                {'detail': 'El cuerpo de la petición no puede estar vacío.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        items = payload if isinstance(payload, list) else [payload]
+        created_records = []
+
+        for item in items:
+            book_id = item.get('book_id')
+            action = item.get('action')
+            if not book_id or not action:
+                return Response(
+                    {'detail': 'Los campos "book_id" y "action" son obligatorios en cada evento.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            recommendation_id = item.get('recommendation_id', '')
+            strategy = item.get('strategy', 'hybrid')
+            algorithm_version = item.get('algorithm_version', 'v1.0')
+            metadata = item.get('metadata') or {}
+
+            try:
+                feedback = services.record_recommendation_event(
+                    user=request.user,
+                    book_id=book_id,
+                    action=action,
+                    recommendation_id=recommendation_id,
+                    strategy=strategy,
+                    algorithm_version=algorithm_version,
+                    metadata=metadata,
+                )
+                created_records.append(feedback)
+            except ValueError as val_err:
+                return Response({'detail': str(val_err)}, status=status.HTTP_400_BAD_REQUEST)
+            except Exception as exc:
+                logging.exception("Error al registrar feedback de recomendación: %s", exc)
+                return Response(
+                    {'detail': 'Error interno al registrar el evento.'},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                )
+
+        serializer = RecommendationFeedbackSerializer(created_records, many=True)
+        return Response(
+            {'status': 'success', 'count': len(created_records), 'data': serializer.data},
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class RecommendationMetricsView(APIView):
+    """
+    Endpoint para consultar métricas y analítica de conversión de recomendaciones
+    (CTR, tasa de guardado en wishlist, inicio y finalización de lectura).
+    Permite filtrar por estrategia, versión de algoritmo y ventana temporal.
+    """
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get(self, request):
+        """
+        Calcula y retorna los indicadores de rendimiento de recomendaciones según los filtros especificados.
+
+        :param request: Objeto HttpRequest con parámetros de consulta opcionales (strategy, algorithm_version, days, scope).
+        :return: Response con métricas agregadas (totales, ratios y desgloses).
+        """
+        strategy = request.query_params.get('strategy')
+        algorithm_version = request.query_params.get('algorithm_version')
+        days_str = request.query_params.get('days')
+        scope = request.query_params.get('scope', 'global').lower().strip()
+
+        days = None
+        if days_str:
+            try:
+                days = int(days_str)
+            except ValueError:
+                days = None
+
+        # Si el usuario no es staff/editor y pide scope global, o si especifica scope='me', filtramos por su usuario
+        user_filter = None
+        if scope == 'me' or not (request.user.is_staff or getattr(request.user, 'is_editor', False)):
+            user_filter = request.user
+
+        metrics = services.get_recommendation_metrics(
+            user=user_filter,
+            strategy=strategy,
+            algorithm_version=algorithm_version,
+            days=days,
+        )
+        return Response(metrics, status=status.HTTP_200_OK)
 
 
 class AuthorBookRefreshView(APIView):
@@ -434,12 +931,12 @@ class SocialFeedView(APIView):
                 'user': {
                     'id': r.user.id,
                     'username': r.user.username,
-                    'avatar': r.user.avatar.url if r.user.avatar else None,
+                    'avatar': build_media_url(r.user.avatar, request=request),
                 },
                 'book': {
                     'id': r.book.id,
                     'title': r.book.title,
-                    'cover': r.book.cover.url if r.book.cover else None,
+                    'cover': build_media_url(r.book.cover, request=request),
                     'author_name': r.book.author.name if r.book.author else '',
                 },
                 'rating': r.rating,
@@ -454,12 +951,12 @@ class SocialFeedView(APIView):
                 'user': {
                     'id': ub.user.id,
                     'username': ub.user.username,
-                    'avatar': ub.user.avatar.url if ub.user.avatar else None,
+                    'avatar': build_media_url(ub.user.avatar, request=request),
                 },
                 'book': {
                     'id': ub.book.id,
                     'title': ub.book.title,
-                    'cover': ub.book.cover.url if ub.book.cover else None,
+                    'cover': build_media_url(ub.book.cover, request=request),
                     'author_name': ub.book.author.name if ub.book.author else '',
                 },
                 'rating': ub.rating,
@@ -471,35 +968,16 @@ class SocialFeedView(APIView):
 
 class TrendingBooksView(APIView):
     """
-    Libros más populares y leídos en la plataforma con soporte de caché.
+    Libros en tendencia en la plataforma basados en el algoritmo de decaimiento temporal (Fase 23).
+    Acepta parámetro query `?period=week|month|year|all` (por defecto 'week').
+    Resuelve dinámicamente las URLs de medios absolutas y emplea caché Redis por periodo.
     """
     permission_classes = (permissions.IsAuthenticated,)
 
     def get(self, request):
-        cache_key = trending_key('all')
-        cached_results = cache.get(cache_key)
-        if cached_results is not None:
-            return Response({'results': cached_results})
-
-        from django.db.models import Count
-        trending = Book.objects.annotate(
-            readers_count=Count('user_entries', distinct=True),
-            reviews_count=Count('reviews', distinct=True)
-        ).select_related('author').order_by('-readers_count', '-average_rating', '-created_at')[:12]
-
-        results = []
-        for b in trending:
-            results.append({
-                'id': b.id,
-                'title': b.title,
-                'cover': b.cover.url if b.cover else None,
-                'author_name': b.author.name if b.author else '',
-                'average_rating': b.average_rating,
-                'readers_count': b.readers_count,
-                'reviews_count': b.reviews_count,
-            })
-        cache.set(cache_key, results, timeout=TTL_TRENDING)
-        return Response({'results': results})
+        period = request.query_params.get('period', 'week')
+        results = services.get_trending_books(period=period, limit=12, request=request)
+        return Response({'results': results, 'period': period})
 
 
 class ReadingMatchView(APIView):
@@ -531,7 +1009,7 @@ class ReadingMatchView(APIView):
         common_serialized = [{
             'id': b.id,
             'title': b.title,
-            'cover': b.cover.url if b.cover else None,
+            'cover': build_media_url(b.cover, request=request),
             'author_name': b.author.name if b.author else '',
         } for b in common_books]
 
@@ -542,4 +1020,218 @@ class ReadingMatchView(APIView):
             'my_read_count': len(my_books),
             'their_read_count': len(their_books),
         })
+
+
+class ReadingListViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet para gestión integral de Listas de Lectura (Fase 21).
+    Soporta:
+    - CRUD de listas con permisos (solo el creador puede editar o eliminar).
+    - Filtrado por privacidad (públicas, solo seguidores, privadas).
+    - Acciones para añadir, quitar y reordenar libros.
+    - Seguir y dejar de seguir listas.
+    - Consulta de listas públicas o de usuarios seguidos.
+    """
+    permission_classes = (permissions.IsAuthenticatedOrReadOnly,)
+    pagination_class = StandardResultsSetPagination
+
+    def get_queryset(self):
+        user = self.request.user
+        queryset = ReadingList.objects.select_related('user').prefetch_related(
+            'items__book', 'items__book__author', 'followers'
+        )
+
+        user_id_param = self.request.query_params.get('user_id')
+        if user_id_param:
+            queryset = queryset.filter(user_id=user_id_param)
+
+        if self.request.query_params.get('my_lists') == 'true' and user.is_authenticated:
+            return queryset.filter(user=user)
+
+        if self.request.query_params.get('followed') == 'true' and user.is_authenticated:
+            return queryset.filter(followers__user=user)
+
+        if not user.is_authenticated:
+            return queryset.filter(privacy=ReadingListPrivacy.PUBLIC)
+
+        following_ids = user.following.values_list('id', flat=True)
+        return queryset.filter(
+            Q(user=user) |
+            Q(privacy=ReadingListPrivacy.PUBLIC) |
+            Q(privacy=ReadingListPrivacy.FOLLOWERS, user_id__in=following_ids)
+        ).distinct()
+
+    def get_serializer_class(self):
+        if self.action in ('create', 'update', 'partial_update'):
+            return ReadingListCreateUpdateSerializer
+        return ReadingListSerializer
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+    def perform_update(self, serializer):
+        instance = self.get_object()
+        if instance.user != self.request.user and not self.request.user.is_staff:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("Solo el creador puede editar esta lista.")
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        if instance.user != self.request.user and not self.request.user.is_staff:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("Solo el creador puede eliminar esta lista.")
+        instance.delete()
+
+    @action(detail=True, methods=['post'], url_path='add-book', permission_classes=[permissions.IsAuthenticated])
+    def add_book(self, request, pk=None):
+        """Añade un libro a la lista en una posición específica o al final."""
+        reading_list = self.get_object()
+        if reading_list.user != request.user and not request.user.is_staff:
+            return Response({'detail': 'No tienes permiso para modificar esta lista.'}, status=status.HTTP_403_FORBIDDEN)
+
+        book_id = request.data.get('book_id')
+        if not book_id:
+            return Response({'detail': 'El campo book_id es obligatorio.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        book = get_object_or_404(Book, id=book_id)
+
+        if ReadingListItem.objects.filter(reading_list=reading_list, book=book).exists():
+            return Response({'detail': 'Este libro ya se encuentra en la lista.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        position = request.data.get('position')
+        if position is None:
+            max_pos = reading_list.items.count()
+            position = max_pos + 1
+
+        notes = request.data.get('notes', '')
+
+        item = ReadingListItem.objects.create(
+            reading_list=reading_list,
+            book=book,
+            position=position,
+            notes=notes,
+        )
+
+        return Response(ReadingListItemSerializer(item, context={'request': request}).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['delete', 'post'], url_path='remove-book', permission_classes=[permissions.IsAuthenticated])
+    def remove_book(self, request, pk=None):
+        """Elimina un libro de la lista de lectura."""
+        reading_list = self.get_object()
+        if reading_list.user != request.user and not request.user.is_staff:
+            return Response({'detail': 'No tienes permiso para modificar esta lista.'}, status=status.HTTP_403_FORBIDDEN)
+
+        book_id = request.data.get('book_id') or request.query_params.get('book_id')
+        if not book_id:
+            return Response({'detail': 'El parámetro book_id es obligatorio.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        deleted_count, _ = ReadingListItem.objects.filter(reading_list=reading_list, book_id=book_id).delete()
+        if deleted_count == 0:
+            return Response({'detail': 'El libro no estaba en esta lista.'}, status=status.HTTP_404_NOT_FOUND)
+
+        return Response({'detail': 'Libro eliminado de la lista.'}, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['put', 'post'], url_path='reorder', permission_classes=[permissions.IsAuthenticated])
+    def reorder(self, request, pk=None):
+        """
+        Reordena los libros de la lista. Acepta:
+        [ {"book_id": 1, "position": 1}, {"book_id": 2, "position": 2} ] o [1, 2, 3] (lista ordenada de IDs).
+        """
+        reading_list = self.get_object()
+        if reading_list.user != request.user and not request.user.is_staff:
+            return Response({'detail': 'No tienes permiso para modificar esta lista.'}, status=status.HTTP_403_FORBIDDEN)
+
+        orders = request.data.get('items') or request.data
+        if not isinstance(orders, list):
+            return Response({'detail': 'Se espera una lista de elementos para reordenar.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        for idx, entry in enumerate(orders, start=1):
+            if isinstance(entry, dict):
+                b_id = entry.get('book_id') or entry.get('id')
+                pos = entry.get('position', idx)
+            else:
+                b_id = entry
+                pos = idx
+
+            ReadingListItem.objects.filter(reading_list=reading_list, book_id=b_id).update(position=pos)
+
+        updated_list = ReadingList.objects.prefetch_related('items__book', 'items__book__author').get(pk=reading_list.pk)
+        return Response(ReadingListSerializer(updated_list, context={'request': request}).data)
+
+    @action(detail=True, methods=['post'], url_path='follow', permission_classes=[permissions.IsAuthenticated])
+    def follow(self, request, pk=None):
+        """Sigue una lista de lectura pública."""
+        reading_list = self.get_object()
+        if reading_list.user == request.user:
+            return Response({'detail': 'No puedes seguir tu propia lista.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        follow_obj, created = ReadingListFollow.objects.get_or_create(
+            user=request.user,
+            reading_list=reading_list,
+        )
+        return Response({'detail': 'Ahora sigues esta lista.', 'created': created}, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['delete', 'post'], url_path='unfollow', permission_classes=[permissions.IsAuthenticated])
+    def unfollow(self, request, pk=None):
+        """Deja de seguir una lista de lectura."""
+        reading_list = self.get_object()
+        deleted_count, _ = ReadingListFollow.objects.filter(
+            user=request.user,
+            reading_list=reading_list,
+        ).delete()
+        return Response({'detail': 'Has dejado de seguir esta lista.', 'deleted': deleted_count > 0}, status=status.HTTP_200_OK)
+
+
+class ReadingStatsView(APIView):
+    """
+    Vista de Estadísticas de Lectura (Fase 22).
+
+    Devuelve métricas agregadas de lectura (libros leídos, en progreso, páginas,
+    calificación promedio, desglose de géneros, ranking de autores y lectura por mes).
+    Soporta consultar las estadísticas propias (usuario autenticado) o de otro usuario
+    respetando su nivel de privacidad (público, solo amigos o privado).
+    """
+    permission_classes = (permissions.AllowAny,)
+
+    def get(self, request, *args, **kwargs):
+        from django.contrib.auth import get_user_model
+
+        User = get_user_model()
+
+        user_id_param = request.query_params.get('user_id')
+        if user_id_param:
+            try:
+                target_user = User.objects.get(id=int(user_id_param))
+            except (ValueError, User.DoesNotExist):
+                return Response({'detail': 'Usuario no encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+
+            # Comprobar permisos de privacidad si se consulta a otro usuario
+            is_self = request.user.is_authenticated and request.user.id == target_user.id
+            is_staff = request.user.is_authenticated and (request.user.is_staff or request.user.is_superuser)
+
+            if not is_self and not is_staff:
+                privacy = getattr(target_user, 'privacy_level', 'public')
+                if privacy == 'private':
+                    return Response({'detail': 'Este perfil es privado.'}, status=status.HTTP_403_FORBIDDEN)
+                elif privacy in ('friends', 'friends_only'):
+                    if not request.user.is_authenticated:
+                        return Response({'detail': 'Inicia sesión para ver este perfil.'}, status=status.HTTP_401_UNAUTHORIZED)
+                    # Comprobar seguimiento mutuo (amigos)
+                    is_mutual = (
+                        request.user.following.filter(id=target_user.id).exists()
+                        and target_user.following.filter(id=request.user.id).exists()
+                    )
+                    if not is_mutual:
+                        return Response({'detail': 'Estadísticas solo disponibles para amigos.'}, status=status.HTTP_403_FORBIDDEN)
+
+            target_user_id = target_user.id
+        else:
+            if not request.user.is_authenticated:
+                return Response({'detail': 'Autenticación requerida para ver tus estadísticas.'}, status=status.HTTP_401_UNAUTHORIZED)
+            target_user_id = request.user.id
+
+        stats = services.get_user_reading_stats(target_user_id)
+        return Response(stats)
+
+
 

@@ -94,13 +94,19 @@ class TestRedisCachingStrategy:
         client = APIClient()
         client.force_authenticate(user=user)
 
-        t_key = trending_key('all')
+        t_key = trending_key('week')
         assert cache.get(t_key) is None
 
         res1 = client.get('/api/v1/books/trending/')
         assert res1.status_code == 200
         assert cache.get(t_key) is not None
         assert len(cache.get(t_key)) >= 1
+
+        # Probar también periodo all
+        t_key_all = trending_key('all')
+        res2 = client.get('/api/v1/books/trending/?period=all')
+        assert res2.status_code == 200
+        assert cache.get(t_key_all) is not None
 
     def test_google_books_provider_uses_cache(self):
         provider = GoogleBooksProvider()

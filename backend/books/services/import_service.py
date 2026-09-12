@@ -13,6 +13,7 @@ from .base import (
     get_google_books_api_key,
 )
 from .cover_service import attach_best_cover, download_and_attach_image
+from .enrichment_service import attach_categories_to_book
 from .providers.google_books import GoogleBooksProvider
 from .providers.openlibrary import OpenLibraryProvider
 from .providers.wikipedia import WikipediaProvider
@@ -25,12 +26,6 @@ def _create_or_get_from_volume(volume: dict, fallback_isbn: str | None = None) -
     Crea o recupera un libro a partir de la estructura de volumen devuelta por Google Books.
     Aplica deduplicación multi-nivel por google_volume_id, isbn y (título, autor).
     """
-    google_vol_id = volume.get('id')
-    if google_vol_id:
-        existing_vol = Book.objects.filter(google_volume_id=google_vol_id).first()
-        if existing_vol:
-            return existing_vol
-
     info = volume.get('volumeInfo', {})
     isbn = fallback_isbn
     for ident in info.get('industryIdentifiers', []) or []:
@@ -38,13 +33,26 @@ def _create_or_get_from_volume(volume: dict, fallback_isbn: str | None = None) -
             isbn = ident.get('identifier')
             break
 
+    google_vol_id = volume.get('id')
+    if google_vol_id:
+        existing_vol = Book.objects.filter(google_volume_id=google_vol_id).first()
+        if existing_vol:
+            if not existing_vol.cover:
+                attach_best_cover(book=existing_vol, info=info, isbn=isbn)
+            return existing_vol
+
     if isbn:
         clean_isbn = re.sub(r'[^\dX]', '', isbn.upper().strip())
         existing = Book.objects.filter(isbn=clean_isbn).first()
         if existing:
+            updated_fields = []
             if google_vol_id and not existing.google_volume_id:
                 existing.google_volume_id = google_vol_id
-                existing.save(update_fields=['google_volume_id'])
+                updated_fields.append('google_volume_id')
+            if updated_fields:
+                existing.save(update_fields=updated_fields)
+            if not existing.cover:
+                attach_best_cover(book=existing, info=info, isbn=isbn)
             return existing
 
     author_obj = None
@@ -68,8 +76,26 @@ def _create_or_get_from_volume(volume: dict, fallback_isbn: str | None = None) -
         if google_vol_id and not found.google_volume_id:
             found.google_volume_id = google_vol_id
             updated_fields.append('google_volume_id')
+        if not found.description and info.get('description'):
+            found.description = info.get('description')
+            updated_fields.append('description')
         if updated_fields:
             found.save(update_fields=updated_fields)
+        if not found.cover:
+            attach_best_cover(book=found, info=info, isbn=isbn)
+
+        if not found.categories.exists():
+            raw_cats = info.get('categories') or []
+            extracted_cats = []
+            for cat in raw_cats:
+                if isinstance(cat, str):
+                    for part in cat.split('/'):
+                        p = part.strip()
+                        if p and p not in extracted_cats:
+                            extracted_cats.append(p)
+            if extracted_cats:
+                attach_categories_to_book(found, extracted_cats)
+
         return found
 
     book = Book(
@@ -90,6 +116,19 @@ def _create_or_get_from_volume(volume: dict, fallback_isbn: str | None = None) -
                 continue
     book.save()
     attach_best_cover(book=book, info=info, isbn=isbn)
+
+    # Hidratar categorías para libro recién creado
+    raw_cats = info.get('categories') or []
+    extracted_cats = []
+    for cat in raw_cats:
+        if isinstance(cat, str):
+            for part in cat.split('/'):
+                p = part.strip()
+                if p and p not in extracted_cats:
+                    extracted_cats.append(p)
+    if extracted_cats:
+        attach_categories_to_book(book, extracted_cats)
+
     return book
 
 
@@ -126,6 +165,8 @@ def import_single_by_query(query_isbn: str) -> Book | None:
                 isbn=clean_isbn,
                 description=ol_data.description,
             )
+            if ol_data.categories:
+                attach_categories_to_book(book, ol_data.categories)
             if ol_data.cover_url:
                 download_and_attach_image(book, 'cover', ol_data.cover_url, f"{slugify(book.title)}-{book.id}.jpg")
             return book
@@ -148,7 +189,19 @@ def _import_from_wikipedia_by_title(title: str) -> list[Book]:
         if item.author_name:
             author_obj, _ = Author.objects.get_or_create(name=item.author_name)
 
-        existing = Book.objects.filter(title__iexact=item.title)
+        chosen_title = item.title
+        raw_desc = item.description or ''
+        # Si el término buscado en español está en la sinopsis de Wikipedia (ej. El guardián entre el centeno para The Catcher in the Rye),
+        # incorporar el título en español para permitir búsqueda bilingüe perfecta
+        clean_search = title.strip()
+        if clean_search.lower() != item.title.lower() and clean_search.lower() in raw_desc.lower():
+            chosen_title = f"{clean_search.title()} ({item.title})"
+        elif clean_search.lower() not in item.title.lower() and len(clean_search) > 4:
+            raw_desc = f"Título de búsqueda: {clean_search}. {raw_desc}"
+
+        existing = Book.objects.filter(title__iexact=chosen_title)
+        if not existing.exists():
+            existing = Book.objects.filter(title__iexact=item.title)
         if author_obj:
             existing = existing.filter(author=author_obj)
         existing_book = existing.first()
@@ -157,9 +210,9 @@ def _import_from_wikipedia_by_title(title: str) -> list[Book]:
             continue
 
         new_book = Book.objects.create(
-            title=item.title,
+            title=chosen_title,
             author=author_obj,
-            description=item.description,
+            description=raw_desc,
         )
 
         if item.cover_url:
@@ -233,6 +286,8 @@ def _import_from_openlibrary_by_title(title: str, offset: int = 0) -> list[Book]
                 url=item.cover_url,
                 filename_hint=f"{slugify(book.title)}-{book.id}.jpg",
             )
+        if item.categories and not book.categories.exists():
+            attach_categories_to_book(book, item.categories)
         results.append(book)
 
     return results

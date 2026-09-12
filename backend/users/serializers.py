@@ -12,6 +12,15 @@ class UserBasicSerializer(serializers.ModelSerializer):
         fields = ('id', 'username', 'first_name', 'last_name', 'avatar', 'bio')
         read_only_fields = fields
 
+    def to_representation(self, instance):
+        """Normaliza la URL pública del avatar."""
+        ret = super().to_representation(instance)
+        request = self.context.get('request') if hasattr(self, 'context') else None
+        from books.media_utils import build_media_url
+        if instance.avatar:
+            ret['avatar'] = build_media_url(instance.avatar, request=request)
+        return ret
+
 
 class UserSerializer(serializers.ModelSerializer):
     birth_date = serializers.DateField(format='%Y-%m-%d', input_formats=['%Y-%m-%d'], required=False)
@@ -29,11 +38,38 @@ class UserSerializer(serializers.ModelSerializer):
             'id', 'username', 'first_name', 'last_name', 'email', 'bio', 'avatar',
             'birth_date', 'location', 'privacy_level',
             'show_email', 'show_birth_date', 'show_location', 'show_bio',
-            'following', 'followers', 'is_editor', 'is_staff', 'is_superuser',
+            'following', 'followers', 'is_editor', 'is_staff', 'is_superuser', 'role',
             'reviews_count', 'books_read_count', 'following_count', 'followers_count',
             'is_following', 'is_blocked', 'am_i_blocked'
         )
-        read_only_fields = ('id', 'followers', 'is_editor', 'is_staff', 'is_superuser')
+        read_only_fields = ('id', 'followers', 'is_editor', 'is_staff', 'is_superuser', 'role')
+
+    def validate_avatar(self, value):
+        """
+        Valida y sanitiza el avatar de usuario.
+        Asegura formato permitido, dimensiones, cuota <= 5MB y elimina metadatos EXIF.
+        """
+        if not value:
+            return value
+        from django.core.exceptions import ValidationError as DjangoValidationError
+
+        from mybookconnect.media_security import sanitize_image, validate_avatar_image
+
+        try:
+            validate_avatar_image(value)
+            return sanitize_image(value)
+        except DjangoValidationError as err:
+            msg = err.messages if hasattr(err, 'messages') else str(err)
+            raise serializers.ValidationError(msg) from err
+
+    def to_representation(self, instance):
+        """Normaliza la URL pública del avatar."""
+        ret = super().to_representation(instance)
+        request = self.context.get('request') if hasattr(self, 'context') else None
+        from books.media_utils import build_media_url
+        if instance.avatar:
+            ret['avatar'] = build_media_url(instance.avatar, request=request)
+        return ret
 
     def get_reviews_count(self, obj):
         return getattr(obj, 'reviews_count', obj.reviews.count())
@@ -92,3 +128,52 @@ class UserCreateSerializer(serializers.ModelSerializer):
         validated_data.pop('password2')
         user = User.objects.create_user(**validated_data)
         return user
+
+
+class NotificationSerializer(serializers.ModelSerializer):
+    actor = UserBasicSerializer(read_only=True)
+
+    class Meta:
+        from .models import Notification
+        model = Notification
+        fields = ('id', 'type', 'title', 'message', 'link', 'read', 'created_at', 'actor')
+        read_only_fields = ('id', 'type', 'title', 'message', 'link', 'created_at', 'actor')
+
+
+class ActivityBookSerializer(serializers.Serializer):
+    id = serializers.IntegerField(read_only=True)
+    title = serializers.CharField(read_only=True)
+    author_name = serializers.CharField(source='author.name', default=None, read_only=True)
+    cover = serializers.ImageField(read_only=True)
+    average_rating = serializers.FloatField(read_only=True)
+
+
+class ActivityReviewSerializer(serializers.Serializer):
+    id = serializers.IntegerField(read_only=True)
+    rating = serializers.IntegerField(read_only=True)
+    title = serializers.CharField(read_only=True)
+    text = serializers.CharField(read_only=True)
+
+
+class ActivitySerializer(serializers.ModelSerializer):
+    user = UserBasicSerializer(read_only=True)
+    target_user = UserBasicSerializer(read_only=True)
+    book = ActivityBookSerializer(read_only=True)
+    review = ActivityReviewSerializer(read_only=True)
+    type_display = serializers.CharField(source='get_type_display', read_only=True)
+
+    class Meta:
+        from .models import Activity
+        model = Activity
+        fields = (
+            'id',
+            'user',
+            'type',
+            'type_display',
+            'book',
+            'review',
+            'target_user',
+            'metadata',
+            'created_at',
+        )
+

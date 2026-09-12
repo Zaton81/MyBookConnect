@@ -8,6 +8,8 @@ logger = logging.getLogger(__name__)
 # TTLs estandarizados en segundos
 TTL_BOOK_DETAIL = 900          # 15 minutos
 TTL_TRENDING = 900             # 15 minutos
+TTL_STATS = 900                # 15 minutos
+TTL_RECOMMENDATIONS = 900      # 15 minutos
 TTL_EXTERNAL_API = 86400       # 24 horas
 TTL_WIKIPEDIA_AUTHOR = 172800  # 48 horas
 
@@ -23,7 +25,7 @@ def book_detail_key(book_id: int | str) -> str:
     return f"book:{book_id}"
 
 
-def trending_key(period: str = 'all') -> str:
+def trending_key(period: str = 'week') -> str:
     """Namespace de libros populares/tendencias: trending:{period}"""
     return f"trending:{_sanitize_key_part(period)}"
 
@@ -80,8 +82,61 @@ def invalidate_book_cache(book_id: int | str) -> None:
 
 
 def invalidate_trending_cache() -> None:
-    """Invalida la caché del endpoint de tendencias."""
+    """Invalida la caché de todos los periodos del ranking de tendencias."""
     try:
-        cache.delete(trending_key('all'))
+        for p in ('week', 'month', 'year', 'all'):
+            cache.delete(trending_key(p))
     except Exception as exc:
         logger.warning(f"Error invalidando caché de tendencias: {exc}")
+
+
+def user_stats_key(user_id: int | str) -> str:
+    """Namespace de estadísticas de lectura del usuario: stats:user:{user_id}"""
+    return f"stats:user:{user_id}"
+
+
+def invalidate_user_stats_cache(user_id: int | str) -> None:
+    """
+    Invalida atómicamente la caché de estadísticas de lectura de un usuario
+    cuando se modifican sus lecturas o valoraciones.
+    """
+    try:
+        cache.delete(user_stats_key(user_id))
+        logger.debug(f"Caché de estadísticas invalidada para usuario {user_id}")
+    except Exception as exc:
+        logger.warning(f"Error invalidando caché de estadísticas para usuario {user_id}: {exc}")
+
+
+def user_recommendations_key(user_id: int | str, strategy: str = 'hybrid') -> str:
+    """Namespace de recomendaciones de usuario: recommendations:user:{user_id}:{strategy}"""
+    return f"recommendations:user:{user_id}:{_sanitize_key_part(strategy)}"
+
+
+def book_recommendations_key(book_id: int | str) -> str:
+    """Namespace de recomendaciones contextuales de un libro: recommendations:book:{book_id}"""
+    return f"recommendations:book:{book_id}"
+
+
+def invalidate_user_recommendations_cache(user_id: int | str) -> None:
+    """
+    Invalida la caché de recomendaciones de un usuario para todas sus estrategias.
+    """
+    try:
+        for strat in ('hybrid', 'rules', 'social', 'semantic', 'all'):
+            cache.delete(user_recommendations_key(user_id, strat))
+        logger.debug(f"Caché de recomendaciones invalidada para usuario {user_id}")
+    except Exception as exc:
+        logger.warning(f"Error invalidando caché de recomendaciones para usuario {user_id}: {exc}")
+
+
+def invalidate_book_recommendations_cache(book_id: int | str) -> None:
+    """
+    Invalida la caché de recomendaciones contextuales de un libro específico.
+    """
+    try:
+        cache.delete(book_recommendations_key(book_id))
+        logger.debug(f"Caché de recomendaciones contextuales invalidada para libro {book_id}")
+    except Exception as exc:
+        logger.warning(f"Error invalidando recomendaciones para libro {book_id}: {exc}")
+
+

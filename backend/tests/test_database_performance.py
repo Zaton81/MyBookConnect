@@ -73,14 +73,16 @@ class TestDatabasePerformanceAndIndexes:
             Review.objects.create(user=u, book=book, rating=5, text=f'Reseña {i}')
 
         client = APIClient()
-        # Con select_related('user', 'book', 'book__author'), prefetch_related('book__categories') y AuthorBasicSerializer
-        with django_assert_num_queries(12):
+        # Con select_related('user', 'book', 'book__author'), prefetch_related('book__categories'), AuthorBasicSerializer y paginador (1 query count adicional)
+        with django_assert_num_queries(13):
             res = client.get(f'/api/v1/books/reviews/?book={book.id}')
             assert res.status_code == 200
-            assert len(res.json()) == 5
+            data = res.json()
+            assert 'results' in data
+            assert len(data['results']) == 5
 
     def test_messages_list_select_related_sender(self, django_assert_num_queries):
-        """Verifica que consultar mensajes de un chat use select_related('sender') sin N+1."""
+        """Verifica que consultar mensajes de un chat use select_related('sender') sin N+1 y con CursorPagination."""
         u1 = User.objects.create_user(username='chat_u1', email='cu1@test.com', password='pwd')
         u2 = User.objects.create_user(username='chat_u2', email='cu2@test.com', password='pwd')
         conv = Conversation.objects.create()
@@ -93,8 +95,10 @@ class TestDatabasePerformanceAndIndexes:
         client = APIClient()
         client.force_authenticate(user=u1)
 
-        # Consulta acotada gracias a select_related('sender')
+        # Consulta acotada gracias a select_related('sender') y cursor pagination
         with django_assert_num_queries(2):
             res = client.get(f'/api/v1/chat/messages/?conversation={conv.id}')
             assert res.status_code == 200
-            assert len(res.json()) == 5
+            data = res.json()
+            assert 'results' in data
+            assert len(data['results']) == 5

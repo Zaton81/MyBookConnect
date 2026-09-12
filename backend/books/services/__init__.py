@@ -49,12 +49,27 @@ from .providers import (
     OpenLibraryProvider,
     WikipediaProvider,
 )
+from .recommendation_feedback_service import (
+    get_recommendation_metrics,
+    record_recommendation_event,
+)
+from .recommendation_service import (
+    get_book_recommendations,
+    get_user_recommendations,
+)
+from .stats_service import get_user_reading_stats
+from .trending_service import get_trending_books
 
 __all__ = [
     # Funciones públicas principales
     'import_single_by_query',
     'import_multiple_by_title',
     'import_books_by_author',
+    'get_trending_books',
+    'get_user_recommendations',
+    'get_book_recommendations',
+    'record_recommendation_event',
+    'get_recommendation_metrics',
     'maybe_enrich_author',
     'maybe_enrich_author_from_wikipedia',
     'maybe_enrich_author_from_wikidata',
@@ -62,6 +77,7 @@ __all__ = [
     'ensure_book_cover',
     'enrich_book_metadata',
     'maybe_enrich_book',
+    'get_user_reading_stats',
     'download_and_attach_image',
     '_download_and_attach_image',
     'attach_best_cover',

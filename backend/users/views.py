@@ -6,6 +6,9 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from books.pagination import StandardResultsSetPagination
+
+from . import policies
 from .serializers import UserBasicSerializer, UserCreateSerializer, UserSerializer
 
 User = get_user_model()
@@ -68,25 +71,15 @@ class UserDetailView(generics.RetrieveAPIView):
         instance = self.get_object()
         user = request.user
 
-        if instance == user:
-            serializer = self.get_serializer(instance)
-            return Response(serializer.data)
-
-        if instance.blocked_users.filter(id=user.id).exists():
-            return Response({"detail": "No puedes ver este perfil."}, status=status.HTTP_403_FORBIDDEN)
-
-        has_blocked = user.blocked_users.filter(id=instance.id).exists()
-
-        if not has_blocked:
+        if not policies.can_view_profile(user, instance):
+            if instance.blocked_users.filter(id=user.id).exists():
+                return Response({"detail": "No puedes ver este perfil."}, status=status.HTTP_403_FORBIDDEN)
             if instance.privacy_level == 'private':
                 return Response({"detail": "Este perfil es privado."}, status=status.HTTP_403_FORBIDDEN)
-
-            if instance.privacy_level == 'friends':
-                if not user.following.filter(id=instance.id).exists():
-                    return Response(
-                        {"detail": "Este perfil es solo para amigos."},
-                        status=status.HTTP_403_FORBIDDEN,
-                    )
+            return Response(
+                {"detail": "Este perfil es solo para amigos."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
 
         serializer = self.get_serializer(instance)
         return Response(serializer.data)
@@ -100,13 +93,35 @@ class FollowUserView(APIView):
         if request.user == user_to_follow:
             return Response({"detail": "No puedes seguirte a ti mismo."}, status=status.HTTP_400_BAD_REQUEST)
 
-        if user_to_follow.blocked_users.filter(id=request.user.id).exists():
+        if (
+            user_to_follow.blocked_users.filter(id=request.user.id).exists()
+            or request.user.blocked_users.filter(id=user_to_follow.id).exists()
+        ):
             return Response({"detail": "No puedes seguir a este usuario."}, status=status.HTTP_403_FORBIDDEN)
 
         if user_to_follow in request.user.following.all():
             return Response({"detail": "Ya sigues a este usuario."}, status=status.HTTP_400_BAD_REQUEST)
 
         request.user.following.add(user_to_follow)
+
+        from .activity_service import record_activity
+        from .models import ActivityType, Notification, NotificationType
+
+        Notification.objects.create(
+            recipient=user_to_follow,
+            actor=request.user,
+            type=NotificationType.FOLLOW,
+            title='Nuevo seguidor',
+            message=f'{request.user.username} ha comenzado a seguirte.',
+            link=f'/users/{request.user.id}',
+        )
+
+        record_activity(
+            user=request.user,
+            activity_type=ActivityType.USER_FOLLOWED,
+            target_user=user_to_follow,
+        )
+
         return Response({"detail": f"Ahora sigues a {user_to_follow.username}"}, status=status.HTTP_200_OK)
 
 
@@ -123,12 +138,25 @@ class BlockUserView(APIView):
     permission_classes = (permissions.IsAuthenticated,)
 
     def post(self, request, user_id):
+        from .audit_service import log_audit
+        from .models import AuditAction
+
         user_to_block = get_object_or_404(User, id=user_id)
         if request.user == user_to_block:
             return Response({"detail": "No puedes bloquearte a ti mismo."}, status=status.HTTP_400_BAD_REQUEST)
 
         request.user.blocked_users.add(user_to_block)
+        # Ruptura bidireccional inmediata del seguimiento
         request.user.following.remove(user_to_block)
+        user_to_block.following.remove(request.user)
+
+        log_audit(
+            action=AuditAction.USER_BLOCK,
+            actor=request.user,
+            target=user_to_block,
+            request=request,
+            metadata={"target_username": user_to_block.username},
+        )
         return Response({"detail": f"Has bloqueado a {user_to_block.username}"}, status=status.HTTP_200_OK)
 
 
@@ -136,9 +164,37 @@ class UnblockUserView(APIView):
     permission_classes = (permissions.IsAuthenticated,)
 
     def post(self, request, user_id):
+        from .audit_service import log_audit
+        from .models import AuditAction
+
         user_to_unblock = get_object_or_404(User, id=user_id)
         request.user.blocked_users.remove(user_to_unblock)
+
+        log_audit(
+            action=AuditAction.USER_UNBLOCK,
+            actor=request.user,
+            target=user_to_unblock,
+            request=request,
+            metadata={"target_username": user_to_unblock.username},
+        )
         return Response({"detail": f"Has desbloqueado a {user_to_unblock.username}"}, status=status.HTTP_200_OK)
+
+
+class UserSearchListView(generics.ListAPIView):
+    """Búsqueda de usuarios filtrando aquellos bloqueados o que bloquearon al solicitante."""
+    permission_classes = (permissions.IsAuthenticated,)
+    serializer_class = UserBasicSerializer
+
+    def get_queryset(self):
+        query = self.request.query_params.get('q', '').strip()
+        if not query:
+            return User.objects.none()
+        queryset = User.objects.filter(
+            Q(username__icontains=query)
+            | Q(first_name__icontains=query)
+            | Q(last_name__icontains=query)
+        ).distinct()
+        return policies.filter_visible_users(self.request.user, queryset)
 
 
 class UserFollowingListView(generics.ListAPIView):
@@ -179,3 +235,107 @@ def toggle_editor(request, user_id):
     user.is_editor = not getattr(user, 'is_editor', False)
     user.save(update_fields=['is_editor'])
     return Response({'id': user.id, 'is_editor': user.is_editor})
+
+
+class LogoutView(APIView):
+    """
+    Invalida el refresh token provisto añadiéndolo a la lista negra (Blacklist).
+    """
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def post(self, request):
+        refresh_token = request.data.get('refresh')
+        if not refresh_token:
+            return Response({'detail': 'El token refresh es requerido.'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            from rest_framework_simplejwt.tokens import RefreshToken
+            token = RefreshToken(refresh_token)
+            token.blacklist()
+            return Response({'detail': 'Sesión cerrada exitosamente.'}, status=status.HTTP_200_OK)
+        except Exception:
+            return Response({'detail': 'Token inválido o ya revocado.'}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class NotificationListView(generics.ListAPIView):
+    """Lista las notificaciones del usuario autenticado."""
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get_serializer_class(self):
+        from .serializers import NotificationSerializer
+        return NotificationSerializer
+
+    def get_queryset(self):
+        from .models import Notification
+        queryset = Notification.objects.filter(recipient=self.request.user).select_related('actor')
+        unread_only = self.request.query_params.get('unread') in ('1', 'true', 'True')
+        if unread_only:
+            queryset = queryset.filter(read=False)
+        return queryset
+
+
+class NotificationMarkReadView(APIView):
+    """Marca una notificación individual como leída."""
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def post(self, request, notification_id):
+        from .models import Notification
+        notif = get_object_or_404(Notification, id=notification_id, recipient=request.user)
+        notif.read = True
+        notif.save(update_fields=['read'])
+        return Response({'status': 'marked_read', 'id': notif.id}, status=status.HTTP_200_OK)
+
+
+class NotificationMarkAllReadView(APIView):
+    """Marca todas las notificaciones del usuario como leídas."""
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def post(self, request):
+        from .models import Notification
+        updated_count = Notification.objects.filter(recipient=request.user, read=False).update(read=True)
+        return Response({'status': 'all_marked_read', 'updated_count': updated_count}, status=status.HTTP_200_OK)
+
+
+class NotificationUnreadCountView(APIView):
+    """Retorna el conteo de notificaciones no leídas para el badge."""
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get(self, request):
+        from .models import Notification
+        count = Notification.objects.filter(recipient=request.user, read=False).count()
+        return Response({'unread_count': count}, status=status.HTTP_200_OK)
+
+
+class FeedPagination(StandardResultsSetPagination):
+    page_size = 15
+
+
+class FeedView(generics.ListAPIView):
+    """
+    Feed social que muestra actividades cronológicas de los usuarios seguidos y del propio usuario.
+    Respeta bloqueos mutuos y políticas de privacidad.
+    """
+    from .serializers import ActivitySerializer
+
+    serializer_class = ActivitySerializer
+    permission_classes = (permissions.IsAuthenticated,)
+    pagination_class = FeedPagination
+
+    def get_queryset(self):
+        from .models import Activity
+
+        user = self.request.user
+        following_ids = list(user.following.values_list('id', flat=True))
+        feed_user_ids = following_ids + [user.id]
+
+        blocked_ids = set(user.blocked_users.values_list('id', flat=True)).union(
+            user.blocked_by.values_list('id', flat=True)
+        )
+        allowed_user_ids = [uid for uid in feed_user_ids if uid not in blocked_ids]
+
+        return (
+            Activity.objects.filter(user_id__in=allowed_user_ids)
+            .select_related('user', 'book', 'book__author', 'review', 'target_user')
+            .order_by('-created_at')
+        )
+
+

@@ -3,13 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/auth';
 import { Spinner } from 'flowbite-react';
 import DOMPurify from 'dompurify';
+import { AuditLog } from '../types/auth';
 
 export function AdminDashboard() {
   const navigate = useNavigate();
   const { user, token } = useAuthStore();
 
   // Redirigir a usuarios no autorizados
-  const isAuthorized = user && (user.is_staff || user.is_superuser);
+  const isAuthorized = user && (user.is_staff || user.is_superuser || user.role === 'ADMIN' || user.role === 'MODERATOR');
 
   useEffect(() => {
     if (!token || (user && !isAuthorized)) {
@@ -17,11 +18,20 @@ export function AdminDashboard() {
     }
   }, [user, token, isAuthorized, navigate]);
 
-  const [activeTab, setActiveTab] = useState<'stats' | 'users' | 'catalog' | 'erratas' | 'legal'>('stats');
+  const [activeTab, setActiveTab] = useState<'stats' | 'users' | 'catalog' | 'erratas' | 'reports' | 'audit' | 'legal'>('stats');
 
   // Estado de Métricas
   const [stats, setStats] = useState<any | null>(null);
   const [loadingStats, setLoadingStats] = useState(false);
+
+  // Estado de Auditoría & Logs (Fase 30)
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+  const [loadingAudit, setLoadingAudit] = useState(false);
+  const [auditStats, setAuditStats] = useState<any | null>(null);
+  const [auditActionFilter, setAuditActionFilter] = useState<string>('all');
+  const [auditActorFilter, setAuditActorFilter] = useState<string>('');
+  const [auditSearch, setAuditSearch] = useState<string>('');
+  const [selectedAuditLog, setSelectedAuditLog] = useState<AuditLog | null>(null);
 
   // Estado de Usuarios
   const [users, setUsers] = useState<any[]>([]);
@@ -45,6 +55,20 @@ export function AdminDashboard() {
   const [selectedErrata, setSelectedErrata] = useState<any | null>(null);
   const [resolutionNotes, setResolutionNotes] = useState('');
   const [resolvingErrata, setResolvingErrata] = useState(false);
+
+  // Estado de Moderación & Denuncias
+  const [reports, setReports] = useState<any[]>([]);
+  const [loadingReports, setLoadingReports] = useState(false);
+  const [reportStats, setReportStats] = useState<any | null>(null);
+  const [reportStatusFilter, setReportStatusFilter] = useState<string>('all');
+  const [reportReasonFilter, setReportReasonFilter] = useState<string>('all');
+  const [reportTargetFilter, setReportTargetFilter] = useState<string>('all');
+  const [selectedReport, setSelectedReport] = useState<any | null>(null);
+  const [modResolveStatus, setModResolveStatus] = useState<'RESOLVED' | 'REJECTED' | 'UNDER_REVIEW'>('RESOLVED');
+  const [modResolveAction, setModResolveAction] = useState<string>('HIDE_CONTENT');
+  const [modResolveNotes, setModResolveNotes] = useState<string>('');
+  const [resolvingReport, setResolvingReport] = useState(false);
+  const [reportActionMsg, setReportActionMsg] = useState<string | null>(null);
 
   // Estado de CMS Legal
   const [legalSlug, setLegalSlug] = useState<'terms' | 'privacy' | 'cookies' | 'legal_notice'>('terms');
@@ -103,7 +127,7 @@ export function AdminDashboard() {
   };
 
   // Toggle Ban / Role
-  const handleUpdateUser = async (targetUser: any, field: 'is_active' | 'is_staff' | 'is_editor', value: boolean) => {
+  const handleUpdateUser = async (targetUser: any, field: 'is_active' | 'is_staff' | 'is_editor' | 'role', value: any) => {
     if (!token) return;
     if (targetUser.id === user?.id && field === 'is_active' && !value) {
       alert('No puedes bloquear tu propia cuenta de administrador.');
@@ -111,6 +135,10 @@ export function AdminDashboard() {
     }
     if (targetUser.id === user?.id && field === 'is_staff' && !value) {
       alert('No puedes retirar tus propios permisos de administrador.');
+      return;
+    }
+    if (targetUser.id === user?.id && field === 'role' && value !== 'ADMIN') {
+      alert('No puedes degradar tu propio rol de administrador.');
       return;
     }
     if (!window.confirm(`¿Confirmas cambiar ${field} a ${value} para ${targetUser.username}?`)) return;
@@ -134,6 +162,120 @@ export function AdminDashboard() {
       fetchStats();
     } catch (e: any) {
       alert(e.message);
+    }
+  };
+
+  // 6. Cargar Reportes de Moderación
+  const fetchReports = async () => {
+    if (!token) return;
+    setLoadingReports(true);
+    try {
+      const params = new URLSearchParams();
+      if (reportStatusFilter !== 'all') params.append('status', reportStatusFilter);
+      if (reportReasonFilter !== 'all') params.append('reason', reportReasonFilter);
+      if (reportTargetFilter !== 'all') params.append('target_type', reportTargetFilter);
+
+      const res = await fetch(`${apiUrl}/api/v1/admin/reports/?${params.toString()}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setReports(Array.isArray(data) ? data : data.results || []);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoadingReports(false);
+    }
+  };
+
+  const fetchReportStats = async () => {
+    if (!token) return;
+    try {
+      const res = await fetch(`${apiUrl}/api/v1/admin/reports/stats/`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setReportStats(data);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleResolveReport = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!token || !selectedReport) return;
+    setResolvingReport(true);
+    try {
+      const res = await fetch(`${apiUrl}/api/v1/admin/reports/${selectedReport.id}/`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          status: modResolveStatus,
+          action_taken: modResolveStatus === 'RESOLVED' ? modResolveAction : '',
+          resolution_notes: modResolveNotes,
+        }),
+      });
+      if (res.ok) {
+        setSelectedReport(null);
+        setModResolveNotes('');
+        setReportActionMsg('Expediente de moderación actualizado con éxito.');
+        setTimeout(() => setReportActionMsg(null), 4000);
+        fetchReports();
+        fetchReportStats();
+        fetchStats();
+      } else {
+        const err = await res.json();
+        alert(err.detail || 'Error al procesar la resolución de la denuncia.');
+      }
+    } catch (e: any) {
+      alert(e.message || 'Error de conexión');
+    } finally {
+      setResolvingReport(false);
+    }
+  };
+
+  // 7. Cargar Registros de Auditoría (Fase 30)
+  const fetchAuditLogs = async () => {
+    if (!token) return;
+    setLoadingAudit(true);
+    try {
+      const params = new URLSearchParams();
+      if (auditActionFilter !== 'all') params.append('action', auditActionFilter);
+      if (auditActorFilter.trim()) params.append('actor', auditActorFilter.trim());
+      if (auditSearch.trim()) params.append('search', auditSearch.trim());
+
+      const res = await fetch(`${apiUrl}/api/v1/admin/audit-logs/?${params.toString()}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setAuditLogs(Array.isArray(data) ? data : data.results || []);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoadingAudit(false);
+    }
+  };
+
+  const fetchAuditStats = async () => {
+    if (!token) return;
+    try {
+      const res = await fetch(`${apiUrl}/api/v1/admin/audit-logs/stats/`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setAuditStats(data);
+      }
+    } catch (e) {
+      console.error(e);
     }
   };
 
@@ -344,6 +486,14 @@ export function AdminDashboard() {
     if (activeTab === 'users') fetchUsers();
     if (activeTab === 'catalog') fetchCatalog();
     if (activeTab === 'erratas') fetchErratas();
+    if (activeTab === 'reports') {
+      fetchReports();
+      fetchReportStats();
+    }
+    if (activeTab === 'audit') {
+      fetchAuditLogs();
+      fetchAuditStats();
+    }
     if (activeTab === 'legal') fetchLegalDocument(legalSlug);
   }, [activeTab]);
 
@@ -373,14 +523,14 @@ export function AdminDashboard() {
       <header className="bg-gradient-to-r from-slate-900 via-slate-800 to-teal-950 text-white p-6 sm:p-8 rounded-3xl shadow-lg border border-slate-700/60 flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold bg-teal-500/20 text-teal-300 border border-teal-500/40 mb-2">
-            <span>🛡️ Panel de Control Superseguro</span>
+            <span>🛡️ Panel de Control & Moderación</span>
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
           </div>
           <h1 className="text-2xl sm:text-3xl font-black tracking-tight">
             Administración del Sistema
           </h1>
           <p className="text-xs sm:text-sm text-slate-300 mt-1 max-w-xl">
-            Gestión integral de usuarios, moderación de catálogo editorial, resolución de erratas y control legal de la plataforma.
+            Gestión integral de usuarios, moderación de catálogo editorial, cola de denuncias, auditoría de seguridad y control legal.
           </p>
         </div>
 
@@ -391,7 +541,15 @@ export function AdminDashboard() {
           <div>
             <div className="font-bold">{user?.username}</div>
             <div className="text-[11px] text-teal-300">
-              {user?.is_superuser ? 'Superadministrador' : 'Staff / Administrador'}
+              {user?.is_superuser
+                ? 'Superadministrador'
+                : user?.role === 'ADMIN'
+                ? 'Administrador'
+                : user?.role === 'MODERATOR'
+                ? 'Moderador'
+                : user?.role === 'EDITOR'
+                ? 'Editor'
+                : 'Staff'}
             </div>
           </div>
         </div>
@@ -401,9 +559,13 @@ export function AdminDashboard() {
       <nav className="flex flex-wrap gap-2 border-b border-slate-200 dark:border-slate-800 pb-3">
         {[
           { id: 'stats', label: '📊 Métricas Globales' },
-          { id: 'users', label: '👥 Usuarios & Banners' },
+          { id: 'users', label: '👥 Usuarios & Roles' },
           { id: 'catalog', label: '📚 Catálogo & Autores' },
-          { id: 'erratas', label: '✍️ Erratas & Moderación' },
+          { id: 'erratas', label: '✍️ Erratas Editoriales' },
+          { id: 'reports', label: '🛡️ Moderación & Denuncias' },
+          ...(user?.is_superuser || user?.role === 'ADMIN' || user?.is_staff
+            ? [{ id: 'audit', label: '📜 Auditoría & Logs' }]
+            : []),
           { id: 'legal', label: '⚖️ CMS Legal' },
         ].map((tab) => (
           <button
@@ -524,7 +686,8 @@ export function AdminDashboard() {
               className="text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700 py-2 px-3"
             >
               <option value="all">Rol: Todos</option>
-              <option value="staff">Solo Staff</option>
+              <option value="staff">Solo Staff / Admin</option>
+              <option value="moderator">Solo Moderadores</option>
               <option value="editor">Solo Editores</option>
             </select>
             <button
@@ -548,7 +711,7 @@ export function AdminDashboard() {
                     <th className="py-3 px-3">Usuario</th>
                     <th className="py-3 px-3">Email</th>
                     <th className="py-3 px-3">Estado</th>
-                    <th className="py-3 px-3">Roles</th>
+                    <th className="py-3 px-3">Rol en Plataforma</th>
                     <th className="py-3 px-3">Actividad</th>
                     <th className="py-3 px-3 text-right">Acciones de Seguridad</th>
                   </tr>
@@ -579,20 +742,19 @@ export function AdminDashboard() {
                           </span>
                         )}
                       </td>
-                      <td className="py-3 px-3 space-x-1">
-                        {u.is_staff && (
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-teal-100 text-teal-800">
-                            Staff
-                          </span>
-                        )}
-                        {u.is_editor && (
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-100 text-blue-800">
-                            Editor
-                          </span>
-                        )}
-                        {!u.is_staff && !u.is_editor && (
-                          <span className="text-slate-400 text-[11px]">Lector</span>
-                        )}
+                      <td className="py-3 px-3">
+                        {/* Selector de rol */}
+                        <select
+                          value={u.role || (u.is_staff ? 'ADMIN' : u.is_editor ? 'EDITOR' : 'USER')}
+                          disabled={!user?.is_superuser && user?.role !== 'ADMIN'}
+                          onChange={(e) => handleUpdateUser(u, 'role', e.target.value)}
+                          className="text-[11px] font-semibold rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 py-1 px-2 focus:ring-1 focus:ring-teal-500 cursor-pointer disabled:opacity-60"
+                        >
+                          <option value="USER">👤 Lector (USER)</option>
+                          <option value="EDITOR">✍️ Editor (EDITOR)</option>
+                          <option value="MODERATOR">🛡️ Moderador (MODERATOR)</option>
+                          <option value="ADMIN">👑 Administrador (ADMIN)</option>
+                        </select>
                       </td>
                       <td className="py-3 px-3 text-slate-500">
                         {u.books_count} libros • {u.reviews_count} reseñas
@@ -611,7 +773,7 @@ export function AdminDashboard() {
                             {u.is_active ? 'Bloquear' : 'Desbloquear'}
                           </button>
                         )}
-                        {/* Botón Promover/Degradar Staff */}
+                        {/* Botón Staff directo */}
                         {user?.is_superuser && u.id !== user?.id && (
                           <button
                             onClick={() => handleUpdateUser(u, 'is_staff', !u.is_staff)}
@@ -884,7 +1046,607 @@ export function AdminDashboard() {
         </div>
       )}
 
-      {/* ── 5. PESTAÑA: CMS LEGAL ── */}
+      {/* ── 5. PESTAÑA: COLA DE MODERACIÓN & DENUNCIAS (FASE 29) ── */}
+      {activeTab === 'reports' && (
+        <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-200/80 dark:border-slate-700 p-6 sm:p-8 shadow-sm space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-teal-50 text-teal-700 dark:bg-teal-950/40 dark:text-teal-300 border border-teal-200 dark:border-teal-800 mb-1">
+                <span>🛡️ Sistema Disciplinario & Moderación</span>
+              </div>
+              <h2 className="text-lg font-bold text-slate-900 dark:text-white">Cola de Denuncias</h2>
+              <p className="text-xs text-slate-500">
+                Supervisa y resuelve reportes sobre usuarios, reseñas, comentarios y mensajes de chat.
+              </p>
+            </div>
+            {reportActionMsg && (
+              <div className="p-2.5 bg-emerald-50 text-emerald-800 dark:bg-emerald-900/30 rounded-xl text-xs font-semibold">
+                {reportActionMsg}
+              </div>
+            )}
+          </div>
+
+          {/* Métricas rápidas de moderación */}
+          {reportStats && (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200/80 dark:border-amber-800">
+                <div className="text-[11px] font-bold text-amber-700 dark:text-amber-400">Abiertas (Pendientes)</div>
+                <div className="text-xl font-black text-amber-900 dark:text-amber-200">{reportStats.by_status?.open || 0}</div>
+              </div>
+              <div className="p-3.5 rounded-2xl bg-blue-50 dark:bg-blue-950/30 border border-blue-200/80 dark:border-blue-800">
+                <div className="text-[11px] font-bold text-blue-700 dark:text-blue-400">En Revisión</div>
+                <div className="text-xl font-black text-blue-900 dark:text-blue-200">{reportStats.by_status?.under_review || 0}</div>
+              </div>
+              <div className="p-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200/80 dark:border-emerald-800">
+                <div className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400">Resueltas</div>
+                <div className="text-xl font-black text-emerald-900 dark:text-emerald-200">{reportStats.by_status?.resolved || 0}</div>
+              </div>
+              <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-700">
+                <div className="text-[11px] font-bold text-slate-600 dark:text-slate-300">Total Expedientes</div>
+                <div className="text-xl font-black text-slate-900 dark:text-white">{reportStats.total || 0}</div>
+              </div>
+            </div>
+          )}
+
+          {/* Filtros de denuncias */}
+          <div className="flex flex-wrap gap-3 items-center">
+            <select
+              value={reportStatusFilter}
+              onChange={(e) => setReportStatusFilter(e.target.value)}
+              className="text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700 py-2 px-3"
+            >
+              <option value="all">Estado: Todos</option>
+              <option value="OPEN">Abiertas (OPEN)</option>
+              <option value="UNDER_REVIEW">En Revisión (UNDER_REVIEW)</option>
+              <option value="RESOLVED">Resueltas (RESOLVED)</option>
+              <option value="REJECTED">Rechazadas (REJECTED)</option>
+            </select>
+
+            <select
+              value={reportReasonFilter}
+              onChange={(e) => setReportReasonFilter(e.target.value)}
+              className="text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700 py-2 px-3"
+            >
+              <option value="all">Motivo: Todos</option>
+              <option value="SPAM">Spam publicitario</option>
+              <option value="HARASSMENT">Acoso o intimidación</option>
+              <option value="HATE_SPEECH">Discurso de odio</option>
+              <option value="INAPPROPRIATE">Contenido inapropiado</option>
+              <option value="SPOILER">Spoiler no advertido</option>
+              <option value="COPYRIGHT">Violación de derechos</option>
+              <option value="OTHER">Otro motivo</option>
+            </select>
+
+            <select
+              value={reportTargetFilter}
+              onChange={(e) => setReportTargetFilter(e.target.value)}
+              className="text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700 py-2 px-3"
+            >
+              <option value="all">Tipo: Todos</option>
+              <option value="review">Reseñas de libros</option>
+              <option value="user">Perfiles de usuarios</option>
+              <option value="comment">Comentarios en reseñas</option>
+              <option value="message">Mensajes directos</option>
+            </select>
+
+            <button
+              onClick={fetchReports}
+              className="bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold px-4 py-2 rounded-xl transition-all"
+            >
+              Filtrar Denuncias
+            </button>
+          </div>
+
+          {/* Tabla de Denuncias */}
+          {loadingReports ? (
+            <div className="flex justify-center p-8">
+              <Spinner size="lg" color="info" />
+            </div>
+          ) : reports.length === 0 ? (
+            <div className="text-center py-12 border border-dashed border-slate-200 dark:border-slate-700 rounded-2xl">
+              <div className="text-4xl mb-2">🎉</div>
+              <p className="text-sm font-bold text-slate-700 dark:text-slate-300">¡Bandeja de moderación despejada!</p>
+              <p className="text-xs text-slate-500 mt-1">No hay denuncias pendientes bajo los filtros seleccionados.</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="border-b border-slate-200 dark:border-slate-700 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
+                    <th className="py-3 px-3">Expediente</th>
+                    <th className="py-3 px-3">Denunciante</th>
+                    <th className="py-3 px-3">Motivo</th>
+                    <th className="py-3 px-3">Elemento Denunciado</th>
+                    <th className="py-3 px-3">Estado</th>
+                    <th className="py-3 px-3">Medida Aplicada</th>
+                    <th className="py-3 px-3 text-right">Gestión</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-700/60">
+                  {reports.map((r) => {
+                    const statusBadgeClass =
+                      r.status === 'OPEN'
+                        ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300'
+                        : r.status === 'UNDER_REVIEW'
+                        ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300'
+                        : r.status === 'RESOLVED'
+                        ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300'
+                        : 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300';
+
+                    const targetTypeBadge =
+                      r.target_type === 'review'
+                        ? 'bg-purple-100 text-purple-800'
+                        : r.target_type === 'user'
+                        ? 'bg-rose-100 text-rose-800'
+                        : r.target_type === 'comment'
+                        ? 'bg-teal-100 text-teal-800'
+                        : 'bg-blue-100 text-blue-800';
+
+                    return (
+                      <tr key={r.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-700/30">
+                        <td className="py-3 px-3 font-mono font-bold text-slate-900 dark:text-white">
+                          #{r.id}
+                          <div className="text-[10px] text-slate-400 font-sans">
+                            {new Date(r.created_at).toLocaleDateString()}
+                          </div>
+                        </td>
+                        <td className="py-3 px-3 font-semibold text-slate-700 dark:text-slate-300">
+                          @{r.reporter_username}
+                        </td>
+                        <td className="py-3 px-3">
+                          <span className="font-bold text-slate-800 dark:text-slate-200">
+                            {r.reason_display || r.reason}
+                          </span>
+                          {r.description && (
+                            <div className="text-[10px] text-slate-500 truncate max-w-xs" title={r.description}>
+                              "{r.description}"
+                            </div>
+                          )}
+                        </td>
+                        <td className="py-3 px-3">
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <span className={`px-1.5 py-0.2 text-[9px] font-bold uppercase rounded ${targetTypeBadge}`}>
+                              {r.target_type}
+                            </span>
+                            <span className="text-[10px] text-slate-400 font-mono">id: {r.object_id}</span>
+                          </div>
+                          <div className="text-[11px] text-slate-600 dark:text-slate-400 max-w-xs">
+                            {r.target_preview?.type === 'review' && (
+                              <span>
+                                Por <b>@{r.target_preview.author}</b> en <i>{r.target_preview.book_title}</i>: "{r.target_preview.snippet}"
+                              </span>
+                            )}
+                            {r.target_preview?.type === 'user' && (
+                              <span>
+                                Usuario <b>@{r.target_preview.username}</b> ({r.target_preview.email})
+                              </span>
+                            )}
+                            {r.target_preview?.type === 'comment' && (
+                              <span>
+                                Por <b>@{r.target_preview.author}</b>: "{r.target_preview.snippet}"
+                              </span>
+                            )}
+                            {r.target_preview?.type === 'message' && (
+                              <span>
+                                De <b>@{r.target_preview.sender}</b>: "{r.target_preview.snippet}"
+                              </span>
+                            )}
+                            {!['review', 'user', 'comment', 'message'].includes(r.target_preview?.type) && (
+                              <span>{r.target_preview?.summary || 'Elemento objetivo'}</span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="py-3 px-3">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${statusBadgeClass}`}>
+                            {r.status_display || r.status}
+                          </span>
+                        </td>
+                        <td className="py-3 px-3">
+                          {r.action_taken ? (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-200">
+                              {r.action_taken}
+                            </span>
+                          ) : (
+                            <span className="text-slate-400 text-[11px]">—</span>
+                          )}
+                        </td>
+                        <td className="py-3 px-3 text-right">
+                          <button
+                            onClick={() => {
+                              setSelectedReport(r);
+                              setModResolveStatus(r.status === 'OPEN' ? 'RESOLVED' : r.status);
+                              setModResolveAction(r.action_taken || 'HIDE_CONTENT');
+                              setModResolveNotes('');
+                            }}
+                            className="bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold px-3 py-1.5 rounded-xl shadow-sm transition-all"
+                          >
+                            Gestionar
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* Modal de Resolución de Denuncia */}
+          {selectedReport && (
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+              <div className="bg-white dark:bg-slate-800 rounded-3xl max-w-xl w-full p-6 space-y-4 border border-slate-200 dark:border-slate-700 shadow-2xl">
+                <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-700 pb-3">
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-teal-600 dark:text-teal-400">
+                      Resolución de Expediente #{selectedReport.id}
+                    </span>
+                    <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                      Denuncia por {selectedReport.reason_display || selectedReport.reason}
+                    </h3>
+                  </div>
+                  <button
+                    onClick={() => setSelectedReport(null)}
+                    className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-500 hover:bg-slate-200 font-bold"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                {/* Resumen del reporte */}
+                <div className="space-y-2 bg-slate-50 dark:bg-slate-700/50 p-3.5 rounded-2xl text-xs">
+                  <div className="flex justify-between text-slate-500 text-[11px]">
+                    <span>Denunciante: <b>@{selectedReport.reporter_username}</b></span>
+                    <span>Fecha: {new Date(selectedReport.created_at).toLocaleString()}</span>
+                  </div>
+                  {selectedReport.description && (
+                    <div className="text-slate-700 dark:text-slate-300">
+                      <b>Declaración del usuario:</b> "{selectedReport.description}"
+                    </div>
+                  )}
+                  <div className="pt-1 border-t border-slate-200/60 dark:border-slate-600">
+                    <span className="font-bold text-slate-600 dark:text-slate-400">Elemento denunciado ({selectedReport.target_type}):</span>
+                    <div className="mt-1 p-2 bg-white dark:bg-slate-800 rounded-xl border border-slate-200/60 dark:border-slate-700 text-slate-700 dark:text-slate-300">
+                      {JSON.stringify(selectedReport.target_preview, null, 2)}
+                    </div>
+                  </div>
+                </div>
+
+                <form onSubmit={handleResolveReport} className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      Estado de la Denuncia:
+                    </label>
+                    <select
+                      value={modResolveStatus}
+                      onChange={(e) => setModResolveStatus(e.target.value as any)}
+                      className="w-full text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700 p-2.5"
+                    >
+                      <option value="RESOLVED">✅ RESOLVED (Procedente / Aplicar medidas)</option>
+                      <option value="REJECTED">❌ REJECTED (Desestimar / Sin infracción)</option>
+                      <option value="UNDER_REVIEW">🔍 UNDER_REVIEW (Mantener en investigación)</option>
+                    </select>
+                  </div>
+
+                  {modResolveStatus === 'RESOLVED' && (
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                        Medida Disciplinaria / Acción:
+                      </label>
+                      <select
+                        value={modResolveAction}
+                        onChange={(e) => setModResolveAction(e.target.value)}
+                        className="w-full text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700 p-2.5"
+                      >
+                        <option value="HIDE_CONTENT">🚫 HIDE_CONTENT (Ocultar contenido moderado)</option>
+                        <option value="BAN_USER">⛔ BAN_USER (Bloquear/Desactivar cuenta de usuario)</option>
+                        <option value="WARNING">⚠️ WARNING (Apercibimiento / Advertencia)</option>
+                        <option value="DISMISS">ℹ️ DISMISS (Resolver sin acción directa)</option>
+                      </select>
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      Notas Internas del Moderador:
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={modResolveNotes}
+                      onChange={(e) => setModResolveNotes(e.target.value)}
+                      placeholder="Justificación de la resolución (ej: Lenguaje ofensivo ocultado conforme a directrices de comunidad)..."
+                      className="w-full text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700 p-2.5"
+                    />
+                  </div>
+
+                  <div className="flex justify-end gap-2 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedReport(null)}
+                      className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={resolvingReport}
+                      className="bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs px-5 py-2.5 rounded-xl shadow-md transition-all disabled:opacity-50"
+                    >
+                      {resolvingReport ? 'Guardando...' : 'Aplicar Resolución'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── 6. PESTAÑA: REGISTRO DE AUDITORÍA & LOGS (FASE 30) ── */}
+      {activeTab === 'audit' && (
+        <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-200/80 dark:border-slate-700 p-6 sm:p-8 shadow-sm space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-purple-50 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300 border border-purple-200 dark:border-purple-800 mb-1">
+                <span>📜 Trazabilidad & Cumplimiento Normativo</span>
+              </div>
+              <h2 className="text-lg font-bold text-slate-900 dark:text-white">Bitácora Inmutable de Auditoría</h2>
+              <p className="text-xs text-slate-500">
+                Historial cronológico de eventos sensibles: cambios de privilegios, bloqueos, moderación y borrado de contenido.
+              </p>
+            </div>
+          </div>
+
+          {/* Tarjetas de Métricas de Auditoría */}
+          {auditStats && (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="p-3.5 rounded-2xl bg-purple-50 dark:bg-purple-950/30 border border-purple-200/80 dark:border-purple-800">
+                <div className="text-[11px] font-bold text-purple-700 dark:text-purple-400">Total Eventos</div>
+                <div className="text-xl font-black text-purple-900 dark:text-purple-200">{auditStats.total || 0}</div>
+              </div>
+              <div className="p-3.5 rounded-2xl bg-teal-50 dark:bg-teal-950/30 border border-teal-200/80 dark:border-teal-800">
+                <div className="text-[11px] font-bold text-teal-700 dark:text-teal-400">Últimas 24 Horas</div>
+                <div className="text-xl font-black text-teal-900 dark:text-teal-200">{auditStats.last_24h || 0}</div>
+              </div>
+              <div className="p-3.5 rounded-2xl bg-blue-50 dark:bg-blue-950/30 border border-blue-200/80 dark:border-blue-800">
+                <div className="text-[11px] font-bold text-blue-700 dark:text-blue-400">Últimos 7 Días</div>
+                <div className="text-xl font-black text-blue-900 dark:text-blue-200">{auditStats.last_7d || 0}</div>
+              </div>
+              <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-700">
+                <div className="text-[11px] font-bold text-slate-600 dark:text-slate-300">Tipos de Acciones</div>
+                <div className="text-xl font-black text-slate-900 dark:text-white">
+                  {auditStats.by_action ? Object.keys(auditStats.by_action).length : 0}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Filtros y Buscador de Auditoría */}
+          <div className="flex flex-wrap gap-3 items-center">
+            <select
+              value={auditActionFilter}
+              onChange={(e) => setAuditActionFilter(e.target.value)}
+              className="text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700 py-2 px-3"
+            >
+              <option value="all">Acción: Todas</option>
+              <option value="ROLE_CHANGE">Cambios de Rol (ROLE_CHANGE)</option>
+              <option value="USER_BAN">Bloqueos de Cuenta (USER_BAN)</option>
+              <option value="USER_UNBAN">Desbloqueos de Cuenta (USER_UNBAN)</option>
+              <option value="USER_BLOCK">Bloqueos Sociales (USER_BLOCK)</option>
+              <option value="USER_UNBLOCK">Desbloqueos Sociales (USER_UNBLOCK)</option>
+              <option value="MODERATION_RESOLVE">Resolución de Denuncia (MODERATION_RESOLVE)</option>
+              <option value="MODERATION_REJECT">Rechazo de Denuncia (MODERATION_REJECT)</option>
+              <option value="CONTENT_DELETE">Eliminación de Contenido (CONTENT_DELETE)</option>
+              <option value="SECURITY_PASSWORD_CHANGE">Seguridad de Acceso</option>
+            </select>
+
+            <input
+              type="text"
+              placeholder="Filtrar por actor..."
+              value={auditActorFilter}
+              onChange={(e) => setAuditActorFilter(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && fetchAuditLogs()}
+              className="text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700 p-2.5 w-44"
+            >
+            </input>
+
+            <input
+              type="text"
+              placeholder="Buscar en descripción..."
+              value={auditSearch}
+              onChange={(e) => setAuditSearch(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && fetchAuditLogs()}
+              className="text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700 p-2.5 w-56"
+            />
+
+            <button
+              onClick={fetchAuditLogs}
+              className="bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold px-4 py-2 rounded-xl transition-all shadow-sm"
+            >
+              Filtrar Bitácora
+            </button>
+          </div>
+
+          {/* Tabla de Registros de Auditoría */}
+          {loadingAudit ? (
+            <div className="flex justify-center p-8">
+              <Spinner size="lg" color="purple" />
+            </div>
+          ) : auditLogs.length === 0 ? (
+            <div className="text-center py-12 border border-dashed border-slate-200 dark:border-slate-700 rounded-2xl">
+              <div className="text-4xl mb-2">📜</div>
+              <p className="text-sm font-bold text-slate-700 dark:text-slate-300">No hay eventos registrados</p>
+              <p className="text-xs text-slate-500 mt-1">No se encontraron eventos bajo los criterios de búsqueda especificados.</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="border-b border-slate-200 dark:border-slate-700 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
+                    <th className="py-3 px-3">Fecha y Hora</th>
+                    <th className="py-3 px-3">Actor</th>
+                    <th className="py-3 px-3">Acción Registrada</th>
+                    <th className="py-3 px-3">Elemento Afectado</th>
+                    <th className="py-3 px-3">IP Origen</th>
+                    <th className="py-3 px-3 text-right">Detalle</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-700/60">
+                  {auditLogs.map((log) => {
+                    const actionBadgeClass =
+                      log.action === 'ROLE_CHANGE'
+                        ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300'
+                        : log.action === 'USER_BAN'
+                        ? 'bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-300'
+                        : log.action === 'USER_UNBAN'
+                        ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300'
+                        : log.action === 'USER_BLOCK'
+                        ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300'
+                        : log.action === 'USER_UNBLOCK'
+                        ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300'
+                        : log.action === 'MODERATION_RESOLVE'
+                        ? 'bg-teal-100 text-teal-800 dark:bg-teal-900/40 dark:text-teal-300'
+                        : log.action === 'MODERATION_REJECT'
+                        ? 'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300'
+                        : log.action === 'CONTENT_DELETE'
+                        ? 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300'
+                        : 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300';
+
+                    return (
+                      <tr key={log.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-700/30">
+                        <td className="py-3 px-3 font-mono text-[11px] text-slate-900 dark:text-white">
+                          <div>{new Date(log.created_at).toLocaleDateString()}</div>
+                          <div className="text-[10px] text-slate-400 font-sans">
+                            {new Date(log.created_at).toLocaleTimeString()}
+                          </div>
+                        </td>
+                        <td className="py-3 px-3 font-bold text-slate-700 dark:text-slate-200">
+                          {log.actor_username ? `@${log.actor_username}` : 'Sistema'}
+                        </td>
+                        <td className="py-3 px-3">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${actionBadgeClass}`}>
+                            {log.action_display || log.action}
+                          </span>
+                        </td>
+                        <td className="py-3 px-3">
+                          <div className="flex items-center gap-1.5 mb-0.5">
+                            <span className="px-1.5 py-0.2 text-[9px] font-bold uppercase rounded bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-mono">
+                              {log.target_type}
+                            </span>
+                            {log.object_id && (
+                              <span className="text-[10px] text-slate-400 font-mono">id: {log.object_id}</span>
+                            )}
+                          </div>
+                          <div className="text-[11px] text-slate-700 dark:text-slate-300 truncate max-w-sm" title={log.target_repr}>
+                            {log.target_repr || '—'}
+                          </div>
+                        </td>
+                        <td className="py-3 px-3 font-mono text-[11px] text-slate-500">
+                          {log.ip_address || '—'}
+                        </td>
+                        <td className="py-3 px-3 text-right">
+                          <button
+                            onClick={() => setSelectedAuditLog(log)}
+                            className="bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 text-xs font-bold px-3 py-1.5 rounded-xl transition-all"
+                          >
+                            Inspeccionar
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* Modal de Inspección de Registro de Auditoría */}
+          {selectedAuditLog && (
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+              <div className="bg-white dark:bg-slate-800 rounded-3xl max-w-xl w-full p-6 space-y-4 border border-slate-200 dark:border-slate-700 shadow-2xl">
+                <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-700 pb-3">
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-purple-600 dark:text-purple-400">
+                      Evento de Auditoría #{selectedAuditLog.id}
+                    </span>
+                    <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                      {selectedAuditLog.action_display || selectedAuditLog.action}
+                    </h3>
+                  </div>
+                  <button
+                    onClick={() => setSelectedAuditLog(null)}
+                    className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-500 hover:bg-slate-200 font-bold"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                <div className="space-y-3 text-xs">
+                  <div className="grid grid-cols-2 gap-3 bg-slate-50 dark:bg-slate-700/50 p-3.5 rounded-2xl">
+                    <div>
+                      <span className="text-slate-400 text-[10px] font-bold uppercase">Actor</span>
+                      <div className="font-bold text-slate-800 dark:text-slate-200">
+                        {selectedAuditLog.actor_username ? `@${selectedAuditLog.actor_username}` : 'Sistema'}
+                      </div>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 text-[10px] font-bold uppercase">Fecha y Hora</span>
+                      <div className="font-mono text-slate-800 dark:text-slate-200">
+                        {new Date(selectedAuditLog.created_at).toLocaleString()}
+                      </div>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 text-[10px] font-bold uppercase">Dirección IP</span>
+                      <div className="font-mono text-slate-800 dark:text-slate-200">
+                        {selectedAuditLog.ip_address || 'No registrada'}
+                      </div>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 text-[10px] font-bold uppercase">Tipo de Objeto</span>
+                      <div className="font-bold text-slate-800 dark:text-slate-200">
+                        {selectedAuditLog.target_type} {selectedAuditLog.object_id ? `(ID: ${selectedAuditLog.object_id})` : ''}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <span className="text-slate-400 text-[10px] font-bold uppercase block mb-1">Elemento Afectado</span>
+                    <div className="p-2.5 bg-slate-50 dark:bg-slate-700/40 rounded-xl font-medium text-slate-800 dark:text-slate-200">
+                      {selectedAuditLog.target_repr || '—'}
+                    </div>
+                  </div>
+
+                  {selectedAuditLog.user_agent && (
+                    <div>
+                      <span className="text-slate-400 text-[10px] font-bold uppercase block mb-1">User Agent</span>
+                      <div className="p-2.5 bg-slate-50 dark:bg-slate-700/40 rounded-xl font-mono text-[10px] text-slate-600 dark:text-slate-400 truncate">
+                        {selectedAuditLog.user_agent}
+                      </div>
+                    </div>
+                  )}
+
+                  <div>
+                    <span className="text-slate-400 text-[10px] font-bold uppercase block mb-1">Metadatos Estructurados (Payload JSON)</span>
+                    <pre className="p-3 bg-slate-900 text-teal-300 rounded-xl font-mono text-[11px] overflow-x-auto max-h-48 leading-relaxed">
+                      {JSON.stringify(selectedAuditLog.metadata || {}, null, 2)}
+                    </pre>
+                  </div>
+                </div>
+
+                <div className="flex justify-end pt-2 border-t border-slate-100 dark:border-slate-700">
+                  <button
+                    onClick={() => setSelectedAuditLog(null)}
+                    className="bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold px-5 py-2.5 rounded-xl transition-all"
+                  >
+                    Cerrar Detalle
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── 7. PESTAÑA: CMS LEGAL ── */}
       {activeTab === 'legal' && (
         <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-200/80 dark:border-slate-700 p-6 sm:p-8 shadow-sm space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">

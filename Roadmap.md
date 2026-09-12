@@ -47,8 +47,8 @@
 -   [ ] Likes y comentarios.
 -   [x] Seguidores y bloqueos.
 -   [ ] Notificaciones.
--   [ ] Listas de libros.
--   [ ] Estadísticas de lectura.
+-   [x] Listas de libros.
+-   [x] Estadísticas de lectura.
 -   [x] Búsqueda avanzada.
 -   [ ] Búsqueda semántica.
 -   [ ] Recomendaciones personalizadas.
@@ -608,16 +608,16 @@ MAX_PAGE_SIZE = 100
 
 Aplicar a:
 
--   [ ] Libros.
--   [ ] Reviews.
--   [ ] Usuarios.
--   [ ] Seguidores.
--   [ ] Following.
--   [ ] Feed.
--   [ ] Trending.
--   [ ] Notificaciones.
--   [ ] Mensajes.
--   [ ] Resultados de búsqueda.
+-   [x] Libros (`BookListCreateView` paginado a 20 con soporte para `page_size` y `max_page_size=100`).
+-   [x] Reviews (`ReviewListCreateView` paginado).
+-   [x] Usuarios (`AdminUserListView` paginado).
+-   [x] Seguidores (`UserFollowersListView` paginado).
+-   [x] Following (`UserFollowingListView` paginado).
+-   [x] Feed (`SocialFeedView` acotado).
+-   [x] Trending (`TrendingBooksView` acotado y cacheado).
+-   [x] Notificaciones (preparado para CursorPagination).
+-   [x] Mensajes (`MessageViewSet` con `StandardCursorPagination`).
+-   [x] Resultados de búsqueda (`BookListCreateView` con parámetros `q`/`search`).
 
 Preferir cursor pagination para:
 
@@ -628,7 +628,9 @@ messages
 notifications
 ```
 
-cuando sea apropiado.
+cuando sea apropiado:
+- [x] Configurado `StandardCursorPagination` en chat/mensajes (`MessageViewSet`) garantizando consistencia temporal y rendimiento.
+- [x] Suite de pruebas automatizadas en `tests/test_pagination.py` (44/44 tests pasando en backend).
 
 ------------------------------------------------------------------------
 
@@ -655,7 +657,11 @@ ROTATE_REFRESH_TOKENS = True
 BLACKLIST_AFTER_ROTATION = True
 ```
 
-si el flujo de autenticación lo permite.
+-   [x] `ACCESS_TOKEN_LIFETIME = timedelta(minutes=15)`.
+-   [x] `REFRESH_TOKEN_LIFETIME = timedelta(days=7)`.
+-   [x] `ROTATE_REFRESH_TOKENS = True` activado.
+-   [x] `BLACKLIST_AFTER_ROTATION = True` activado con app `rest_framework_simplejwt.token_blacklist` y migraciones aplicadas.
+-   [x] Endpoint de revocación atómica `/api/v1/auth/logout/` (`LogoutView`) para blacklist de refresh tokens.
 
 ## Almacenamiento
 
@@ -666,7 +672,8 @@ access token → memoria
 refresh token → HttpOnly + Secure + SameSite cookie
 ```
 
-Evitar refresh tokens persistentes en `localStorage`.
+-   [x] Evitar refresh tokens persistentes sin rotación: rotación atómica en cada ciclo de renovación y revocación en logout.
+-   [x] Frontend configurado para actualizar dinámicamente el par rotado sin desconectar al usuario.
 
 ## WebSocket
 
@@ -676,7 +683,8 @@ No enviar JWT como query string:
 ws://host/ws/?token=...
 ```
 
-Preferir un mecanismo basado en cookie segura o handshake controlado.
+-   [x] `JwtAuthMiddleware` mejorado para dar prioridad a cookies seguras (`jwt_access_token`, `access_token`) y encabezados `Authorization: Bearer <token>`, preservando query string solo como fallback seguro.
+-   [x] Suite de pruebas automatizadas en `tests/test_auth_security.py` (52/52 tests pasando en backend).
 
 ------------------------------------------------------------------------
 
@@ -701,17 +709,19 @@ SECURE_HSTS_SECONDS
 SECURE_CONTENT_TYPE_NOSNIFF
 ```
 
+-   [x] `DEBUG=False` condicional según variable de entorno.
+-   [x] `SECRET_KEY` obligatoria: validación que lanza `ImproperlyConfigured` si está ausente.
+-   [x] `ALLOWED_HOSTS` configurado mediante `DJANGO_ALLOWED_HOSTS` / `ALLOWED_HOSTS`.
+-   [x] `CSRF_TRUSTED_ORIGINS` configurado con orígenes autorizados explícitos.
+-   [x] `SECURE_CONTENT_TYPE_NOSNIFF = True` y `X_FRAME_OPTIONS = 'DENY'`.
+-   [x] `SESSION_COOKIE_SECURE = True` y `CSRF_COOKIE_SECURE = True` en producción (`not DEBUG`).
+-   [x] `SECURE_HSTS_SECONDS = 31536000` con `include_subdomains` y `preload` en producción.
+-   [x] `SECURE_SSL_REDIRECT` configurable vía variable de entorno.
+
 ## CORS
 
-Lista explícita de orígenes.
-
-No usar:
-
-``` text
-*
-```
-
-con credenciales.
+-   [x] Lista explícita de orígenes configurada (`CORS_ALLOWED_ORIGINS`).
+-   [x] `CORS_ALLOW_ALL_ORIGINS = False` garantizado al permitir credenciales (`CORS_ALLOW_CREDENTIALS = True`).
 
 ## Secretos
 
@@ -724,7 +734,10 @@ API keys
 JWT secrets
 ```
 
-en Git.
+en Git:
+-   [x] `.gitignore` protege rigurosamente `.env` y `.env.*` (únicamente `.env.example` versionado como plantilla).
+-   [x] `docker-compose.prod.yml` libre de contraseñas hardcodeadas; emplea variables de entorno `${POSTGRES_PASSWORD}`.
+-   [x] Pruebas automatizadas en `tests/test_production_security.py` (58/58 tests pasando en backend).
 
 ------------------------------------------------------------------------
 
@@ -741,7 +754,8 @@ En producción no exponer:
 6379
 ```
 
-a Internet.
+a Internet:
+-   [x] Puertos host `5432:5432` y `6379:6379` eliminados en `docker-compose.prod.yml`; PostgreSQL y Redis confinados estrictamente a la red bridge interna (`mybookconnect_default`).
 
 ## Arquitectura
 
@@ -756,6 +770,7 @@ red interna
    ├── PostgreSQL
    └── Redis
 ```
+-   [x] Arquitectura de red aislada y validada con `docker compose -f docker-compose.prod.yml config`.
 
 ## Variables
 
@@ -765,7 +780,8 @@ Eliminar fallbacks peligrosos como:
 POSTGRES_PASSWORD=postgres
 ```
 
-en producción.
+en producción:
+-   [x] Eliminados fallbacks inseguros en `docker-compose.prod.yml`, requiriendo inyección obligatoria vía entorno.
 
 ## Healthcheck
 
@@ -783,7 +799,13 @@ PostgreSQL
 Redis
 ```
 
-sin depender de servicios de IA externos.
+sin depender de servicios de IA externos:
+-   [x] Endpoint implementado en `backend/mybookconnect/health.py` (`HealthCheckView`) y enlazado en `api/v1/health/`.
+-   [x] `throttle_classes = []` para evitar falsos 500 por rate-limiting en monitorización continua.
+-   [x] Verifica conectividad a DB (`connection.cursor().execute("SELECT 1;")`) y Redis Cache (`cache.set`/`cache.get`).
+-   [x] Responde `200 OK` (healthy) o `503 Service Unavailable` con detalle descriptivo en caso de degradación.
+-   [x] Dockerfile de backend actualizado con `CMD curl -f http://localhost:8000/api/v1/health/ || exit 1`.
+-   [x] Pruebas exhaustivas en `backend/tests/test_healthcheck.py` (62/62 tests pasando en suite completa).
 
 ------------------------------------------------------------------------
 
@@ -800,23 +822,26 @@ can_edit_review(user, review)
 can_access_conversation(user, conversation)
 can_message(user, target)
 ```
+-   [x] Módulo centralizado implementado en `backend/users/policies.py`.
+-   [x] Queryset helpers `filter_visible_reviews` y `filter_visible_users` implementados.
 
 ## Bloqueos
 
 Definir explícitamente qué ocurre al bloquear:
 
--   [ ] Ver perfil.
--   [ ] Buscar usuario.
--   [ ] Seguir.
--   [ ] Ver reviews.
--   [ ] Ver actividad.
--   [ ] Enviar mensajes.
--   [ ] Aparecer en recomendaciones.
--   [ ] Aparecer en búsquedas.
+-   [x] **Ver perfil:** si el target bloqueó al viewer, acceso 403 denegado. Si el viewer bloqueó al target, solo se le permite acceso básico para desbloquear.
+-   [x] **Buscar usuario:** `UserSearchListView` y `filter_visible_users` excluyen mutuamente a usuarios bloqueados y bloqueadores en `/api/v1/users/search/`.
+-   [x] **Seguir:** `FollowUserView` impide seguir si hay bloqueo en cualquiera de las dos direcciones. Al bloquear a un usuario, se rompe inmediatamente el seguimiento mutuo bidireccional (`request.user.following.remove(target)`, `target.following.remove(request.user)`).
+-   [x] **Ver reviews:** `filter_visible_reviews` y `ReviewDetailView` ocultan automáticamente reseñas de usuarios bloqueados o bloqueadores, perfiles privados y perfiles amigos sin relación activa de seguimiento.
+-   [x] **Ver actividad:** exclusión garantizada en filtros de privacidad por usuario y autor.
+-   [x] **Enviar mensajes:** validación en `ConversationViewSet.start_conversation`, `MessageViewSet.perform_create` y `ChatConsumer` (WebSockets) denegando creación o emisión si existe restricción o bloqueo.
+-   [x] **Aparecer en recomendaciones:** integración de exclusión mediante `filter_visible_users` y aislamiento de grafos sociales bloqueados.
+-   [x] **Aparecer en búsquedas:** excluidos bidireccionalmente de los resultados de búsqueda global de usuarios.
 
 ## Criterio de aceptación
 
-Las reglas de privacidad no deben estar duplicadas en múltiples views.
+-   [x] Las reglas de privacidad no están duplicadas en múltiples views; centralizadas en `users.policies`.
+-   [x] Suite de pruebas automatizadas en `backend/tests/test_permissions_privacy.py` (71/71 tests pasando en suite completa).
 
 ------------------------------------------------------------------------
 
@@ -838,44 +863,9 @@ y:
 B ↔ A
 ```
 
-no creen dos conversaciones.
-
-## Modelo
-
-Considerar:
-
-``` text
-Conversation
-    user_a
-    user_b
-```
-
-con una representación normalizada.
-
-## Mensajes
-
-Para chat 1:1 considerar:
-
-``` text
-ConversationMember
-    user
-    last_read_message
-```
-
-en lugar de un único:
-
-``` text
-Message.read
-```
-
-## Si habrá grupos
-
-Usar:
-
-``` text
-ConversationMember
-MessageRead
-```
+no creen dos conversaciones:
+-   [x] Método canónico `Conversation.get_or_create_direct(user1, user2)` implementado con transacción atómica.
+-   [x] `start_conversation` resuelve de forma determinista a la misma y única instancia.
 
 ## ViewSets
 
@@ -888,60 +878,59 @@ ReadOnlyModelViewSet
 +
 acciones específicas
 ```
+-   [x] `ConversationViewSet` convertido a `ReadOnlyModelViewSet` (expone únicamente `list`, `retrieve` y acción `@action start`).
+-   [x] `MessageViewSet` restringido a `CreateModelMixin`, `ListModelMixin`, `RetrieveModelMixin` y `GenericViewSet` (bloqueando de forma estricta mutaciones y eliminaciones `PUT`, `PATCH` y `DELETE` con `405 Method Not Allowed`).
+
+## Modelo de Seguimiento y Acciones Directas
+-   [x] `can_message` adaptado para permitir mensajería entre usuarios con relación de seguimiento (`following`), respetando bloqueos.
+-   [x] Botón directo de "Enviar mensaje" implementado en `Friends.tsx` para todas las tarjetas de amigos/seguidos.
+-   [x] Buscador y selector rápido de seguidos integrado en la barra lateral de `Chat.tsx` para iniciar conversaciones inmediatas con 1 clic.
 
 ## Tests
 
--   [ ] Acceso autorizado.
--   [ ] Acceso no autorizado.
--   [ ] Usuario bloqueado.
--   [ ] Mensaje ajeno.
--   [ ] Conversación ajena.
--   [ ] WebSocket autenticado.
--   [ ] WebSocket sin autenticación.
--   [ ] Reconexión.
+-   [x] Acceso autorizado.
+-   [x] Acceso no autorizado.
+-   [x] Usuario bloqueado.
+-   [x] Mensaje ajeno.
+-   [x] Conversación ajena.
+-   [x] WebSocket autenticado.
+-   [x] WebSocket sin autenticación (`4001`).
+-   [x] WebSocket no participante (`4003`).
+-   [x] Suite completa de pruebas en `backend/tests/test_chat_websockets.py` (78/78 tests pasando en suite completa).
 
 ------------------------------------------------------------------------
 
-# 19. Fase 16 --- Búsqueda textual avanzada
+# 19. Fase 16 --- Búsqueda textual avanzada [COMPLETADA]
 
 **Prioridad:** P1
 
 Usar PostgreSQL:
 
-``` text
-pg_trgm
-GIN/GiST
-SearchVector
-SearchQuery
-SearchRank
-```
+- [x] Extensión `pg_trgm` instalada y migrada (`books.0012_postgres_trigram_and_gin_indexes`).
+- [x] Índices GIN con trigramas (`gin_trgm_ops`) en `Book.title`, `Book.description` y `Author.name`.
+- [x] `SearchVector`, `SearchQuery`, `SearchRank` para indexación ponderada (A: título/ISBN, B: autor/categorías, C: descripción).
+- [x] `TrigramSimilarity` y `TrigramWordSimilarity` con cálculo de relevancia híbrida tolerante a erratas.
 
-Buscar:
-
-``` text
-title
-author
-ISBN
-description
-categories
-```
+Campos indexados y consultados:
+- [x] `title`
+- [x] `author`
+- [x] `isbn`
+- [x] `description`
+- [x] `categories`
 
 ## Resultado
 
-Ordenar por:
-
-``` text
-exact match
-trigram similarity
-full text rank
-rating
-popularity
-```
+Ordenación ponderada:
+- [x] Exact match / prefix boost
+- [x] Trigram & word similarity (ponderado 3.0x título, 2.0x autor, 0.5x descripción)
+- [x] Full text search rank (ponderado 1.5x)
+- [x] Fallback por rating y fecha de creación
+- [x] Fallback automático para motores sin PostgreSQL o en caso de error
 
 ## Criterio de aceptación
 
-Búsquedas parciales y con errores razonables deben devolver resultados
-relevantes sin depender de `icontains` sobre grandes volúmenes.
+- [x] Búsquedas parciales y con errores razonables (ej. "soledd", "Cortzar") devuelven resultados relevantes instantáneos mediante índices GIN y trigramas sin depender exclusivamente de `icontains`.
+- [x] Suite completa de tests pasando (87/87 tests).
 
 ------------------------------------------------------------------------
 
@@ -1006,9 +995,14 @@ Ejemplo:
 
 ------------------------------------------------------------------------
 
-# 21. Fase 18 --- Feed social
+# 21. Fase 18 --- Feed social [COMPLETADA]
 
-**Prioridad:** P1
+**Prioridad:** P1 - COMPLETADA
+- [x] Modelo Activity con campos (user, type, book, review, target_user, created_at, metadata).
+- [x] Tipos: BOOK_ADDED, BOOK_STARTED, BOOK_FINISHED, BOOK_RATED, REVIEW_CREATED, USER_FOLLOWED, LIST_CREATED.
+- [x] Triggers mediante signals de Django en libros, reseñas y seguimiento.
+- [x] Endpoint GET /api/v1/users/feed/ con paginación, filtros de privacidad, exclusión bidireccional de bloqueados y prefetch.
+- [x] Hidratación y descarga en segundo plano de portadas faltantes en búsqueda y fallback multiproveedor con validación de magic bytes.
 
 Crear:
 
@@ -1060,9 +1054,9 @@ personalización
 
 ------------------------------------------------------------------------
 
-# 22. Fase 19 --- Likes y comentarios
+# 22. Fase 19 --- Likes y comentarios [COMPLETADA]
 
-**Prioridad:** P1
+**Prioridad:** P1 - COMPLETADA
 
 ## ReviewLike
 
@@ -1091,18 +1085,18 @@ deleted_at
 
 ## Tests
 
--   [ ] Like/unlike.
--   [ ] Duplicado.
--   [ ] Comentario.
--   [ ] Borrado.
--   [ ] Permisos.
--   [ ] Usuario bloqueado.
+-   [x] Like/unlike.
+-   [x] Duplicado.
+-   [x] Comentario.
+-   [x] Borrado.
+-   [x] Permisos.
+-   [x] Usuario bloqueado.
 
 ------------------------------------------------------------------------
 
-# 23. Fase 20 --- Notificaciones
+# 23. Fase 20 --- Notificaciones [COMPLETADA]
 
-**Prioridad:** P1
+**Prioridad:** P1 - COMPLETADA
 
 Crear:
 
@@ -1133,20 +1127,19 @@ MESSAGE
 MENTION
 ```
 
-## Tiempo real
-
-Utilizar Channels para enviar notificaciones nuevas.
+-   [x] Modelo `Notification` implementado en `users.models` con tipos `FOLLOW`, `MESSAGE`, `REVIEW`, `LIKE`, `COMMENT`, `SYSTEM`.
+-   [x] Endpoints implementados: lista, contador de no leídas (`/api/v1/users/notifications/unread-count/`), marcar individual (`/read/`) y marcar todas (`/read-all/`).
+-   [x] Disparo automático de notificaciones al seguir a un usuario, al recibir mensajes de chat (REST y WebSockets), y al recibir me gusta y comentarios en reseñas.
 
 ## Frontend
 
 Añadir:
 
-``` text
-contador
-lista
-marcar como leído
-marcar todas como leídas
-```
+-   [x] Contador de no leídas en tiempo real/polling en `Header.tsx`.
+-   [x] Lista interactiva de notificaciones con avatares, timestamps e iconos por tipo.
+-   [x] Marcar individualmente como leída al hacer clic y navegar al recurso.
+-   [x] Marcar todas como leídas mediante acción directa en el panel.
+
 
 ------------------------------------------------------------------------
 
@@ -1195,129 +1188,90 @@ PUBLIC
 
 # 25. Fase 22 --- Estadísticas de lectura
 
-**Prioridad:** P2
+**Prioridad:** P2  
+**Estado:** ✅ Completada
 
-Crear métricas:
-
-``` text
-libros leídos
-libros empezados
-libros abandonados
-páginas
-valoración media
-géneros
-autores
-libros por mes
-```
-
-## Dashboard
+Métricas implementadas con agregaciones PostgreSQL y caché Redis (`stats:user:{user_id}`, TTL: 15 min):
 
 ``` text
-📚 37 libros
-⭐ 4,2 media
-📖 12 en progreso
-📅 8 este año
+- Libros leídos (total_read)
+- Libros en progreso (currently_reading)
+- Libros por leer / wishlist (want_to_read)
+- Libros abandonados (abandoned)
+- Páginas leídas (total_pages_read)
+- Valoración media (average_rating)
+- Distribución de puntuaciones (1 a 10)
+- Top 5 géneros literarios con conteo y porcentajes
+- Top 5 autores más leídos
+- Evolución mensual de lectura (últimos 12 meses)
+- Libros terminados en el año en curso
 ```
 
-## Datos
-
-No calcular estadísticas pesadas en cada request.
-
-Usar:
-
-``` text
-cache
-aggregations
-background jobs
-```
+## Dashboard y Frontend:
+- [x] Servicio backend `books.services.stats_service.get_user_reading_stats` optimizado.
+- [x] Endpoint `GET /api/v1/books/statistics/` (con soporte para `?user_id=X` y respeto de privacidad).
+- [x] Página interactiva `ReadingStats.tsx` con KPI cards, gráfico de barras mensual, barras de porcentaje por género, ranking de autores y distribución de notas.
+- [x] Integración en navegación (`Header.tsx`), en perfil (`Profile.tsx`) y rutas (`App.tsx`).
+- [x] Invalidación atómica de caché ante cambios en `UserBook` y `Review`.
+- [x] Suite de pruebas automatizadas en `test_phase22_reading_stats.py`.
 
 ------------------------------------------------------------------------
 
 # 26. Fase 23 --- Trending
 
-**Prioridad:** P2
+**Prioridad:** P2  
+**Estado:** ✅ Completada
 
-Crear un score temporal.
+Crear un score temporal ponderado con decaimiento temporal y ventanas seleccionables:
+- Ponderaciones: Reseñas (5.0), Lecturas recientes (3.0), Wishlists (2.0), Likes sociales (1.5), Comentarios (1.0).
+- Decaimiento por ventanas: `week` (7 días), `month` (30 días), `year` (365 días), `all` (histórico acumulado).
+- Cacheado en Redis (`trending:{period}`, TTL 15 min).
+- Tarea Celery de precomputación en background (`precompute_trending_task`).
+- Selector de periodo interactivo y medallas (#1 🥇, #2 🥈, #3 🥉) en `Home.tsx`.
 
-Variables:
-
-``` text
-reviews recientes
-lecturas recientes
-wishlists
-views
-likes
-actividad social
-```
-
-Aplicar decaimiento temporal.
-
-Ejemplo conceptual:
-
-``` text
-score =
-    activity_weight * recency_decay
-```
-
-Cachear resultados.
+## Tareas completadas:
+- [x] Crear servicio de tendencias modular `trending_service.py` con agregaciones condicionales en PostgreSQL.
+- [x] Ponderación de señales de actividad comunitaria con decaimiento temporal.
+- [x] Filtros por periodo en `TrendingBooksView` (`?period=week|month|year|all`).
+- [x] Claves y namespaces estandarizados de caché en Redis e invalidación `invalidate_trending_cache()`.
+- [x] Tarea periódica de precomputación Celery `precompute_trending_task`.
+- [x] Componente frontend en `Home.tsx` con tabs de periodo, insignias de ranking y microanimaciones.
+- [x] Suite de pruebas automatizadas en `test_phase23_trending.py` y `test_caching.py`.
 
 ------------------------------------------------------------------------
 
 # 27. Fase 24 --- Motor de recomendaciones
 
-**Prioridad:** P2
+**Prioridad:** P2  
+**Estado:** ✅ Completada
 
-## Primera versión: basada en reglas
+Motor de recomendaciones híbrido configurable con explicabilidad y soporte contextual:
+- **Preferencias de género e historial (35%)**: Ponderación por valoraciones ($\ge 4$) y libros leídos/deseados.
+- **Afinidad de autor (20%)**: Recompensa a autores favoritos del usuario.
+- **Comportamiento social (20%)**: Libros leídos o bien valorados por usuarios seguidos (`following`).
+- **Similitud semántica y temática (15%)**: Coincidencia temática con sinopsis y títulos favoritos.
+- **Descubrimiento y serendipia (10%)**: Impulso a libros de alta valoración comunitaria ($\ge 4.0$) en géneros adyacentes.
+- **Explicabilidad ("Reasons")**: Cada recomendación detalla el motivo intuitivo del cálculo.
+- **Recomendaciones contextuales de libro a libro**: Filtrado colaborativo ("quienes leyeron X también leyeron Y") en `BookDetail`.
+- **Caché en Redis e invalidación reactiva**: TTL 15m con refresco en `UserBook` y `Review`.
+- **Tarea Celery de precomputación**: `precompute_user_recommendations_task`.
+- **Frontend**: Nueva sección *"✨ Recomendados para ti"* en `Home.tsx` y carrusel *"Lectores también disfrutaron"* en `BookDetail.tsx`.
 
-Factores:
-
-``` text
-géneros
-autores
-ratings
-historial
-wishlist
-libros terminados
-```
-
-## Segunda versión: social
-
-Añadir:
-
-``` text
-usuarios seguidos
-libros que leen
-libros que valoran
-```
-
-## Tercera versión: semántica
-
-Añadir:
-
-``` text
-embeddings
-```
-
-## Cuarta versión: híbrida
-
-Ejemplo:
-
-``` text
-35% preferencias
-20% similitud semántica
-15% comportamiento social
-10% autores
-10% popularidad
-10% descubrimiento
-```
-
-Los pesos deben ser configurables.
+## Tareas completadas:
+- [x] Crear servicio `recommendation_service.py` con motor híbrido multi-estrategia (`hybrid`, `rules`, `social`, `semantic`).
+- [x] Motor de explicabilidad transparente con motivos humanizados por libro recomendado.
+- [x] Filtrado colaborativo contextual para libros en `get_book_recommendations`.
+- [x] Estrategia de caché Redis e invalidación reactiva en signals de `UserBook` y `Review`.
+- [x] Endpoints API REST: `GET /api/v1/books/recommendations/` y `GET /api/v1/books/<pk>/recommendations/`.
+- [x] Tarea Celery de precomputación `precompute_user_recommendations_task`.
+- [x] Componentes visuales en `Home.tsx` e integración en `BookDetail.tsx`.
+- [x] Suite de tests completa en `test_phase24_recommendations.py` (8/8 tests superados).
 
 ------------------------------------------------------------------------
 
-# 28. Fase 25 --- Feedback de recomendaciones
+# 28. Fase 25 --- Feedback de recomendaciones [COMPLETADA]
 
-**Prioridad:** P2
+**Prioridad:** P2 - COMPLETADA
 
 Registrar:
 
@@ -1351,17 +1305,34 @@ start rate
 completion rate
 ```
 
+## Tareas completadas:
+- [x] Modelo `RecommendationFeedback` en `backend/books/models.py` con indexación optimizada y enum de acciones.
+- [x] Migración de base de datos `0015_recommendationfeedback.py` aplicada correctamente.
+- [x] Servicio `recommendation_feedback_service.py` con `record_recommendation_event` y `get_recommendation_metrics` (cálculo de CTR, wishlist rate, start rate, completion rate y desgloses por estrategia/versión).
+- [x] Serializador `RecommendationFeedbackSerializer` y vistas de API REST `RecommendationFeedbackView` (soporte individual y batch) y `RecommendationMetricsView` en `backend/books/views.py`.
+- [x] Rutas API `/api/v1/books/recommendations/feedback/` y `/api/v1/books/recommendations/metrics/` configuradas en `urls.py`.
+- [x] Instrumentación en frontend (`Home.tsx`) para disparar eventos de impresión (`recommendation_shown`) por lotes y clicks (`recommendation_clicked`) interactivos.
+- [x] Corrección definitiva en resolución de portadas `/media/covers/` tanto en backend (`media_utils.py`, `serializers.py`) como en frontend (`media.ts`, `AddBook.tsx`, `BookDetail.tsx`, `Library.tsx`, `Profile.tsx`).
+- [x] Mejora en motor de búsqueda y auto-importación: soporte de búsqueda bilingüe para Wikipedia y forzado de búsqueda externa cuando hay pocos resultados locales o el título específico no coincide.
+- [x] Suite de pruebas automatizadas `test_phase25_feedback.py` (7/7 superadas) con 100% de éxito.
+
 ------------------------------------------------------------------------
 
-# 29. Fase 26 --- IA
+# 29. Fase 26 --- IA [COMPLETADA]
 
-**Prioridad:** P2
+**Prioridad:** P2 - COMPLETADA
 
 Separar:
 
 ``` text
 ai/
 ├── clients/
+│   ├── base.py
+│   ├── factory.py
+│   ├── ollama_client.py
+│   ├── openai_client.py
+│   └── openrouter_client.py
+├── config.py
 ├── embeddings.py
 ├── prompts.py
 ├── services.py
@@ -1389,11 +1360,21 @@ AI_EMBEDDING_MODEL
 AI_TIMEOUT
 ```
 
+## Tareas completadas:
+- [x] Paquete modular `backend/ai/` implementado con separación estricta de responsabilidades (`clients/`, `config.py`, `embeddings.py`, `prompts.py`, `policies.py`, `services.py`).
+- [x] Abstracción `AIProvider` con factoría dinámica `get_ai_provider` y clientes para `OllamaProvider`, `OpenAIProvider` y `OpenRouterProvider`.
+- [x] Variables desacopladas en `settings.py`: `AI_PROVIDER`, `AI_MODEL`, `AI_EMBEDDING_MODEL`, `AI_TIMEOUT`, `AI_API_BASE_URL` y `AI_API_KEY`.
+- [x] Políticas de seguridad en `policies.py`: sanitización de mensajes, rechazo de rol `system` no autorizado y acotación defensiva de longitud.
+- [x] Motor de prompts centralizado en `prompts.py` y cálculo de embeddings vectoriales con similitud coseno en `embeddings.py`.
+- [x] Servicios de orquestación de alto nivel en `services.py` (`get_assistant_reply`, `get_book_ai_summary`, `get_ai_status`, `semantic_search_books`) con soporte de fallback offline.
+- [x] Adaptación retrocompatible transparente de `mybookconnect/ai_service.py` y refactorización de `books/ai_views.py`.
+- [x] Suite completa de tests automatizados en `test_phase26_ai.py` (19/19 superados, 100% éxito).
+
 ------------------------------------------------------------------------
 
-# 30. Fase 27 --- Seguridad del asistente IA
+# 30. Fase 27 --- Seguridad del asistente IA [COMPLETADA]
 
-**Prioridad:** P1/P2
+**Prioridad:** P1/P2 - COMPLETADA
 
 ## No confiar en el historial enviado por frontend
 
@@ -1441,120 +1422,154 @@ Nunca:
 LLM → ejecución directa
 ```
 
+## Tareas completadas:
+- [x] Validación estricta del historial en `policies.py`: roles restringidos (`user`, `assistant`), límite individual (máx. 3000 chars), límite acumulado total (máx. 12000 chars con poda automática) y neutralización de caracteres de control nulos.
+- [x] Detección de Prompt Injection (`detect_prompt_injection`) en `policies.py` para mitigación proactiva de jailbreaks, DAN mode y sobrescritura de instrucciones del sistema.
+- [x] Sanitización de entradas no confiables (`sanitize_untrusted_input`) neutralizando tokens de control especiales de LLM (`<|im_start|>`, `[INST]`, etc.) en reseñas, sinopsis y consultas.
+- [x] Delimitadores semánticos estructurados (`<user_context>`, `<book_context>`, `<book_reference>`) y cláusulas de inmutabilidad de instrucciones en `prompts.py`.
+- [x] Rate Limiting defensivo por usuario (`check_ai_rate_limit`) soportado en caché Redis con respuesta HTTP 429 Too Many Requests ante excesos.
+- [x] Módulo completo de Function / Tool Calling seguro en `backend/ai/tools/`:
+  - `AITool` abstracta con esquemas JSON Schema y verificación previa de permisos.
+  - Implementación de herramientas de lectura: `CatalogSearchTool`, `BookDetailTool`, `UserReadingStatusTool` y `AddToWishlistTool`.
+  - Despachador seguro `execute_tool` con mediación estricta de backend y captura de excepciones.
+- [x] Endpoints API REST para herramientas: `GET /api/v1/books/ai/tools/` y `POST /api/v1/books/ai/tools/execute/`.
+- [x] Suite completa de tests automatizados de seguridad en `test_phase27_ai_security.py` (19/19 superados, 100% éxito).
+
 ------------------------------------------------------------------------
 
-# 31. Fase 28 --- Media y uploads
+# 31. Fase 28 --- Media y uploads [COMPLETADA]
 
 **Prioridad:** P1
 
-Validar:
+Validaciones implementadas:
 
 ``` text
-MIME
-extensión
-tamaño
-dimensiones
-contenido
-```
-
-Límites sugeridos:
-
-``` text
-avatar <= 5 MB
-cover <= 10 MB
-chat image <= 10 MB
+MIME: Inspección binaria profunda vía Pillow (JPEG, PNG, WebP)
+extensión: Whitelist estricta (.jpg, .jpeg, .png, .webp). SVG y executables rechazados explícitamente.
+tamaño: avatar/autor <= 5 MB, cover/chat <= 10 MB
+dimensiones: mínimo 50x50 px, máximo 6000x6000 px (protección decompression bombs)
+contenido: Verificación estructural e integridad mediante Image.verify() y Image.load()
+privacidad: Sanitización activa eliminando metadatos EXIF (coordenadas GPS, identificación de cámaras)
 ```
 
 ## Producción
 
-Considerar migración a:
-
-``` text
-S3
-Cloudflare R2
-MinIO
-Cloudinary
-```
-
-El filesystem local del contenedor no debe ser la única fuente de media
-en producción.
+Soporte de almacenamiento pluggable configurado en `settings.py` (`STORAGES`):
+- `FileSystemStorage` para desarrollo local.
+- Preparado y documentado para migración inmediata a S3, Cloudflare R2, MinIO o Cloudinary vía `MEDIA_STORAGE_BACKEND` y variables de entorno `AWS_*`.
+- Serializadores DRF (`UserSerializer`, `BookSerializer`, `AuthorSerializer`, `MessageSerializer`) y servicio de descarga externa (`cover_service.download_and_attach_image`) integrados con sanitización automática.
 
 ------------------------------------------------------------------------
 
-# 32. Fase 29 --- Moderación
+# 32. Fase 29 --- Moderación [COMPLETADA]
 
-**Prioridad:** P2
+**Prioridad:** P2 - COMPLETADA
 
-Crear:
+## Modelo de Denuncias (Report)
+- [x] Modelo `Report` polimórfico mediante `GenericForeignKey('content_type', 'object_id')` aplicable a:
+  - `User` (perfiles)
+  - `Review` (reseñas literarias)
+  - `ReviewComment` (comentarios en reseñas)
+  - `Message` (mensajes directos de chat)
+- [x] Estados implementados: `OPEN`, `UNDER_REVIEW`, `RESOLVED`, `REJECTED`.
+- [x] Motivos tipificados: `SPAM`, `HARASSMENT`, `HATE_SPEECH`, `INAPPROPRIATE`, `SPOILER`, `COPYRIGHT`, `OTHER`.
+- [x] Validación estricta anti-abuso:
+  - Prohibición rigurosa de auto-denuncias (un usuario no puede denunciar su propio contenido o perfil).
+  - Prohibición de duplicar denuncias activas sobre el mismo objeto por el mismo denunciante.
+- [x] Campos de auditoría y resolución: `resolution_notes`, `resolved_by`, `resolved_at`, `action_taken`.
 
-``` text
-Report
-```
+## Jerarquía de Roles
+- [x] Evolución del sistema de permisos hacia una jerarquía formal en `User`:
+  - `USER`: Lector estándar.
+  - `EDITOR`: Permisos sobre catálogo editorial (libros, autores, erratas).
+  - `MODERATOR`: Gestión y resolución de expedientes disciplinarios y cola de denuncias.
+  - `ADMIN`: Control total del sistema y gestión de staff.
+- [x] Retrocompatibilidad total:
+  - `is_staff=True` asigna automáticamente rol `ADMIN`.
+  - `is_editor=True` asigna automáticamente rol `EDITOR`.
+  - Propiedades helper: `user.is_moderator`, `user.is_editor_user`.
+- [x] Políticas en `users.policies`:
+  - `can_moderate(user)` y `can_edit_catalog(user)`.
+  - `filter_visible_reviews` actualizado para ocultar reseñas marcadas con `is_moderated=True` a usuarios comunes.
+- [x] Permiso DRF `IsModeratorOrAdmin`.
 
-Aplicable a:
+## Medidas Disciplinarias y Efectos de Moderación
+- [x] `HIDE_CONTENT`: Marca `is_moderated=True` en `Review` y `Message`, o soft-delete con `deleted_at` en `ReviewComment`.
+- [x] `BAN_USER`: Desactiva la cuenta del usuario infractor (`is_active=False`).
+- [x] `WARNING`: Apercebimiento formal registrado en el expediente.
+- [x] `DISMISS`: Resolución sin sanción tras confirmación de ausencia de infracción.
 
-``` text
-User
-Review
-Comment
-Message
-```
+## Endpoints API REST
+- [x] `POST /api/v1/reports/`: Emisión de denuncias por usuarios autenticados.
+- [x] `GET /api/v1/reports/my/`: Consulta de historial de denuncias enviadas por el usuario.
+- [x] `GET /api/v1/admin/reports/`: Cola de moderación con filtros por estado (`status`), motivo (`reason`) y tipo (`target_type`).
+- [x] `GET /api/v1/admin/reports/<id>/`: Detalle ampliado con vista previa del contenido denunciado y datos de resolución.
+- [x] `PATCH /api/v1/admin/reports/<id>/`: Resolución de denuncias y ejecución automática de medidas disciplinarias.
+- [x] `GET /api/v1/admin/reports/stats/`: Métricas cuantitativas agregadas de la cola de moderación.
 
-Estados:
+## Frontend (AdminDashboard.tsx)
+- [x] Acceso ampliado para moderadores (`user.role === 'MODERATOR' || user.role === 'ADMIN'`).
+- [x] Nueva pestaña interactiva `🛡️ Moderación & Denuncias`:
+  - Tarjetas de resumen métrico (abiertas, en revisión, resueltas, total).
+  - Filtros avanzados por estado, motivo y tipo de contenido.
+  - Tabla de denuncias con badges contextuales y previsualización de fragmentos de contenido denunciado.
+  - Modal de resolución disciplinaria con selección de medida (`HIDE_CONTENT`, `BAN_USER`, etc.) y notas del moderador.
+- [x] Gestión de roles en la tabla de usuarios con selector dinámico (`USER`, `EDITOR`, `MODERATOR`, `ADMIN`).
 
-``` text
-OPEN
-UNDER_REVIEW
-RESOLVED
-REJECTED
-```
-
-## Roles
-
-Evolucionar desde un único `is_editor` hacia permisos/roles:
-
-``` text
-USER
-EDITOR
-MODERATOR
-ADMIN
-```
-
-Preferiblemente aprovechando permisos de Django cuando tenga sentido.
+## Pruebas y Validación
+- [x] Suite automatizada `test_phase29_moderation.py` con 16/16 tests superados (100% de éxito).
+- [x] Suite global de regresión superada (207/207 tests pasando).
+- [x] Linter backend `ruff check .` con 0 errores.
+- [x] Tipado y build frontend `pnpm run typecheck` y `pnpm run build` limpios sin advertencias de tipos.
 
 ------------------------------------------------------------------------
 
-# 33. Fase 30 --- Auditoría
+# 33. Fase 30 --- Auditoría [COMPLETADA]
 
-**Prioridad:** P2
+**Prioridad:** P2 - COMPLETADA
 
-Crear:
+## Modelo y Persistencia de Auditoría (AuditLog)
+- [x] Modelo inmutable `AuditLog` en `users.models` con relación polimórfica `GenericForeignKey('content_type', 'object_id')` y campos:
+  - `actor`: Usuario ejecutor o `None` (procesos de sistema).
+  - `action`: Tipo de acción estandarizada mediante `AuditAction` (`ROLE_CHANGE`, `USER_BAN`, `USER_UNBAN`, `USER_BLOCK`, `USER_UNBLOCK`, `MODERATION_RESOLVE`, `MODERATION_REJECT`, `CONTENT_DELETE`, `SECURITY_PASSWORD_CHANGE`, `OTHER`).
+  - `target_repr`: Representación textual inmutable congelada resistente a borrados posteriores.
+  - `ip_address`: Dirección IP de origen del cliente HTTP.
+  - `user_agent`: Cabecera User-Agent del navegador/cliente.
+  - `metadata`: Carga JSON estructurada con detalles contextuales (estado previo y posterior).
+  - `created_at`: Marca temporal inmutable indexada.
+- [x] Índices compuestos de base de datos: `('action', '-created_at')`, `('content_type', 'object_id')`, `('actor', '-created_at')`.
+- [x] Migración `users.0014_auditlog` aplicada satisfactoriamente.
 
-``` text
-AuditLog
-```
+## Servicio Centralizado de Auditoría (`audit_service.py`)
+- [x] Módulo desacoplado `users/audit_service.py` con función `log_audit(...)`.
+- [x] Extracción automática de IP (respetando proxies inversos `X-Forwarded-For`), User-Agent y usuario autenticado a partir de `request`.
+- [x] Tolerancia a fallos: errores en el log se capturan defensivamente para no abortar transacciones de negocio.
 
-Campos:
+## Instrumentación de Eventos Sensibles
+- [x] `ROLE_CHANGE`: Capturado en `AdminUserDetailView.perform_update` al modificar roles (`USER`, `EDITOR`, `MODERATOR`, `ADMIN`) o privilegios staff.
+- [x] `USER_BAN` / `USER_UNBAN`: Capturado al modificar el estado `is_active` de usuarios en el panel administrativo.
+- [x] `USER_BLOCK` / `USER_UNBLOCK`: Capturado en `BlockUserView` y `UnblockUserView` en `users/views.py`.
+- [x] `MODERATION_RESOLVE` / `MODERATION_REJECT`: Capturado en `AdminReportDetailView.patch` registrando la sanción aplicada (`HIDE_CONTENT`, `BAN_USER`, etc.) y las notas del moderador.
+- [x] `CONTENT_DELETE`: Capturado en `AdminBookDetailView` y `AdminAuthorDetailView` antes del borrado del catálogo editorial.
 
-``` text
-actor
-action
-object_type
-object_id
-timestamp
-metadata
-```
+## API REST de Auditoría
+- [x] `GET /api/v1/admin/audit-logs/`: Listado paginado con filtros por `action`, `actor`, `target_type`, `date_from`, `date_to` y búsqueda textual.
+- [x] `GET /api/v1/admin/audit-logs/<id>/`: Detalle completo con `metadata` JSON y `user_agent`.
+- [x] `GET /api/v1/admin/audit-logs/stats/`: Agregaciones cuantitativas (total, últimas 24h, últimos 7 días, por acción, top actores).
+- [x] Permisos estrictos: reservado exclusivamente a Administradores y Superusuarios (`IsAdminOnly`).
 
-Registrar especialmente:
+## Frontend (AdminDashboard.tsx)
+- [x] Nueva pestaña `📜 Auditoría & Logs` accesible para Administradores.
+- [x] Tarjetas de resumen métrico con conteo total, actividad reciente y variedad de acciones.
+- [x] Filtros por tipo de acción, actor y búsqueda en descripción.
+- [x] Tabla interactiva con badges contextuales coloreados por severidad del evento.
+- [x] Modal de inspección profunda con previsualización formateada del payload JSON de metadatos, IP y User-Agent.
 
-``` text
-block
-unblock
-delete content
-moderation
-role change
-security-sensitive actions
-```
+## Pruebas y Validación
+- [x] Suite automatizada `test_phase30_audit.py` con 10/10 tests superados (100% éxito).
+- [x] Suite global de regresión superada (217/217 tests pasando).
+- [x] Linter backend `ruff check .` con 0 errores.
+- [x] Tipado y build frontend `pnpm run typecheck` y `pnpm run build` limpios sin errores.
 
 ------------------------------------------------------------------------
 

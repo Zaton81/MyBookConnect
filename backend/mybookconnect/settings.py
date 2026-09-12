@@ -31,9 +31,11 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django.contrib.postgres',
     'channels',
     'rest_framework',
     'rest_framework_simplejwt',
+    'rest_framework_simplejwt.token_blacklist',
     'corsheaders',
     'django_filters',
     'drf_spectacular',
@@ -114,6 +116,38 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+MEDIA_BASE_URL = os.getenv('MEDIA_BASE_URL', '').rstrip('/')
+
+# ─── Configuración de Almacenamiento Pluggable (Fase 28: Media y Uploads) ───
+# Permite cambiar entre almacenamiento en disco local (desarrollo) y S3/R2/MinIO (producción)
+MEDIA_STORAGE_BACKEND = os.getenv('MEDIA_STORAGE_BACKEND', 'local').lower().strip()
+
+if MEDIA_STORAGE_BACKEND in ('s3', 'r2', 'minio'):
+    AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID', '')
+    AWS_SECRET_ACCESS_KEY = os.getenv('AWS_SECRET_ACCESS_KEY', '')
+    AWS_STORAGE_BUCKET_NAME = os.getenv('AWS_STORAGE_BUCKET_NAME', 'mybookconnect-media')
+    AWS_S3_ENDPOINT_URL = os.getenv('AWS_S3_ENDPOINT_URL', None)
+    AWS_S3_REGION_NAME = os.getenv('AWS_S3_REGION_NAME', 'auto')
+    AWS_DEFAULT_ACL = None
+    AWS_QUERYSTRING_AUTH = False
+    AWS_S3_FILE_OVERWRITE = False
+    STORAGES = {
+        'default': {
+            'BACKEND': 'storages.backends.s3boto3.S3Boto3Storage',
+        },
+        'staticfiles': {
+            'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage',
+        },
+    }
+else:
+    STORAGES = {
+        'default': {
+            'BACKEND': 'django.core.files.storage.FileSystemStorage',
+        },
+        'staticfiles': {
+            'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage',
+        },
+    }
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
@@ -138,6 +172,8 @@ REST_FRAMEWORK = {
         'anon': '120/minute',
         'user': '1200/minute',
     },
+    'DEFAULT_PAGINATION_CLASS': 'books.pagination.StandardResultsSetPagination',
+    'PAGE_SIZE': 20,
 }
 
 SPECTACULAR_SETTINGS = {
@@ -148,21 +184,52 @@ SPECTACULAR_SETTINGS = {
 }
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=30),
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=15),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
-    'ROTATE_REFRESH_TOKENS': False,
+    'ROTATE_REFRESH_TOKENS': True,
+    'BLACKLIST_AFTER_ROTATION': True,
     'AUTH_HEADER_TYPES': ('Bearer',),
 }
 
-CORS_ALLOWED_ORIGINS = os.getenv('CORS_ALLOWED_ORIGINS', 'http://localhost:5173').split()
+# ─── Seguridad y Protección de Producción ───
+CORS_ALLOWED_ORIGINS = os.getenv(
+    'CORS_ALLOWED_ORIGINS',
+    'http://localhost:5173 http://localhost:8000 http://127.0.0.1:8000'
+).split()
 CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_ALL_ORIGINS = False
 
-# ─── Configuración de IA (Compatible con OpenAI: Ollama, Cloud, etc.) ───
+CSRF_TRUSTED_ORIGINS = os.getenv(
+    'CSRF_TRUSTED_ORIGINS',
+    'http://localhost:5173 http://localhost:8000 http://127.0.0.1:8000'
+).split()
+
+SECURE_CONTENT_TYPE_NOSNIFF = True
+X_FRAME_OPTIONS = 'DENY'
+
+if not DEBUG:
+    SECURE_SSL_REDIRECT = _env_bool('SECURE_SSL_REDIRECT', '0')
+    SESSION_COOKIE_SECURE = _env_bool('SESSION_COOKIE_SECURE', '1')
+    CSRF_COOKIE_SECURE = _env_bool('CSRF_COOKIE_SECURE', '1')
+    SECURE_HSTS_SECONDS = int(os.getenv('SECURE_HSTS_SECONDS', '31536000'))
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = _env_bool('SECURE_HSTS_INCLUDE_SUBDOMAINS', '1')
+    SECURE_HSTS_PRELOAD = _env_bool('SECURE_HSTS_PRELOAD', '1')
+else:
+    SECURE_SSL_REDIRECT = False
+    SESSION_COOKIE_SECURE = False
+    CSRF_COOKIE_SECURE = False
+    SECURE_HSTS_SECONDS = 0
+
+
+# ─── Configuración de IA (Fase 26: Abstracción Multi-Proveedor) ───
 AI_ENABLED = os.getenv('AI_ENABLED', 'true').lower() in ('true', '1', 'yes')
+AI_PROVIDER = os.getenv('AI_PROVIDER', 'ollama').lower().strip()
 AI_API_BASE_URL = os.getenv('AI_API_BASE_URL', 'http://localhost:11434/v1').rstrip('/')
 AI_API_KEY = os.getenv('AI_API_KEY', 'ollama')
-AI_MODEL_CHAT = os.getenv('AI_MODEL_CHAT', 'llama3.2')
-AI_MODEL_EMBEDDINGS = os.getenv('AI_MODEL_EMBEDDINGS', 'nomic-embed-text')
+AI_MODEL = os.getenv('AI_MODEL', os.getenv('AI_MODEL_CHAT', 'llama3.2'))
+AI_MODEL_CHAT = AI_MODEL
+AI_EMBEDDING_MODEL = os.getenv('AI_EMBEDDING_MODEL', os.getenv('AI_MODEL_EMBEDDINGS', 'nomic-embed-text'))
+AI_MODEL_EMBEDDINGS = AI_EMBEDDING_MODEL
 AI_TIMEOUT = int(os.getenv('AI_TIMEOUT', '15'))
 
 # ─── APIs Externas de Libros y Autores ───

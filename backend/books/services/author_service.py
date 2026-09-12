@@ -53,35 +53,43 @@ def maybe_enrich_author_from_wikipedia(author: Author) -> None:
     name = author.name.strip()
     try:
         for lang in ('es', 'en'):
+            data = None
             url = WIKIPEDIA_API_URL.format(lang=lang) + requests.utils.quote(name)
             r = requests.get(url, timeout=7, headers=DEFAULT_HEADERS)
-            if not r.ok:
-                # Probar con opensearch
-                sr = requests.get(
-                    WIKIPEDIA_OPENSEARCH_URL.format(lang=lang),
-                    params={'action': 'opensearch', 'search': name, 'limit': 3, 'format': 'json'},
-                    timeout=7,
-                    headers=DEFAULT_HEADERS,
-                )
-                if sr.ok:
-                    titles = sr.json()[1] if len(sr.json()) > 1 else []
-                    for t in titles:
-                        sub_url = WIKIPEDIA_API_URL.format(lang=lang) + requests.utils.quote(t)
-                        sub_r = requests.get(sub_url, timeout=7, headers=DEFAULT_HEADERS)
-                        if sub_r.ok:
-                            r = sub_r
-                            break
-
             if r.ok:
-                data = r.json()
-                desc = data.get('description', '').lower()
-                # Verificar que sea persona o escritor
-                if 'desambiguación' in desc or 'disambiguation' in desc:
-                    continue
+                candidate = r.json()
+                desc = candidate.get('description', '').lower()
+                if 'desambiguación' not in desc and 'disambiguation' not in desc:
+                    data = candidate
 
+            # Si falló o fue desambiguación, buscar por autor/escritor
+            if not data:
+                search_queries = [f"{name} escritor", f"{name} autor", name]
+                for query in search_queries:
+                    sr = requests.get(
+                        WIKIPEDIA_OPENSEARCH_URL.format(lang=lang),
+                        params={'action': 'opensearch', 'search': query, 'limit': 4, 'format': 'json'},
+                        timeout=7,
+                        headers=DEFAULT_HEADERS,
+                    )
+                    if sr.ok:
+                        titles = sr.json()[1] if len(sr.json()) > 1 else []
+                        for t in titles:
+                            sub_url = WIKIPEDIA_API_URL.format(lang=lang) + requests.utils.quote(t)
+                            sub_r = requests.get(sub_url, timeout=7, headers=DEFAULT_HEADERS)
+                            if sub_r.ok:
+                                sub_data = sub_r.json()
+                                sub_desc = sub_data.get('description', '').lower()
+                                if 'desambiguación' not in sub_desc and 'disambiguation' not in sub_desc:
+                                    data = sub_data
+                                    break
+                    if data:
+                        break
+
+            if data:
                 if not author.biography:
                     extract = data.get('extract')
-                    if extract:
+                    if extract and len(extract.strip()) > 20:
                         author.biography = extract[:4000]
 
                 if not author.photo:
@@ -187,16 +195,19 @@ def maybe_enrich_author_from_openlibrary(author: Author) -> None:
             return
 
         best = docs[0]
-        olid = best.get('key')
-        if olid and not author.biography:
-            detail_url = f'https://openlibrary.org/authors/{olid.split("/")[-1]}.json'
-            rd = requests.get(detail_url, timeout=6, headers=DEFAULT_HEADERS)
-            if rd.ok:
-                bio = rd.json().get('bio')
-                if isinstance(bio, dict):
-                    bio = bio.get('value')
-                if bio:
-                    author.biography = bio
+        for candidate in docs[:3]:
+            olid = candidate.get('key')
+            if olid and not author.biography:
+                clean_olid = olid.split("/")[-1]
+                detail_url = f'https://openlibrary.org/authors/{clean_olid}.json'
+                rd = requests.get(detail_url, timeout=6, headers=OPENLIBRARY_HEADERS)
+                if rd.ok:
+                    bio = rd.json().get('bio')
+                    if isinstance(bio, dict):
+                        bio = bio.get('value')
+                    if bio and len(str(bio).strip()) > 20:
+                        author.biography = str(bio)[:4000]
+                        break
 
         photos = best.get('photos') or []
         if photos and not author.photo:
