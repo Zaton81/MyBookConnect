@@ -59,8 +59,22 @@ def download_and_attach_image(instance, field_name: str, url: str, filename_hint
         if not clean_hint.endswith(('.jpg', '.jpeg', '.png', '.webp')):
             clean_hint += '.jpg'
 
-        getattr(instance, field_name).save(clean_hint, ContentFile(content), save=True)
-        logger.info(f"Imagen guardada exitosamente en {field_name}: {clean_hint}")
+        # Sanitizar y validar imagen eliminando metadatos EXIF e inspeccionando integridad
+        from mybookconnect.media_security import sanitize_image, validate_author_photo, validate_cover_image
+
+        raw_file = ContentFile(content, name=clean_hint)
+        try:
+            if field_name == 'photo':
+                validate_author_photo(raw_file)
+            else:
+                validate_cover_image(raw_file)
+            clean_file = sanitize_image(raw_file, filename=clean_hint)
+        except Exception as val_err:
+            logger.warning(f"La imagen descargada desde {url} no superó la validación o sanitización: {val_err}")
+            return False
+
+        getattr(instance, field_name).save(clean_hint, clean_file, save=True)
+        logger.info(f"Imagen sanitizada y guardada exitosamente en {field_name}: {clean_hint}")
         return True
     except Exception as e:
         logger.warning(f"Error descargando imagen desde {url}: {e}")

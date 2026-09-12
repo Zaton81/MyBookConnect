@@ -1437,41 +1437,27 @@ LLM → ejecución directa
 
 ------------------------------------------------------------------------
 
-# 31. Fase 28 --- Media y uploads
+# 31. Fase 28 --- Media y uploads [COMPLETADA]
 
 **Prioridad:** P1
 
-Validar:
+Validaciones implementadas:
 
 ``` text
-MIME
-extensión
-tamaño
-dimensiones
-contenido
-```
-
-Límites sugeridos:
-
-``` text
-avatar <= 5 MB
-cover <= 10 MB
-chat image <= 10 MB
+MIME: Inspección binaria profunda vía Pillow (JPEG, PNG, WebP)
+extensión: Whitelist estricta (.jpg, .jpeg, .png, .webp). SVG y executables rechazados explícitamente.
+tamaño: avatar/autor <= 5 MB, cover/chat <= 10 MB
+dimensiones: mínimo 50x50 px, máximo 6000x6000 px (protección decompression bombs)
+contenido: Verificación estructural e integridad mediante Image.verify() y Image.load()
+privacidad: Sanitización activa eliminando metadatos EXIF (coordenadas GPS, identificación de cámaras)
 ```
 
 ## Producción
 
-Considerar migración a:
-
-``` text
-S3
-Cloudflare R2
-MinIO
-Cloudinary
-```
-
-El filesystem local del contenedor no debe ser la única fuente de media
-en producción.
+Soporte de almacenamiento pluggable configurado en `settings.py` (`STORAGES`):
+- `FileSystemStorage` para desarrollo local.
+- Preparado y documentado para migración inmediata a S3, Cloudflare R2, MinIO o Cloudinary vía `MEDIA_STORAGE_BACKEND` y variables de entorno `AWS_*`.
+- Serializadores DRF (`UserSerializer`, `BookSerializer`, `AuthorSerializer`, `MessageSerializer`) y servicio de descarga externa (`cover_service.download_and_attach_image`) integrados con sanitización automática.
 
 ------------------------------------------------------------------------
 

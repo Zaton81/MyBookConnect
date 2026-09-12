@@ -2,6 +2,8 @@ from django.conf import settings
 from django.db import models
 from django.utils import timezone
 
+from mybookconnect.media_security import validate_chat_image
+
 User = settings.AUTH_USER_MODEL
 
 class Conversation(models.Model):
@@ -43,7 +45,13 @@ class Message(models.Model):
     conversation = models.ForeignKey(Conversation, related_name='messages', on_delete=models.CASCADE)
     sender = models.ForeignKey(User, related_name='sent_messages', on_delete=models.CASCADE)
     text = models.TextField(blank=True)
-    image = models.ImageField(upload_to='chat_images/', null=True, blank=True)
+    image = models.ImageField(
+        upload_to='chat_images/',
+        null=True,
+        blank=True,
+        validators=[validate_chat_image],
+        help_text="Imagen del chat (JPEG, PNG, WebP; máx 10MB; dimensiones 50x50 a 6000x6000px)",
+    )
     created_at = models.DateTimeField(default=timezone.now)
     read = models.BooleanField(default=False)
 

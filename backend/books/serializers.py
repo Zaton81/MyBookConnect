@@ -23,11 +23,45 @@ class AuthorBookSerializer(serializers.ModelSerializer):
         model = Book
         fields = ('id', 'title', 'cover', 'published_date')
 
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        request = self.context.get('request') if hasattr(self, 'context') else None
+        from .media_utils import build_media_url
+        if instance.cover:
+            ret['cover'] = build_media_url(instance.cover, request=request)
+        return ret
+
 
 class AuthorBasicSerializer(serializers.ModelSerializer):
     class Meta:
         model = Author
         fields = ('id', 'name', 'biography', 'photo')
+
+    def validate_photo(self, value):
+        """
+        Valida y sanitiza la fotografía del autor.
+        Asegura formato permitido, dimensiones, cuota <= 5MB y elimina metadatos EXIF.
+        """
+        if not value:
+            return value
+        from django.core.exceptions import ValidationError as DjangoValidationError
+
+        from mybookconnect.media_security import sanitize_image, validate_author_photo
+
+        try:
+            validate_author_photo(value)
+            return sanitize_image(value)
+        except DjangoValidationError as err:
+            msg = err.messages if hasattr(err, 'messages') else str(err)
+            raise serializers.ValidationError(msg) from err
+
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        request = self.context.get('request') if hasattr(self, 'context') else None
+        from .media_utils import build_media_url
+        if instance.photo:
+            ret['photo'] = build_media_url(instance.photo, request=request)
+        return ret
 
 
 class AuthorSerializer(serializers.ModelSerializer):
@@ -36,6 +70,32 @@ class AuthorSerializer(serializers.ModelSerializer):
     class Meta:
         model = Author
         fields = ('id', 'name', 'biography', 'photo', 'books')
+
+    def validate_photo(self, value):
+        """
+        Valida y sanitiza la fotografía del autor.
+        Asegura formato permitido, dimensiones, cuota <= 5MB y elimina metadatos EXIF.
+        """
+        if not value:
+            return value
+        from django.core.exceptions import ValidationError as DjangoValidationError
+
+        from mybookconnect.media_security import sanitize_image, validate_author_photo
+
+        try:
+            validate_author_photo(value)
+            return sanitize_image(value)
+        except DjangoValidationError as err:
+            msg = err.messages if hasattr(err, 'messages') else str(err)
+            raise serializers.ValidationError(msg) from err
+
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        request = self.context.get('request') if hasattr(self, 'context') else None
+        from .media_utils import build_media_url
+        if instance.photo:
+            ret['photo'] = build_media_url(instance.photo, request=request)
+        return ret
 
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -76,6 +136,24 @@ class BookSerializer(serializers.ModelSerializer):
         if hasattr(obj, 'annotated_reviews_count'):
             return obj.annotated_reviews_count
         return Review.objects.filter(book=obj).count()
+
+    def validate_cover(self, value):
+        """
+        Valida y sanitiza la portada del libro.
+        Asegura formato permitido, dimensiones, cuota <= 10MB y elimina metadatos EXIF.
+        """
+        if not value:
+            return value
+        from django.core.exceptions import ValidationError as DjangoValidationError
+
+        from mybookconnect.media_security import sanitize_image, validate_cover_image
+
+        try:
+            validate_cover_image(value)
+            return sanitize_image(value)
+        except DjangoValidationError as err:
+            msg = err.messages if hasattr(err, 'messages') else str(err)
+            raise serializers.ValidationError(msg) from err
 
     def to_representation(self, instance):
         ret = super().to_representation(instance)

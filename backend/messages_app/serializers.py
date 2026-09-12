@@ -11,6 +11,14 @@ class ChatUserSerializer(serializers.ModelSerializer):
         model = User
         fields = ['id', 'username', 'first_name', 'last_name', 'avatar']
 
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        request = self.context.get('request') if hasattr(self, 'context') else None
+        from books.media_utils import build_media_url
+        if instance.avatar:
+            ret['avatar'] = build_media_url(instance.avatar, request=request)
+        return ret
+
 
 class MessageSerializer(serializers.ModelSerializer):
     sender = serializers.PrimaryKeyRelatedField(read_only=True)
@@ -21,6 +29,32 @@ class MessageSerializer(serializers.ModelSerializer):
         model = Message
         fields = ['id', 'conversation', 'sender', 'sender_details', 'text', 'image', 'created_at', 'read']
         read_only_fields = ['id', 'sender', 'created_at', 'read']
+
+    def validate_image(self, value):
+        """
+        Valida y sanitiza la imagen adjunta en el mensaje de chat.
+        Asegura formato permitido, dimensiones, cuota <= 10MB y elimina metadatos EXIF.
+        """
+        if not value:
+            return value
+        from django.core.exceptions import ValidationError as DjangoValidationError
+
+        from mybookconnect.media_security import sanitize_image, validate_chat_image
+
+        try:
+            validate_chat_image(value)
+            return sanitize_image(value)
+        except DjangoValidationError as err:
+            msg = err.messages if hasattr(err, 'messages') else str(err)
+            raise serializers.ValidationError(msg) from err
+
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        request = self.context.get('request') if hasattr(self, 'context') else None
+        from books.media_utils import build_media_url
+        if instance.image:
+            ret['image'] = build_media_url(instance.image, request=request)
+        return ret
 
 
 class ConversationSerializer(serializers.ModelSerializer):

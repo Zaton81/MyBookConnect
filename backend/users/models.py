@@ -4,6 +4,8 @@ from django.contrib.auth.models import AbstractUser
 from django.core.validators import MinValueValidator
 from django.db import models
 
+from mybookconnect.media_security import validate_avatar_image
+
 
 class PrivacyChoices(models.TextChoices):
     PUBLIC = 'public', 'Público'
@@ -12,7 +14,13 @@ class PrivacyChoices(models.TextChoices):
 
 class User(AbstractUser):
     bio = models.TextField(max_length=500, blank=True)
-    avatar = models.ImageField(upload_to='avatars/', null=True, blank=True)
+    avatar = models.ImageField(
+        upload_to='avatars/',
+        null=True,
+        blank=True,
+        validators=[validate_avatar_image],
+        help_text="Imagen de avatar (JPEG, PNG, WebP; máx 5MB; dimensiones 50x50 a 6000x6000px)",
+    )
     email = models.EmailField(unique=True, blank=False, null=False)
     following = models.ManyToManyField('self', symmetrical=False, related_name='followers', blank=True)
     blocked_users = models.ManyToManyField('self', symmetrical=False, related_name='blocked_by', blank=True)

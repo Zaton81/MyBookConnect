@@ -10,6 +10,8 @@ from django.dispatch import receiver
 from django.utils import timezone
 from django.utils.text import slugify
 
+from mybookconnect.media_security import validate_author_photo, validate_cover_image
+
 
 def normalize_isbn(value: str | None) -> str | None:
     """Normaliza un ISBN eliminando guiones, espacios y convirtiendo a mayúsculas."""
@@ -22,7 +24,13 @@ def normalize_isbn(value: str | None) -> str | None:
 class Author(models.Model):
     name = models.CharField(max_length=200)
     biography = models.TextField(blank=True, null=True)
-    photo = models.ImageField(upload_to='author_photos/', null=True, blank=True)
+    photo = models.ImageField(
+        upload_to='author_photos/',
+        null=True,
+        blank=True,
+        validators=[validate_author_photo],
+        help_text="Fotografía del autor (JPEG, PNG, WebP; máx 5MB; dimensiones 50x50 a 6000x6000px)",
+    )
     enrichment_attempted = models.BooleanField(default=False)
 
     class Meta:
@@ -49,7 +57,13 @@ class Book(models.Model):
     google_volume_id = models.CharField(max_length=50, null=True, blank=True, db_index=True)
     openlibrary_work_id = models.CharField(max_length=50, null=True, blank=True, db_index=True)
     openlibrary_edition_id = models.CharField(max_length=50, null=True, blank=True, db_index=True)
-    cover = models.ImageField(upload_to='covers/', null=True, blank=True)
+    cover = models.ImageField(
+        upload_to='covers/',
+        null=True,
+        blank=True,
+        validators=[validate_cover_image],
+        help_text="Portada del libro (JPEG, PNG, WebP; máx 10MB; dimensiones 50x50 a 6000x6000px)",
+    )
     description = models.TextField(blank=True, null=True)
     published_date = models.DateField(blank=True, null=True)
     created_at = models.DateTimeField(default=timezone.now)
