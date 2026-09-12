@@ -136,6 +136,9 @@ class AdminUserDetailView(generics.RetrieveUpdateAPIView):
     def perform_update(self, serializer):
         instance = self.get_object()
         current_user = self.request.user
+        old_active = instance.is_active
+        old_staff = instance.is_staff
+        old_role = getattr(instance, 'role', None)
 
         # Protecciones de seguridad estrictas
         if 'is_active' in self.request.data:
@@ -151,7 +154,38 @@ class AdminUserDetailView(generics.RetrieveUpdateAPIView):
         if instance.is_superuser and not current_user.is_superuser:
             raise PermissionDenied("Solo un superadministrador puede modificar las credenciales de otro superadministrador.")
 
-        serializer.save()
+        updated_user = serializer.save()
+
+        # Registro de auditoría
+        from users.audit_service import log_audit
+        from users.models import AuditAction
+
+        if 'is_active' in self.request.data and old_active != updated_user.is_active:
+            action = AuditAction.USER_UNBAN if updated_user.is_active else AuditAction.USER_BAN
+            log_audit(
+                action=action,
+                actor=current_user,
+                target=updated_user,
+                request=self.request,
+                metadata={"is_active": updated_user.is_active},
+            )
+
+        if 'role' in self.request.data and old_role != getattr(updated_user, 'role', None):
+            log_audit(
+                action=AuditAction.ROLE_CHANGE,
+                actor=current_user,
+                target=updated_user,
+                request=self.request,
+                metadata={"old_role": old_role, "new_role": updated_user.role},
+            )
+        elif 'is_staff' in self.request.data and old_staff != updated_user.is_staff:
+            log_audit(
+                action=AuditAction.ROLE_CHANGE,
+                actor=current_user,
+                target=updated_user,
+                request=self.request,
+                metadata={"old_is_staff": old_staff, "new_is_staff": updated_user.is_staff},
+            )
 
 
 class AdminBookListView(generics.ListCreateAPIView):
@@ -175,6 +209,18 @@ class AdminBookDetailView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [IsAdminOrEditor]
     serializer_class = BookSerializer
     queryset = Book.objects.all()
+
+    def perform_destroy(self, instance):
+        from users.audit_service import log_audit
+        from users.models import AuditAction
+        log_audit(
+            action=AuditAction.CONTENT_DELETE,
+            actor=self.request.user,
+            target=instance,
+            request=self.request,
+            metadata={"deleted_type": "Book", "title": instance.title},
+        )
+        super().perform_destroy(instance)
 
 
 class AdminBookEnrichView(APIView):
@@ -212,6 +258,18 @@ class AdminAuthorDetailView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [IsAdminOrEditor]
     serializer_class = AuthorSerializer
     queryset = Author.objects.all()
+
+    def perform_destroy(self, instance):
+        from users.audit_service import log_audit
+        from users.models import AuditAction
+        log_audit(
+            action=AuditAction.CONTENT_DELETE,
+            actor=self.request.user,
+            target=instance,
+            request=self.request,
+            metadata={"deleted_type": "Author", "name": instance.name},
+        )
+        super().perform_destroy(instance)
 
 
 class AdminAuthorEnrichView(APIView):

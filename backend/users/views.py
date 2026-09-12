@@ -138,6 +138,9 @@ class BlockUserView(APIView):
     permission_classes = (permissions.IsAuthenticated,)
 
     def post(self, request, user_id):
+        from .audit_service import log_audit
+        from .models import AuditAction
+
         user_to_block = get_object_or_404(User, id=user_id)
         if request.user == user_to_block:
             return Response({"detail": "No puedes bloquearte a ti mismo."}, status=status.HTTP_400_BAD_REQUEST)
@@ -146,6 +149,14 @@ class BlockUserView(APIView):
         # Ruptura bidireccional inmediata del seguimiento
         request.user.following.remove(user_to_block)
         user_to_block.following.remove(request.user)
+
+        log_audit(
+            action=AuditAction.USER_BLOCK,
+            actor=request.user,
+            target=user_to_block,
+            request=request,
+            metadata={"target_username": user_to_block.username},
+        )
         return Response({"detail": f"Has bloqueado a {user_to_block.username}"}, status=status.HTTP_200_OK)
 
 
@@ -153,8 +164,19 @@ class UnblockUserView(APIView):
     permission_classes = (permissions.IsAuthenticated,)
 
     def post(self, request, user_id):
+        from .audit_service import log_audit
+        from .models import AuditAction
+
         user_to_unblock = get_object_or_404(User, id=user_id)
         request.user.blocked_users.remove(user_to_unblock)
+
+        log_audit(
+            action=AuditAction.USER_UNBLOCK,
+            actor=request.user,
+            target=user_to_unblock,
+            request=request,
+            metadata={"target_username": user_to_unblock.username},
+        )
         return Response({"detail": f"Has desbloqueado a {user_to_unblock.username}"}, status=status.HTTP_200_OK)
 
 

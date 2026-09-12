@@ -1,5 +1,10 @@
 from django.urls import path
 
+from users.audit_views import (
+    AdminAuditLogDetailView,
+    AdminAuditLogListView,
+    AdminAuditLogStatsView,
+)
 from users.moderation_views import (
     AdminModerationStatsView,
     AdminReportDetailView,
@@ -52,4 +57,10 @@ urlpatterns = [
     path('reports/', AdminReportListView.as_view(), name='admin-reports-list'),
     path('reports/stats/', AdminModerationStatsView.as_view(), name='admin-reports-stats'),
     path('reports/<int:pk>/', AdminReportDetailView.as_view(), name='admin-reports-detail'),
+
+    # Registro de Auditoría (Fase 30)
+    path('audit-logs/', AdminAuditLogListView.as_view(), name='admin-audit-logs-list'),
+    path('audit-logs/stats/', AdminAuditLogStatsView.as_view(), name='admin-audit-logs-stats'),
+    path('audit-logs/<int:pk>/', AdminAuditLogDetailView.as_view(), name='admin-audit-logs-detail'),
 ]
+

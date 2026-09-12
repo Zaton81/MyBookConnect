@@ -48,6 +48,21 @@ export interface Report {
   resolved_at?: string | null;
 }
 
+export interface AuditLog {
+  id: number;
+  actor: number | null;
+  actor_username: string;
+  action: string;
+  action_display: string;
+  target_type: string;
+  object_id: number | null;
+  target_repr: string;
+  ip_address: string | null;
+  user_agent?: string;
+  metadata?: Record<string, any>;
+  created_at: string;
+}
+
 export interface AuthState {
   user: User | null;
   token: string | null;

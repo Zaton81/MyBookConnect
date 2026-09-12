@@ -154,6 +154,27 @@ class AdminReportDetailView(generics.RetrieveUpdateAPIView):
                     user_to_ban.save(update_fields=['is_active'])
 
         instance.save()
+
+        # Registro de auditoría
+        from users.audit_service import log_audit
+        from users.models import AuditAction
+
+        audit_action = AuditAction.MODERATION_RESOLVE if new_status == ReportStatus.RESOLVED else AuditAction.MODERATION_REJECT
+        log_audit(
+            action=audit_action,
+            actor=request.user,
+            target=instance,
+            request=request,
+            metadata={
+                "report_id": instance.id,
+                "status": new_status,
+                "action_taken": action_taken,
+                "target_type": instance.content_type.model if instance.content_type else None,
+                "target_id": instance.object_id,
+                "resolution_notes": resolution_notes,
+            },
+        )
+
         return Response(ReportDetailSerializer(instance).data, status=status.HTTP_200_OK)
 
 

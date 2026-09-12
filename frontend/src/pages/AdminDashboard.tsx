@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/auth';
 import { Spinner } from 'flowbite-react';
 import DOMPurify from 'dompurify';
+import { AuditLog } from '../types/auth';
 
 export function AdminDashboard() {
   const navigate = useNavigate();
@@ -17,11 +18,20 @@ export function AdminDashboard() {
     }
   }, [user, token, isAuthorized, navigate]);
 
-  const [activeTab, setActiveTab] = useState<'stats' | 'users' | 'catalog' | 'erratas' | 'reports' | 'legal'>('stats');
+  const [activeTab, setActiveTab] = useState<'stats' | 'users' | 'catalog' | 'erratas' | 'reports' | 'audit' | 'legal'>('stats');
 
   // Estado de Métricas
   const [stats, setStats] = useState<any | null>(null);
   const [loadingStats, setLoadingStats] = useState(false);
+
+  // Estado de Auditoría & Logs (Fase 30)
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+  const [loadingAudit, setLoadingAudit] = useState(false);
+  const [auditStats, setAuditStats] = useState<any | null>(null);
+  const [auditActionFilter, setAuditActionFilter] = useState<string>('all');
+  const [auditActorFilter, setAuditActorFilter] = useState<string>('');
+  const [auditSearch, setAuditSearch] = useState<string>('');
+  const [selectedAuditLog, setSelectedAuditLog] = useState<AuditLog | null>(null);
 
   // Estado de Usuarios
   const [users, setUsers] = useState<any[]>([]);
@@ -227,6 +237,45 @@ export function AdminDashboard() {
       alert(e.message || 'Error de conexión');
     } finally {
       setResolvingReport(false);
+    }
+  };
+
+  // 7. Cargar Registros de Auditoría (Fase 30)
+  const fetchAuditLogs = async () => {
+    if (!token) return;
+    setLoadingAudit(true);
+    try {
+      const params = new URLSearchParams();
+      if (auditActionFilter !== 'all') params.append('action', auditActionFilter);
+      if (auditActorFilter.trim()) params.append('actor', auditActorFilter.trim());
+      if (auditSearch.trim()) params.append('search', auditSearch.trim());
+
+      const res = await fetch(`${apiUrl}/api/v1/admin/audit-logs/?${params.toString()}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setAuditLogs(Array.isArray(data) ? data : data.results || []);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoadingAudit(false);
+    }
+  };
+
+  const fetchAuditStats = async () => {
+    if (!token) return;
+    try {
+      const res = await fetch(`${apiUrl}/api/v1/admin/audit-logs/stats/`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setAuditStats(data);
+      }
+    } catch (e) {
+      console.error(e);
     }
   };
 
@@ -441,6 +490,10 @@ export function AdminDashboard() {
       fetchReports();
       fetchReportStats();
     }
+    if (activeTab === 'audit') {
+      fetchAuditLogs();
+      fetchAuditStats();
+    }
     if (activeTab === 'legal') fetchLegalDocument(legalSlug);
   }, [activeTab]);
 
@@ -477,7 +530,7 @@ export function AdminDashboard() {
             Administración del Sistema
           </h1>
           <p className="text-xs sm:text-sm text-slate-300 mt-1 max-w-xl">
-            Gestión integral de usuarios, moderación de catálogo editorial, cola de denuncias y control legal de la plataforma.
+            Gestión integral de usuarios, moderación de catálogo editorial, cola de denuncias, auditoría de seguridad y control legal.
           </p>
         </div>
 
@@ -510,6 +563,9 @@ export function AdminDashboard() {
           { id: 'catalog', label: '📚 Catálogo & Autores' },
           { id: 'erratas', label: '✍️ Erratas Editoriales' },
           { id: 'reports', label: '🛡️ Moderación & Denuncias' },
+          ...(user?.is_superuser || user?.role === 'ADMIN' || user?.is_staff
+            ? [{ id: 'audit', label: '📜 Auditoría & Logs' }]
+            : []),
           { id: 'legal', label: '⚖️ CMS Legal' },
         ].map((tab) => (
           <button
@@ -1325,7 +1381,272 @@ export function AdminDashboard() {
         </div>
       )}
 
-      {/* ── 6. PESTAÑA: CMS LEGAL ── */}
+      {/* ── 6. PESTAÑA: REGISTRO DE AUDITORÍA & LOGS (FASE 30) ── */}
+      {activeTab === 'audit' && (
+        <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-200/80 dark:border-slate-700 p-6 sm:p-8 shadow-sm space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-purple-50 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300 border border-purple-200 dark:border-purple-800 mb-1">
+                <span>📜 Trazabilidad & Cumplimiento Normativo</span>
+              </div>
+              <h2 className="text-lg font-bold text-slate-900 dark:text-white">Bitácora Inmutable de Auditoría</h2>
+              <p className="text-xs text-slate-500">
+                Historial cronológico de eventos sensibles: cambios de privilegios, bloqueos, moderación y borrado de contenido.
+              </p>
+            </div>
+          </div>
+
+          {/* Tarjetas de Métricas de Auditoría */}
+          {auditStats && (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="p-3.5 rounded-2xl bg-purple-50 dark:bg-purple-950/30 border border-purple-200/80 dark:border-purple-800">
+                <div className="text-[11px] font-bold text-purple-700 dark:text-purple-400">Total Eventos</div>
+                <div className="text-xl font-black text-purple-900 dark:text-purple-200">{auditStats.total || 0}</div>
+              </div>
+              <div className="p-3.5 rounded-2xl bg-teal-50 dark:bg-teal-950/30 border border-teal-200/80 dark:border-teal-800">
+                <div className="text-[11px] font-bold text-teal-700 dark:text-teal-400">Últimas 24 Horas</div>
+                <div className="text-xl font-black text-teal-900 dark:text-teal-200">{auditStats.last_24h || 0}</div>
+              </div>
+              <div className="p-3.5 rounded-2xl bg-blue-50 dark:bg-blue-950/30 border border-blue-200/80 dark:border-blue-800">
+                <div className="text-[11px] font-bold text-blue-700 dark:text-blue-400">Últimos 7 Días</div>
+                <div className="text-xl font-black text-blue-900 dark:text-blue-200">{auditStats.last_7d || 0}</div>
+              </div>
+              <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-700">
+                <div className="text-[11px] font-bold text-slate-600 dark:text-slate-300">Tipos de Acciones</div>
+                <div className="text-xl font-black text-slate-900 dark:text-white">
+                  {auditStats.by_action ? Object.keys(auditStats.by_action).length : 0}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Filtros y Buscador de Auditoría */}
+          <div className="flex flex-wrap gap-3 items-center">
+            <select
+              value={auditActionFilter}
+              onChange={(e) => setAuditActionFilter(e.target.value)}
+              className="text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700 py-2 px-3"
+            >
+              <option value="all">Acción: Todas</option>
+              <option value="ROLE_CHANGE">Cambios de Rol (ROLE_CHANGE)</option>
+              <option value="USER_BAN">Bloqueos de Cuenta (USER_BAN)</option>
+              <option value="USER_UNBAN">Desbloqueos de Cuenta (USER_UNBAN)</option>
+              <option value="USER_BLOCK">Bloqueos Sociales (USER_BLOCK)</option>
+              <option value="USER_UNBLOCK">Desbloqueos Sociales (USER_UNBLOCK)</option>
+              <option value="MODERATION_RESOLVE">Resolución de Denuncia (MODERATION_RESOLVE)</option>
+              <option value="MODERATION_REJECT">Rechazo de Denuncia (MODERATION_REJECT)</option>
+              <option value="CONTENT_DELETE">Eliminación de Contenido (CONTENT_DELETE)</option>
+              <option value="SECURITY_PASSWORD_CHANGE">Seguridad de Acceso</option>
+            </select>
+
+            <input
+              type="text"
+              placeholder="Filtrar por actor..."
+              value={auditActorFilter}
+              onChange={(e) => setAuditActorFilter(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && fetchAuditLogs()}
+              className="text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700 p-2.5 w-44"
+            >
+            </input>
+
+            <input
+              type="text"
+              placeholder="Buscar en descripción..."
+              value={auditSearch}
+              onChange={(e) => setAuditSearch(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && fetchAuditLogs()}
+              className="text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700 p-2.5 w-56"
+            />
+
+            <button
+              onClick={fetchAuditLogs}
+              className="bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold px-4 py-2 rounded-xl transition-all shadow-sm"
+            >
+              Filtrar Bitácora
+            </button>
+          </div>
+
+          {/* Tabla de Registros de Auditoría */}
+          {loadingAudit ? (
+            <div className="flex justify-center p-8">
+              <Spinner size="lg" color="purple" />
+            </div>
+          ) : auditLogs.length === 0 ? (
+            <div className="text-center py-12 border border-dashed border-slate-200 dark:border-slate-700 rounded-2xl">
+              <div className="text-4xl mb-2">📜</div>
+              <p className="text-sm font-bold text-slate-700 dark:text-slate-300">No hay eventos registrados</p>
+              <p className="text-xs text-slate-500 mt-1">No se encontraron eventos bajo los criterios de búsqueda especificados.</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="border-b border-slate-200 dark:border-slate-700 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
+                    <th className="py-3 px-3">Fecha y Hora</th>
+                    <th className="py-3 px-3">Actor</th>
+                    <th className="py-3 px-3">Acción Registrada</th>
+                    <th className="py-3 px-3">Elemento Afectado</th>
+                    <th className="py-3 px-3">IP Origen</th>
+                    <th className="py-3 px-3 text-right">Detalle</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-700/60">
+                  {auditLogs.map((log) => {
+                    const actionBadgeClass =
+                      log.action === 'ROLE_CHANGE'
+                        ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300'
+                        : log.action === 'USER_BAN'
+                        ? 'bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-300'
+                        : log.action === 'USER_UNBAN'
+                        ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300'
+                        : log.action === 'USER_BLOCK'
+                        ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300'
+                        : log.action === 'USER_UNBLOCK'
+                        ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300'
+                        : log.action === 'MODERATION_RESOLVE'
+                        ? 'bg-teal-100 text-teal-800 dark:bg-teal-900/40 dark:text-teal-300'
+                        : log.action === 'MODERATION_REJECT'
+                        ? 'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300'
+                        : log.action === 'CONTENT_DELETE'
+                        ? 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300'
+                        : 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300';
+
+                    return (
+                      <tr key={log.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-700/30">
+                        <td className="py-3 px-3 font-mono text-[11px] text-slate-900 dark:text-white">
+                          <div>{new Date(log.created_at).toLocaleDateString()}</div>
+                          <div className="text-[10px] text-slate-400 font-sans">
+                            {new Date(log.created_at).toLocaleTimeString()}
+                          </div>
+                        </td>
+                        <td className="py-3 px-3 font-bold text-slate-700 dark:text-slate-200">
+                          {log.actor_username ? `@${log.actor_username}` : 'Sistema'}
+                        </td>
+                        <td className="py-3 px-3">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${actionBadgeClass}`}>
+                            {log.action_display || log.action}
+                          </span>
+                        </td>
+                        <td className="py-3 px-3">
+                          <div className="flex items-center gap-1.5 mb-0.5">
+                            <span className="px-1.5 py-0.2 text-[9px] font-bold uppercase rounded bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-mono">
+                              {log.target_type}
+                            </span>
+                            {log.object_id && (
+                              <span className="text-[10px] text-slate-400 font-mono">id: {log.object_id}</span>
+                            )}
+                          </div>
+                          <div className="text-[11px] text-slate-700 dark:text-slate-300 truncate max-w-sm" title={log.target_repr}>
+                            {log.target_repr || '—'}
+                          </div>
+                        </td>
+                        <td className="py-3 px-3 font-mono text-[11px] text-slate-500">
+                          {log.ip_address || '—'}
+                        </td>
+                        <td className="py-3 px-3 text-right">
+                          <button
+                            onClick={() => setSelectedAuditLog(log)}
+                            className="bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 text-xs font-bold px-3 py-1.5 rounded-xl transition-all"
+                          >
+                            Inspeccionar
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* Modal de Inspección de Registro de Auditoría */}
+          {selectedAuditLog && (
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+              <div className="bg-white dark:bg-slate-800 rounded-3xl max-w-xl w-full p-6 space-y-4 border border-slate-200 dark:border-slate-700 shadow-2xl">
+                <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-700 pb-3">
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-purple-600 dark:text-purple-400">
+                      Evento de Auditoría #{selectedAuditLog.id}
+                    </span>
+                    <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                      {selectedAuditLog.action_display || selectedAuditLog.action}
+                    </h3>
+                  </div>
+                  <button
+                    onClick={() => setSelectedAuditLog(null)}
+                    className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-500 hover:bg-slate-200 font-bold"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                <div className="space-y-3 text-xs">
+                  <div className="grid grid-cols-2 gap-3 bg-slate-50 dark:bg-slate-700/50 p-3.5 rounded-2xl">
+                    <div>
+                      <span className="text-slate-400 text-[10px] font-bold uppercase">Actor</span>
+                      <div className="font-bold text-slate-800 dark:text-slate-200">
+                        {selectedAuditLog.actor_username ? `@${selectedAuditLog.actor_username}` : 'Sistema'}
+                      </div>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 text-[10px] font-bold uppercase">Fecha y Hora</span>
+                      <div className="font-mono text-slate-800 dark:text-slate-200">
+                        {new Date(selectedAuditLog.created_at).toLocaleString()}
+                      </div>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 text-[10px] font-bold uppercase">Dirección IP</span>
+                      <div className="font-mono text-slate-800 dark:text-slate-200">
+                        {selectedAuditLog.ip_address || 'No registrada'}
+                      </div>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 text-[10px] font-bold uppercase">Tipo de Objeto</span>
+                      <div className="font-bold text-slate-800 dark:text-slate-200">
+                        {selectedAuditLog.target_type} {selectedAuditLog.object_id ? `(ID: ${selectedAuditLog.object_id})` : ''}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <span className="text-slate-400 text-[10px] font-bold uppercase block mb-1">Elemento Afectado</span>
+                    <div className="p-2.5 bg-slate-50 dark:bg-slate-700/40 rounded-xl font-medium text-slate-800 dark:text-slate-200">
+                      {selectedAuditLog.target_repr || '—'}
+                    </div>
+                  </div>
+
+                  {selectedAuditLog.user_agent && (
+                    <div>
+                      <span className="text-slate-400 text-[10px] font-bold uppercase block mb-1">User Agent</span>
+                      <div className="p-2.5 bg-slate-50 dark:bg-slate-700/40 rounded-xl font-mono text-[10px] text-slate-600 dark:text-slate-400 truncate">
+                        {selectedAuditLog.user_agent}
+                      </div>
+                    </div>
+                  )}
+
+                  <div>
+                    <span className="text-slate-400 text-[10px] font-bold uppercase block mb-1">Metadatos Estructurados (Payload JSON)</span>
+                    <pre className="p-3 bg-slate-900 text-teal-300 rounded-xl font-mono text-[11px] overflow-x-auto max-h-48 leading-relaxed">
+                      {JSON.stringify(selectedAuditLog.metadata || {}, null, 2)}
+                    </pre>
+                  </div>
+                </div>
+
+                <div className="flex justify-end pt-2 border-t border-slate-100 dark:border-slate-700">
+                  <button
+                    onClick={() => setSelectedAuditLog(null)}
+                    className="bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold px-5 py-2.5 rounded-xl transition-all"
+                  >
+                    Cerrar Detalle
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── 7. PESTAÑA: CMS LEGAL ── */}
       {activeTab === 'legal' && (
         <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-200/80 dark:border-slate-700 p-6 sm:p-8 shadow-sm space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">

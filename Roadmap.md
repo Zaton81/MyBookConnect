@@ -1524,37 +1524,52 @@ Soporte de almacenamiento pluggable configurado en `settings.py` (`STORAGES`):
 
 ------------------------------------------------------------------------
 
-# 33. Fase 30 --- Auditoría
+# 33. Fase 30 --- Auditoría [COMPLETADA]
 
-**Prioridad:** P2
+**Prioridad:** P2 - COMPLETADA
 
-Crear:
+## Modelo y Persistencia de Auditoría (AuditLog)
+- [x] Modelo inmutable `AuditLog` en `users.models` con relación polimórfica `GenericForeignKey('content_type', 'object_id')` y campos:
+  - `actor`: Usuario ejecutor o `None` (procesos de sistema).
+  - `action`: Tipo de acción estandarizada mediante `AuditAction` (`ROLE_CHANGE`, `USER_BAN`, `USER_UNBAN`, `USER_BLOCK`, `USER_UNBLOCK`, `MODERATION_RESOLVE`, `MODERATION_REJECT`, `CONTENT_DELETE`, `SECURITY_PASSWORD_CHANGE`, `OTHER`).
+  - `target_repr`: Representación textual inmutable congelada resistente a borrados posteriores.
+  - `ip_address`: Dirección IP de origen del cliente HTTP.
+  - `user_agent`: Cabecera User-Agent del navegador/cliente.
+  - `metadata`: Carga JSON estructurada con detalles contextuales (estado previo y posterior).
+  - `created_at`: Marca temporal inmutable indexada.
+- [x] Índices compuestos de base de datos: `('action', '-created_at')`, `('content_type', 'object_id')`, `('actor', '-created_at')`.
+- [x] Migración `users.0014_auditlog` aplicada satisfactoriamente.
 
-``` text
-AuditLog
-```
+## Servicio Centralizado de Auditoría (`audit_service.py`)
+- [x] Módulo desacoplado `users/audit_service.py` con función `log_audit(...)`.
+- [x] Extracción automática de IP (respetando proxies inversos `X-Forwarded-For`), User-Agent y usuario autenticado a partir de `request`.
+- [x] Tolerancia a fallos: errores en el log se capturan defensivamente para no abortar transacciones de negocio.
 
-Campos:
+## Instrumentación de Eventos Sensibles
+- [x] `ROLE_CHANGE`: Capturado en `AdminUserDetailView.perform_update` al modificar roles (`USER`, `EDITOR`, `MODERATOR`, `ADMIN`) o privilegios staff.
+- [x] `USER_BAN` / `USER_UNBAN`: Capturado al modificar el estado `is_active` de usuarios en el panel administrativo.
+- [x] `USER_BLOCK` / `USER_UNBLOCK`: Capturado en `BlockUserView` y `UnblockUserView` en `users/views.py`.
+- [x] `MODERATION_RESOLVE` / `MODERATION_REJECT`: Capturado en `AdminReportDetailView.patch` registrando la sanción aplicada (`HIDE_CONTENT`, `BAN_USER`, etc.) y las notas del moderador.
+- [x] `CONTENT_DELETE`: Capturado en `AdminBookDetailView` y `AdminAuthorDetailView` antes del borrado del catálogo editorial.
 
-``` text
-actor
-action
-object_type
-object_id
-timestamp
-metadata
-```
+## API REST de Auditoría
+- [x] `GET /api/v1/admin/audit-logs/`: Listado paginado con filtros por `action`, `actor`, `target_type`, `date_from`, `date_to` y búsqueda textual.
+- [x] `GET /api/v1/admin/audit-logs/<id>/`: Detalle completo con `metadata` JSON y `user_agent`.
+- [x] `GET /api/v1/admin/audit-logs/stats/`: Agregaciones cuantitativas (total, últimas 24h, últimos 7 días, por acción, top actores).
+- [x] Permisos estrictos: reservado exclusivamente a Administradores y Superusuarios (`IsAdminOnly`).
 
-Registrar especialmente:
+## Frontend (AdminDashboard.tsx)
+- [x] Nueva pestaña `📜 Auditoría & Logs` accesible para Administradores.
+- [x] Tarjetas de resumen métrico con conteo total, actividad reciente y variedad de acciones.
+- [x] Filtros por tipo de acción, actor y búsqueda en descripción.
+- [x] Tabla interactiva con badges contextuales coloreados por severidad del evento.
+- [x] Modal de inspección profunda con previsualización formateada del payload JSON de metadatos, IP y User-Agent.
 
-``` text
-block
-unblock
-delete content
-moderation
-role change
-security-sensitive actions
-```
+## Pruebas y Validación
+- [x] Suite automatizada `test_phase30_audit.py` con 10/10 tests superados (100% éxito).
+- [x] Suite global de regresión superada (217/217 tests pasando).
+- [x] Linter backend `ruff check .` con 0 errores.
+- [x] Tipado y build frontend `pnpm run typecheck` y `pnpm run build` limpios sin errores.
 
 ------------------------------------------------------------------------
 

@@ -235,3 +235,86 @@ class Report(models.Model):
 
     def __str__(self):
         return f"Reporte #{self.id} ({self.get_status_display()}) por @{self.reporter.username}"
+
+
+class AuditAction(models.TextChoices):
+    ROLE_CHANGE = 'ROLE_CHANGE', 'Cambio de Rol'
+    USER_BAN = 'USER_BAN', 'Bloqueo de Usuario'
+    USER_UNBAN = 'USER_UNBAN', 'Desbloqueo de Usuario'
+    USER_BLOCK = 'USER_BLOCK', 'Bloqueo Social entre Usuarios'
+    USER_UNBLOCK = 'USER_UNBLOCK', 'Desbloqueo Social entre Usuarios'
+    MODERATION_RESOLVE = 'MODERATION_RESOLVE', 'Resolución de Denuncia'
+    MODERATION_REJECT = 'MODERATION_REJECT', 'Rechazo de Denuncia'
+    CONTENT_DELETE = 'CONTENT_DELETE', 'Eliminación de Contenido'
+    SECURITY_PASSWORD_CHANGE = 'SECURITY_PASSWORD_CHANGE', 'Cambio de Contraseña'
+    OTHER = 'OTHER', 'Otra Acción'
+
+
+class AuditLog(models.Model):
+    """
+    Registro inmutable de auditoría para trazabilidad de eventos sensibles (Fase 30).
+    """
+    actor = models.ForeignKey(
+        User,
+        null=True,
+        blank=True,
+        related_name='audit_actions',
+        on_delete=models.SET_NULL,
+        help_text="Usuario que ejecutó la acción (o None para procesos del sistema)",
+    )
+    action = models.CharField(
+        max_length=64,
+        choices=AuditAction.choices,
+        db_index=True,
+        help_text="Identificador de la acción realizada",
+    )
+    content_type = models.ForeignKey(
+        ContentType,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+    )
+    object_id = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        db_index=True,
+    )
+    content_object = GenericForeignKey('content_type', 'object_id')
+    target_repr = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text="Representación textual congelada del objeto afectado",
+    )
+    ip_address = models.GenericIPAddressField(
+        null=True,
+        blank=True,
+        help_text="Dirección IP de origen",
+    )
+    user_agent = models.CharField(
+        max_length=512,
+        blank=True,
+        help_text="User-Agent del cliente",
+    )
+    metadata = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Información contextual estructurada adicional",
+    )
+    created_at = models.DateTimeField(
+        default=timezone.now,
+        db_index=True,
+        help_text="Marca temporal inmutable de la acción",
+    )
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['action', '-created_at'], name='idx_audit_action_created'),
+            models.Index(fields=['content_type', 'object_id'], name='idx_audit_content_obj'),
+            models.Index(fields=['actor', '-created_at'], name='idx_audit_actor_created'),
+        ]
+
+    def __str__(self):
+        actor_name = self.actor.username if self.actor else "Sistema"
+        return f"[{self.created_at:%Y-%m-%d %H:%M:%S}] {actor_name} -> {self.action} ({self.target_repr})"
+
