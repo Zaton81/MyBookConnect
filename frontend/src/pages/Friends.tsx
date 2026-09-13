@@ -19,7 +19,7 @@ export function Friends() {
     if (!token) return;
     try {
       setStartingChatId(targetUserId);
-      const res = await fetch(`${apiUrl}/api/v1/chat/conversations/start/`, {
+      const res = await fetch(`${apiUrl}/api/v1/conversations/start/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -30,6 +30,8 @@ urlpatterns = [
         ])),
         path('books/', include('books.urls')),
         path('users/', include('users.urls')),
+        path('reviews/', include('books.review_urls')),
+        path('', include('messages_app.urls')),
         path('chat/', include('messages_app.urls')),
         path('admin/', include('books.admin_urls')),
         path('reports/', include([

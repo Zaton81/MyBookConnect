@@ -72,7 +72,7 @@ export function BookReviewsSection({
   const fetchReviews = async () => {
     try {
       setLoading(true);
-      const res = await fetch(`${apiUrl}/api/v1/books/reviews/?book=${bookId}`, {
+      const res = await fetch(`${apiUrl}/api/v1/reviews/?book=${bookId}`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       if (res.ok) {
@@ -118,7 +118,7 @@ export function BookReviewsSection({
 
     setLikePending((prev) => ({ ...prev, [reviewId]: true }));
     try {
-      const res = await fetch(`${apiUrl}/api/v1/books/reviews/${reviewId}/like/`, {
+      const res = await fetch(`${apiUrl}/api/v1/reviews/${reviewId}/like/`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -145,7 +145,7 @@ export function BookReviewsSection({
   const loadComments = async (reviewId: number) => {
     setLoadingComments((prev) => ({ ...prev, [reviewId]: true }));
     try {
-      const res = await fetch(`${apiUrl}/api/v1/books/reviews/${reviewId}/comments/`, {
+      const res = await fetch(`${apiUrl}/api/v1/reviews/${reviewId}/comments/`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       if (res.ok) {
@@ -174,7 +174,7 @@ export function BookReviewsSection({
 
     setSubmittingComment((prev) => ({ ...prev, [reviewId]: true }));
     try {
-      const res = await fetch(`${apiUrl}/api/v1/books/reviews/${reviewId}/comments/`, {
+      const res = await fetch(`${apiUrl}/api/v1/reviews/${reviewId}/comments/`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -206,7 +206,7 @@ export function BookReviewsSection({
     if (!token || !window.confirm('¿Deseas eliminar tu comentario?')) return;
 
     try {
-      const res = await fetch(`${apiUrl}/api/v1/books/reviews/${reviewId}/comments/${commentId}/`, {
+      const res = await fetch(`${apiUrl}/api/v1/reviews/${reviewId}/comments/${commentId}/`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -237,7 +237,7 @@ export function BookReviewsSection({
     setErrorMessage(null);
 
     try {
-      const res = await fetch(`${apiUrl}/api/v1/books/reviews/`, {
+      const res = await fetch(`${apiUrl}/api/v1/reviews/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

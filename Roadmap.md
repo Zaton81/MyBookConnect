@@ -1619,31 +1619,51 @@ Soporte de almacenamiento pluggable configurado en `settings.py` (`STORAGES`):
 
 ------------------------------------------------------------------------
 
-# 35. Fase 32 --- API REST coherente
+# 35. Fase 32 --- API REST coherente [COMPLETADA]
 
-**Prioridad:** P1
+**Prioridad:** P1 - COMPLETADA
 
-Convención:
+## Convención Canónica de Endpoints (`/api/v1/`)
+- [x] **Books**:
+  - `GET /api/v1/books/`: listado y búsqueda en catálogo editorial.
+  - `POST /api/v1/books/`: creación de libros.
+  - `GET /api/v1/books/{id}/`: detalle del libro.
+  - `GET /api/v1/books/{id}/recommendations/`: recomendaciones contextuadas al libro.
+  - `POST /api/v1/books/import/`: importación desde fuentes externas (Google Books / OpenLibrary).
+- [x] **Users**:
+  - `GET /api/v1/users/`: listado y búsqueda pública de lectores.
+  - `GET /api/v1/users/{id}/`: perfil social del usuario.
+  - `POST /api/v1/users/{id}/follow/`: seguir usuario.
+  - `POST /api/v1/users/{id}/unfollow/`: dejar de seguir usuario.
+  - `POST /api/v1/users/{id}/block/` y `unblock/`: bloqueo y desbloqueo bidireccional.
+- [x] **Reviews**:
+  - Módulo desacoplado `books/review_urls.py` montado directamente en `/api/v1/reviews/`.
+  - `GET /api/v1/reviews/?book={id}`: listado filtrable de reseñas.
+  - `POST /api/v1/reviews/`: publicación de reseñas.
+  - `GET /api/v1/reviews/{id}/`: consulta de detalle.
+  - `POST /api/v1/reviews/{id}/like/`: toggle de likes.
+  - `GET, POST /api/v1/reviews/{id}/comments/`: listado y creación de comentarios.
+  - `DELETE /api/v1/reviews/{id}/comments/{comment_id}/`: borrado lógico de comentarios.
+  - `DELETE /api/v1/reviews/{id}/`: borrado lógico de reseña.
+- [x] **Conversations & Messages**:
+  - Montaje directo de `messages_app.urls` en `/api/v1/`.
+  - `GET /api/v1/conversations/`: bandeja de conversaciones.
+  - `POST /api/v1/conversations/start/`: inicio o resolución de chat 1:1.
+  - `GET /api/v1/conversations/{id}/`: detalle de conversación.
+  - `GET /api/v1/messages/?conversation={id}`: historial de mensajes.
+  - `POST /api/v1/messages/`: envío de mensajes con soporte WebSocket y fallback REST.
+  - `GET /api/v1/messages/{id}/`: consulta de mensaje por identificador.
 
-``` text
-/api/v1/books/
-/api/v1/books/{id}/
-/api/v1/users/
-/api/v1/users/{id}/
-/api/v1/reviews/
-/api/v1/conversations/
-/api/v1/messages/
-```
+## Transición, Depuración y Retrocompatibilidad
+- [x] Soporte transparente de rutas heredadas (`/api/v1/books/reviews/...` y `/api/v1/chat/...`) para evitar romper clientes legados.
+- [x] Eliminada ruta obsoleta `/api/v1/books/books/` duplicada.
+- [x] Frontend actualizado para consumir las rutas canónicas (`BookReviewsSection.tsx`, `Chat.tsx`, `Friends.tsx`, `Profile.tsx`).
 
-Acciones específicas:
-
-``` text
-/books/{id}/recommendations/
-/books/import/
-/users/{id}/follow/
-```
-
-Eliminar progresivamente rutas antiguas duplicadas.
+## Pruebas y Validación
+- [x] Suite automatizada `test_phase32_coherent_api.py` con 7/7 tests superados (100% éxito).
+- [x] Suite global de regresión superada (237/237 tests pasando).
+- [x] Linter backend `ruff check .` con 0 errores.
+- [x] Tipado y build frontend `pnpm run typecheck` y `pnpm run build` limpios sin errores.
 
 ------------------------------------------------------------------------
 

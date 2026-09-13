@@ -118,7 +118,7 @@ export function Profile() {
     if (!profileUser || !token) return;
     const apiUrl = (import.meta as any).env.VITE_API_URL || 'http://localhost:8000';
     try {
-      const res = await fetch(`${apiUrl}/api/v1/chat/conversations/start/`, {
+      const res = await fetch(`${apiUrl}/api/v1/conversations/start/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

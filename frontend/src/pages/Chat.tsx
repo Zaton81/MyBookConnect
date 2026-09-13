@@ -70,7 +70,7 @@ export function Chat() {
     if (!token) return;
     try {
       setIsStartingChat(true);
-      const res = await fetch(`${apiUrl}/api/v1/chat/conversations/start/`, {
+      const res = await fetch(`${apiUrl}/api/v1/conversations/start/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -100,7 +100,7 @@ export function Chat() {
     if (!token) return;
     try {
       setLoadingConvs(true);
-      const res = await fetch(`${apiUrl}/api/v1/chat/conversations/`, {
+      const res = await fetch(`${apiUrl}/api/v1/conversations/`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
@@ -128,7 +128,7 @@ export function Chat() {
     if (!token) return;
     try {
       setLoadingMessages(true);
-      const res = await fetch(`${apiUrl}/api/v1/chat/messages/?conversation=${convId}`, {
+      const res = await fetch(`${apiUrl}/api/v1/messages/?conversation=${convId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
@@ -192,7 +192,7 @@ export function Chat() {
       setInputText('');
     } else {
       // Fallback REST si WebSocket no está conectado
-      fetch(`${apiUrl}/api/v1/chat/messages/`, {
+      fetch(`${apiUrl}/api/v1/messages/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
