@@ -1,17 +1,20 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Card, Tabs, Spinner } from 'flowbite-react';
 import { useAuthStore } from '../../../store/auth';
 import { User } from '../../../types/auth';
+import { useFollowing, useFollowers } from '../hooks/useSocialQuery';
 
 export function Friends() {
-  const { getFollowing, getFollowers, token } = useAuthStore();
+  const { token } = useAuthStore();
   const navigate = useNavigate();
   const apiUrl = (import.meta as any).env.VITE_API_URL || 'http://localhost:8000';
-  const [following, setFollowing] = useState<User[]>([]);
-  const [followers, setFollowers] = useState<User[]>([]);
-  const [loading, setLoading] = useState(true);
   const [startingChatId, setStartingChatId] = useState<number | null>(null);
+
+  // Server state administrado limpiamente por TanStack Query
+  const { data: following = [], isLoading: loadingFollowing } = useFollowing();
+  const { data: followers = [], isLoading: loadingFollowers } = useFollowers();
+  const loading = loadingFollowing || loadingFollowers;
 
   const handleStartChat = async (e: React.MouseEvent, targetUserId: number) => {
     e.preventDefault();
@@ -42,28 +45,9 @@ export function Friends() {
     }
   };
 
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        const [followingData, followersData] = await Promise.all([
-          getFollowing(),
-          getFollowers(),
-        ]);
-        setFollowing(Array.isArray(followingData) ? followingData : (followingData as any)?.results || []);
-        setFollowers(Array.isArray(followersData) ? followersData : (followersData as any)?.results || []);
-      } catch (error) {
-        console.error('Error cargando amigos:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadData();
-  }, [getFollowing, getFollowers]);
-
   if (loading) {
     return (
-      <div className="flex justify-center items-center min-h-screen">
+      <div className="flex justify-center items-center min-h-[50vh]">
         <Spinner size="xl" />
       </div>
     );
@@ -136,4 +120,3 @@ export function Friends() {
 }
 
 export default Friends;
-

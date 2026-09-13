@@ -1818,38 +1818,50 @@ Eliminada la repetición manual de `<ProtectedRoute>` en cada ruta individual.
 
 ------------------------------------------------------------------------
 
-# 39. Fase 36 --- React Query vs Zustand
+# 39. Fase 36 --- React Query vs Zustand [COMPLETADA]
 
-**Prioridad:** P1
+**Prioridad:** P1 - COMPLETADA
 
-Regla:
+Separación rigurosa de responsabilidades de estado:
 
 ``` text
-Server state → TanStack Query
-Client/UI state → Zustand
+Server state (Asíncrono, cache, invalidación) → TanStack Query
+Client/UI state (Síncrono, persistente, UI local) → Zustand
 ```
 
 TanStack Query:
-
-``` text
-books
-reviews
-users
-feed
-notifications
-```
+- `books`: detalle de libros, autores, listas de lectura, estadísticas, trending, recomendaciones.
+- `reviews`: reseñas por libro, likes, creación de reseñas y comentarios.
+- `users` y `social`: perfil de usuario, seguidores, seguidos, follow-status, feed social.
+- `notifications`: listado de notificaciones y marcado de leídas.
 
 Zustand:
+- `useAuthStore`: sesión JWT, tokens (`token`, `refreshToken`), usuario activo, estado de login/registro y limpieza de cache al logout.
+- `useUIStore`: tema (`theme`: 'light' | 'dark' | 'system'), menú lateral (`sidebarOpen`), modales activos (`activeModals`), borradores en curso (`drafts`).
 
-``` text
-auth UI state
-theme
-sidebar
-modals
-drafts
-```
+## Tareas completadas:
+- [x] **Factoría Unificada de Query Keys (`src/api/queryKeys.ts`)**:
+  - Definida la jerarquía estricta de claves para `books`, `reviews`, `social`, `users`, `notifications`, `admin`.
+  - Creado barrel export `src/api/index.ts`.
+- [x] **Hooks de Server State con TanStack Query**:
+  - `features/books/hooks/useBooksQuery.ts`: `useBookDetail`, `useAuthorDetail`, `useReadingLists`, `useReadingStats`, `useTrendingBooks`, `useRecommendedBooks`, `useCreateReadingList`.
+  - `features/reviews/hooks/useReviewsQuery.ts`: `useBookReviews`, `useCreateReview`, `useLikeReview`, `useAddReviewComment`.
+  - `features/social/hooks/useSocialQuery.ts`: `useHomeFeed`, `useFollowers`, `useFollowing`, `useFollowStatus`, `useFollowUser`, `useUnfollowUser`.
+  - `features/social/hooks/useNotificationsQuery.ts`: `useNotifications`, `useMarkNotificationRead`.
+  - Exportados hooks en sus respectivos módulos de feature (`features/books`, `features/reviews`, `features/social`).
+- [x] **Store de Client/UI State con Zustand (`src/store/ui.ts`)**:
+  - Creado `useUIStore` con persistencia `ui-storage` para `theme` (sincronizado con `document.documentElement`), `sidebarOpen`, `activeModals` y `drafts`.
+  - Creado barrel export `src/store/index.ts`.
+- [x] **Depuración de Store de Autenticación (`src/store/auth.ts`)**:
+  - Conectada la invalidación de cache de TanStack Query (`queryClient.invalidateQueries`) al mutar perfil o relaciones de seguimiento.
+  - Integrada la purga total del cache (`queryClient.clear()`) en el cierre de sesión (`logout`).
+- [x] **Integración de Componentes**:
+  - `Friends.tsx`: Migrado de fetching manual con `useEffect` a `useFollowing()` y `useFollowers()` de TanStack Query con estados de carga (`isLoading`) y renderizado reactivo.
+- [x] **Pruebas y Verificación**:
+  - `pnpm run typecheck` (`tsc --noEmit`) completado con 0 errores.
+  - `pnpm run build` (`vite build`) completado con éxito en 17.35s.
+  - Suite de regresión backend `pytest -q` con 243/243 tests pasando sin ninguna regresión.
 
-No duplicar cache del servidor en Zustand.
 
 ------------------------------------------------------------------------
 
