@@ -11,6 +11,7 @@ from django.utils import timezone
 from django.utils.text import slugify
 
 from mybookconnect.media_security import validate_author_photo, validate_cover_image
+from mybookconnect.soft_delete import SoftDeleteModel
 
 
 def normalize_isbn(value: str | None) -> str | None:
@@ -161,7 +162,7 @@ class UserBook(models.Model):
         return f"{self.user.username} - {self.book.title} ({self.get_status_display()})"
 
 
-class Review(models.Model):
+class Review(SoftDeleteModel):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='reviews')
     book = models.ForeignKey(Book, on_delete=models.CASCADE, related_name='reviews')
     rating = models.PositiveSmallIntegerField()
@@ -178,12 +179,18 @@ class Review(models.Model):
     class Meta:
         ordering = ['-created_at']
         constraints = [
-            models.UniqueConstraint(fields=['user', 'book'], name='unique_review_user_book'),
+            models.UniqueConstraint(
+                fields=['user', 'book'],
+                condition=models.Q(deleted_at__isnull=True),
+                name='unique_active_review_user_book',
+            ),
         ]
         indexes = [
             models.Index(fields=['book', '-created_at'], name='idx_review_book_created'),
             models.Index(fields=['user', '-created_at'], name='idx_review_user_created'),
             models.Index(fields=['-created_at'], name='idx_review_created_at'),
+            models.Index(fields=['book', 'deleted_at'], name='idx_review_book_del'),
+            models.Index(fields=['user', 'deleted_at'], name='idx_review_user_del'),
         ]
 
     def __str__(self):
@@ -209,13 +216,12 @@ class ReviewLike(models.Model):
         return f"{self.user.username} liked Review {self.review_id}"
 
 
-class ReviewComment(models.Model):
+class ReviewComment(SoftDeleteModel):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='review_comments')
     review = models.ForeignKey(Review, on_delete=models.CASCADE, related_name='comments')
     content = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    deleted_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ['created_at']
@@ -242,18 +248,18 @@ class ErrataStatus(models.TextChoices):
 
 class Errata(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='erratas')
-    book = models.ForeignKey(Book, null=True, blank=True, on_delete=models.CASCADE, related_name='erratas')
-    author = models.ForeignKey(Author, null=True, blank=True, on_delete=models.CASCADE, related_name='erratas')
+    book = models.ForeignKey(Book, on_delete=models.CASCADE, related_name='erratas', null=True, blank=True)
+    author = models.ForeignKey(Author, on_delete=models.CASCADE, related_name='erratas', null=True, blank=True)
     type = models.CharField(max_length=20, choices=ErrataType.choices, default=ErrataType.ERRATA)
-    text = models.TextField()
     status = models.CharField(max_length=20, choices=ErrataStatus.choices, default=ErrataStatus.OPEN)
+    text = models.TextField()
     resolution_notes = models.TextField(blank=True, null=True)
     editor = models.ForeignKey(
         settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name='resolved_erratas',
         null=True,
         blank=True,
-        on_delete=models.SET_NULL,
-        related_name='handled_erratas',
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -263,10 +269,11 @@ class Errata(models.Model):
         indexes = [
             models.Index(fields=['status', '-created_at'], name='idx_errata_status_created'),
             models.Index(fields=['book', 'status'], name='idx_errata_book_status'),
+            models.Index(fields=['author', 'status'], name='idx_errata_author_status'),
         ]
 
     def __str__(self):
-        target = self.book.title if self.book else (self.author.name if self.author else 'N/A')
+        target = self.book.title if self.book else (self.author.name if self.author else 'General')
         return f"{self.type} - {target} ({self.status})"
 
 
@@ -281,7 +288,9 @@ def update_book_rating(sender, instance, **kwargs):
         recalculate_book_rating_task.delay(book.id)
     except Exception:
         # Fallback síncrono si el broker no está disponible o en tests síncronos
-        review_avg = Review.objects.filter(book=book, rating__isnull=False).aggregate(Avg('rating'))['rating__avg']
+        review_avg = Review.objects.filter(
+            book=book, rating__isnull=False, deleted_at__isnull=True, is_moderated=False
+        ).aggregate(Avg('rating'))['rating__avg']
         if review_avg is not None:
             book.average_rating = round(review_avg, 2)
         else:

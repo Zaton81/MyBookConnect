@@ -72,7 +72,7 @@ class UserSerializer(serializers.ModelSerializer):
         return ret
 
     def get_reviews_count(self, obj):
-        return getattr(obj, 'reviews_count', obj.reviews.count())
+        return getattr(obj, 'reviews_count', obj.reviews.filter(deleted_at__isnull=True, is_moderated=False).count())
 
     def get_books_read_count(self, obj):
         if hasattr(obj, 'books_read_count'):

@@ -51,7 +51,7 @@ class UserDetailView(generics.RetrieveAPIView):
 
     def get_queryset(self):
         queryset = User.objects.all().annotate(
-            reviews_count=Count('reviews', distinct=True),
+            reviews_count=Count('reviews', filter=Q(reviews__deleted_at__isnull=True, reviews__is_moderated=False), distinct=True),
             books_read_count=Count('user_books', filter=Q(user_books__is_read=True), distinct=True),
             following_count=Count('following', distinct=True),
             followers_count=Count('followers', distinct=True),

@@ -1573,26 +1573,49 @@ Soporte de almacenamiento pluggable configurado en `settings.py` (`STORAGES`):
 
 ------------------------------------------------------------------------
 
-# 34. Fase 31 --- Soft delete
+# 34. Fase 31 --- Soft delete [COMPLETADA]
 
-**Prioridad:** P2
+**Prioridad:** P2 - COMPLETADA
 
-Considerar `deleted_at` para:
+## Modelo Base y Persistencia (`soft_delete.py`)
+- [x] Módulo centralizado `mybookconnect/soft_delete.py` con:
+  - `SoftDeleteQuerySet`: métodos auxiliares `.active()`, `.deleted()`, `.soft_delete()` y `.restore()` en lote.
+  - `SoftDeleteManager`: manager predeterminado exponiendo consultas sobre registros activos y borrados.
+  - `SoftDeleteModel`: clase abstracta que incluye:
+    - Campo indexado `deleted_at = models.DateTimeField(null=True, blank=True, db_index=True)`.
+    - Propiedad calculada `is_deleted`.
+    - Métodos `soft_delete()` y `restore()`.
+    - Sobrescritura de `delete(using=None, keep_parents=False, hard=False)` para borrado lógico transparente por defecto y soporte de borrado físico explícito (`hard=True`).
 
-``` text
-Review
-Comment
-Message
-```
+## Aplicación Estricta a Modelos Clave
+- [x] **Review** (`books/models.py`):
+  - Herencia de `SoftDeleteModel`.
+  - Sustitución de restricción incondicional por restricción única parcial: `UniqueConstraint(fields=['user', 'book'], condition=models.Q(deleted_at__isnull=True), name='unique_active_review_user_book')`, permitiendo re-escribir reseñas tras borrado previo.
+  - Índices compuestos añadidos: `('book', 'deleted_at')` y `('user', 'deleted_at')`.
+  - Señal de actualización de rating recalculando solo sobre reseñas activas (`deleted_at__isnull=True` y `is_moderated=False`).
+- [x] **ReviewComment** (`books/models.py`):
+  - Herencia de `SoftDeleteModel` y unificación con la infraestructura de borrado lógico.
+- [x] **Message** (`messages_app/models.py`):
+  - Herencia de `SoftDeleteModel`.
+  - Índice compuesto añadido: `('conversation', 'deleted_at')`.
 
-Ventajas:
+## Filtrado Coherente en Vistas, Serializadores y Tareas Asíncronas
+- [x] Tarea Celery `recalculate_book_rating_task`: filtra únicamente `Review.objects.filter(book=book, rating__isnull=False, deleted_at__isnull=True, is_moderated=False)`.
+- [x] Políticas de visualización (`users/policies.py`):
+  - `filter_visible_reviews`: excluye reseñas con `deleted_at__isnull=False`.
+  - `can_view_review`: deniega acceso a reseñas eliminadas salvo para administradores.
+- [x] Endpoints y Serializadores:
+  - `ReviewListCreateView` y `ReviewDetailView`: excluyen reseñas borradas y gestionan creación/reactivación.
+  - `BookSerializer`: distribución de puntuaciones y `reviews_count` excluyen reseñas eliminadas.
+  - `UserDetailView` y `UserSerializer`: contador de reseñas `reviews_count` excluye eliminadas.
+  - `ConversationSerializer`: `last_message` y `unread_count` excluyen mensajes eliminados.
+  - `MessageViewSet`: `get_queryset()` excluye mensajes eliminados.
 
--   auditoría;
--   moderación;
--   recuperación;
--   integridad histórica.
-
-No aplicar soft delete indiscriminadamente a todas las tablas.
+## Pruebas y Validación
+- [x] Suite automatizada `test_phase31_soft_delete.py` con 13/13 tests superados (100% de éxito).
+- [x] Suite global de regresión superada (230/230 tests pasando).
+- [x] Linter backend `ruff check .` con 0 errores.
+- [x] Tipado y build frontend `pnpm run typecheck` y `pnpm run build` limpios sin errores.
 
 ------------------------------------------------------------------------
 

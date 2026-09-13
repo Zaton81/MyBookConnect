@@ -125,7 +125,9 @@ class BookSerializer(serializers.ModelSerializer):
     def get_rating_distribution(self, obj):
         from django.db.models import Count
         distribution = dict.fromkeys(range(1, 11), 0)
-        reviews = Review.objects.filter(book=obj, rating__isnull=False).values('rating').annotate(count=Count('id'))
+        reviews = Review.objects.filter(
+            book=obj, rating__isnull=False, deleted_at__isnull=True, is_moderated=False
+        ).values('rating').annotate(count=Count('id'))
         for r in reviews:
             val = r['rating']
             if 1 <= val <= 10:
@@ -135,7 +137,7 @@ class BookSerializer(serializers.ModelSerializer):
     def get_reviews_count(self, obj):
         if hasattr(obj, 'annotated_reviews_count'):
             return obj.annotated_reviews_count
-        return Review.objects.filter(book=obj).count()
+        return Review.objects.filter(book=obj, deleted_at__isnull=True, is_moderated=False).count()
 
     def validate_cover(self, value):
         """

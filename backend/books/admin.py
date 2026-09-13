@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Author, Book, Errata, LegalDocument, Review, UserBook
+from .models import Author, Book, Errata, LegalDocument, Review, ReviewComment, UserBook
 
 
 @admin.register(Author)
@@ -21,7 +21,15 @@ class UserBookAdmin(admin.ModelAdmin):
 
 @admin.register(Review)
 class ReviewAdmin(admin.ModelAdmin):
-    list_display = ('user', 'book', 'rating', 'created_at')
+    list_display = ('user', 'book', 'rating', 'created_at', 'deleted_at', 'is_moderated')
+    list_filter = ('is_moderated', 'rating')
+    search_fields = ('user__username', 'book__title', 'title', 'text')
+
+
+@admin.register(ReviewComment)
+class ReviewCommentAdmin(admin.ModelAdmin):
+    list_display = ('user', 'review', 'created_at', 'deleted_at')
+    search_fields = ('user__username', 'content')
 
 
 @admin.register(Errata)

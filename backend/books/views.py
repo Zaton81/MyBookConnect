@@ -3,7 +3,6 @@ import logging
 from django.core.cache import cache
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
-from django.utils import timezone
 from rest_framework import generics, permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -499,15 +498,23 @@ class ReviewListCreateView(generics.ListCreateAPIView):
         title = request.data.get('title', '')
         text = request.data.get('text', '')
 
-        review, created = Review.objects.update_or_create(
-            user=request.user,
-            book_id=book_id,
-            defaults={
-                'rating': rating_val,
-                'title': title,
-                'text': text,
-            }
-        )
+        active_review = Review.objects.filter(user=request.user, book_id=book_id, deleted_at__isnull=True).first()
+        if active_review:
+            active_review.rating = rating_val
+            active_review.title = title
+            active_review.text = text
+            active_review.save()
+            review = active_review
+            created = False
+        else:
+            review = Review.objects.create(
+                user=request.user,
+                book_id=book_id,
+                rating=rating_val,
+                title=title,
+                text=text,
+            )
+            created = True
         serializer = self.get_serializer(review)
         status_code = status.HTTP_201_CREATED if created else status.HTTP_200_OK
         return Response(serializer.data, status=status_code)
@@ -516,7 +523,12 @@ class ReviewListCreateView(generics.ListCreateAPIView):
 class ReviewDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = ReviewSerializer
     permission_classes = (permissions.IsAuthenticatedOrReadOnly,)
-    queryset = Review.objects.select_related('user', 'book')
+
+    def get_queryset(self):
+        user = self.request.user
+        if user and user.is_authenticated and (getattr(user, 'is_staff', False) or getattr(user, 'is_superuser', False)):
+            return Review.all_objects.select_related('user', 'book')
+        return Review.objects.filter(deleted_at__isnull=True).select_related('user', 'book')
 
     def check_object_permissions(self, request, obj):
         super().check_object_permissions(request, obj)
@@ -530,6 +542,9 @@ class ReviewDetailView(generics.RetrieveUpdateDestroyAPIView):
         else:
             if not can_edit_review(request.user, obj):
                 raise PermissionDenied('No tienes permiso para modificar esta reseña.')
+
+    def perform_destroy(self, instance):
+        instance.delete()
 
 
 class ReviewLikeToggleView(APIView):
@@ -659,8 +674,7 @@ class ReviewCommentDeleteView(APIView):
         if comment.user_id != request.user.id and not request.user.is_staff and not request.user.is_superuser:
             return Response({'detail': 'No tienes permiso para eliminar este comentario.'}, status=status.HTTP_403_FORBIDDEN)
 
-        comment.deleted_at = timezone.now()
-        comment.save(update_fields=['deleted_at'])
+        comment.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 

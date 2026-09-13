@@ -3,6 +3,7 @@ from django.db import models
 from django.utils import timezone
 
 from mybookconnect.media_security import validate_chat_image
+from mybookconnect.soft_delete import SoftDeleteManager, SoftDeleteModel
 
 User = settings.AUTH_USER_MODEL
 
@@ -41,7 +42,7 @@ class Conversation(models.Model):
             conv.participants.add(user1, user2)
             return conv, True
 
-class Message(models.Model):
+class Message(SoftDeleteModel):
     conversation = models.ForeignKey(Conversation, related_name='messages', on_delete=models.CASCADE)
     sender = models.ForeignKey(User, related_name='sent_messages', on_delete=models.CASCADE)
     text = models.TextField(blank=True)
@@ -60,11 +61,14 @@ class Message(models.Model):
         help_text="Indica si el mensaje ha sido ocultado por moderación",
     )
 
+    objects = SoftDeleteManager()
+
     class Meta:
         ordering = ['created_at']
         indexes = [
             models.Index(fields=['conversation', 'created_at'], name='idx_msg_conv_created'),
             models.Index(fields=['conversation', 'read'], name='idx_msg_conv_read'),
+            models.Index(fields=['conversation', 'deleted_at'], name='idx_msg_conv_del'),
         ]
 
     def __str__(self):
