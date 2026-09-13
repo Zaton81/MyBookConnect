@@ -1715,38 +1715,68 @@ React Components & Hooks
 
 ------------------------------------------------------------------------
 
-# 37. Fase 34 --- Frontend por features
+# 37. Fase 34 --- Frontend por features [COMPLETADA]
 
-**Prioridad:** P1
+**Prioridad:** P1 - COMPLETADA
 
-Estructura objetivo:
+Estructura modular implementada siguiendo Feature-Sliced Architecture:
 
 ``` text
 src/
 ├── app/
-│   ├── router.tsx
-│   ├── providers.tsx
-│   └── queryClient.ts
+│   ├── router.tsx          # Declarative AppRouter con code-splitting / lazy loading
+│   ├── providers.tsx       # AppProviders envolviendo QueryClientProvider
+│   └── queryClient.ts      # Instancia central de TanStack Query
 │
 ├── features/
-│   ├── auth/
-│   ├── books/
-│   ├── library/
-│   ├── reviews/
-│   ├── social/
-│   ├── chat/
-│   ├── notifications/
-│   └── ai/
+│   ├── auth/               # Login, Register, ProtectedRoute, AuthBox, Modales
+│   ├── books/              # BookDetail, AddBook, Author, ReadingLists, ReadingStats
+│   ├── library/            # Library
+│   ├── reviews/            # BookReviewsSection
+│   ├── social/             # Home, Friends
+│   ├── profile/            # Profile, EditProfileForm, EditProfile
+│   ├── chat/               # Chat
+│   ├── ai/                 # AIAssistantModal
+│   ├── admin/              # AdminDashboard
+│   └── legal/              # PrivacyPolicy, TermsOfService, CookiePolicy
 │
 ├── components/
-│   ├── ui/
-│   └── layout/
+│   ├── ui/                 # Componentes reutilizables (AmazonAdSlot, BioEditor, CookieBanner, StarRating)
+│   └── layout/             # Componentes estructurales (Header, Footer, Logo)
 │
-├── api/
-├── hooks/
-├── lib/
-└── types/
+├── api/                    # Cliente HTTP centralizado y contratos
+├── hooks/                  # Hooks compartidos
+├── lib/                    # Utilidades de autenticación y helpers
+└── types/                  # Definiciones OpenAPI y TypeScript globales
 ```
+
+## Tareas completadas:
+- [x] **Capa Central de Aplicación (`src/app/`)**:
+  - Creado `queryClient.ts` con configuración centralizada de TanStack React Query (`staleTime: 5 min`, `refetchOnWindowFocus: false`, `retry: 1`).
+  - Creado `providers.tsx` con componente `AppProviders` para composición limpia de contextos.
+  - Creado `router.tsx` con `AppRouter`, rutas declarativas y lazy loading de todas las páginas de features con suspense spinner accesible.
+  - Refactorizados `App.tsx` y `main.tsx` delegando limpiamente en `AppRouter` y `AppProviders`.
+- [x] **Capa de Componentes (`src/components/layout/` y `src/components/ui/`)**:
+  - `components/layout/`: `Header.tsx`, `Footer.tsx`, `Logo.tsx` y barrel export `index.ts`.
+  - `components/ui/`: `CookieBanner.tsx`, `StarRating.tsx`, `AmazonAdSlot.tsx`, `BioEditor.tsx` y barrel export `index.ts`.
+- [x] **Módulos de Features (`src/features/`)**:
+  - `auth/`: `LoginModal`, `RegisterModal`, `ProtectedRoute`, `AuthBox`, `Login`, `Register` con barrel export.
+  - `books/`: `BookDetail`, `AddBook`, `Author`, `ReadingLists`, `ReadingStats` con barrel export.
+  - `library/`: `Library` con barrel export.
+  - `reviews/`: `BookReviewsSection` con barrel export.
+  - `social/`: `Home`, `Friends` con barrel export.
+  - `profile/`: `Profile`, `EditProfileForm`, `EditProfile` con barrel export.
+  - `chat/`: `Chat` con barrel export.
+  - `ai/`: `AIAssistantModal` con barrel export.
+  - `admin/`: `AdminDashboard` con barrel export.
+  - `legal/`: `PrivacyPolicy`, `TermsOfService`, `CookiePolicy` con barrel export.
+- [x] **Compatibilidad Hacia Atrás (Facade Re-exports)**:
+  - Mantenidas fachadas de re-exportación transparentes en `src/pages/*.tsx` y `src/components/*.tsx` para evitar roturas en consumidores previos o importaciones internas.
+- [x] **Validación y Verificación**:
+  - Verificación estática con `pnpm run typecheck` (`tsc --noEmit` superado con 0 errores).
+  - Empaquetado de producción con `pnpm run build` (`vite build` completado exitosamente).
+  - Suite de regresión backend `pytest -q` con 243/243 tests pasando sin ninguna regresión.
+
 
 ------------------------------------------------------------------------
 
