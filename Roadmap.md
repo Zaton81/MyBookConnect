@@ -1780,16 +1780,16 @@ src/
 
 ------------------------------------------------------------------------
 
-# 38. Fase 35 --- React Router
+# 38. Fase 35 --- React Router [COMPLETADA]
 
-**Prioridad:** P2
+**Prioridad:** P2 - COMPLETADA
 
-Utilizar layouts:
+Uso de Layouts anidados con `<Outlet />`:
 
 ``` text
-ProtectedLayout
-PublicLayout
-AdminLayout
+ProtectedLayout  → Control de sesión unificado, header, footer, banner, contenedor y <Outlet />
+PublicLayout     → Landing y páginas legales (/privacy, /terms, /cookies) con shell común y <Outlet />
+AdminLayout      → Control de permisos (staff/admin/moderator), barra de contexto admin y <Outlet />
 ```
 
 Con:
@@ -1798,15 +1798,23 @@ Con:
 <Outlet />
 ```
 
-Evitar repetir:
+Eliminada la repetición manual de `<ProtectedRoute>` en cada ruta individual.
 
-``` tsx
-<ProtectedRoute>
-    ...
-</ProtectedRoute>
-```
+## Tareas completadas:
+- [x] **Creación de Layouts Anidados (`src/components/layout/`)**:
+  - Creado `PublicLayout.tsx`: Shell estructural con `Header`, `FooterSection`, `CookieBanner` y `<Outlet />` envuelto en `Suspense` con fallback accesible.
+  - Creado `ProtectedLayout.tsx`: Evalúa `isAuthenticated` de forma centralizada una sola vez. Redirige a `/` con el origen guardado (`state: { from: location }`) y renderiza la jerarquía protegida bajo `<Outlet />`.
+  - Creado `AdminLayout.tsx`: Verifica autenticación y autorización por rol (`is_staff`, `is_superuser`, `role === 'ADMIN' || 'MODERATOR'`). Redirige a `/home` a usuarios no autorizados y muestra una barra de contexto administrativo contextual con enlace de regreso a la interfaz de usuario y `<Outlet />`.
+  - Exportados los tres layouts en `src/components/layout/index.ts`.
+- [x] **Reestructuración Declarativa de Rutas (`src/app/router.tsx`)**:
+  - Refactorizada la jerarquía de `Routes` agrupando rutas públicas bajo `PublicLayout`, rutas privadas bajo `ProtectedLayout` y rutas administrativas bajo `AdminLayout`.
+  - Eliminados los envoltorios redundantes `<ProtectedRoute>` en las 13 rutas autenticadas.
+  - Añadida ruta fallback global `*` hacia `/` para gestión de rutas no coincidentes.
+- [x] **Pruebas y Verificación**:
+  - `pnpm run typecheck` (`tsc --noEmit`) superado con 0 errores.
+  - `pnpm run build` (`vite build`) completado con éxito con división de chunks optimizada.
+  - Suite de pruebas backend `pytest -q` con 243/243 tests pasando sin ninguna regresión.
 
-en cada ruta.
 
 ------------------------------------------------------------------------
 

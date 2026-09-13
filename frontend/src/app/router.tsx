@@ -1,8 +1,7 @@
-import { Suspense, lazy } from 'react';
+import { lazy } from 'react';
 import { BrowserRouter, Navigate, Routes, Route, useParams } from 'react-router-dom';
-import { ProtectedRoute, AuthBox } from '../features/auth';
-import { Header, Logo, FooterSection } from '../components/layout';
-import { CookieBanner } from '../components/ui';
+import { AuthBox } from '../features/auth';
+import { Logo, PublicLayout, ProtectedLayout, AdminLayout } from '../components/layout';
 import { useAuthStore } from '../store/auth';
 
 const EditProfile = lazy(() => import('../features/profile').then(m => ({ default: m.EditProfile })));
@@ -26,175 +25,67 @@ function ProfileIdRedirect() {
   return <Navigate to={`/users/${id}`} replace />;
 }
 
-export function AppRouter() {
+function LandingPage() {
   const isAuthenticated = useAuthStore(s => s.isAuthenticated);
 
+  if (isAuthenticated) {
+    return <Navigate to="/home" replace />;
+  }
+
+  return (
+    <div className="mx-auto grid max-w-5xl grid-cols-1 gap-8 md:grid-cols-2 mt-8 items-center">
+      <div className="flex flex-col items-start justify-center px-4">
+        <Logo />
+        <p className="mt-4 text-slate-600 dark:text-slate-400 text-base leading-relaxed">
+          Tu espacio social para organizar lecturas, descubrir nuevos autores y compartir reseñas con una comunidad de apasionados por los libros.
+        </p>
+      </div>
+      <div className="flex items-center justify-center px-4">
+        <AuthBox />
+      </div>
+    </div>
+  );
+}
+
+export function AppRouter() {
   return (
     <BrowserRouter>
-      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans antialiased">
-        <Header />
-        <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <Suspense
-            fallback={
-              <div className="flex items-center justify-center min-h-[40vh]">
-                <div className="text-teal-600 dark:text-teal-400 font-semibold flex items-center gap-2">
-                  <span className="animate-spin text-2xl">⏳</span>
-                  <span>Cargando contenido...</span>
-                </div>
-              </div>
-            }
-          >
-            <Routes>
-              <Route
-                path="/"
-                element={
-                  isAuthenticated ? (
-                    <Navigate to="/home" replace />
-                  ) : (
-                    <div className="mx-auto grid max-w-5xl grid-cols-1 gap-8 md:grid-cols-2 mt-8 items-center">
-                      <div className="flex flex-col items-start justify-center px-4">
-                        <Logo />
-                        <p className="mt-4 text-slate-600 dark:text-slate-400 text-base leading-relaxed">
-                          Tu espacio social para organizar lecturas, descubrir nuevos autores y compartir reseñas con una comunidad de apasionados por los libros.
-                        </p>
-                      </div>
-                      <div className="flex items-center justify-center px-4">
-                        <AuthBox />
-                      </div>
-                    </div>
-                  )
-                }
-              />
+      <Routes>
+        {/* Rutas Públicas (Landing y Legales) */}
+        <Route element={<PublicLayout />}>
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/privacy" element={<PrivacyPolicy />} />
+          <Route path="/terms" element={<TermsOfService />} />
+          <Route path="/cookies" element={<CookiePolicy />} />
+        </Route>
 
-              <Route
-                path="/home"
-                element={
-                  <ProtectedRoute>
-                    <Home />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/books/add"
-                element={
-                  <ProtectedRoute>
-                    <AddBook />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/library"
-                element={
-                  <ProtectedRoute>
-                    <Library />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/reading-lists"
-                element={
-                  <ProtectedRoute>
-                    <ReadingLists />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/lists"
-                element={<Navigate to="/reading-lists" replace />}
-              />
-              <Route
-                path="/statistics"
-                element={
-                  <ProtectedRoute>
-                    <ReadingStats />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/users/:id/statistics"
-                element={
-                  <ProtectedRoute>
-                    <ReadingStats />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/books/:id"
-                element={
-                  <ProtectedRoute>
-                    <BookDetail />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/authors/:id"
-                element={
-                  <ProtectedRoute>
-                    <Author />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/profile"
-                element={
-                  <ProtectedRoute>
-                    <Profile />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/profile/edit"
-                element={
-                  <ProtectedRoute>
-                    <EditProfile />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/profile/:id"
-                element={<ProfileIdRedirect />}
-              />
-              <Route
-                path="/users/:userId"
-                element={
-                  <ProtectedRoute>
-                    <Profile />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/chat"
-                element={
-                  <ProtectedRoute>
-                    <Chat />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/friends"
-                element={
-                  <ProtectedRoute>
-                    <Friends />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/admin"
-                element={
-                  <ProtectedRoute>
-                    <AdminDashboard />
-                  </ProtectedRoute>
-                }
-              />
-              <Route path="/privacy" element={<PrivacyPolicy />} />
-              <Route path="/terms" element={<TermsOfService />} />
-              <Route path="/cookies" element={<CookiePolicy />} />
-            </Routes>
-          </Suspense>
-        </main>
-        <FooterSection />
-        <CookieBanner />
-      </div>
+        {/* Rutas Protegidas de Miembros */}
+        <Route element={<ProtectedLayout />}>
+          <Route path="/home" element={<Home />} />
+          <Route path="/books/add" element={<AddBook />} />
+          <Route path="/books/:id" element={<BookDetail />} />
+          <Route path="/authors/:id" element={<Author />} />
+          <Route path="/library" element={<Library />} />
+          <Route path="/reading-lists" element={<ReadingLists />} />
+          <Route path="/lists" element={<Navigate to="/reading-lists" replace />} />
+          <Route path="/statistics" element={<ReadingStats />} />
+          <Route path="/users/:id/statistics" element={<ReadingStats />} />
+          <Route path="/profile" element={<Profile />} />
+          <Route path="/profile/edit" element={<EditProfile />} />
+          <Route path="/profile/:id" element={<ProfileIdRedirect />} />
+          <Route path="/users/:userId" element={<Profile />} />
+          <Route path="/chat" element={<Chat />} />
+          <Route path="/friends" element={<Friends />} />
+        </Route>
+
+        {/* Rutas de Administración y Moderación */}
+        <Route element={<AdminLayout />}>
+          <Route path="/admin" element={<AdminDashboard />} />
+        </Route>
+
+        {/* Ruta Fallback (404) */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
     </BrowserRouter>
   );
 }
