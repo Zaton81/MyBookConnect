@@ -1,8 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Spinner } from 'flowbite-react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { useAuthStore } from '../../../store/auth';
 import { resolveMediaUrl } from '../../../utils/media';
+import { readingListSchema, ReadingListFormData } from '../schemas/listSchemas';
 
 interface BookItem {
   id: number;
@@ -53,10 +56,21 @@ export function ReadingLists() {
   // Modal Crear / Editar Lista
   const [modalOpen, setModalOpen] = useState(false);
   const [editingList, setEditingList] = useState<ReadingList | null>(null);
-  const [formName, setFormName] = useState('');
-  const [formDesc, setFormDesc] = useState('');
-  const [formPrivacy, setFormPrivacy] = useState<'public' | 'followers' | 'private'>('public');
   const [savingList, setSavingList] = useState(false);
+
+  const {
+    register: registerList,
+    handleSubmit: handleSubmitList,
+    reset: resetListForm,
+    formState: { errors: listErrors },
+  } = useForm<ReadingListFormData>({
+    resolver: zodResolver(readingListSchema),
+    defaultValues: {
+      name: '',
+      description: '',
+      privacy: 'public',
+    },
+  });
 
   // Añadir libro buscador
   const [bookSearchQuery, setBookSearchQuery] = useState('');
@@ -82,17 +96,15 @@ export function ReadingLists() {
       const res = await fetch(endpoint, { headers });
       if (res.ok) {
         const data = await res.json();
-        const results = Array.isArray(data) ? data : data.results || [];
-        setLists(results);
-
-        // Si hay un ID seleccionado, sincronizarlo con la versión actualizada
+        const items = Array.isArray(data) ? data : data.results || [];
+        setLists(items);
         if (selectedList) {
-          const found = results.find((l: ReadingList) => l.id === selectedList.id);
-          if (found) setSelectedList(found);
+          const updated = items.find((l: ReadingList) => l.id === selectedList.id);
+          if (updated) setSelectedList(updated);
         }
       }
     } catch (err) {
-      console.error('Error fetching reading lists:', err);
+      console.error(err);
     } finally {
       setLoading(false);
     }
@@ -113,23 +125,26 @@ export function ReadingLists() {
 
   const handleOpenCreateModal = () => {
     setEditingList(null);
-    setFormName('');
-    setFormDesc('');
-    setFormPrivacy('public');
+    resetListForm({
+      name: '',
+      description: '',
+      privacy: 'public',
+    });
     setModalOpen(true);
   };
 
   const handleOpenEditModal = (list: ReadingList) => {
     setEditingList(list);
-    setFormName(list.name);
-    setFormDesc(list.description);
-    setFormPrivacy(list.privacy);
+    resetListForm({
+      name: list.name,
+      description: list.description || '',
+      privacy: list.privacy,
+    });
     setModalOpen(true);
   };
 
-  const handleSaveList = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!token || !formName.trim()) return;
+  const onSubmitList = async (data: ReadingListFormData) => {
+    if (!token) return;
 
     setSavingList(true);
     try {
@@ -145,9 +160,9 @@ export function ReadingLists() {
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          name: formName.trim(),
-          description: formDesc.trim(),
-          privacy: formPrivacy,
+          name: data.name.trim(),
+          description: data.description?.trim() || '',
+          privacy: data.privacy,
         }),
       });
 
@@ -740,19 +755,20 @@ export function ReadingLists() {
               </button>
             </div>
 
-            <form onSubmit={handleSaveList} className="space-y-4">
+            <form onSubmit={handleSubmitList(onSubmitList)} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
                   Nombre de la lista *
                 </label>
                 <input
                   type="text"
-                  required
-                  value={formName}
-                  onChange={(e) => setFormName(e.target.value)}
+                  {...registerList('name')}
                   placeholder="Ej. Favoritos, Clásicos, Vacaciones..."
                   className="w-full text-sm rounded-xl border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-700 dark:text-white py-2 px-3 focus:ring-teal-500"
                 />
+                {listErrors.name && (
+                  <p className="text-xs text-rose-500 mt-1">{listErrors.name.message}</p>
+                )}
               </div>
 
               <div>
@@ -761,11 +777,13 @@ export function ReadingLists() {
                 </label>
                 <textarea
                   rows={3}
-                  value={formDesc}
-                  onChange={(e) => setFormDesc(e.target.value)}
+                  {...registerList('description')}
                   placeholder="Explica de qué trata esta colección..."
                   className="w-full text-sm rounded-xl border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-700 dark:text-white py-2 px-3 focus:ring-teal-500"
                 />
+                {listErrors.description && (
+                  <p className="text-xs text-rose-500 mt-1">{listErrors.description.message}</p>
+                )}
               </div>
 
               <div>
@@ -773,14 +791,16 @@ export function ReadingLists() {
                   Privacidad
                 </label>
                 <select
-                  value={formPrivacy}
-                  onChange={(e) => setFormPrivacy(e.target.value as any)}
+                  {...registerList('privacy')}
                   className="w-full text-sm rounded-xl border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-700 dark:text-white py-2 px-3 focus:ring-teal-500"
                 >
                   <option value="public">Pública (Visible para todos)</option>
                   <option value="followers">Solo Seguidores</option>
                   <option value="private">Privada (Solo tú)</option>
                 </select>
+                {listErrors.privacy && (
+                  <p className="text-xs text-rose-500 mt-1">{listErrors.privacy.message}</p>
+                )}
               </div>
 
               <div className="flex items-center justify-end gap-3 pt-2">

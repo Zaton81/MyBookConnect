@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { StarRating } from '../../../components/ui';
+import { reviewSchema, ReviewFormData } from '../schemas/reviewSchemas';
 
 interface ReviewItem {
   id: number;
@@ -60,14 +63,28 @@ export function BookReviewsSection({
   const [submittingComment, setSubmittingComment] = useState<Record<number, boolean>>({});
   const [likePending, setLikePending] = useState<Record<number, boolean>>({});
 
-  // Formulario de reseña
-  const [rating, setRating] = useState<number>(10);
-  const [reviewTitle, setReviewTitle] = useState('');
-  const [reviewText, setReviewText] = useState('');
+  // Formulario de reseña con React Hook Form y Zod
   const [myExistingReview, setMyExistingReview] = useState<ReviewItem | null>(null);
 
-  const apiUrl = (import.meta as any).env.VITE_API_URL || 'http://localhost:8000';
+  const {
+    register: registerReview,
+    handleSubmit: handleSubmitReview,
+    setValue: setReviewValue,
+    watch: watchReview,
+    reset: resetReview,
+    formState: { errors: reviewErrors },
+  } = useForm<ReviewFormData>({
+    resolver: zodResolver(reviewSchema),
+    defaultValues: {
+      rating: 10,
+      title: '',
+      text: '',
+    },
+  });
 
+  const currentRating = watchReview('rating');
+
+  const apiUrl = (import.meta as any).env.VITE_API_URL || 'http://localhost:8000';
 
   const fetchReviews = async () => {
     try {
@@ -90,9 +107,9 @@ export function BookReviewsSection({
           );
           if (found) {
             setMyExistingReview(found);
-            setRating(found.rating);
-            setReviewTitle(found.title || '');
-            setReviewText(found.text || '');
+            setReviewValue('rating', found.rating);
+            setReviewValue('title', found.title || '');
+            setReviewValue('text', found.text || '');
           }
         }
       }
@@ -227,8 +244,7 @@ export function BookReviewsSection({
   };
 
 
-  const handleSubmitReview = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const onSubmitReview = async (data: ReviewFormData) => {
     if (!token) {
       setErrorMessage('Debes iniciar sesión para publicar una reseña.');
       return;
@@ -246,9 +262,9 @@ export function BookReviewsSection({
         body: JSON.stringify({
           book_id: Number(bookId),
           book: Number(bookId),
-          rating: rating,
-          title: reviewTitle.trim() || null,
-          text: reviewText.trim() || null,
+          rating: data.rating,
+          title: data.title?.trim() || null,
+          text: data.text?.trim() || null,
         }),
       });
 
@@ -258,6 +274,11 @@ export function BookReviewsSection({
       }
 
       setShowForm(false);
+      resetReview({
+        rating: 10,
+        title: '',
+        text: '',
+      });
       await fetchReviews();
       if (onReviewSaved) {
         onReviewSaved();
@@ -302,7 +323,7 @@ export function BookReviewsSection({
       {/* Formulario para publicar/editar reseña */}
       {showForm && (
         <form
-          onSubmit={handleSubmitReview}
+          onSubmit={handleSubmitReview(onSubmitReview)}
           className="p-5 bg-slate-50 dark:bg-slate-700/40 rounded-2xl border border-slate-200 dark:border-slate-600 space-y-4 animate-in fade-in duration-200"
         >
           <h3 className="text-sm font-bold text-slate-900 dark:text-white">
@@ -322,16 +343,19 @@ export function BookReviewsSection({
             </label>
             <div className="flex items-center gap-3">
               <StarRating
-                rating={rating}
+                rating={currentRating}
                 maxRating={10}
                 size="lg"
                 interactive={true}
-                onRatingChange={(newVal) => setRating(newVal)}
+                onRatingChange={(newVal) => setReviewValue('rating', newVal, { shouldValidate: true })}
               />
               <span className="text-xs font-bold text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-900/40 px-2 py-1 rounded-lg">
-                {(rating / 2).toFixed(1)} / 5 ({rating}/10)
+                {(currentRating / 2).toFixed(1)} / 5 ({currentRating}/10)
               </span>
             </div>
+            {reviewErrors.rating && (
+              <p className="text-xs text-rose-500 mt-1">{reviewErrors.rating.message}</p>
+            )}
           </div>
 
           {/* Título de la reseña */}
@@ -341,12 +365,14 @@ export function BookReviewsSection({
             </label>
             <input
               type="text"
-              value={reviewTitle}
-              onChange={(e) => setReviewTitle(e.target.value)}
+              {...registerReview('title')}
               placeholder="Ej: Una obra maestra imprescindible..."
               maxLength={150}
               className="w-full text-xs rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 p-2.5 focus:ring-2 focus:ring-teal-500 focus:outline-none"
             />
+            {reviewErrors.title && (
+              <p className="text-xs text-rose-500 mt-1">{reviewErrors.title.message}</p>
+            )}
           </div>
 
           {/* Texto de la reseña */}
@@ -356,11 +382,13 @@ export function BookReviewsSection({
             </label>
             <textarea
               rows={4}
-              value={reviewText}
-              onChange={(e) => setReviewText(e.target.value)}
+              {...registerReview('text')}
               placeholder="¿Qué te ha parecido la trama, el desarrollo de personajes o la prosa del autor?..."
               className="w-full text-xs rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 p-3 focus:ring-2 focus:ring-teal-500 focus:outline-none leading-relaxed"
             />
+            {reviewErrors.text && (
+              <p className="text-xs text-rose-500 mt-1">{reviewErrors.text.message}</p>
+            )}
           </div>
 
           <div className="flex justify-end gap-2 pt-2">

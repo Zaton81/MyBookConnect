@@ -1,6 +1,9 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { login as doLogin } from '../../../lib/auth';
 import { useAuth } from '../../../lib/useAuth';
+import { loginSchema, LoginFormData } from '../schemas/authSchemas';
 
 export type LoginModalProps = {
   open: boolean;
@@ -8,106 +11,112 @@ export type LoginModalProps = {
   onLoginSuccess?: (token: string) => void;
 };
 
-function getPasswordErrors(password: string) {
-  const errors: string[] = [];
-  if (password.length < 8) errors.push('Al menos 8 caracteres');
-  if (!/[A-Z]/.test(password)) errors.push('Al menos una letra mayúscula');
-  if (!/[a-z]/.test(password)) errors.push('Al menos una letra minúscula');
-  if (!/[0-9]/.test(password)) errors.push('Al menos un número');
-  if (!/[!@#$%^&*(),.?"':{}|<>\[\]\\/~`_+=;-]/.test(password)) errors.push('Al menos un símbolo');
-  return errors;
-}
-
 export default function LoginModal({ open, onClose, onLoginSuccess }: LoginModalProps) {
   const { saveToken } = useAuth();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [serverError, setServerError] = useState<string | null>(null);
 
-  const passwordErrors = getPasswordErrors(password);
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors, isSubmitting },
+  } = useForm<LoginFormData>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: {
+      email: '',
+      password: '',
+    },
+  });
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
+  const onSubmit = async (data: LoginFormData) => {
+    setServerError(null);
     try {
-      const data = await doLogin(email, password);
-      const token = data.access_token || data.token || '';
+      const resData = await doLogin(data.email, data.password);
+      const token = resData.access_token || resData.token || '';
       saveToken(token);
       if (onLoginSuccess) onLoginSuccess(token);
+      reset();
       onClose();
     } catch (err: any) {
-      setError(err.message || 'Error');
-    } finally {
-      setLoading(false);
+      setServerError(err.message || 'Error al iniciar sesión');
     }
   };
 
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="w-full max-w-md rounded bg-white p-6 dark:bg-gray-800">
-        <h3 className="mb-4 text-xl font-semibold">Iniciar sesión</h3>
-        <form onSubmit={handleSubmit}>
-          <label className="mb-2 block text-sm font-medium">Email</label>
-          <input
-            type="email"
-            title="email"
-            placeholder="tu@ejemplo.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="mb-3 w-full rounded border px-3 py-2"
-            required
-          />
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl dark:bg-gray-800 border border-gray-100 dark:border-gray-700">
+        <h3 className="mb-4 text-xl font-bold text-gray-900 dark:text-white">Iniciar sesión</h3>
+        <form onSubmit={handleSubmit(onSubmit)} noValidate>
+          <div className="mb-4">
+            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+              Email o usuario
+            </label>
+            <input
+              type="text"
+              {...register('email')}
+              placeholder="tu@ejemplo.com"
+              className={`w-full rounded-xl border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 dark:bg-gray-700 dark:text-white ${
+                errors.email ? 'border-red-500 bg-red-50/20' : 'border-gray-300 dark:border-gray-600'
+              }`}
+            />
+            {errors.email && (
+              <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors.email.message}</p>
+            )}
+          </div>
 
-          <label className="mb-2 block text-sm font-medium">Contraseña</label>
-          <input
-            type="password"
-            title="password"
-            placeholder="Contraseña"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="mb-3 w-full rounded border px-3 py-2"
-            required
-          />
+          <div className="mb-4">
+            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+              Contraseña
+            </label>
+            <input
+              type="password"
+              {...register('password')}
+              placeholder="Contraseña"
+              className={`w-full rounded-xl border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 dark:bg-gray-700 dark:text-white ${
+                errors.password ? 'border-red-500 bg-red-50/20' : 'border-gray-300 dark:border-gray-600'
+              }`}
+            />
+            {errors.password && (
+              <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors.password.message}</p>
+            )}
+          </div>
 
-          {error && <p className="mb-3 text-sm text-red-600">{error}</p>}
-          {password && passwordErrors.length > 0 && (
-            <div className="mb-3 text-sm text-yellow-700">
-              <p className="font-medium">Advertencia: la contraseña introducida parece débil:</p>
-              <ul className="mt-1 list-inside list-disc text-sm">
-                {passwordErrors.map((e) => (
-                  <li key={e} className="text-yellow-700">{e}</li>
-                ))}
-              </ul>
-            </div>
+          {serverError && (
+            <p className="mb-4 text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 p-2.5 rounded-lg border border-red-200 dark:border-red-800">
+              {serverError}
+            </p>
           )}
 
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between pt-2">
             <button
               type="submit"
-              className="rounded bg-blue-600 px-4 py-2 text-white disabled:opacity-50"
-              disabled={loading}
+              disabled={isSubmitting}
+              className="rounded-xl bg-teal-600 hover:bg-teal-700 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-all disabled:opacity-50 cursor-pointer"
             >
-              {loading ? 'Entrando...' : 'Entrar'}
+              {isSubmitting ? 'Entrando...' : 'Entrar'}
             </button>
             <button
               type="button"
               onClick={() => {
-                // Placeholder para login con Google (no implementado)
                 window.location.href = '/auth/google';
               }}
-              className="ml-3 rounded border px-4 py-2"
+              className="rounded-xl border border-gray-300 dark:border-gray-600 px-4 py-2.5 text-xs font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
             >
               Entrar con Google
             </button>
           </div>
         </form>
 
-        <div className="mt-4 flex justify-end">
-          <button onClick={onClose} className="text-sm text-gray-500">
+        <div className="mt-5 flex justify-end border-t border-gray-100 dark:border-gray-700 pt-3">
+          <button
+            onClick={() => {
+              reset();
+              onClose();
+            }}
+            className="text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+          >
             Cerrar
           </button>
         </div>

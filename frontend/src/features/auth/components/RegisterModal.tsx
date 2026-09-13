@@ -1,7 +1,10 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { register as doRegister } from '../../../lib/auth';
 import { useAuth } from '../../../lib/useAuth';
 import { es } from '../../../locales/es';
+import { registerSchema, RegisterFormData } from '../schemas/authSchemas';
 
 export type RegisterModalProps = {
   open: boolean;
@@ -9,136 +12,162 @@ export type RegisterModalProps = {
   onRegisterSuccess?: (token: string) => void;
 };
 
-function getPasswordErrors(password: string) {
-  const errors: string[] = [];
-  if (password.length < 8) errors.push('Al menos 8 caracteres');
-  if (!/[A-Z]/.test(password)) errors.push('Al menos una letra mayúscula');
-  if (!/[a-z]/.test(password)) errors.push('Al menos una letra minúscula');
-  if (!/[0-9]/.test(password)) errors.push('Al menos un número');
-  if (!/[!@#$%^&*(),.?"':{}|<>\[\]\\/~`_+=;-]/.test(password)) errors.push('Al menos un símbolo');
-  return errors;
-}
-
 export default function RegisterModal({ open, onClose, onRegisterSuccess }: RegisterModalProps) {
   const { saveToken } = useAuth();
-  const [email, setEmail] = useState('');
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [serverError, setServerError] = useState<string | null>(null);
 
-  const passwordErrors = getPasswordErrors(password);
+  const {
+    register,
+    handleSubmit,
+    watch,
+    reset,
+    formState: { errors, isSubmitting },
+  } = useForm<RegisterFormData>({
+    resolver: zodResolver(registerSchema),
+    defaultValues: {
+      username: '',
+      email: '',
+      password: '',
+    },
+  });
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
+  const passwordValue = watch('password') || '';
 
-    if (passwordErrors.length > 0) {
-      setError('La contraseña no cumple los requisitos: ' + passwordErrors.join(', '));
-      setLoading(false);
-      return;
-    }
+  const passwordChecks = [
+    { label: 'Al menos 8 caracteres', passed: passwordValue.length >= 8 },
+    { label: 'Una letra mayúscula', passed: /[A-Z]/.test(passwordValue) },
+    { label: 'Una letra minúscula', passed: /[a-z]/.test(passwordValue) },
+    { label: 'Un número', passed: /[0-9]/.test(passwordValue) },
+    { label: 'Un símbolo especial', passed: /[!@#$%^&*(),.?"':{}|<>\[\]\\/~`_+=;-]/.test(passwordValue) },
+  ];
 
+  const onSubmit = async (data: RegisterFormData) => {
+    setServerError(null);
     try {
-      const data = await doRegister(username, email, password);
-      const token = data.access_token || data.token || '';
+      const resData = await doRegister(data.username, data.email, data.password);
+      const token = resData.access_token || resData.token || '';
       saveToken(token);
       if (onRegisterSuccess) onRegisterSuccess(token);
+      reset();
       onClose();
     } catch (err: any) {
-      setError(err.message || 'Error');
-    } finally {
-      setLoading(false);
+      setServerError(err.message || 'Error en el registro');
     }
   };
 
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="w-full max-w-md rounded bg-white p-6 dark:bg-gray-800">
-        <h3 className="mb-4 text-xl font-semibold">Registro</h3>
-        {/* Texto localizado arriba del formulario */}
-        <p className="mb-3 text-sm text-gray-700 dark:text-gray-300">{es.form_register.texto}</p>
-        <form onSubmit={handleSubmit}>
-          <label className="mb-2 block text-sm font-medium">Email</label>
-          <input
-            type="email"
-            title="email"
-            placeholder="tu@ejemplo.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="mb-3 w-full rounded border px-3 py-2"
-            required
-          />
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl dark:bg-gray-800 border border-gray-100 dark:border-gray-700 max-h-[90vh] overflow-y-auto">
+        <h3 className="mb-2 text-xl font-bold text-gray-900 dark:text-white">Registro</h3>
+        <p className="mb-4 text-xs text-gray-600 dark:text-gray-400">{es.form_register.texto}</p>
 
-          <label className="mb-2 block text-sm font-medium">Usuario</label>
-          <input
-            type="text"
-            title="username"
-            placeholder="Nombre de usuario"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            className="mb-3 w-full rounded border px-3 py-2"
-            required
-          />
+        <form onSubmit={handleSubmit(onSubmit)} noValidate>
+          <div className="mb-3">
+            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+              Email
+            </label>
+            <input
+              type="email"
+              {...register('email')}
+              placeholder="tu@ejemplo.com"
+              className={`w-full rounded-xl border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 dark:bg-gray-700 dark:text-white ${
+                errors.email ? 'border-red-500 bg-red-50/20' : 'border-gray-300 dark:border-gray-600'
+              }`}
+            />
+            {errors.email && (
+              <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors.email.message}</p>
+            )}
+          </div>
 
-          <label className="mb-2 block text-sm font-medium">Contraseña</label>
-          <input
-            type="password"
-            title="password"
-            placeholder="Contraseña"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="mb-3 w-full rounded border px-3 py-2"
-            required
-          />
+          <div className="mb-3">
+            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+              Usuario
+            </label>
+            <input
+              type="text"
+              {...register('username')}
+              placeholder="Nombre de usuario"
+              className={`w-full rounded-xl border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 dark:bg-gray-700 dark:text-white ${
+                errors.username ? 'border-red-500 bg-red-50/20' : 'border-gray-300 dark:border-gray-600'
+              }`}
+            />
+            {errors.username && (
+              <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors.username.message}</p>
+            )}
+          </div>
 
-          {password && (
-            <div className="mb-3 text-sm">
-              <p className="font-medium">La contraseña debe incluir:</p>
-              <ul className="mt-1 list-inside list-disc text-sm">
-                <li className={password.length >= 8 ? 'text-green-600' : 'text-red-600'}>Al menos 8 caracteres</li>
-                <li className={/[A-Z]/.test(password) ? 'text-green-600' : 'text-red-600'}>Al menos una letra mayúscula</li>
-                <li className={/[a-z]/.test(password) ? 'text-green-600' : 'text-red-600'}>Al menos una letra minúscula</li>
-                <li className={/[0-9]/.test(password) ? 'text-green-600' : 'text-red-600'}>Al menos un número</li>
-                <li className={/[!@#$%^&*(),.?"':{}|<>\[\]\\/~`_+=;-]/.test(password) ? 'text-green-600' : 'text-red-600'}>Al menos un símbolo</li>
-              </ul>
-            </div>
+          <div className="mb-3">
+            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+              Contraseña
+            </label>
+            <input
+              type="password"
+              {...register('password')}
+              placeholder="Contraseña"
+              className={`w-full rounded-xl border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 dark:bg-gray-700 dark:text-white ${
+                errors.password ? 'border-red-500 bg-red-50/20' : 'border-gray-300 dark:border-gray-600'
+              }`}
+            />
+            {errors.password && (
+              <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors.password.message}</p>
+            )}
+
+            {passwordValue && (
+              <div className="mt-2 p-2.5 bg-gray-50 dark:bg-gray-700/50 rounded-lg text-xs space-y-1">
+                <p className="font-medium text-gray-700 dark:text-gray-300">La contraseña debe incluir:</p>
+                {passwordChecks.map((req, idx) => (
+                  <div key={idx} className="flex items-center gap-1.5">
+                    <span>{req.passed ? '✅' : '⚪'}</span>
+                    <span className={req.passed ? 'text-green-600 font-medium' : 'text-gray-400'}>
+                      {req.label}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {serverError && (
+            <p className="mb-3 text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 p-2.5 rounded-lg border border-red-200 dark:border-red-800">
+              {serverError}
+            </p>
           )}
 
-          {error && <p className="mb-3 text-sm text-red-600">{error}</p>}
-
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between pt-2">
             <button
               type="submit"
-              className="rounded bg-green-600 px-4 py-2 text-white disabled:opacity-50"
-              disabled={loading}
+              disabled={isSubmitting}
+              className="rounded-xl bg-teal-600 hover:bg-teal-700 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-all disabled:opacity-50 cursor-pointer"
             >
-              {loading ? 'Registrando...' : 'Registrarme'}
+              {isSubmitting ? 'Registrando...' : 'Registrarme'}
             </button>
             <button
               type="button"
               onClick={() => {
-                // Placeholder para registro con Google (no implementado)
                 window.location.href = '/auth/google';
               }}
-              className="ml-3 rounded border px-4 py-2"
+              className="rounded-xl border border-gray-300 dark:border-gray-600 px-4 py-2.5 text-xs font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
             >
               Registrar con Google
             </button>
           </div>
         </form>
 
-        {/* Textos localizados debajo del formulario */}
-        <div className="mt-4 text-sm text-gray-600 dark:text-gray-400">
+        <div className="mt-4 text-xs text-gray-500 dark:text-gray-400 border-t border-gray-100 dark:border-gray-700 pt-3">
           <p className="mb-1">{es.form_register.detalles}</p>
-          <p className="mb-1">{es.form_register.otros_detalles}</p>
+          <p>{es.form_register.otros_detalles}</p>
         </div>
 
-        <div className="mt-4 flex justify-end">
-          <button onClick={onClose} className="text-sm text-gray-500">
+        <div className="mt-3 flex justify-end">
+          <button
+            onClick={() => {
+              reset();
+              onClose();
+            }}
+            className="text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+          >
             Cerrar
           </button>
         </div>

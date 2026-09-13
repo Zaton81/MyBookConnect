@@ -1865,15 +1865,15 @@ Zustand:
 
 ------------------------------------------------------------------------
 
-# 40. Fase 37 --- Formularios
+# 40. Fase 37 --- Formularios [COMPLETADA]
 
-**Prioridad:** P2
+**Prioridad:** P2 - COMPLETADA
 
 Añadir:
 
 ``` text
 React Hook Form
-Zod
+Zod (@hookform/resolvers/zod)
 ```
 
 Aplicar a:
@@ -1888,6 +1888,30 @@ chat
 ```
 
 Mantener validación también en backend.
+
+## Tareas completadas:
+- [x] **Instalación de Dependencias**:
+  - `react-hook-form` (v7), `zod` (v4), `@hookform/resolvers` (v5).
+- [x] **Esquemas de Validación Zod Centralizados**:
+  - `features/auth/schemas/authSchemas.ts`: `loginSchema` (validación de username y contraseña requerida) y `registerSchema` (longitudes mínimas/máximas, validación de email y coincidencia de confirmación de contraseña).
+  - `features/profile/schemas/profileSchemas.ts`: `editProfileSchema` (validación de nombre, apellidos, correo, fecha, ubicación, biografía y nivel de privacidad con switches de visibilidad).
+  - `features/reviews/schemas/reviewSchemas.ts`: `reviewSchema` (puntuación entera de 1 a 10 con selector interactivo, título y texto con límites) y `commentSchema`.
+  - `features/books/schemas/listSchemas.ts`: `readingListSchema` (nombre obligatorio, descripción y enum de privacidad `public` | `followers` | `private`).
+  - `features/chat/schemas/chatSchemas.ts`: `chatMessageSchema` (mensaje no vacío con límite de 2000 caracteres).
+- [x] **Refactorización Integral de Formularios con React Hook Form**:
+  - `Login.tsx` y `LoginModal.tsx`: migrados a `useForm<LoginFormData>` con `zodResolver(loginSchema)`.
+  - `Register.tsx` y `RegisterModal.tsx`: migrados a `useForm<RegisterFormData>` con `zodResolver(registerSchema)`.
+  - `EditProfileForm.tsx`: migrado a `useForm<EditProfileFormData>` con `zodResolver(editProfileSchema)` e integración de `Controller` para checkboxes de privacidad.
+  - `BookReviewsSection.tsx`: migrado formulario de reseñas a `useForm<ReviewFormData>` con `zodResolver(reviewSchema)` y sincronización del componente `StarRating`.
+  - `ReadingLists.tsx`: migrado modal de creación/edición de listas de lectura a `useForm<ReadingListFormData>` con `zodResolver(readingListSchema)`.
+  - `Chat.tsx`: migrado formulario de envío de mensajes en tiempo real a `useForm<ChatMessageFormData>` con `zodResolver(chatMessageSchema)`.
+- [x] **Mantenimiento de la Validación Backend**:
+  - Todos los endpoints DRF conservan sus validadores y reglas de negocio íntegras.
+- [x] **Pruebas y Verificación**:
+  - `pnpm run typecheck` (`tsc --noEmit`) verificado con 0 errores.
+  - `pnpm run build` (`vite build`) completado con éxito para producción.
+  - Suite de regresión backend `pytest -q` con 243/243 tests pasando sin ninguna regresión.
+
 
 ------------------------------------------------------------------------
 

@@ -1,33 +1,48 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useForm, Controller } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { Label, TextInput, Button, Select, Checkbox } from 'flowbite-react';
 import { BioEditor } from '../../../components/ui';
 import { useAuthStore } from '../../../store/auth';
+import { editProfileSchema, EditProfileFormData } from '../schemas/profileSchemas';
 
 export function EditProfileForm() {
   const { user, updateProfile } = useAuthStore();
   const navigate = useNavigate();
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [formData, setFormData] = useState({
-    first_name: user?.first_name || '',
-    last_name: user?.last_name || '',
-    email: user?.email || '',
-    birth_date: user?.birth_date || '',
-    location: user?.location || '',
-    privacy_level: user?.privacy_level || 'public',
-    bio: user?.bio || '',
-    show_email: user?.show_email ?? false,
-    show_birth_date: user?.show_birth_date ?? false,
-    show_location: user?.show_location ?? false,
-    show_bio: user?.show_bio ?? false,
-  });
   const [avatar, setAvatar] = useState<File | null>(null);
+  const [serverError, setServerError] = useState<string | null>(null);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const {
+    register,
+    handleSubmit,
+    control,
+    setValue,
+    watch,
+    formState: { errors, isSubmitting },
+  } = useForm<EditProfileFormData>({
+    resolver: zodResolver(editProfileSchema),
+    defaultValues: {
+      first_name: user?.first_name || '',
+      last_name: user?.last_name || '',
+      email: user?.email || '',
+      birth_date: user?.birth_date || '',
+      location: user?.location || '',
+      privacy_level: (user?.privacy_level as 'public' | 'friends' | 'private') || 'public',
+      bio: user?.bio || '',
+      show_email: user?.show_email ?? false,
+      show_birth_date: user?.show_birth_date ?? false,
+      show_location: user?.show_location ?? false,
+      show_bio: user?.show_bio ?? false,
+    },
+  });
+
+  const bioContent = watch('bio') || '';
+
+  const onSubmit = async (formData: EditProfileFormData) => {
     if (!user) return;
-    
-    setIsSubmitting(true);
+    setServerError(null);
+
     try {
       const data = new FormData();
       if (avatar) {
@@ -35,18 +50,15 @@ export function EditProfileForm() {
       }
       Object.entries(formData).forEach(([key, value]) => {
         if (value !== undefined && value !== null) {
-          // DRF acepta 'true'/'false' para booleanos; aseguramos string
-          const v = typeof value === 'boolean' ? String(value) : (value as string);
+          const v = typeof value === 'boolean' ? String(value) : String(value);
           data.append(key, v);
         }
       });
-      
+
       await updateProfile(data);
       navigate('/profile');
-    } catch (error) {
-      console.error('Error actualizando perfil:', error);
-    } finally {
-      setIsSubmitting(false);
+    } catch (error: any) {
+      setServerError(error?.message || 'Error al actualizar el perfil');
     }
   };
 
@@ -61,7 +73,7 @@ export function EditProfileForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="max-w-md mx-auto">
+    <form onSubmit={handleSubmit(onSubmit)} className="max-w-md mx-auto" noValidate>
       <div className="mb-4">
         <Label htmlFor="avatar" value="Foto de perfil" />
         <input
@@ -70,7 +82,7 @@ export function EditProfileForm() {
           onChange={handleFileChange}
           accept="image/*"
           aria-label="Foto de perfil"
-          className="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 focus:outline-none"
+          className="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 focus:outline-none dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200"
         />
       </div>
 
@@ -79,35 +91,42 @@ export function EditProfileForm() {
         <TextInput
           id="first_name"
           type="text"
-          value={formData.first_name}
-          onChange={(e) => setFormData({...formData, first_name: e.target.value})}
+          {...register('first_name')}
+          color={errors.first_name ? 'failure' : undefined}
+          helperText={errors.first_name?.message}
         />
       </div>
+
       <div className="mb-4">
         <Label htmlFor="last_name" value="Apellidos" />
         <TextInput
           id="last_name"
           type="text"
-          value={formData.last_name}
-          onChange={(e) => setFormData({...formData, last_name: e.target.value})}
+          {...register('last_name')}
+          color={errors.last_name ? 'failure' : undefined}
+          helperText={errors.last_name?.message}
         />
       </div>
+
       <div className="mb-4">
         <Label htmlFor="email" value="Email" />
         <TextInput
           id="email"
           type="email"
-          value={formData.email}
-          onChange={(e) => setFormData({...formData, email: e.target.value})}
+          {...register('email')}
+          color={errors.email ? 'failure' : undefined}
+          helperText={errors.email?.message}
         />
       </div>
+
       <div className="mb-4">
         <Label htmlFor="birth_date" value="Fecha de nacimiento" />
         <TextInput
           id="birth_date"
           type="date"
-          value={formData.birth_date}
-          onChange={(e) => setFormData({...formData, birth_date: e.target.value})}
+          {...register('birth_date')}
+          color={errors.birth_date ? 'failure' : undefined}
+          helperText={errors.birth_date?.message}
         />
       </div>
 
@@ -116,8 +135,9 @@ export function EditProfileForm() {
         <TextInput
           id="location"
           type="text"
-          value={formData.location}
-          onChange={(e) => setFormData({...formData, location: e.target.value})}
+          {...register('location')}
+          color={errors.location ? 'failure' : undefined}
+          helperText={errors.location?.message}
         />
       </div>
 
@@ -125,8 +145,7 @@ export function EditProfileForm() {
         <Label htmlFor="privacy_level" value="Nivel de privacidad" />
         <Select
           id="privacy_level"
-          value={formData.privacy_level}
-          onChange={(e) => setFormData({...formData, privacy_level: e.target.value as 'public' | 'friends' | 'private'})}
+          {...register('privacy_level')}
         >
           <option value="public">Público</option>
           <option value="friends">Solo amigos</option>
@@ -134,49 +153,87 @@ export function EditProfileForm() {
         </Select>
       </div>
 
-      <div className="mb-4 border rounded-md p-4">
-        <p className="font-medium mb-2">Visibilidad de campos</p>
-        <div className="flex flex-col gap-2">
-          <label className="flex items-center gap-2">
-            <Checkbox
-              checked={formData.show_email}
-              onChange={(e) => setFormData({ ...formData, show_email: e.target.checked })}
+      <div className="mb-4 border border-gray-200 dark:border-gray-700 rounded-xl p-4 bg-gray-50/50 dark:bg-gray-800/50">
+        <p className="font-semibold text-sm mb-3 text-gray-800 dark:text-gray-200">Visibilidad de campos</p>
+        <div className="flex flex-col gap-2.5">
+          <label className="flex items-center gap-2 cursor-pointer text-sm">
+            <Controller
+              name="show_email"
+              control={control}
+              render={({ field }) => (
+                <Checkbox
+                  id="show_email"
+                  checked={field.value}
+                  onChange={(e) => field.onChange(e.target.checked)}
+                />
+              )}
             />
-            <span>Mostrar email</span>
+            <span className="text-gray-700 dark:text-gray-300">Mostrar email públicamente</span>
           </label>
-          <label className="flex items-center gap-2">
-            <Checkbox
-              checked={formData.show_birth_date}
-              onChange={(e) => setFormData({ ...formData, show_birth_date: e.target.checked })}
+          <label className="flex items-center gap-2 cursor-pointer text-sm">
+            <Controller
+              name="show_birth_date"
+              control={control}
+              render={({ field }) => (
+                <Checkbox
+                  id="show_birth_date"
+                  checked={field.value}
+                  onChange={(e) => field.onChange(e.target.checked)}
+                />
+              )}
             />
-            <span>Mostrar fecha de nacimiento</span>
+            <span className="text-gray-700 dark:text-gray-300">Mostrar fecha de nacimiento</span>
           </label>
-          <label className="flex items-center gap-2">
-            <Checkbox
-              checked={formData.show_location}
-              onChange={(e) => setFormData({ ...formData, show_location: e.target.checked })}
+          <label className="flex items-center gap-2 cursor-pointer text-sm">
+            <Controller
+              name="show_location"
+              control={control}
+              render={({ field }) => (
+                <Checkbox
+                  id="show_location"
+                  checked={field.value}
+                  onChange={(e) => field.onChange(e.target.checked)}
+                />
+              )}
             />
-            <span>Mostrar ubicación</span>
+            <span className="text-gray-700 dark:text-gray-300">Mostrar ubicación</span>
           </label>
-          <label className="flex items-center gap-2">
-            <Checkbox
-              checked={formData.show_bio}
-              onChange={(e) => setFormData({ ...formData, show_bio: e.target.checked })}
+          <label className="flex items-center gap-2 cursor-pointer text-sm">
+            <Controller
+              name="show_bio"
+              control={control}
+              render={({ field }) => (
+                <Checkbox
+                  id="show_bio"
+                  checked={field.value}
+                  onChange={(e) => field.onChange(e.target.checked)}
+                />
+              )}
             />
-            <span>Mostrar biografía</span>
+            <span className="text-gray-700 dark:text-gray-300">Mostrar biografía</span>
           </label>
         </div>
       </div>
+
       <div className="mb-4">
         <Label htmlFor="bio" value="Biografía enriquecida" />
         <BioEditor
-          content={formData.bio}
-          onChange={(value: string) => setFormData({...formData, bio: value})}
+          content={bioContent}
+          onChange={(value: string) => setValue('bio', value, { shouldValidate: true })}
         />
+        {errors.bio && (
+          <p className="mt-1 text-xs text-red-600">{errors.bio.message}</p>
+        )}
       </div>
 
-      <div className="flex justify-between">
-        <Button type="submit" disabled={isSubmitting}>
+      {serverError && (
+        <p className="mb-4 text-sm text-red-600 bg-red-50 p-2.5 rounded-lg border border-red-200">
+          {serverError}
+        </p>
+      )}
+
+      <div className="flex justify-between pt-2">
+        <Button type="submit" disabled={isSubmitting} className="bg-teal-600 hover:bg-teal-700">
           {isSubmitting ? 'Guardando...' : 'Guardar cambios'}
         </Button>
         <Button color="light" onClick={() => navigate('/profile')}>
@@ -188,4 +245,4 @@ export function EditProfileForm() {
 }
 
 export const EditProfile = EditProfileForm;
-export default EditProfileForm;
+export default EditProfileForm;

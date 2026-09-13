@@ -1,8 +1,11 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { useAuthStore } from '../../../store/auth';
 import { useChatWebSocket, ChatMessage } from '../../../hooks/useChatWebSocket';
 import { Spinner } from 'flowbite-react';
+import { chatMessageSchema, ChatMessageFormData } from '../schemas/chatSchemas';
 
 interface Participant {
   id: number;
@@ -33,9 +36,23 @@ export function Chat() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeConvId, setActiveConvId] = useState<number | null>(initialConvId);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [inputText, setInputText] = useState('');
   const [loadingConvs, setLoadingConvs] = useState(true);
   const [loadingMessages, setLoadingMessages] = useState(false);
+
+  const {
+    register: registerMessage,
+    handleSubmit: handleSubmitMessage,
+    reset: resetMessageForm,
+    watch: watchMessage,
+    formState: { errors: messageErrors },
+  } = useForm<ChatMessageFormData>({
+    resolver: zodResolver(chatMessageSchema),
+    defaultValues: {
+      message: '',
+    },
+  });
+
+  const messageText = watchMessage('message');
   const [searchQuery, setSearchQuery] = useState('');
   const [followingUsers, setFollowingUsers] = useState<any[]>([]);
   const [showFollowingPicker, setShowFollowingPicker] = useState(false);
@@ -182,14 +199,13 @@ export function Chat() {
     }
   }, [activeConvId, isConnected, markRead]);
 
-  const handleSend = (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    const text = inputText.trim();
+  const onSubmitMessage = (data: ChatMessageFormData) => {
+    const text = data.message.trim();
     if (!text || !activeConvId) return;
 
     const sent = sendMessage(text);
     if (sent) {
-      setInputText('');
+      resetMessageForm({ message: '' });
     } else {
       // Fallback REST si WebSocket no está conectado
       fetch(`${apiUrl}/api/v1/messages/`, {
@@ -206,7 +222,7 @@ export function Chat() {
         .then((res) => res.json())
         .then((data) => {
           setMessages((prev) => [...prev, data]);
-          setInputText('');
+          resetMessageForm({ message: '' });
         })
         .catch(console.error);
     }
@@ -491,22 +507,26 @@ export function Chat() {
 
               {/* Formulario de envío */}
               <div className="p-3 sm:p-4 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
-                <form onSubmit={handleSend} className="flex items-center space-x-2">
-                  <input
-                    type="text"
-                    value={inputText}
-                    onChange={(e) => setInputText(e.target.value)}
-                    placeholder="Escribe un mensaje literario..."
-                    className="flex-1 text-sm rounded-xl border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 dark:text-white focus:ring-teal-500 focus:border-teal-500 py-2.5 px-4"
-                  />
-                  <button
-                    type="submit"
-                    disabled={!inputText.trim()}
-                    className="bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white font-medium rounded-xl px-5 py-2.5 text-sm transition-all shadow-md shadow-teal-600/20 flex items-center gap-1.5"
-                  >
-                    <span>Enviar</span>
-                    <span>➔</span>
-                  </button>
+                <form onSubmit={handleSubmitMessage(onSubmitMessage)} className="space-y-1">
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="text"
+                      {...registerMessage('message')}
+                      placeholder="Escribe un mensaje literario..."
+                      className="flex-1 text-sm rounded-xl border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 dark:text-white focus:ring-teal-500 focus:border-teal-500 py-2.5 px-4"
+                    />
+                    <button
+                      type="submit"
+                      disabled={!messageText?.trim()}
+                      className="bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white font-medium rounded-xl px-5 py-2.5 text-sm transition-all shadow-md shadow-teal-600/20 flex items-center gap-1.5"
+                    >
+                      <span>Enviar</span>
+                      <span>➔</span>
+                    </button>
+                  </div>
+                  {messageErrors.message && (
+                    <p className="text-xs text-rose-500 px-1">{messageErrors.message.message}</p>
+                  )}
                 </form>
               </div>
             </>

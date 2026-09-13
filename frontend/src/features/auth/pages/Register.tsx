@@ -1,30 +1,46 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { useAuthStore } from '../../../store/auth';
+import { registerSchema, RegisterFormData } from '../schemas/authSchemas';
 
 export const Register = () => {
   const navigate = useNavigate();
-  const register = useAuthStore(state => state.register);
-  const [error, setError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const registerAction = useAuthStore(state => state.register);
+  const [serverError, setServerError] = useState<string | null>(null);
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setError(null);
-    setIsLoading(true);
+  const {
+    register,
+    handleSubmit,
+    watch,
+    formState: { errors, isSubmitting },
+  } = useForm<RegisterFormData>({
+    resolver: zodResolver(registerSchema),
+    defaultValues: {
+      username: '',
+      email: '',
+      password: '',
+    },
+  });
 
-    const form = e.currentTarget;
-    const username = (form.elements.namedItem('username') as HTMLInputElement).value;
-    const email = (form.elements.namedItem('email') as HTMLInputElement).value;
-    const password = (form.elements.namedItem('password') as HTMLInputElement).value;
+  const passwordValue = watch('password') || '';
 
+  const passwordChecks = [
+    { label: 'Al menos 8 caracteres', passed: passwordValue.length >= 8 },
+    { label: 'Una letra mayúscula', passed: /[A-Z]/.test(passwordValue) },
+    { label: 'Una letra minúscula', passed: /[a-z]/.test(passwordValue) },
+    { label: 'Un número', passed: /[0-9]/.test(passwordValue) },
+    { label: 'Un símbolo especial', passed: /[!@#$%^&*(),.?"':{}|<>\[\]\\/~`_+=;-]/.test(passwordValue) },
+  ];
+
+  const onSubmit = async (data: RegisterFormData) => {
+    setServerError(null);
     try {
-      await register(username, email, password);
+      await registerAction(data.username, data.email, data.password);
       navigate('/profile/edit');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error en el registro');
-    } finally {
-      setIsLoading(false);
+      setServerError(err instanceof Error ? err.message : 'Error en el registro');
     }
   };
 
@@ -36,60 +52,89 @@ export const Register = () => {
             Crea tu cuenta
           </h2>
         </div>
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          <div className="rounded-md shadow-sm -space-y-px">
-            <div>
-              <label htmlFor="username" className="sr-only">
-                Nombre de usuario
-              </label>
-              <input
-                id="username"
-                name="username"
-                type="text"
-                required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                placeholder="Nombre de usuario"
-              />
-            </div>
-            <div>
-              <label htmlFor="email" className="sr-only">
-                Email
-              </label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                placeholder="Email"
-              />
-            </div>
-            <div>
-              <label htmlFor="password" className="sr-only">
-                Contraseña
-              </label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                placeholder="Contraseña"
-              />
-            </div>
+        <form className="mt-8 space-y-5" onSubmit={handleSubmit(onSubmit)} noValidate>
+          <div>
+            <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-1">
+              Nombre de usuario
+            </label>
+            <input
+              id="username"
+              type="text"
+              {...register('username')}
+              className={`appearance-none relative block w-full px-3 py-2 border rounded-md placeholder-gray-400 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm ${
+                errors.username ? 'border-red-500 bg-red-50/30' : 'border-gray-300'
+              }`}
+              placeholder="Nombre de usuario"
+            />
+            {errors.username && (
+              <p className="mt-1 text-xs text-red-600">{errors.username.message}</p>
+            )}
           </div>
 
-          {error && (
-            <div className="text-red-600 text-sm text-center">{error}</div>
+          <div>
+            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+              Email
+            </label>
+            <input
+              id="email"
+              type="email"
+              {...register('email')}
+              className={`appearance-none relative block w-full px-3 py-2 border rounded-md placeholder-gray-400 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm ${
+                errors.email ? 'border-red-500 bg-red-50/30' : 'border-gray-300'
+              }`}
+              placeholder="Email"
+            />
+            {errors.email && (
+              <p className="mt-1 text-xs text-red-600">{errors.email.message}</p>
+            )}
+          </div>
+
+          <div>
+            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+              Contraseña
+            </label>
+            <input
+              id="password"
+              type="password"
+              {...register('password')}
+              className={`appearance-none relative block w-full px-3 py-2 border rounded-md placeholder-gray-400 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm ${
+                errors.password ? 'border-red-500 bg-red-50/30' : 'border-gray-300'
+              }`}
+              placeholder="Contraseña"
+            />
+            {errors.password && (
+              <p className="mt-1 text-xs text-red-600">{errors.password.message}</p>
+            )}
+
+            {/* Comprobación de fortaleza reactiva */}
+            {passwordValue && (
+              <div className="mt-3 p-3 bg-gray-100 rounded-lg text-xs space-y-1">
+                <p className="font-semibold text-gray-700 mb-1">Requisitos de contraseña:</p>
+                {passwordChecks.map((req, idx) => (
+                  <div key={idx} className="flex items-center gap-1.5">
+                    <span>{req.passed ? '✅' : '⚪'}</span>
+                    <span className={req.passed ? 'text-green-700 font-medium' : 'text-gray-500'}>
+                      {req.label}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {serverError && (
+            <div className="text-red-600 text-sm text-center bg-red-50 p-2.5 rounded-lg border border-red-200">
+              {serverError}
+            </div>
           )}
 
           <div>
             <button
               type="submit"
-              disabled={isLoading}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-indigo-400"
+              disabled={isSubmitting}
+              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-indigo-400 cursor-pointer"
             >
-              {isLoading ? 'Registrando...' : 'Registrarse'}
+              {isSubmitting ? 'Registrando...' : 'Registrarse'}
             </button>
           </div>
         </form>
