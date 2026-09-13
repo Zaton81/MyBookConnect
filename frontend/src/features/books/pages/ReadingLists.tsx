@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Spinner } from 'flowbite-react';
 import { useForm } from 'react-hook-form';
@@ -45,7 +45,7 @@ interface ReadingList {
 export function ReadingLists() {
   const { token, user: currentUser } = useAuthStore();
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
   const apiUrl = (import.meta as any).env.VITE_API_URL || 'http://localhost:8000';
 
   const [activeTab, setActiveTab] = useState<'my' | 'explore' | 'followed'>('my');

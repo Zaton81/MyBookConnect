@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -54,12 +54,12 @@ export function Chat() {
 
   const messageText = watchMessage('message');
   const [searchQuery, setSearchQuery] = useState('');
-  const [followingUsers, setFollowingUsers] = useState<any[]>([]);
+  const [followingUsers, setFollowingUsers] = useState<Participant[]>([]);
   const [showFollowingPicker, setShowFollowingPicker] = useState(false);
   const [isStartingChat, setIsStartingChat] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const apiUrl = (import.meta as any).env.VITE_API_URL || 'http://localhost:8000';
+  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
   // Cargar seguidos para iniciar chats directos
   useEffect(() => {

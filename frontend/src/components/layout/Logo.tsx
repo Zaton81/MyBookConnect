@@ -1,4 +1,3 @@
-import React from "react";
 import { Card } from "flowbite-react";
 import LogoLibro from "../../assets/logo-horizontal.png";
 import { es } from "../../locales/es";

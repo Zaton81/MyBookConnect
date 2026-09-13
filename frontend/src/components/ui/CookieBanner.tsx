@@ -47,10 +47,10 @@ export function CookieBanner() {
       // Small delay for smooth entry animation
       const timer = setTimeout(() => setIsVisible(true), 600);
       return () => clearTimeout(timer);
-    } else {
-      setAnalytics(saved.analytics);
-      setAdvertising(saved.advertising);
     }
+    setAnalytics(saved.analytics);
+    setAdvertising(saved.advertising);
+    return undefined;
   }, []);
 
   useEffect(() => {

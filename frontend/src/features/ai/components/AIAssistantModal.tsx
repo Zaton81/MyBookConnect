@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Modal, Button, Spinner } from 'flowbite-react';
 import { useAuthStore } from '../../../store/auth';
 

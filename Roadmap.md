@@ -1915,9 +1915,9 @@ Mantener validación también en backend.
 
 ------------------------------------------------------------------------
 
-# 41. Fase 38 --- Tipado frontend
+# 41. Fase 38 --- Tipado frontend [COMPLETADA]
 
-**Prioridad:** P1
+**Prioridad:** P1 - COMPLETADA
 
 Activar:
 
@@ -1939,6 +1939,27 @@ any
 ```
 
 salvo casos justificados.
+
+## Tareas completadas:
+- [x] **Configuración Estricta de TypeScript (`tsconfig.json`)**:
+  - Activadas las opciones `"strict": true`, `"noUnusedLocals": true`, `"noUnusedParameters": true`, `"noImplicitReturns": true` y `"noFallthroughCasesInSwitch": true`.
+- [x] **Generación de Tipos desde OpenAPI**:
+  - Ejecutado `pnpm run generate:types` (`openapi-typescript http://backend:8000/api/schema/ -o src/types/api.ts`).
+  - Creado `src/types/index.ts` que centraliza y expone aliases convenientes (`ApiBook`, `ApiUserBasic`, `ApiActivity`, `ApiReadingList`, etc.).
+- [x] **Tipado de Entorno y Eliminación de `any`**:
+  - Creado `src/vite-env.d.ts` extendiendo `ImportMetaEnv` para tipar estrictamente `VITE_API_URL` y `VITE_WS_URL`.
+  - Reemplazados usos de `(import.meta as any).env` por `import.meta.env`.
+  - Eliminados usos injustificados de `any` en `Author.tsx`, `Chat.tsx`, `BookDetail.tsx`, etc., introduciendo interfaces dedicadas (`AuthorData`, `AuthorBookItem`, `Participant`).
+- [x] **Depuración de Errores de Modo Estricto**:
+  - Limpiados imports no leídos de `React` (eliminando advertencias en React 18 JSX transform).
+  - Eliminadas variables y parámetros no leídos (`offset` en `AddBook.tsx`, `Link` en `Author.tsx`, `isRead` en `BookDetail.tsx`, `setPageSize` en `Library.tsx`, `api` en `services/api.ts`).
+  - Corregido retorno explícito en `CookieBanner.tsx` para satisfacer `noImplicitReturns`.
+  - Tipados de cabeceras HTTP normalizados como `HeadersInit` en `Home.tsx`.
+- [x] **Pruebas y Verificación**:
+  - `pnpm run typecheck` (`tsc --noEmit`) superado con **0 errores** bajo modo estricto completo.
+  - `pnpm run build` (`vite build`) completado con éxito en 27.62s.
+  - Suite de regresión backend `pytest -q` con 243/243 tests pasando sin ninguna regresión.
+
 
 ------------------------------------------------------------------------
 

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 
 interface StarRatingProps {
   rating: number | null | undefined; // 0 to 10 or 0 to 5. We standardize display as 5 stars (rating/2 if > 5)

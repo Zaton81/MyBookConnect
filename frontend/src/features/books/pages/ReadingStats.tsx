@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { Button, Spinner } from 'flowbite-react';
 import { useAuthStore } from '../../../store/auth';

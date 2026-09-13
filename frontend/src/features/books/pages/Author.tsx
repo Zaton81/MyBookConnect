@@ -1,15 +1,35 @@
-import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../../store/auth';
 import { createErrata } from '../../../services/erratas';
 import { Spinner } from 'flowbite-react';
+
+interface AuthorData {
+  id: number;
+  name: string;
+  bio?: string;
+  biography?: string;
+  photo?: string;
+  birth_date?: string;
+  death_date?: string;
+  wikipedia_url?: string;
+  goodreads_url?: string;
+}
+
+interface AuthorBookItem {
+  id: number;
+  title: string;
+  cover?: string;
+  published_date?: string;
+  average_rating?: number;
+}
 
 export function Author() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { token } = useAuthStore();
-  const [author, setAuthor] = useState<any | null>(null);
-  const [localBooks, setLocalBooks] = useState<any[]>([]);
+  const [author, setAuthor] = useState<AuthorData | null>(null);
+  const [localBooks, setLocalBooks] = useState<AuthorBookItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);

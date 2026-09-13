@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuthStore } from '../../../store/auth';
 import { Spinner } from 'flowbite-react';
@@ -37,7 +37,6 @@ export function BookDetail() {
   const [startedAt, setStartedAt] = useState<string>('');
   const [finishedAt, setFinishedAt] = useState<string>('');
   const [isDigital, setIsDigital] = useState<boolean>(false);
-  const [isRead, setIsRead] = useState<boolean>(false);
   const [rating, setRating] = useState<number | ''>('');
   const [notes, setNotes] = useState<string>('');
   const [wishlist, setWishlist] = useState<boolean>(false);
@@ -98,7 +97,6 @@ export function BookDetail() {
             setStartedAt(found.started_at || '');
             setFinishedAt(found.finished_at || '');
             setIsDigital(!!found.is_digital);
-            setIsRead(!!found.is_read);
             setWishlist(!!found.wishlist);
             setRating(found.rating ?? '');
             setNotes(found.notes || '');
@@ -214,7 +212,6 @@ export function BookDetail() {
         setCurrentPage(created.current_page ?? 0);
         setStartedAt(created.started_at || '');
         setFinishedAt(created.finished_at || '');
-        setIsRead(targetStatus === 'read');
         setWishlist(targetStatus === 'want_to_read');
         refreshBookDetails();
       }

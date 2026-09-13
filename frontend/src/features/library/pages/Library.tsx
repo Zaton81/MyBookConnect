@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuthStore } from '../../../store/auth';
 import { useNavigate, Link } from 'react-router-dom';
 import { Spinner } from 'flowbite-react';
@@ -50,12 +50,12 @@ export function Library() {
     search: '',
   });
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState<number>(DEFAULT_PAGE_SIZE);
+  const pageSize = DEFAULT_PAGE_SIZE;
   const [totalCount, setTotalCount] = useState<number>(0);
   const [selectedBooks, setSelectedBooks] = useState<Set<number>>(new Set());
   const [refreshKey, setRefreshKey] = useState(0);
 
-  const apiUrl = (import.meta as any).env.VITE_API_URL || 'http://localhost:8000';
+  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
   useEffect(() => {
     if (!token) return;

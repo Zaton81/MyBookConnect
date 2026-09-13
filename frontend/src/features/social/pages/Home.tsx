@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../../store/auth';
 import { Spinner } from 'flowbite-react';
@@ -58,7 +58,7 @@ export const Home = () => {
   const [loading, setLoading] = useState(true);
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
 
-  const apiUrl = (import.meta as any).env.VITE_API_URL || 'http://localhost:8000';
+  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
   // Carga inicial del dashboard: recomendaciones, feed y tendencias
   useEffect(() => {
@@ -70,7 +70,7 @@ export const Home = () => {
     const loadDashboardData = async () => {
       try {
         setLoading(true);
-        const headers = token ? { Authorization: `Bearer ${token}` } : {};
+        const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
 
         const [recsRes, trendingRes, feedRes] = await Promise.all([
           fetch(`${apiUrl}/api/v1/books/recommendations/?limit=6`, { headers }),
@@ -128,7 +128,7 @@ export const Home = () => {
     setTrendingPeriod(period);
     try {
       setTrendingLoading(true);
-      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
       const res = await fetch(`${apiUrl}/api/v1/books/trending/?period=${period}`, { headers });
       if (res.ok) {
         const data = await res.json();

@@ -28,8 +28,6 @@ export function AddBook() {
   const [searchResults, setSearchResults] = useState<SearchBook[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [searchSource, setSearchSource] = useState<string>('');
-  const [offset, setOffset] = useState(0);
-
   // Modal para añadir a estantería
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [selectedBook, setSelectedBook] = useState<SearchBook | null>(null);
@@ -125,7 +123,6 @@ export function AddBook() {
   useEffect(() => {
     const controller = new AbortController();
     const run = () => {
-      setOffset(0);
       handleSearch(search.trim(), 0, controller.signal);
     };
     const t = setTimeout(run, 400);
