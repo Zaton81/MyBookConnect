@@ -3,7 +3,8 @@ import logging
 from django.core.cache import cache
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
-from rest_framework import generics, permissions, status, viewsets
+from drf_spectacular.utils import OpenApiResponse, extend_schema, inline_serializer
+from rest_framework import generics, permissions, serializers, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -228,6 +229,12 @@ class AuthorBooksView(APIView):
     """Listar todos los libros de un autor guardados localmente."""
     permission_classes = (permissions.AllowAny,)
 
+    @extend_schema(
+        summary="Libros de un autor",
+        description="Lista los libros de un autor registrados localmente e incluye libros externos si aplica.",
+        responses={200: OpenApiResponse(description="Libros locales y externos del autor")},
+        tags=['Authors'],
+    )
     def get(self, request, pk):
         books = Book.objects.filter(author_id=pk).select_related('author')
         local = BookSerializer(books, many=True).data
@@ -361,6 +368,8 @@ class UserBookListCreateView(generics.ListCreateAPIView):
     pagination_class = UserBookPagination
 
     def get_queryset(self):
+        if getattr(self, 'swagger_fake_view', False) or not self.request.user.is_authenticated:
+            return UserBook.objects.none()
         queryset = UserBook.objects.filter(user=self.request.user).select_related('book', 'book__author').prefetch_related('book__categories')
         params = self.request.query_params
 
@@ -433,6 +442,11 @@ class UserBookByBookView(APIView):
     """Endpoint optimizado para obtener el UserBook de un libro específico"""
     permission_classes = (permissions.IsAuthenticated,)
 
+    @extend_schema(
+        summary="Obtener estado de lectura del libro para el usuario autenticado",
+        responses={200: UserBookSerializer, 404: OpenApiResponse(description="No encontrado")},
+        tags=['Books'],
+    )
     def get(self, request, book_id):
         try:
             user_book = UserBook.objects.select_related('book', 'book__author').get(
@@ -550,6 +564,22 @@ class ReviewDetailView(generics.RetrieveUpdateDestroyAPIView):
 class ReviewLikeToggleView(APIView):
     permission_classes = (permissions.IsAuthenticated,)
 
+    @extend_schema(
+        summary="Alternar like en una reseña",
+        description="Marca o desmarca un like en la reseña indicada para el usuario autenticado.",
+        responses={
+            200: inline_serializer(
+                name='ReviewLikeToggleResponse',
+                fields={
+                    'liked': serializers.BooleanField(),
+                    'likes_count': serializers.IntegerField(),
+                },
+            ),
+            403: OpenApiResponse(description="Bloqueo o sin permisos"),
+            404: OpenApiResponse(description="Reseña no encontrada"),
+        },
+        tags=['Reviews'],
+    )
     def post(self, request, review_id):
         from rest_framework.exceptions import PermissionDenied
 
@@ -592,6 +622,11 @@ class ReviewLikeToggleView(APIView):
 class ReviewCommentListCreateView(APIView):
     permission_classes = (permissions.IsAuthenticatedOrReadOnly,)
 
+    @extend_schema(
+        summary="Listar comentarios de una reseña",
+        responses={200: ReviewCommentSerializer(many=True)},
+        tags=['Reviews'],
+    )
     def get(self, request, review_id):
         from rest_framework.exceptions import PermissionDenied
 
@@ -617,6 +652,15 @@ class ReviewCommentListCreateView(APIView):
         serializer = ReviewCommentSerializer(comments, many=True, context={'request': request})
         return Response(serializer.data)
 
+    @extend_schema(
+        summary="Publicar comentario en una reseña",
+        request=inline_serializer(
+            name='ReviewCommentCreateRequest',
+            fields={'content': serializers.CharField()},
+        ),
+        responses={201: ReviewCommentSerializer, 400: OpenApiResponse(description="Validación fallida")},
+        tags=['Reviews'],
+    )
     def post(self, request, review_id):
         from rest_framework import status
         from rest_framework.exceptions import PermissionDenied
@@ -666,6 +710,12 @@ class ReviewCommentListCreateView(APIView):
 class ReviewCommentDeleteView(APIView):
     permission_classes = (permissions.IsAuthenticated,)
 
+    @extend_schema(
+        summary="Eliminar comentario de reseña",
+        description="Aplica borrado lógico sobre el comentario.",
+        responses={204: OpenApiResponse(description="Comentario eliminado con éxito")},
+        tags=['Reviews'],
+    )
     def delete(self, request, review_id, comment_id):
         from rest_framework import status
 
@@ -682,6 +732,24 @@ class ReviewCommentDeleteView(APIView):
 class ImportBookView(APIView):
     permission_classes = (permissions.IsAuthenticated,)
 
+    @extend_schema(
+        summary="Importar libro desde proveedores externos",
+        description="Busca e importa libros por ISBN o título utilizando Google Books u OpenLibrary.",
+        request=inline_serializer(
+            name='ImportBookRequest',
+            fields={
+                'isbn': serializers.CharField(required=False),
+                'title': serializers.CharField(required=False),
+                'offset': serializers.IntegerField(required=False, default=0),
+            },
+        ),
+        responses={
+            201: BookSerializer,
+            400: OpenApiResponse(description="Parámetros inválidos"),
+            404: OpenApiResponse(description="No se encontraron resultados"),
+        },
+        tags=['Books'],
+    )
     def post(self, request):
         query_isbn = (request.data.get('isbn') or '').strip()
         query_title = (request.data.get('title') or request.data.get('q') or '').strip()
@@ -713,6 +781,18 @@ class UserRecommendationsView(APIView):
     """
     permission_classes = (permissions.IsAuthenticated,)
 
+    @extend_schema(
+        summary="Recomendaciones personalizadas de libros",
+        responses={200: inline_serializer(
+            name='UserRecommendationResponse',
+            fields={
+                'count': serializers.IntegerField(),
+                'strategy': serializers.CharField(),
+                'results': serializers.ListField(child=serializers.DictField()),
+            },
+        )},
+        tags=['Books'],
+    )
     def get(self, request):
         limit = request.query_params.get('limit', 10)
         try:
@@ -744,6 +824,11 @@ class RecommendationView(APIView):
     """
     permission_classes = (permissions.IsAuthenticated,)
 
+    @extend_schema(
+        summary="Recomendaciones basadas en un libro específico",
+        responses={200: BookSerializer(many=True)},
+        tags=['Books'],
+    )
     def get(self, request, pk):
         limit = request.query_params.get('limit', 6)
         try:
@@ -768,6 +853,22 @@ class RecommendationFeedbackView(APIView):
     """
     permission_classes = (permissions.IsAuthenticated,)
 
+    @extend_schema(
+        summary="Registrar feedback de recomendaciones",
+        request=inline_serializer(
+            name='RecommendationFeedbackInput',
+            fields={
+                'book_id': serializers.IntegerField(),
+                'action': serializers.CharField(),
+                'recommendation_id': serializers.CharField(required=False),
+                'strategy': serializers.CharField(required=False),
+                'algorithm_version': serializers.CharField(required=False),
+                'metadata': serializers.DictField(required=False),
+            },
+        ),
+        responses={201: RecommendationFeedbackSerializer(many=True)},
+        tags=['Books'],
+    )
     def post(self, request):
         """
         Procesa el registro de uno o varios eventos de retroalimentación de recomendaciones.
@@ -834,6 +935,17 @@ class RecommendationMetricsView(APIView):
     """
     permission_classes = (permissions.IsAuthenticated,)
 
+    @extend_schema(
+        summary="Métricas de conversión de recomendaciones",
+        responses={200: inline_serializer(
+            name='RecommendationMetricsResponse',
+            fields={
+                'strategy': serializers.CharField(),
+                'metrics': serializers.DictField(),
+            },
+        )},
+        tags=['Books'],
+    )
     def get(self, request):
         """
         Calcula y retorna los indicadores de rendimiento de recomendaciones según los filtros especificados.
@@ -870,6 +982,18 @@ class RecommendationMetricsView(APIView):
 class AuthorBookRefreshView(APIView):
     permission_classes = (permissions.IsAuthenticated,)
 
+    @extend_schema(
+        summary="Actualizar libros de un autor",
+        description="Sincroniza y busca nuevos libros externos para el autor especificado.",
+        responses={
+            200: inline_serializer(
+                name='AuthorBookRefreshResponse',
+                fields={'count': serializers.IntegerField(), 'detail': serializers.CharField()},
+            ),
+            404: OpenApiResponse(description="Autor no encontrado"),
+        },
+        tags=['Authors'],
+    )
     def post(self, request, pk):
         try:
             author = Author.objects.get(pk=pk)
@@ -887,6 +1011,8 @@ class ErrataListCreateView(generics.ListCreateAPIView):
     serializer_class = ErrataSerializer
 
     def get_queryset(self):
+        if getattr(self, 'swagger_fake_view', False) or not self.request.user.is_authenticated:
+            return Errata.objects.none()
         user = self.request.user
         if getattr(user, 'is_editor', False) or user.is_staff or user.is_superuser:
             return Errata.objects.select_related('book', 'author', 'user', 'editor')
@@ -932,6 +1058,14 @@ class SocialFeedView(APIView):
     """
     permission_classes = (permissions.IsAuthenticated,)
 
+    @extend_schema(
+        summary="Feed de actividad social comunitaria",
+        description="Retorna las últimas lecturas y reseñas realizadas en la plataforma.",
+        responses={
+            200: OpenApiResponse(description="Lista combinada de actividad social reciente"),
+        },
+        tags=['Social'],
+    )
     def get(self, request):
         reviews = Review.objects.select_related('user', 'book', 'book__author').order_by('-created_at')[:15]
         user_books = UserBook.objects.filter(is_read=True).select_related('user', 'book', 'book__author').order_by('-updated_at')[:15]
@@ -988,6 +1122,17 @@ class TrendingBooksView(APIView):
     """
     permission_classes = (permissions.IsAuthenticated,)
 
+    @extend_schema(
+        summary="Libros en tendencia",
+        responses={200: inline_serializer(
+            name='TrendingBooksResponse',
+            fields={
+                'period': serializers.CharField(),
+                'results': serializers.ListField(child=serializers.DictField()),
+            },
+        )},
+        tags=['Books'],
+    )
     def get(self, request):
         period = request.query_params.get('period', 'week')
         results = services.get_trending_books(period=period, limit=12, request=request)
@@ -1000,6 +1145,18 @@ class ReadingMatchView(APIView):
     """
     permission_classes = (permissions.IsAuthenticated,)
 
+    @extend_schema(
+        summary="Afinidad literaria entre usuarios",
+        responses={200: inline_serializer(
+            name='ReadingMatchResponse',
+            fields={
+                'match_percentage': serializers.IntegerField(),
+                'is_self': serializers.BooleanField(),
+                'common_books': serializers.ListField(child=serializers.DictField()),
+            },
+        )},
+        tags=['Books'],
+    )
     def get(self, request, user_id):
         from django.contrib.auth import get_user_model
         UserModel = get_user_model()
@@ -1207,6 +1364,20 @@ class ReadingStatsView(APIView):
     """
     permission_classes = (permissions.AllowAny,)
 
+    @extend_schema(
+        summary="Estadísticas de lectura de usuario",
+        responses={200: inline_serializer(
+            name='ReadingStatsResponse',
+            fields={
+                'total_books': serializers.IntegerField(),
+                'read_books': serializers.IntegerField(),
+                'total_pages': serializers.IntegerField(),
+                'genres': serializers.DictField(),
+                'stats': serializers.DictField(),
+            },
+        )},
+        tags=['Books'],
+    )
     def get(self, request, *args, **kwargs):
         from django.contrib.auth import get_user_model
 

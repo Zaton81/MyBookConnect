@@ -1667,11 +1667,11 @@ Soporte de almacenamiento pluggable configurado en `settings.py` (`STORAGES`):
 
 ------------------------------------------------------------------------
 
-# 36. Fase 33 --- OpenAPI como contrato
+# 36. Fase 33 --- OpenAPI como contrato [COMPLETADA]
 
-**Prioridad:** P1
+**Prioridad:** P1 - COMPLETADA
 
-Usar `drf-spectacular` para generar:
+Uso de `drf-spectacular` para publicar la especificación OpenAPI 3.0.3 y generación automatizada de tipos TypeScript en frontend:
 
 ``` text
 /api/schema/
@@ -1679,21 +1679,39 @@ Usar `drf-spectacular` para generar:
 /api/redoc/
 ```
 
-Usar OpenAPI para generar tipos TypeScript.
-
-Flujo:
+Flujo implementado:
 
 ``` text
-Django
- ↓
-OpenAPI
- ↓
-TypeScript types/client
- ↓
-React
+Django (drf-spectacular)
+       ↓
+OpenAPI 3.0.3 (/api/schema/)
+       ↓
+openapi-typescript (generate:types)
+       ↓
+TypeScript Interfaces (`frontend/src/types/api.ts`)
+       ↓
+React Components & Hooks
 ```
 
-Esto reduce divergencia frontend/backend.
+## Tareas completadas:
+- [x] **Configuración de `SPECTACULAR_SETTINGS`**:
+  - Título descriptivo, versión semántica (1.0.0), descripción del sistema, seguridad JWT bearer, componentes divididos y tags semánticos organizados (Books, Authors, Reviews, Reading Lists, Users, Auth, Social, AI, Messages, Admin, Notifications).
+- [x] **Enriquecimiento del Esquema Backend**:
+  - Incorporadas anotaciones `@extend_schema` y tipado de respuestas con `inline_serializer` y `OpenApiResponse` en todas las vistas clave de DRF y APIViews (`books/views.py`, `books/ai_views.py`, `users/views.py`).
+  - Anotados campos dinámicos `SerializerMethodField` con `@extend_schema_field` en `books/serializers.py`, `users/serializers.py` y `messages_app/serializers.py` eliminando advertencias de tipos anónimos.
+  - Implementadas guardas `getattr(self, 'swagger_fake_view', False)` en métodos `get_queryset` de `UserBookListCreateView`, `UserFollowingListView`, `UserFollowersListView`, `FeedView`, `ConversationViewSet`, `MessageViewSet`, `UserReportsListView`, y `NotificationListView` previniendo errores durante la introspección anónima del esquema.
+- [x] **Generación y Exposición de Contrato OpenAPI**:
+  - Endpoints activos: `/api/schema/` (especificación YAML), `/api/docs/` (Swagger UI interactivo) y `/api/redoc/` (documentación estática Redoc).
+  - Exportado `schema.yaml` en la raíz de backend vía comando de management `python manage.py spectacular --file schema.yaml`.
+- [x] **Pipeline de Generación TypeScript en Frontend**:
+  - Añadido paquete `openapi-typescript` v7.13.0 como devDependency en `frontend/package.json`.
+  - Configurado script `"generate:types": "openapi-typescript http://backend:8000/api/schema/ -o src/types/api.ts"` en `frontend/package.json`.
+  - Generado archivo de definiciones TypeScript fuertemente tipado `frontend/src/types/api.ts` con más de 9.000 líneas de esquemas, rutas y operaciones OpenAPI.
+- [x] **Pruebas y Verificación**:
+  - Creada suite de pruebas exhaustiva `backend/tests/test_phase33_openapi_contract.py` con 6/6 tests superados (100%).
+  - Suite de regresión global ejecutada sin fallos (243/243 tests pasando).
+  - Linter backend `ruff check .` con 0 advertencias y 0 errores.
+  - Verificación estática frontend `pnpm run typecheck` y empaquetado de producción `pnpm run build` limpios.
 
 ------------------------------------------------------------------------
 

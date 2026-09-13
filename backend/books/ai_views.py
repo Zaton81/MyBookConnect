@@ -9,7 +9,8 @@ ejecución controlada de herramientas seguras (Function Calling).
 import logging
 
 from django.shortcuts import get_object_or_404
-from rest_framework import permissions, status
+from drf_spectacular.utils import OpenApiResponse, extend_schema, inline_serializer
+from rest_framework import permissions, serializers, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -36,6 +37,22 @@ class AIStatusView(APIView):
     """
     permission_classes = (permissions.IsAuthenticated,)
 
+    @extend_schema(
+        summary="Estado del servicio de IA",
+        description="Retorna la configuración y disponibilidad del proveedor de IA en tiempo real.",
+        responses={
+            200: inline_serializer(
+                name='AIStatusResponse',
+                fields={
+                    'enabled': serializers.BooleanField(),
+                    'is_online': serializers.BooleanField(),
+                    'provider': serializers.CharField(),
+                    'chat_model': serializers.CharField(),
+                },
+            )
+        },
+        tags=['AI'],
+    )
     def get(self, request):
         """
         Retorna la configuración y disponibilidad del proveedor de IA en tiempo real.
@@ -54,6 +71,30 @@ class AIAssistantView(APIView):
     """
     permission_classes = (permissions.IsAuthenticated,)
 
+    @extend_schema(
+        summary="Chat con asistente literario BookAI",
+        description="Procesa una consulta conversacional con el asistente BookAI contextualizado.",
+        request=inline_serializer(
+            name='AIAssistantRequest',
+            fields={
+                'messages': serializers.ListField(child=serializers.DictField()),
+                'book_id': serializers.IntegerField(required=False),
+            },
+        ),
+        responses={
+            200: inline_serializer(
+                name='AIAssistantResponse',
+                fields={
+                    'message': serializers.DictField(),
+                    'model': serializers.CharField(),
+                    'provider': serializers.CharField(),
+                },
+            ),
+            400: OpenApiResponse(description="Violación de políticas"),
+            429: OpenApiResponse(description="Límite de tasa excedido"),
+        },
+        tags=['AI'],
+    )
     def post(self, request):
         """
         Procesa una consulta conversacional con el asistente BookAI.
@@ -95,6 +136,21 @@ class AISemanticSearchView(APIView):
     """
     permission_classes = (permissions.IsAuthenticated,)
 
+    @extend_schema(
+        summary="Búsqueda semántica de libros",
+        description="Busca libros por conceptos, estados de ánimo o temáticas literarias.",
+        responses={
+            200: inline_serializer(
+                name='AISemanticSearchResponse',
+                fields={
+                    'query': serializers.CharField(),
+                    'results': BookSerializer(many=True),
+                    'count': serializers.IntegerField(),
+                },
+            ),
+        },
+        tags=['AI'],
+    )
     def get(self, request):
         """
         Busca libros en la base de datos que coincidan semánticamente con la consulta.
@@ -121,6 +177,22 @@ class AIBookSummaryView(APIView):
     """
     permission_classes = (permissions.IsAuthenticated,)
 
+    @extend_schema(
+        summary="Resumen temático generado por IA",
+        description="Genera una ficha analítica y síntesis temática del libro especificado.",
+        responses={
+            200: inline_serializer(
+                name='AIBookSummaryResponse',
+                fields={
+                    'summary': serializers.CharField(),
+                    'themes': serializers.ListField(child=serializers.CharField()),
+                    'provider': serializers.CharField(),
+                },
+            ),
+            404: OpenApiResponse(description="Libro no encontrado"),
+        },
+        tags=['AI'],
+    )
     def post(self, request, pk):
         """
         Genera una ficha analítica breve y objetiva del libro especificado.
@@ -140,6 +212,20 @@ class AIToolsListView(APIView):
     """
     permission_classes = (permissions.IsAuthenticated,)
 
+    @extend_schema(
+        summary="Lista de herramientas de IA",
+        description="Retorna la lista de herramientas disponibles para el asistente en formato Function Calling.",
+        responses={
+            200: inline_serializer(
+                name='AIToolsListResponse',
+                fields={
+                    'tools': serializers.ListField(child=serializers.DictField()),
+                    'count': serializers.IntegerField(),
+                },
+            ),
+        },
+        tags=['AI'],
+    )
     def get(self, request):
         """
         Lista las definiciones de esquemas de herramientas seguras disponibles.
@@ -158,6 +244,30 @@ class AIToolExecuteView(APIView):
     """
     permission_classes = (permissions.IsAuthenticated,)
 
+    @extend_schema(
+        summary="Ejecutar herramienta de IA",
+        description="Ejecuta una herramienta de asistencia literaria de forma segura y controlada.",
+        request=inline_serializer(
+            name='AIToolExecuteRequest',
+            fields={
+                'tool_name': serializers.CharField(),
+                'arguments': serializers.DictField(required=False),
+            },
+        ),
+        responses={
+            200: inline_serializer(
+                name='AIToolExecuteResponse',
+                fields={
+                    'tool_name': serializers.CharField(),
+                    'result': serializers.DictField(),
+                    'status': serializers.CharField(),
+                },
+            ),
+            400: OpenApiResponse(description="Parámetros inválidos"),
+            403: OpenApiResponse(description="Permiso denegado"),
+        },
+        tags=['AI'],
+    )
     def post(self, request):
         """
         Ejecuta una herramienta solicitada de forma controlada.

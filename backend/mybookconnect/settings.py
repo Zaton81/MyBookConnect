@@ -20,8 +20,10 @@ DEBUG = _env_bool('DEBUG', '0')
 
 ALLOWED_HOSTS = os.getenv(
     'DJANGO_ALLOWED_HOSTS',
-    os.getenv('ALLOWED_HOSTS', '127.0.0.1'),
+    os.getenv('ALLOWED_HOSTS', '127.0.0.1 localhost backend testserver'),
 ).split()
+if DEBUG and 'backend' not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append('backend')
 
 INSTALLED_APPS = [
     'daphne',
@@ -178,9 +180,22 @@ REST_FRAMEWORK = {
 
 SPECTACULAR_SETTINGS = {
     'TITLE': 'MyBookConnect API',
-    'DESCRIPTION': 'API REST para la red social de lectura MyBookConnect',
+    'DESCRIPTION': 'API REST y contrato OpenAPI para la red social literaria MyBookConnect (Fase 33).',
     'VERSION': '1.0.0',
     'SERVE_INCLUDE_SCHEMA': False,
+    'COMPONENT_SPLIT_REQUEST': True,
+    'TAGS': [
+        {'name': 'Books', 'description': 'Catálogo editorial, libros, recomendaciones e importación.'},
+        {'name': 'Reviews', 'description': 'Reseñas literarias, likes, comentarios y calificaciones.'},
+        {'name': 'Users', 'description': 'Perfiles de usuario, seguimiento, listas y privacidad.'},
+        {'name': 'Chat', 'description': 'Conversaciones directas y mensajería en tiempo real.'},
+        {'name': 'Moderation', 'description': 'Cola de denuncias y moderación de contenido.'},
+        {'name': 'Audit', 'description': 'Registros inmutables de auditoría de plataforma.'},
+    ],
+    'ENUM_NAME_OVERRIDES': {
+        'ReportStatusEnum': 'users.models.ReportStatus',
+        'UserBookStatusEnum': 'books.models.ReadingStatus',
+    },
 }
 
 SIMPLE_JWT = {

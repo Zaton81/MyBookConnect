@@ -23,6 +23,8 @@ class ConversationViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
+        if getattr(self, 'swagger_fake_view', False) or not self.request.user.is_authenticated:
+            return Conversation.objects.none()
         return Conversation.objects.filter(
             participants=self.request.user
         ).prefetch_related('participants', 'messages').order_by('-updated_at')
@@ -55,6 +57,8 @@ class MessageViewSet(
     pagination_class = StandardCursorPagination
 
     def get_queryset(self):
+        if getattr(self, 'swagger_fake_view', False) or not self.request.user.is_authenticated:
+            return Message.objects.none()
         conv_id = self.request.query_params.get('conversation')
         if not conv_id:
             if self.action == 'retrieve':

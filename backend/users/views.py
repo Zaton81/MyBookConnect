@@ -1,7 +1,8 @@
 from django.contrib.auth import get_user_model
 from django.db.models import Count, Exists, OuterRef, Q
 from django.shortcuts import get_object_or_404
-from rest_framework import generics, permissions, status
+from drf_spectacular.utils import OpenApiResponse, extend_schema, inline_serializer
+from rest_framework import generics, permissions, serializers, status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -88,6 +89,18 @@ class UserDetailView(generics.RetrieveAPIView):
 class FollowUserView(APIView):
     permission_classes = (permissions.IsAuthenticated,)
 
+    @extend_schema(
+        summary="Seguir a un usuario",
+        responses={
+            200: inline_serializer(
+                name='FollowUserResponse',
+                fields={'detail': serializers.CharField()},
+            ),
+            400: OpenApiResponse(description="Error de validación o auto-seguimiento"),
+            403: OpenApiResponse(description="Usuario bloqueado"),
+        },
+        tags=['Users'],
+    )
     def post(self, request, user_id):
         user_to_follow = get_object_or_404(User, id=user_id)
         if request.user == user_to_follow:
@@ -128,6 +141,16 @@ class FollowUserView(APIView):
 class UnfollowUserView(APIView):
     permission_classes = (permissions.IsAuthenticated,)
 
+    @extend_schema(
+        summary="Dejar de seguir a un usuario",
+        responses={
+            200: inline_serializer(
+                name='UnfollowUserResponse',
+                fields={'detail': serializers.CharField()},
+            ),
+        },
+        tags=['Users'],
+    )
     def post(self, request, user_id):
         user_to_unfollow = get_object_or_404(User, id=user_id)
         request.user.following.remove(user_to_unfollow)
@@ -137,6 +160,17 @@ class UnfollowUserView(APIView):
 class BlockUserView(APIView):
     permission_classes = (permissions.IsAuthenticated,)
 
+    @extend_schema(
+        summary="Bloquear usuario",
+        responses={
+            200: inline_serializer(
+                name='BlockUserResponse',
+                fields={'detail': serializers.CharField()},
+            ),
+            400: OpenApiResponse(description="No puedes bloquearte a ti mismo"),
+        },
+        tags=['Users'],
+    )
     def post(self, request, user_id):
         from .audit_service import log_audit
         from .models import AuditAction
@@ -163,6 +197,16 @@ class BlockUserView(APIView):
 class UnblockUserView(APIView):
     permission_classes = (permissions.IsAuthenticated,)
 
+    @extend_schema(
+        summary="Desbloquear usuario",
+        responses={
+            200: inline_serializer(
+                name='UnblockUserResponse',
+                fields={'detail': serializers.CharField()},
+            ),
+        },
+        tags=['Users'],
+    )
     def post(self, request, user_id):
         from .audit_service import log_audit
         from .models import AuditAction
@@ -202,6 +246,8 @@ class UserFollowingListView(generics.ListAPIView):
     serializer_class = UserBasicSerializer
 
     def get_queryset(self):
+        if getattr(self, 'swagger_fake_view', False) or not self.request.user.is_authenticated:
+            return User.objects.none()
         return self.request.user.following.all()
 
 
@@ -210,12 +256,29 @@ class UserFollowersListView(generics.ListAPIView):
     serializer_class = UserBasicSerializer
 
     def get_queryset(self):
+        if getattr(self, 'swagger_fake_view', False) or not self.request.user.is_authenticated:
+            return User.objects.none()
         return self.request.user.followers.all()
 
 
 class CheckFollowStatusView(APIView):
     permission_classes = (permissions.IsAuthenticated,)
 
+    @extend_schema(
+        summary="Comprobar estado de seguimiento",
+        description="Indica si existe relación de seguimiento entre el usuario autenticado y el usuario objetivo.",
+        responses={
+            200: inline_serializer(
+                name='CheckFollowStatusResponse',
+                fields={
+                    'is_following': serializers.BooleanField(),
+                    'is_follower': serializers.BooleanField(),
+                    'is_mutual': serializers.BooleanField(),
+                },
+            ),
+        },
+        tags=['Users'],
+    )
     def get(self, request, user_id):
         target_user = get_object_or_404(User, id=user_id)
         is_following = target_user in request.user.following.all()
@@ -228,6 +291,17 @@ class CheckFollowStatusView(APIView):
         })
 
 
+@extend_schema(
+    summary="Alternar rol de editor",
+    description="Activa o desactiva el flag de editor en un usuario (solo administradores).",
+    responses={
+        200: inline_serializer(
+            name='ToggleEditorResponse',
+            fields={'id': serializers.IntegerField(), 'is_editor': serializers.BooleanField()},
+        )
+    },
+    tags=['Admin'],
+)
 @api_view(['POST'])
 @permission_classes([permissions.IsAdminUser])
 def toggle_editor(request, user_id):
@@ -243,6 +317,22 @@ class LogoutView(APIView):
     """
     permission_classes = (permissions.IsAuthenticated,)
 
+    @extend_schema(
+        summary="Cerrar sesión",
+        description="Invalida el token refresh proporcionado añadiéndolo a la blacklist.",
+        request=inline_serializer(
+            name='LogoutRequest',
+            fields={'refresh': serializers.CharField()},
+        ),
+        responses={
+            200: inline_serializer(
+                name='LogoutResponse',
+                fields={'detail': serializers.CharField()},
+            ),
+            400: OpenApiResponse(description="Token refresh inválido o faltante"),
+        },
+        tags=['Auth'],
+    )
     def post(self, request):
         refresh_token = request.data.get('refresh')
         if not refresh_token:
@@ -266,6 +356,8 @@ class NotificationListView(generics.ListAPIView):
 
     def get_queryset(self):
         from .models import Notification
+        if getattr(self, 'swagger_fake_view', False) or not self.request.user.is_authenticated:
+            return Notification.objects.none()
         queryset = Notification.objects.filter(recipient=self.request.user).select_related('actor')
         unread_only = self.request.query_params.get('unread') in ('1', 'true', 'True')
         if unread_only:
@@ -277,6 +369,17 @@ class NotificationMarkReadView(APIView):
     """Marca una notificación individual como leída."""
     permission_classes = (permissions.IsAuthenticated,)
 
+    @extend_schema(
+        summary="Marcar notificación como leída",
+        responses={
+            200: inline_serializer(
+                name='NotificationMarkReadResponse',
+                fields={'status': serializers.CharField(), 'id': serializers.IntegerField()},
+            ),
+            404: OpenApiResponse(description="Notificación no encontrada"),
+        },
+        tags=['Notifications'],
+    )
     def post(self, request, notification_id):
         from .models import Notification
         notif = get_object_or_404(Notification, id=notification_id, recipient=request.user)
@@ -289,6 +392,16 @@ class NotificationMarkAllReadView(APIView):
     """Marca todas las notificaciones del usuario como leídas."""
     permission_classes = (permissions.IsAuthenticated,)
 
+    @extend_schema(
+        summary="Marcar todas las notificaciones como leídas",
+        responses={
+            200: inline_serializer(
+                name='NotificationMarkAllReadResponse',
+                fields={'status': serializers.CharField(), 'updated_count': serializers.IntegerField()},
+            ),
+        },
+        tags=['Notifications'],
+    )
     def post(self, request):
         from .models import Notification
         updated_count = Notification.objects.filter(recipient=request.user, read=False).update(read=True)
@@ -299,6 +412,16 @@ class NotificationUnreadCountView(APIView):
     """Retorna el conteo de notificaciones no leídas para el badge."""
     permission_classes = (permissions.IsAuthenticated,)
 
+    @extend_schema(
+        summary="Conteo de notificaciones no leídas",
+        responses={
+            200: inline_serializer(
+                name='NotificationUnreadCountResponse',
+                fields={'unread_count': serializers.IntegerField()},
+            ),
+        },
+        tags=['Notifications'],
+    )
     def get(self, request):
         from .models import Notification
         count = Notification.objects.filter(recipient=request.user, read=False).count()
@@ -322,6 +445,9 @@ class FeedView(generics.ListAPIView):
 
     def get_queryset(self):
         from .models import Activity
+
+        if getattr(self, 'swagger_fake_view', False) or not self.request.user.is_authenticated:
+            return Activity.objects.none()
 
         user = self.request.user
         following_ids = list(user.following.values_list('id', flat=True))

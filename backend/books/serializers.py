@@ -1,4 +1,5 @@
 from django.contrib.auth import get_user_model
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 from .models import (
@@ -122,6 +123,7 @@ class BookSerializer(serializers.ModelSerializer):
             'categories', 'rating_distribution', 'reviews_count'
         )
 
+    @extend_schema_field(serializers.DictField)
     def get_rating_distribution(self, obj):
         from django.db.models import Count
         distribution = dict.fromkeys(range(1, 11), 0)
@@ -134,6 +136,7 @@ class BookSerializer(serializers.ModelSerializer):
                 distribution[val] = r['count']
         return distribution
 
+    @extend_schema_field(serializers.IntegerField)
     def get_reviews_count(self, obj):
         if hasattr(obj, 'annotated_reviews_count'):
             return obj.annotated_reviews_count
@@ -195,6 +198,7 @@ class ReviewCommentSerializer(serializers.ModelSerializer):
         fields = ('id', 'review', 'user', 'content', 'created_at', 'updated_at', 'is_owner')
         read_only_fields = ('id', 'review', 'user', 'created_at', 'updated_at', 'is_owner')
 
+    @extend_schema_field(serializers.BooleanField)
     def get_is_owner(self, obj):
         request = self.context.get('request')
         if request and request.user.is_authenticated:
@@ -224,6 +228,7 @@ class ReviewSerializer(serializers.ModelSerializer):
             'likes_count', 'user_has_liked', 'comments_count'
         )
 
+    @extend_schema_field(serializers.BooleanField())
     def get_is_friend(self, obj):
         if hasattr(obj, 'is_friend'):
             return obj.is_friend
@@ -232,6 +237,7 @@ class ReviewSerializer(serializers.ModelSerializer):
             return request.user.following.filter(id=obj.user.id).exists()
         return False
 
+    @extend_schema_field(serializers.IntegerField())
     def get_likes_count(self, obj):
         annotated = getattr(obj, 'annotated_likes_count', None)
         if annotated is not None:
@@ -240,6 +246,7 @@ class ReviewSerializer(serializers.ModelSerializer):
             return obj.likes_count
         return obj.likes.count()
 
+    @extend_schema_field(serializers.BooleanField())
     def get_user_has_liked(self, obj):
         annotated = getattr(obj, 'annotated_user_has_liked', None)
         if annotated is not None:
@@ -249,6 +256,7 @@ class ReviewSerializer(serializers.ModelSerializer):
             return obj.likes.filter(user=request.user).exists()
         return False
 
+    @extend_schema_field(serializers.IntegerField())
     def get_comments_count(self, obj):
         annotated = getattr(obj, 'annotated_comments_count', None)
         if annotated is not None:
@@ -338,12 +346,15 @@ class ReadingListSerializer(serializers.ModelSerializer):
         )
         read_only_fields = ('id', 'user', 'slug', 'created_at', 'updated_at')
 
+    @extend_schema_field(serializers.IntegerField())
     def get_items_count(self, obj):
         return obj.items.count()
 
+    @extend_schema_field(serializers.IntegerField())
     def get_followers_count(self, obj):
         return obj.followers.count()
 
+    @extend_schema_field(serializers.BooleanField())
     def get_is_following(self, obj):
         request = self.context.get('request')
         if request and request.user.is_authenticated:

@@ -1,5 +1,6 @@
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 from rest_framework.validators import UniqueValidator
 
@@ -71,20 +72,25 @@ class UserSerializer(serializers.ModelSerializer):
             ret['avatar'] = build_media_url(instance.avatar, request=request)
         return ret
 
+    @extend_schema_field(serializers.IntegerField)
     def get_reviews_count(self, obj):
         return getattr(obj, 'reviews_count', obj.reviews.filter(deleted_at__isnull=True, is_moderated=False).count())
 
+    @extend_schema_field(serializers.IntegerField)
     def get_books_read_count(self, obj):
         if hasattr(obj, 'books_read_count'):
             return obj.books_read_count
         return obj.user_books.filter(is_read=True).count()
 
+    @extend_schema_field(serializers.IntegerField)
     def get_following_count(self, obj):
         return getattr(obj, 'following_count', obj.following.count())
 
+    @extend_schema_field(serializers.IntegerField)
     def get_followers_count(self, obj):
         return getattr(obj, 'followers_count', obj.followers.count())
 
+    @extend_schema_field(serializers.BooleanField)
     def get_is_following(self, obj):
         if hasattr(obj, 'is_following'):
             return obj.is_following
@@ -93,6 +99,7 @@ class UserSerializer(serializers.ModelSerializer):
             return request.user.following.filter(id=obj.id).exists()
         return False
 
+    @extend_schema_field(serializers.BooleanField)
     def get_is_blocked(self, obj):
         if hasattr(obj, 'is_blocked'):
             return obj.is_blocked
@@ -101,6 +108,7 @@ class UserSerializer(serializers.ModelSerializer):
             return request.user.blocked_users.filter(id=obj.id).exists()
         return False
 
+    @extend_schema_field(serializers.BooleanField)
     def get_am_i_blocked(self, obj):
         if hasattr(obj, 'am_i_blocked'):
             return obj.am_i_blocked
