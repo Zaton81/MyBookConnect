@@ -2170,44 +2170,44 @@ Eliminar dependencias innecesarias:
 
 ------------------------------------------------------------------------
 
-# 48. Fase 45 --- Documentación
+# 48. Fase 45 --- Documentación [COMPLETADA]
 
-**Prioridad:** P1
+**Prioridad:** P1 - COMPLETADA
 
 Actualizar:
+-   [x] `README.md` (Visión del proyecto, stack tecnológico actualizado, instrucciones de arranque Docker, guías de testing y enlaces a arquitectura)
+-   [x] `architecture.md` (Topología completa, flujo de autenticación JWT, subsistema asíncrono Celery/Redis, WebSockets ASGI y motor de IA)
+-   [x] `structure.md` (Árbol exhaustivo de directorios backend y frontend con responsabilidades por capa)
 
-``` text
-README.md
-architecture.md
-structure.md
-```
-
-Añadir:
-
-``` text
-docs/
-├── architecture/
-├── api/
-├── development/
-├── deployment/
-├── security/
-└── decisions/
-```
-
-## ADRs
-
-Crear decisiones arquitectónicas:
-
-``` text
-ADR-001 Django + React
-ADR-002 PostgreSQL como fuente de verdad
-ADR-003 Redis
-ADR-004 Celery
-ADR-005 JWT strategy
-ADR-006 Review/UserBook
-ADR-007 Semantic search
-ADR-008 Recommendation engine
-```
+Añadir árbol de documentación modular `docs/`:
+-   [x] `docs/architecture/`
+    -   [x] `overview.md` (Arquitectura global de servicios y patrones de diseño)
+    -   [x] `data_model.md` (Entidades de dominio, diagramas relacionales y separación UserBook/Review)
+    -   [x] `caching_and_channels.md` (Patrones de caché Redis, TTLs, invalidación y WebSockets con Daphne)
+    -   [x] `ai_and_search.md` (Búsqueda híbrida PostgreSQL trigram + vector embeddings e integración con LLMs)
+-   [x] `docs/api/`
+    -   [x] `overview.md` (Convenciones RESTful, versionado `/api/v1/`, serialización y respuestas de error)
+    -   [x] `authentication.md` (Flujo JWT, cookies HttpOnly, rotación de tokens y expiración)
+    -   [x] `endpoints.md` (Catálogo maestro de endpoints agrupados por módulo funcional)
+-   [x] `docs/development/`
+    -   [x] `getting_started.md` (Instalación con Docker Compose, variables de entorno y primeros pasos)
+    -   [x] `testing_guide.md` (Estrategias de prueba backend con pytest y frontend con Vitest)
+    -   [x] `code_standards.md` (Convenciones de código Python/Django, TypeScript/React y git hooks)
+-   [x] `docs/deployment/`
+    -   [x] `docker_production.md` (Configuración de producción con Gunicorn, Daphne, Nginx y workers)
+    -   [x] `security_checklist.md` (Lista de comprobación previa al despliegue en producción)
+-   [x] `docs/security/`
+    -   [x] `threat_model_and_hardening.md` (Modelo de amenazas STRIDE, mitigaciones CSRF/XSS e inyección)
+    -   [x] `audit_and_moderation.md` (Auditoría de dependencias, sanitización HTML y moderación comunitaria)
+-   [x] `docs/decisions/` (Architecture Decision Records)
+    -   [x] `ADR-001-django-react.md` (Selección de Django REST Framework y React + TypeScript)
+    -   [x] `ADR-002-postgresql-source-of-truth.md` (PostgreSQL 16 como única fuente de verdad transaccional)
+    -   [x] `ADR-003-redis-caching-and-channels.md` (Redis para caché de alto rendimiento y Channel Layer de Daphne)
+    -   [x] `ADR-004-celery-async-workers.md` (Celery para procesamiento asíncrono y tareas programadas)
+    -   [x] `ADR-005-jwt-security-strategy.md` (Tokens JWT de corta duración con rotación y almacenamiento seguro)
+    -   [x] `ADR-006-review-userbook-separation.md` (Separación de biblioteca personal privada y reseñas públicas)
+    -   [x] `ADR-007-search-and-trigrams.md` (Búsqueda híbrida: trigramas PostgreSQL GIN y búsqueda semántica IA)
+    -   [x] `ADR-008-recommendation-engine.md` (Motor híbrido multicriterio con explicabilidad y mitigación de cold-start)
 
 ------------------------------------------------------------------------
 
