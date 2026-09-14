@@ -3,6 +3,15 @@ from rest_framework.routers import DefaultRouter
 
 from messages_app.views import ConversationViewSet, MessageViewSet
 
+from .auth_views import (
+    EmailVerifyConfirmView,
+    EmailVerifyRequestView,
+    GoogleOAuthLoginView,
+    PasswordChangeView,
+    PasswordResetConfirmView,
+    PasswordResetRequestView,
+    RevokeAllSessionsView,
+)
 from .views import (
     BlockUserView,
     CheckFollowStatusView,
@@ -43,6 +52,13 @@ user_action_patterns = [
 urlpatterns = [
     path('register/', UserRegistrationView.as_view(), name='register'),
     path('logout/', LogoutView.as_view(), name='logout'),
+    path('password/change/', PasswordChangeView.as_view(), name='password-change'),
+    path('password/reset/', PasswordResetRequestView.as_view(), name='password-reset-request'),
+    path('password/reset/confirm/', PasswordResetConfirmView.as_view(), name='password-reset-confirm'),
+    path('email/verify-request/', EmailVerifyRequestView.as_view(), name='email-verify-request'),
+    path('email/verify/', EmailVerifyConfirmView.as_view(), name='email-verify-confirm'),
+    path('sessions/revoke-all/', RevokeAllSessionsView.as_view(), name='sessions-revoke-all'),
+    path('google/', GoogleOAuthLoginView.as_view(), name='google-oauth-login'),
     path('profile/', UserProfileView.as_view(), name='profile'),
     path('profile/update/', UserUpdateView.as_view(), name='profile-update'),
     path('search/', UserSearchListView.as_view(), name='user-search'),

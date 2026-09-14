@@ -2230,24 +2230,24 @@ Crear y separar formalmente sondas de disponibilidad:
 
 ------------------------------------------------------------------------
 
-# 50. Fase 47 --- Seguridad de contraseñas y autenticación
+# 50. Fase 47 --- Seguridad de contraseñas y autenticación [COMPLETADA]
 
-Revisar:
+**Prioridad:** P1 - COMPLETADA
 
--   [ ] Password validators.
--   [ ] Protección contra brute force.
--   [ ] Rate limiting.
--   [ ] Password reset.
--   [ ] Email verification.
--   [ ] Google OAuth.
--   [ ] Revocación de sesiones.
--   [ ] Logout.
--   [ ] Rotación de refresh tokens.
+Revisar y robustecer:
+-   [x] Password validators: Configuración estricta en `AUTH_PASSWORD_VALIDATORS` (longitud mínima 8, similitud de atributos con usuario, diccionario de contraseñas comunes y rechazo de contraseñas numéricas) aplicada en registro, cambio y restablecimiento.
+-   [x] Protección contra brute force: Limitación de intentos en `/api/v1/auth/token/` por IP y par `IP + username` para neutralizar ataques de fuerza bruta y credential stuffing.
+-   [x] Rate limiting: Implementación de limitadores dedicados con Redis en `backend/users/throttles.py` (`LoginRateThrottle: 10/min`, `PasswordResetRateThrottle: 5/min`, `AuthAnonRateThrottle: 10/min`).
+-   [x] Password reset: Flujo completo en dos fases (`/password/reset/` y `/password/reset/confirm/`) con protección anti-enumeración de usuarios, tokens criptográficos efímeros (`PasswordResetTokenGenerator`) y revocación automática de sesiones previas tras la actualización.
+-   [x] Email verification: Campo `is_email_verified` en modelo `User` (migración `0015_user_is_email_verified`), generador de tokens de confirmación (`EmailVerificationTokenGenerator`) y endpoints `/email/verify-request/` y `/email/verify/`.
+-   [x] Google OAuth: Endpoint `/api/v1/auth/google/` para validación de `id_token` de Google Sign-In, provisión automática de usuarios con email verificado y emisión de par JWT.
+-   [x] Revocación de sesiones: Endpoint `/api/v1/auth/sessions/revoke-all/` (cierre de sesión global mediante invalidación de todos los `OutstandingToken` en `BlacklistedToken`), integrado automáticamente en restablecimiento y cambio de clave.
+-   [x] Logout: Endpoint `/api/v1/auth/logout/` con blacklisting del refresh token provisto.
+-   [x] Rotación de refresh tokens: `ROTATE_REFRESH_TOKENS = True` y `BLACKLIST_AFTER_ROTATION = True` con detección y bloqueo de reuso.
 
 Opcional posteriormente:
-
 ``` text
-2FA
+2FA (TOTP / WebAuthn)
 ```
 
 ------------------------------------------------------------------------

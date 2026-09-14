@@ -36,14 +36,14 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = (
-            'id', 'username', 'first_name', 'last_name', 'email', 'bio', 'avatar',
+            'id', 'username', 'first_name', 'last_name', 'email', 'is_email_verified', 'bio', 'avatar',
             'birth_date', 'location', 'privacy_level',
             'show_email', 'show_birth_date', 'show_location', 'show_bio',
             'following', 'followers', 'is_editor', 'is_staff', 'is_superuser', 'role',
             'reviews_count', 'books_read_count', 'following_count', 'followers_count',
             'is_following', 'is_blocked', 'am_i_blocked'
         )
-        read_only_fields = ('id', 'followers', 'is_editor', 'is_staff', 'is_superuser', 'role')
+        read_only_fields = ('id', 'followers', 'is_editor', 'is_staff', 'is_superuser', 'role', 'is_email_verified')
 
     def validate_avatar(self, value):
         """
@@ -130,6 +130,17 @@ class UserCreateSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         if attrs['password'] != attrs['password2']:
             raise serializers.ValidationError({"password": "Las contraseñas no coinciden"})
+        temp_user = User(
+            username=attrs.get('username'),
+            email=attrs.get('email'),
+            first_name=attrs.get('first_name'),
+            last_name=attrs.get('last_name'),
+        )
+        from django.core.exceptions import ValidationError as DjangoValidationError
+        try:
+            validate_password(attrs['password'], user=temp_user)
+        except DjangoValidationError as err:
+            raise serializers.ValidationError({"password": list(err.messages)})
         return attrs
 
     def create(self, validated_data):
@@ -184,4 +195,61 @@ class ActivitySerializer(serializers.ModelSerializer):
             'metadata',
             'created_at',
         )
+
+
+class PasswordChangeSerializer(serializers.Serializer):
+    """Serializador para cambio de contraseña por usuario autenticado."""
+    old_password = serializers.CharField(write_only=True, required=True)
+    new_password = serializers.CharField(write_only=True, required=True, validators=[validate_password])
+    new_password2 = serializers.CharField(write_only=True, required=True)
+    revoke_other_sessions = serializers.BooleanField(default=True, required=False)
+
+    def validate_old_password(self, value):
+        user = self.context['request'].user
+        if not user.check_password(value):
+            raise serializers.ValidationError("La contraseña actual no es correcta.")
+        return value
+
+    def validate(self, attrs):
+        if attrs['new_password'] != attrs['new_password2']:
+            raise serializers.ValidationError({"new_password": "Las nuevas contraseñas no coinciden."})
+        if attrs['old_password'] == attrs['new_password']:
+            raise serializers.ValidationError({"new_password": "La nueva contraseña debe ser distinta a la anterior."})
+        user = self.context['request'].user
+        from django.core.exceptions import ValidationError as DjangoValidationError
+        try:
+            validate_password(attrs['new_password'], user=user)
+        except DjangoValidationError as err:
+            raise serializers.ValidationError({"new_password": list(err.messages)})
+        return attrs
+
+
+class PasswordResetRequestSerializer(serializers.Serializer):
+    """Serializador para solicitar el restablecimiento de contraseña vía email."""
+    email = serializers.EmailField(required=True)
+
+
+class PasswordResetConfirmSerializer(serializers.Serializer):
+    """Serializador para confirmar el cambio de contraseña con token efímero."""
+    uid = serializers.CharField(required=True)
+    token = serializers.CharField(required=True)
+    new_password = serializers.CharField(write_only=True, required=True, validators=[validate_password])
+    new_password2 = serializers.CharField(write_only=True, required=True)
+
+    def validate(self, attrs):
+        if attrs['new_password'] != attrs['new_password2']:
+            raise serializers.ValidationError({"new_password": "Las contraseñas no coinciden."})
+        return attrs
+
+
+class EmailVerifyConfirmSerializer(serializers.Serializer):
+    """Serializador para validación de token de confirmación de email."""
+    uid = serializers.CharField(required=True)
+    token = serializers.CharField(required=True)
+
+
+class GoogleOAuthSerializer(serializers.Serializer):
+    """Serializador para autenticación social con credenciales de Google OAuth."""
+    id_token = serializers.CharField(required=True, help_text="Token JWT provisto por Google Sign-In SDK")
+
 
