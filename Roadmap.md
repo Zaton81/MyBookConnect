@@ -2211,29 +2211,22 @@ Añadir árbol de documentación modular `docs/`:
 
 ------------------------------------------------------------------------
 
-# 49. Fase 46 --- API de salud y readiness
+# 49. Fase 46 --- API de salud y readiness [COMPLETADA]
 
-Crear:
+**Prioridad:** P2 - COMPLETADA
 
-``` text
-/api/v1/health/
-/api/v1/ready/
-```
-
-`health`:
-
-``` text
-process alive
-```
-
-`ready`:
-
-``` text
-database available
-redis available
-```
-
-Esto facilita Docker, reverse proxy y futuras plataformas de despliegue.
+Crear y separar formalmente sondas de disponibilidad:
+-   [x] `/api/v1/health/` (Sonda de Liveness):
+    -   `process alive`: Comprueba que el proceso Django/Daphne está levantado y responde HTTP sin acoplamiento a dependencias externas (evita reinicios en cascada del contenedor por microcortes transitorios).
+    -   Respuesta 200 OK: `{"status": "healthy", "process": "alive"}`.
+-   [x] `/api/v1/ready/` (Sonda de Readiness):
+    -   `database available`: Comprobación activa de PostgreSQL mediante `SELECT 1;`.
+    -   `redis available`: Comprobación de lectura y escritura en la capa de caché Redis.
+    -   Respuesta 200 OK (`status: "ready"`) cuando todos los servicios están disponibles.
+    -   Respuesta 503 SERVICE UNAVAILABLE (`status: "not_ready"`) con desglose de servicios si alguno falla.
+-   [x] Decoración OpenAPI completa mediante `drf_spectacular` en ambos endpoints.
+-   [x] Integración en `backend/mybookconnect/urls.py` con acceso público sin requerir tokens JWT (esencial para orquestadores Docker, Kubernetes y reverse proxies).
+-   [x] Suite de pruebas automatizadas en `backend/tests/test_phase46_health_readiness.py` (9 tests) y `backend/tests/test_healthcheck.py` (5 tests) con 100% de éxito.
 
 ------------------------------------------------------------------------
 

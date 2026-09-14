@@ -35,5 +35,6 @@ Resumen de las rutas REST y recursos expuestos por la API de MyBookConnect:
 - `POST /api/v1/books/ai/semantic-search/`: Búsqueda por lenguaje natural basada en significado.
 
 ## 6. Observabilidad y Salud (`/api/v1/`)
-- `GET /api/v1/health/`: Comprobación básica de disponibilidad de proceso.
+- `GET /api/v1/health/`: Sonda de liveness (disponibilidad de proceso Django/Daphne sin dependencias externas).
+- `GET /api/v1/ready/`: Sonda de readiness (comprobación activa de dependencias críticas: PostgreSQL y Redis).
 - `GET /api/v1/observability/metrics/`: Cuadro de mando consolidado (latencias, p95, 5xx rate, consultas SQL). Solo administradores.
