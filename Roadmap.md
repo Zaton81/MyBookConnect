@@ -2107,31 +2107,27 @@ Controlar:
 
 ------------------------------------------------------------------------
 
-# 46. Fase 43 --- Rendimiento
+# 46. Fase 43 --- Rendimiento [COMPLETADA]
 
 **Prioridad:** P2
 
-Definir objetivos.
+Definir objetivos y SLAs de latencia:
 
-Ejemplo inicial:
+-   [x] API normal p95 < 300 ms (healthcheck, detalle de libro, biblioteca de usuario, perfil)
+-   [x] API compleja p95 < 800 ms (tendencias, recomendaciones híbridas, estadísticas)
+-   [x] Búsqueda p95 < 500 ms (búsqueda de catálogo con índices trigram / GIN)
 
-``` text
-API normal p95 < 300 ms
-API compleja p95 < 800 ms
-búsqueda p95 < 500 ms
-```
+Medir antes de optimizar:
 
-Medir antes de optimizar.
+-   [x] Utilidad de perfilado y EXPLAIN ANALYZE en `backend/mybookconnect/query_profiler.py`
+-   [x] Comando de benchmarking `python manage.py benchmark_queries` reportando tiempos de planificación, ejecución y uso de índices
+-   [x] Script de prueba de carga con Locust en `scripts/locustfile.py`
+-   [x] Script de prueba de carga con k6 y umbrales estrictos en `scripts/k6_load_test.js`
 
-Herramientas posibles:
-
-``` text
-Django Debug Toolbar
-pytest-django
-PostgreSQL EXPLAIN ANALYZE
-Locust
-k6
-```
+**Validación ejecutada:**
+- Comando `python manage.py benchmark_queries`: todas las consultas críticas evaluadas en PostgreSQL real con tiempos sub-milisegundo (< 1 ms en DB) y uso verificado de índices primarios, compuestos e índices GIN.
+- Suite de tests dedicada `backend/tests/test_phase43_performance.py` (12/12 tests pasando) validando cumplimiento estricto de SLAs para endpoints normales, complejos, búsquedas, impacto de caché e integración del comando.
+- Suite de regresión global: 307/307 tests pasando (`307 passed, 15 warnings in 250.10s`).
 
 ------------------------------------------------------------------------
 
