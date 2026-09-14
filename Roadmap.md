@@ -1963,7 +1963,7 @@ salvo casos justificados.
 
 ------------------------------------------------------------------------
 
-# 42. Fase 39 --- Testing frontend
+# 42. Fase 39 --- Testing frontend [COMPLETADA]
 
 **Prioridad:** P1
 
@@ -1971,57 +1971,63 @@ Añadir Vitest + React Testing Library.
 
 Tests prioritarios:
 
--   [ ] Login.
--   [ ] Registro.
--   [ ] Rutas protegidas.
--   [ ] Libro.
--   [ ] Biblioteca.
--   [ ] Review.
--   [ ] Follow/unfollow.
--   [ ] Bloqueo.
--   [ ] Chat.
--   [ ] Notificaciones.
--   [ ] Feed.
--   [ ] Recomendaciones.
+-   [x] Login.
+-   [x] Registro.
+-   [x] Rutas protegidas.
+-   [x] Libro.
+-   [x] Biblioteca.
+-   [x] Review.
+-   [x] Follow/unfollow.
+-   [x] Bloqueo.
+-   [x] Chat / Notificaciones / Feed / Recomendaciones (componentes cubiertos con mocks y aislamiento).
+
+**Validación ejecutada:**
+- Vitest configurado con JSDOM y `@testing-library/jest-dom/vitest`.
+- 6 archivos de test implementados y pasando.
+- Typecheck TypeScript (`tsc --noEmit`) verificado con 0 errores.
 
 ------------------------------------------------------------------------
 
-# 43. Fase 40 --- Testing backend
+# 43. Fase 40 --- Testing backend [COMPLETADA]
 
 **Prioridad:** P0/P1
 
 ## Seguridad
 
--   [ ] Usuario no puede editar `UserBook` ajeno.
--   [ ] Usuario no puede editar Review ajena.
--   [ ] Usuario bloqueado.
--   [ ] Perfil privado.
--   [ ] Conversación ajena.
--   [ ] Mensaje ajeno.
+-   [x] Usuario no puede editar `UserBook` ajeno.
+-   [x] Usuario no puede editar Review ajena.
+-   [x] Usuario bloqueado.
+-   [x] Perfil privado.
+-   [x] Conversación ajena.
+-   [x] Mensaje ajeno.
 
 ## Integridad
 
--   [ ] Review duplicada.
--   [ ] ISBN duplicado.
--   [ ] Rating inválido.
--   [ ] Estado inválido.
--   [ ] Progreso inválido.
+-   [x] Review duplicada.
+-   [x] ISBN duplicado.
+-   [x] Rating inválido.
+-   [x] Estado inválido.
+-   [x] Progreso inválido.
 
 ## Social
 
--   [ ] Follow.
--   [ ] Unfollow.
--   [ ] Block.
--   [ ] Unblock.
--   [ ] Follow bloqueado.
+-   [x] Follow.
+-   [x] Unfollow.
+-   [x] Block.
+-   [x] Unblock.
+-   [x] Follow bloqueado.
 
 ## Integración
 
--   [ ] Importación.
--   [ ] Providers externos.
--   [ ] Chat.
--   [ ] IA.
--   [ ] Recomendaciones.
+-   [x] Importación.
+-   [x] Providers externos.
+-   [x] Chat.
+-   [x] IA.
+-   [x] Recomendaciones.
+
+**Validación ejecutada:**
+- Archivo de test dedicado `backend/tests/test_phase40_backend_testing.py` con 21 tests cubriendo los cuatro pilares.
+- Suite de regresión completa: 264/264 tests pasando en PostgreSQL + Redis dentro del entorno Docker (`264 passed in 238.37s`).
 
 ------------------------------------------------------------------------
 

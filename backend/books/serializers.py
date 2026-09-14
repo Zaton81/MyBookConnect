@@ -182,6 +182,21 @@ class UserBookSerializer(serializers.ModelSerializer):
             'is_read', 'rating', 'is_digital', 'owned', 'wishlist', 'notes', 'updated_at'
         )
 
+    def validate_rating(self, value):
+        if value is not None and not (1 <= value <= 10):
+            raise serializers.ValidationError("La puntuación debe estar comprendida entre 1 y 10.")
+        return value
+
+    def validate_progress(self, value):
+        if value is not None and not (0 <= value <= 100):
+            raise serializers.ValidationError("El progreso debe estar comprendido entre 0 y 100%.")
+        return value
+
+    def validate_current_page(self, value):
+        if value is not None and value < 0:
+            raise serializers.ValidationError("El número de página no puede ser negativo.")
+        return value
+
 
 class ReviewCommentUserSerializer(serializers.ModelSerializer):
     class Meta:
