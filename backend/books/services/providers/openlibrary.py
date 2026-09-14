@@ -1,9 +1,11 @@
 import logging
+import time
 
 import requests
 from django.core.cache import cache
 
 from books.cache_utils import TTL_EXTERNAL_API, openlibrary_isbn_key, openlibrary_search_key
+from mybookconnect.observability import ObservabilityMetricsService
 
 from ..base import (
     OPEN_LIBRARY_COVERS_URL,
@@ -75,6 +77,7 @@ class OpenLibraryProvider:
         except Exception as e:
             logger.warning(f"Error leyendo caché OpenLibrary para '{clean_title}': {e}")
 
+        t_start = time.perf_counter()
         try:
             res = requests.get(
                 self.search_url,
@@ -82,6 +85,8 @@ class OpenLibraryProvider:
                 timeout=8,
                 headers=OPENLIBRARY_HEADERS,
             )
+            duration_ms = round((time.perf_counter() - t_start) * 1000, 2)
+            ObservabilityMetricsService.record_external_provider_call('openlibrary', success=res.ok, duration_ms=duration_ms)
             if not res.ok:
                 return []
 
@@ -94,6 +99,8 @@ class OpenLibraryProvider:
 
             return [self._parse_doc(doc, clean_title) for doc in docs[:limit]]
         except Exception as e:
+            duration_ms = round((time.perf_counter() - t_start) * 1000, 2)
+            ObservabilityMetricsService.record_external_provider_call('openlibrary', success=False, duration_ms=duration_ms)
             logger.warning(f"Error consultando OpenLibrary para título '{clean_title}': {e}")
             return []
 
@@ -106,9 +113,12 @@ class OpenLibraryProvider:
         except Exception as e:
             logger.warning(f"Error leyendo caché OpenLibrary para isbn {isbn}: {e}")
 
+        t_start = time.perf_counter()
         try:
             ol_url = f'https://openlibrary.org/api/books?bibkeys=ISBN:{isbn}&format=json&jscmd=data'
             res = requests.get(ol_url, timeout=8, headers=OPENLIBRARY_HEADERS)
+            duration_ms = round((time.perf_counter() - t_start) * 1000, 2)
+            ObservabilityMetricsService.record_external_provider_call('openlibrary', success=res.ok, duration_ms=duration_ms)
             if res.ok:
                 data = res.json()
                 book_info = data.get(f'ISBN:{isbn}')
@@ -119,6 +129,8 @@ class OpenLibraryProvider:
                         logger.warning(f"Error guardando en caché isbn OpenLibrary: {ce}")
                     return self._parse_isbn_info(book_info, isbn)
         except Exception as e:
+            duration_ms = round((time.perf_counter() - t_start) * 1000, 2)
+            ObservabilityMetricsService.record_external_provider_call('openlibrary', success=False, duration_ms=duration_ms)
             logger.warning(f"Error consultando OpenLibrary para isbn {isbn}: {e}")
 
         return None

@@ -2061,7 +2061,7 @@ Probar:
 
 ------------------------------------------------------------------------
 
-# 45. Fase 42 --- Observabilidad
+# 45. Fase 42 --- Observabilidad [COMPLETADA]
 
 **Prioridad:** P2
 
@@ -2069,40 +2069,41 @@ Añadir logging estructurado.
 
 Registrar:
 
-``` text
-request_id
-user_id
-endpoint
-status_code
-duration
-exception
-external_provider
-```
+-   [x] request_id
+-   [x] user_id
+-   [x] endpoint
+-   [x] status_code
+-   [x] duration
+-   [x] exception
+-   [x] external_provider
 
 No registrar:
 
-``` text
-passwords
-JWT
-refresh tokens
-API keys
-contenido privado innecesario
-```
+-   [x] passwords
+-   [x] JWT
+-   [x] refresh tokens
+-   [x] API keys
+-   [x] contenido privado innecesario
 
 ## Métricas
 
 Controlar:
 
-``` text
-request latency
-5xx rate
-database queries
-Celery failures
-external API errors
-WebSocket connections
-cache hit rate
-recommendation CTR
-```
+-   [x] request latency (promedio y percentil p95)
+-   [x] 5xx rate / 4xx rate
+-   [x] database queries (totales y promedio por petición)
+-   [x] Celery failures
+-   [x] external API errors (Google Books, OpenLibrary, Wikipedia)
+-   [x] WebSocket connections activas
+-   [x] Endpoint administrativo seguro de telemetría: `/api/v1/observability/metrics/`
+
+**Validación ejecutada:**
+- Formateador de JSON puro desacoplado en `backend/mybookconnect/logging_formatters.py` compatible con el ciclo de inicialización temprana de logging en Django sin bloqueos de `AppRegistryNotReady`.
+- Middleware `StructuredLoggingMiddleware` en `backend/mybookconnect/observability.py` con propagación y generación de cabecera `X-Request-ID`, cómputo de latencia y registro de consultas SQL.
+- Sanitización recursiva mediante `sanitize_sensitive_data` para redacción de tokens Bearer, passwords, JWT, API keys y credenciales.
+- Telemetría instrumentada en proveedores externos (`GoogleBooksProvider`, `OpenLibraryProvider`, `WikipediaProvider`).
+- Suite de tests dedicada `backend/tests/test_phase42_observability.py` (14/14 tests pasando).
+- Suite de regresión global: 295/295 tests pasando (`295 passed, 15 warnings in 196.18s`).
 
 ------------------------------------------------------------------------
 

@@ -15,6 +15,7 @@ from rest_framework_simplejwt.views import (
 from users.moderation_views import ReportCreateView, UserReportsListView
 
 from .health import HealthCheckView
+from .observability import ObservabilityMetricsView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -34,6 +35,7 @@ urlpatterns = [
         path('', include('messages_app.urls')),
         path('chat/', include('messages_app.urls')),
         path('admin/', include('books.admin_urls')),
+        path('observability/metrics/', ObservabilityMetricsView.as_view(), name='observability-metrics'),
         path('reports/', include([
             path('', ReportCreateView.as_view(), name='report-create'),
             path('my/', UserReportsListView.as_view(), name='user-reports-list'),

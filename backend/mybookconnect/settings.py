@@ -50,6 +50,7 @@ AUTH_USER_MODEL = 'users.User'
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'mybookconnect.observability.StructuredLoggingMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -272,3 +273,41 @@ CACHES = {
         'TIMEOUT': 300,
     }
 }
+
+# ─── Configuración de Observabilidad y Logging Estructurado (Fase 42) ───
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'structured_json': {
+            '()': 'mybookconnect.logging_formatters.StructuredJsonFormatter',
+        },
+        'verbose': {
+            'format': '[{asctime}] {levelname} [{name}] {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose' if DEBUG else 'structured_json',
+        },
+        'structured_console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'structured_json',
+        },
+    },
+    'loggers': {
+        'mybookconnect.structured': {
+            'handlers': ['structured_console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'django.request': {
+            'handlers': ['console'],
+            'level': 'WARNING',
+            'propagate': False,
+        },
+    },
+}
+

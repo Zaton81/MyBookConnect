@@ -1,5 +1,6 @@
 import logging
 import re
+import time
 
 import requests
 from django.core.cache import cache
@@ -10,6 +11,7 @@ from books.cache_utils import (
     wikipedia_author_key,
     wikipedia_book_key,
 )
+from mybookconnect.observability import ObservabilityMetricsService
 
 from ..base import DEFAULT_HEADERS, WIKIPEDIA_API_URL, WIKIPEDIA_OPENSEARCH_URL, ProviderBookData
 
@@ -52,6 +54,7 @@ class WikipediaProvider:
         books: list[ProviderBookData] = []
         cache_records: list[dict] = []
 
+        t_start = time.perf_counter()
         try:
             search_url = WIKIPEDIA_OPENSEARCH_URL.format(lang=self.lang)
             search_params = {
@@ -62,6 +65,8 @@ class WikipediaProvider:
                 'srlimit': limit,
             }
             r = requests.get(search_url, params=search_params, timeout=6, headers=DEFAULT_HEADERS)
+            duration_ms = round((time.perf_counter() - t_start) * 1000, 2)
+            ObservabilityMetricsService.record_external_provider_call('wikipedia', success=r.ok, duration_ms=duration_ms)
             if not r.ok:
                 return []
 
@@ -105,6 +110,8 @@ class WikipediaProvider:
                     logger.warning(f"Error guardando en caché Wikipedia libro: {ce}")
 
         except Exception as e:
+            duration_ms = round((time.perf_counter() - t_start) * 1000, 2)
+            ObservabilityMetricsService.record_external_provider_call('wikipedia', success=False, duration_ms=duration_ms)
             logger.warning(f"Error consultando Wikipedia para '{clean_title}': {e}")
 
         return books
@@ -129,6 +136,7 @@ class WikipediaProvider:
         books: list[ProviderBookData] = []
         cache_records: list[dict] = []
 
+        t_start = time.perf_counter()
         try:
             sr_params = {
                 'action': 'query',
@@ -138,6 +146,8 @@ class WikipediaProvider:
                 'srlimit': limit,
             }
             res = requests.get(WIKIPEDIA_OPENSEARCH_URL.format(lang=self.lang), params=sr_params, timeout=7, headers=DEFAULT_HEADERS)
+            duration_ms = round((time.perf_counter() - t_start) * 1000, 2)
+            ObservabilityMetricsService.record_external_provider_call('wikipedia', success=res.ok, duration_ms=duration_ms)
             if res.ok:
                 items = res.json().get('query', {}).get('search', [])
                 for item in items:
@@ -170,6 +180,8 @@ class WikipediaProvider:
                         logger.warning(f"Error guardando en caché Wikipedia autor: {ce}")
 
         except Exception as e:
+            duration_ms = round((time.perf_counter() - t_start) * 1000, 2)
+            ObservabilityMetricsService.record_external_provider_call('wikipedia', success=False, duration_ms=duration_ms)
             logger.warning(f"Error consultando libros de autor '{clean_author}' en Wikipedia: {e}")
 
         return books
