@@ -30,9 +30,8 @@ describe('BookDetail Component', () => {
   };
 
   it('displays loading state initially', () => {
-    (globalThis.fetch as any).mockImplementationOnce(() => new Promise(() => {})); // Never resolves
+    (globalThis.fetch as any).mockImplementation(() => new Promise(() => {})); // Never resolves
     const { container } = renderBookDetail();
-    // Usually a spinner or loading text is shown, we'll just check it renders without crashing
     expect(container).toBeInTheDocument();
   });
 

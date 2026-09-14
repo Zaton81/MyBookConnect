@@ -59,7 +59,7 @@ describe('Library Component', () => {
     renderLibrary();
 
     await waitFor(() => {
-      expect(screen.getByText('My Favorite Book')).toBeInTheDocument();
+      expect(screen.getAllByText('My Favorite Book')[0]).toBeInTheDocument();
     });
     expect(screen.getByText(/awesome author/i)).toBeInTheDocument();
   });

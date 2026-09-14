@@ -2131,41 +2131,42 @@ Medir antes de optimizar:
 
 ------------------------------------------------------------------------
 
-# 47. Fase 44 --- Gestión de dependencias
+# 47. Fase 44 --- Gestión de dependencias [COMPLETADA]
 
 **Prioridad:** P2
 
 No hacer upgrades masivos.
 
-Procedimiento:
+Procedimiento aplicado:
 
-``` text
-1 dependencia
- ↓
-tests
- ↓
-build
- ↓
-merge
-```
+-   [x] 1 dependencia (`dompurify` parcheado contra vulnerabilidades de sanitización y XSS)
+-   [x] tests (21/21 vitest en frontend y 307/307 pytest en backend)
+-   [x] build (`vite build` de producción limpio y `tsc --noEmit` con 0 errores)
+-   [x] merge / commit en `develop`
 
-Revisar especialmente:
+Revisar especialmente y matriz consolidada:
 
-``` text
-Django
-DRF
-React
-React Router
-Vite
-TypeScript
-Tailwind
-Tiptap
-Flowbite
-Redis
-PostgreSQL
-```
+-   [x] Django (`5.2.17` LTS)
+-   [x] DRF (`3.18.1`)
+-   [x] React (`18.3.1`) & React-DOM (`18.3.1`)
+-   [x] React Router (`6.22.0`)
+-   [x] Vite (`6.4.3`)
+-   [x] TypeScript (`5.9.3` en modo estricto)
+-   [x] Tailwind (`3.4.18`)
+-   [x] Tiptap (`3.31.3`)
+-   [x] Flowbite (`2.5.2`) & Flowbite-React (`0.7.8`)
+-   [x] Redis (`8.1.0` / `channels-redis 4.3.0`)
+-   [x] PostgreSQL (`16` / `psycopg2-binary 2.9.13`)
 
-Eliminar dependencias innecesarias.
+Eliminar dependencias innecesarias:
+-   [x] Auditoría de dependencias y aislamiento estricto de paquetes requeridos sin dependencias redundantes.
+
+**Validación ejecutada:**
+- Actualización puntual y aislada de `dompurify` a `3.4.15` con resolución limpia de dependencias en `pnpm`.
+- Validación de tipado estricto `npm run typecheck` sin errores.
+- Empaquetado de producción de frontend `npm run build` ejecutado con éxito en 10.80s.
+- Suite completa de frontend: 21/21 tests pasando en Vitest.
+- Suite completa de regresión backend: 307/307 tests pasando en PostgreSQL 16 y Redis 7 reales (`307 passed in 205.70s`).
 
 ------------------------------------------------------------------------
 

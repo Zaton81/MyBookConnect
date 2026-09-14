@@ -10,3 +10,5 @@ Principios de desarrollo:
 - Prioriza código limpio, modular y mantenible.
 - Sugiere siempre las versiones estables más recientes.
 - Mantén la separación de responsabilidades entre el frontend y la API.
+- Sigue las buenas prácticas de desarrollo de software. Documenta correctamente todo el código generado y sigue el Roadmap.md y las instrucciones específicas de cada fase.
+- Después de completar cada fase, es imprescindible hacer un commit y push a la rama develop

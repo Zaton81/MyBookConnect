@@ -19,7 +19,7 @@
     "@tiptap/pm": "^3.31.3",
     "@tiptap/react": "^3.31.3",
     "@tiptap/starter-kit": "^3.31.3",
-    "dompurify": "^3.0.6",
+    "dompurify": "^3.4.15",
     "flowbite": "^2.3.0",
     "flowbite-react": "^0.7.0",
     "react": "^18.3.1",
