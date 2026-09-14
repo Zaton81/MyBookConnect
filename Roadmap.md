@@ -2252,9 +2252,11 @@ Opcional posteriormente:
 
 ------------------------------------------------------------------------
 
-# 51. Fase 48 --- Sistema de búsqueda unificado
+# 51. Fase 48 --- Sistema de búsqueda unificado [COMPLETADA]
 
-Objetivo final:
+**Prioridad:** P1 - COMPLETADA
+
+Objetivo cumplido: Motor de búsqueda unificado multicanal con scoring fusionado y re-ranking.
 
 ``` text
                      SEARCH
@@ -2263,7 +2265,7 @@ Objetivo final:
           │            │            │
        textual       fuzzy      semantic
           │            │            │
-       PostgreSQL    pg_trgm      pgvector
+       PostgreSQL    pg_trgm   embeddings/vector
           │            │            │
           └────────────┼────────────┘
                        │
@@ -2271,6 +2273,15 @@ Objetivo final:
                        │
                     results
 ```
+
+Hitos completados:
+-   [x] **Canal Textual (PostgreSQL FTS):** Configuración en español (`spanish`), vectores ponderados en título (A), ISBN (A), autor (B), géneros (B) y descripción (C) con normalización de `SearchRank` a $[0, 1]$.
+-   [x] **Canal Difuso (pg_trgm):** Similitud trigramática combinada con `Greatest(TrigramSimilarity, TrigramWordSimilarity)` sobre título, autor y sinopsis; tolerancia a erratas tipográficas leves y severas ("soledd" $\rightarrow$ "soledad", "Cortzar" $\rightarrow$ "Cortázar").
+-   [x] **Canal Semántico (Embeddings & Conceptual Expansion):** Representación vectorial persistida en `Book.embedding` (`JSONField`), cálculo de similitud coseno vectorial en memoria con fallback inteligente a expansión conceptual temática (`ai.services.semantic_search_books`), y tarea Celery asíncrona `generate_book_embedding_task`.
+-   [x] **Fusión Multicanal y Re-Ranking:** Algoritmo ponderado $S_{\text{unified}} = (0.45 \cdot S_{\text{text}}) + (0.30 \cdot S_{\text{fuzzy}}) + (0.25 \cdot S_{\text{semantic}}) + \text{boost}_{\text{rating}}$, con clasificación de coincidencia (`exact`, `fuzzy`, `semantic`, `hybrid`).
+-   [x] **Endpoint Unificado:** `GET /api/v1/books/search/` con parámetros `q`, `mode` (`hybrid|text|fuzzy|semantic`), `category`, `author`, `min_rating`, `page`, `page_size`, `auto_import`, documentado con esquemas OpenAPI/Swagger.
+-   [x] **Compatibilidad Retroactiva:** Refactorización limpia de `BookListCreateView` para delegar automáticamente en `UnifiedSearchEngine(mode='hybrid')` preservando orden y rendimiento sin regresiones.
+-   [x] **Cobertura de Pruebas:** Suite exhaustiva `tests/test_phase48_unified_search.py` (14/14 tests pasando) y regresión de `tests/test_search_postgres.py` (9/9 tests pasando).
 
 ------------------------------------------------------------------------
 

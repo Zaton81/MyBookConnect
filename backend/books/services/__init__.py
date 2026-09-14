@@ -59,9 +59,17 @@ from .recommendation_service import (
 )
 from .stats_service import get_user_reading_stats
 from .trending_service import get_trending_books
+from .unified_search_service import (
+    SearchResultItem,
+    UnifiedSearchEngine,
+    unified_book_search,
+)
 
 __all__ = [
     # Funciones públicas principales
+    'UnifiedSearchEngine',
+    'SearchResultItem',
+    'unified_book_search',
     'import_single_by_query',
     'import_multiple_by_title',
     'import_books_by_author',

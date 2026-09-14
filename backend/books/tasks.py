@@ -157,3 +157,33 @@ def precompute_user_recommendations_task(self, user_id: int) -> int:
         raise self.retry(exc=exc) from exc
 
 
+@shared_task(bind=True, max_retries=2, default_retry_delay=60)
+def generate_book_embedding_task(self, book_id: int) -> bool:
+    """
+    Genera y almacena el vector de embedding semántico para una obra literaria.
+    """
+    try:
+        book = Book.objects.filter(id=book_id).first()
+        if not book:
+            logger.warning(f"generate_book_embedding_task: Libro {book_id} no encontrado")
+            return False
+
+        from ai.embeddings import get_embedding_for_text
+
+        author_name = book.author.name if book.author else ''
+        cat_names = ', '.join([c.name for c in book.categories.all()])
+        text_to_embed = f"Título: {book.title}. Autor: {author_name}. Géneros: {cat_names}. Sinopsis: {book.description or ''}"
+
+        emb = get_embedding_for_text(text_to_embed)
+        if emb:
+            book.embedding = emb
+            book.save(update_fields=['embedding'])
+            logger.info(f"generate_book_embedding_task: Embedding guardado con éxito para libro {book_id} ({book.title})")
+            return True
+        return False
+    except Exception as exc:
+        logger.warning(f"Error en generate_book_embedding_task para libro {book_id}: {exc}")
+        raise self.retry(exc=exc) from exc
+
+
+

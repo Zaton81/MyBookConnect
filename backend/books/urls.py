@@ -32,6 +32,7 @@ from .views import (
     UserBookDetailView,
     UserBookListCreateView,
     UserRecommendationsView,
+    UnifiedBookSearchView,
 )
 
 router = DefaultRouter()
@@ -41,6 +42,7 @@ urlpatterns = [
     path('legal/<slug:slug>/', PublicLegalDocumentView.as_view(), name='books-legal-document'),
     # Rutas estándar limpias (/api/v1/books/...)
     path('', BookListCreateView.as_view(), name='books-list-root'),
+    path('search/', UnifiedBookSearchView.as_view(), name='books-unified-search'),
     path('feed/', SocialFeedView.as_view(), name='books-social-feed'),
     path('trending/', TrendingBooksView.as_view(), name='books-trending'),
     path('recommendations/', UserRecommendationsView.as_view(), name='user-recommendations'),

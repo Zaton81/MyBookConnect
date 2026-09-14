@@ -3,7 +3,7 @@ import logging
 from django.core.cache import cache
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
-from drf_spectacular.utils import OpenApiResponse, extend_schema, inline_serializer
+from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema, inline_serializer
 from rest_framework import generics, permissions, serializers, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -37,6 +37,8 @@ from .serializers import (
     RecommendationFeedbackSerializer,
     ReviewCommentSerializer,
     ReviewSerializer,
+    UnifiedSearchResponseSerializer,
+    UnifiedSearchResultSerializer,
     UserBookSerializer,
 )
 
@@ -52,128 +54,14 @@ class BookListCreateView(generics.ListCreateAPIView):
             return queryset
 
         clean_q = q.strip()
-        from django.db import connection
+        if not clean_q:
+            return queryset
 
-        def _execute_search(query_str):
-            if connection.vendor == 'postgresql':
-                try:
-                    from django.contrib.postgres.search import (
-                        SearchQuery,
-                        SearchRank,
-                        SearchVector,
-                        TrigramSimilarity,
-                        TrigramWordSimilarity,
-                    )
-                    from django.db.models import FloatField, Value
-                    from django.db.models.functions import Coalesce, Greatest
-
-                    vector = (
-                        SearchVector('title', weight='A')
-                        + SearchVector('isbn', weight='A')
-                        + SearchVector('author__name', weight='B')
-                        + SearchVector('categories__name', weight='B')
-                        + SearchVector('description', weight='C')
-                    )
-                    search_query = SearchQuery(query_str, search_type='plain')
-                    rank = SearchRank(vector, search_query)
-                    title_sim = Greatest(
-                        TrigramSimilarity('title', query_str),
-                        TrigramWordSimilarity(query_str, 'title')
-                    )
-                    author_sim = Greatest(
-                        TrigramSimilarity('author__name', query_str),
-                        TrigramWordSimilarity(query_str, 'author__name')
-                    )
-                    desc_sim = TrigramWordSimilarity(query_str, 'description')
-
-                    relevance = (
-                        Coalesce(title_sim, Value(0.0), output_field=FloatField()) * 3.0
-                        + Coalesce(author_sim, Value(0.0), output_field=FloatField()) * 2.0
-                        + Coalesce(desc_sim, Value(0.0), output_field=FloatField()) * 0.5
-                        + Coalesce(rank, Value(0.0), output_field=FloatField()) * 1.5
-                    )
-
-                    filter_condition = (
-                        Q(title__icontains=query_str)
-                        | Q(isbn__icontains=query_str)
-                        | Q(author__name__icontains=query_str)
-                        | Q(categories__name__icontains=query_str)
-                        | Q(description__icontains=query_str)
-                        | Q(title__trigram_similar=query_str)
-                        | Q(title__trigram_word_similar=query_str)
-                        | Q(author__name__trigram_similar=query_str)
-                        | Q(author__name__trigram_word_similar=query_str)
-                        | Q(search_rank__gte=0.01)
-                    )
-
-                    return (
-                        queryset.annotate(
-                            search_rank=rank,
-                            title_sim=title_sim,
-                            author_sim=author_sim,
-                            relevance=relevance,
-                        )
-                        .filter(filter_condition)
-                        .distinct()
-                        .order_by('-relevance', '-average_rating', '-created_at')
-                    )
-                except Exception as exc:
-                    logging.warning(f"Error executing postgres full text search, falling back to icontains: {exc}")
-
-            return (
-                queryset.filter(
-                    Q(title__icontains=query_str)
-                    | Q(isbn__icontains=query_str)
-                    | Q(author__name__icontains=query_str)
-                    | Q(categories__name__icontains=query_str)
-                    | Q(description__icontains=query_str)
-                )
-                .distinct()
-                .order_by('-average_rating', '-created_at')
-            )
-
-        results = _execute_search(clean_q)
-
-        # Determinar si existe al menos una coincidencia fuerte con el término buscado
-        has_strong_match = False
-        first_item = results.first()
-        if first_item:
-            rel = getattr(first_item, 'relevance', 0.0)
-            title_lower = (first_item.title or '').lower()
-            q_lower = clean_q.lower()
-            if rel >= 0.4 or q_lower in title_lower or title_lower in q_lower:
-                has_strong_match = True
-
-        # Si no hay resultados o no hay coincidencia fuerte y la consulta tiene al menos 3 caracteres,
-        # buscar e importar automáticamente desde fuentes externas (Google Books, OpenLibrary, Wikipedia)
-        if (not has_strong_match or not results.exists()) and len(clean_q) >= 3:
-            try:
-                isbn_clean = clean_q.replace('-', '').replace(' ', '')
-                if len(isbn_clean) in (10, 13) and (
-                    isbn_clean[:-1].isdigit() and (isbn_clean[-1].isdigit() or isbn_clean[-1].upper() == 'X')
-                ):
-                    services.import_single_by_query(query_isbn=isbn_clean)
-                else:
-                    services.import_multiple_by_title(clean_q, offset=0)
-
-                results = _execute_search(clean_q)
-            except Exception as exc:
-                logging.exception(f"Error auto-importing external books for '{clean_q}': {exc}")
-
-        # En segundo plano, encolar descarga de portadas para los libros encontrados sin carátula
-        try:
-            for book_item in results[:10]:
-                if not book_item.cover:
-                    bg_key = f"bg_cover_search_{book_item.id}"
-                    if not cache.get(bg_key):
-                        from .tasks import download_cover_task
-
-                        download_cover_task.delay(book_item.id)
-                        cache.set(bg_key, True, 600)
-        except Exception as exc:
-            logging.warning(f"Error programando descarga de portadas en búsqueda: {exc}")
-
-        return results
+        engine = services.UnifiedSearchEngine(mode='hybrid')
+        return engine.search_queryset(
+            query=clean_q,
+            auto_import=True,
+        )
 
     def perform_create(self, serializer):
         serializer.save()
@@ -1417,6 +1305,159 @@ class ReadingStatsView(APIView):
 
         stats = services.get_user_reading_stats(target_user_id)
         return Response(stats)
+
+
+class UnifiedBookSearchView(APIView):
+    """
+    Endpoint de búsqueda unificada para libros.
+    Combina en una sola canalización:
+    - Búsqueda Textual (FTS PostgreSQL con ranking lexicográfico)
+    - Búsqueda Difusa (Trigram similarity pg_trgm tolerante a erratas)
+    - Búsqueda Semántica (Similitud coseno de vectores / embeddings con fallback temático)
+    Soporta modos: 'hybrid' (predeterminado), 'text', 'fuzzy', 'semantic'.
+    """
+    permission_classes = (permissions.AllowAny,)
+
+    @extend_schema(
+        summary="Búsqueda unificada multicanal de libros",
+        description=(
+            "Realiza una búsqueda avanzada combinando análisis léxico (FTS), "
+            "similitud difusa (trigramas) y similitud semántica (embeddings vectoriales). "
+            "Permite desglosar el score de relevancia por canal y filtrar por autor, categoría y calificación mínima."
+        ),
+        parameters=[
+            OpenApiParameter(
+                name='q',
+                type=str,
+                location=OpenApiParameter.QUERY,
+                required=True,
+                description="Término o consulta de búsqueda (título, autor, sinopsis o concepto).",
+            ),
+            OpenApiParameter(
+                name='mode',
+                type=str,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                default='hybrid',
+                description="Canal de búsqueda a priorizar: 'hybrid', 'text', 'fuzzy', 'semantic'.",
+            ),
+            OpenApiParameter(
+                name='category',
+                type=str,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                description="Nombre o slug de la categoría a filtrar.",
+            ),
+            OpenApiParameter(
+                name='author',
+                type=str,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                description="Nombre o ID del autor a filtrar.",
+            ),
+            OpenApiParameter(
+                name='min_rating',
+                type=float,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                description="Calificación promedio mínima (ej. 4.0).",
+            ),
+            OpenApiParameter(
+                name='page',
+                type=int,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                default=1,
+                description="Número de página (paginación 1-indexada).",
+            ),
+            OpenApiParameter(
+                name='page_size',
+                type=int,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                default=20,
+                description="Cantidad de resultados por página (máx 100).",
+            ),
+            OpenApiParameter(
+                name='auto_import',
+                type=bool,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                default=True,
+                description="Habilitar importación automática de fuentes externas si no hay coincidencias.",
+            ),
+        ],
+        responses={200: UnifiedSearchResponseSerializer},
+        tags=['Books'],
+    )
+    def get(self, request, *args, **kwargs):
+        query = (request.query_params.get('q') or '').strip()
+        if not query:
+            return Response(
+                {
+                    'query': '',
+                    'mode': 'hybrid',
+                    'count': 0,
+                    'total': 0,
+                    'page': 1,
+                    'page_size': 20,
+                    'results': [],
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        mode = request.query_params.get('mode', 'hybrid').lower()
+        if mode not in ('hybrid', 'text', 'fuzzy', 'semantic'):
+            mode = 'hybrid'
+
+        category = request.query_params.get('category')
+        author = request.query_params.get('author')
+        min_rating_param = request.query_params.get('min_rating')
+        min_rating = None
+        if min_rating_param:
+            try:
+                min_rating = float(min_rating_param)
+            except (ValueError, TypeError):
+                pass
+
+        try:
+            page = max(1, int(request.query_params.get('page', 1)))
+        except (ValueError, TypeError):
+            page = 1
+
+        try:
+            page_size = min(100, max(1, int(request.query_params.get('page_size', 20))))
+        except (ValueError, TypeError):
+            page_size = 20
+
+        auto_import_param = (request.query_params.get('auto_import') or 'true').lower()
+        auto_import = auto_import_param in ('true', '1', 'yes')
+
+        offset = (page - 1) * page_size
+
+        engine = services.UnifiedSearchEngine(mode=mode)
+        items, total = engine.search(
+            query=query,
+            category=category,
+            author=author,
+            min_rating=min_rating,
+            limit=page_size,
+            offset=offset,
+            auto_import=auto_import,
+        )
+
+        serializer = UnifiedSearchResultSerializer(items, many=True, context={'request': request})
+        response_data = {
+            'query': query,
+            'mode': mode,
+            'count': len(items),
+            'total': total,
+            'page': page,
+            'page_size': page_size,
+            'results': serializer.data,
+        }
+        return Response(response_data, status=status.HTTP_200_OK)
+
 
 
 

@@ -71,6 +71,7 @@ class Book(models.Model):
     average_rating = models.FloatField(null=True, blank=True)
     categories = models.ManyToManyField(Category, related_name='books', blank=True)
     enrichment_attempted = models.BooleanField(default=False)
+    embedding = models.JSONField(null=True, blank=True, help_text="Vector de embedding semántico de la obra")
 
     class Meta:
         ordering = ['-created_at']
