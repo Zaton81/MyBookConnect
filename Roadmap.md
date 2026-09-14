@@ -2031,7 +2031,7 @@ Tests prioritarios:
 
 ------------------------------------------------------------------------
 
-# 44. Fase 41 --- Tests de integración con PostgreSQL y Redis
+# 44. Fase 41 --- Tests de integración con PostgreSQL y Redis [COMPLETADA]
 
 **Prioridad:** P1
 
@@ -2048,12 +2048,16 @@ reales en contenedores.
 
 Probar:
 
--   [ ] migrations;
--   [ ] constraints;
--   [ ] indexes;
--   [ ] transactions;
--   [ ] cache;
--   [ ] Channels.
+-   [x] migrations;
+-   [x] constraints;
+-   [x] indexes;
+-   [x] transactions;
+-   [x] cache;
+-   [x] Channels.
+
+**Validación ejecutada:**
+- Archivo de test dedicado `backend/tests/test_phase41_postgres_redis.py` con 17 tests cubriendo migraciones, constraints parciales, índices GIN/Trigram, transacciones atómicas con savepoints, Redis Cache y RedisChannelLayer.
+- Suite de regresión completa: 281/281 tests pasando en PostgreSQL + Redis dentro del entorno Docker (`281 passed in 196.13s`).
 
 ------------------------------------------------------------------------
 
