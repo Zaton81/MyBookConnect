@@ -1,126 +1,156 @@
-# My Book Connect 📚
+# MyBookConnect 📚
 
-My Book Connect es una red social para amantes de la lectura que permite conectar con otros lectores, compartir reseñas, descubrir nuevos libros y participar en discusiones literarias.
+[![CI/CD Pipeline](https://img.shields.io/badge/CI%2FCD-Passing-brightgreen)](https://github.com/Zaton81/MyBookConnect)
+[![Django](https://img.shields.io/badge/Django-5.2%20LTS-092E20?logo=django)](https://www.djangoproject.com/)
+[![DRF](https://img.shields.io/badge/DRF-3.18.1-red)](https://www.django-rest-framework.org/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-336791?logo=postgresql)](https://www.postgresql.org/)
+[![Redis](https://img.shields.io/badge/Redis-7%2B-DC382D?logo=redis)](https://redis.io/)
+[![React](https://img.shields.io/badge/React-18.3.1-61DAFB?logo=react)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.9%20Strict-3178C6?logo=typescript)](https://www.typescriptlang.org/)
+[![Vite](https://img.shields.io/badge/Vite-6.4.3-646CFF?logo=vite)](https://vitejs.dev/)
+[![TailwindCSS](https://img.shields.io/badge/TailwindCSS-3.4-38B2AC?logo=tailwind-css)](https://tailwindcss.com/)
 
-## 🌟 Características
+**MyBookConnect** es una plataforma web full-stack y red social literaria diseñada para lectores y comunidades de entusiastas de los libros. Integra biblioteca personal de lectura, seguimiento social, mensajería en tiempo real mediante WebSockets, un motor híbrido de recomendaciones, búsqueda de catálogo enriquecida con trigramas y capacidades de inteligencia artificial contextual compatible con APIs OpenAI.
 
-- Autenticación de usuarios (email/password y Google OAuth)
-- Perfiles personalizables con bio y avatar
-- Sistema de seguimiento entre usuarios
-- Modo privado para perfiles
-- API REST con Django REST Framework
-- Autenticación JWT
-- Frontend React con TypeScript
-- Diseño responsive con Tailwind CSS
+---
 
-## 🛠️ Tecnologías
+## 🌟 Características Principales
 
-### Backend
-- Django 5.0
-- Django REST Framework
-- PostgreSQL
-- Redis (caché)
-- JWT Authentication
-- Docker
+- 📖 **Biblioteca Personal Avanzada**: Gestión de estados de lectura (`want_to_read`, `reading`, `read`, `abandoned`), barra de progreso por páginas, formatos físicos/digitales y lista de deseos.
+- ✍️ **Reseñas y Calificaciones Públicas**: Separación estricta entre la estantería privada del usuario (`UserBook`) y la opinión comunitaria (`Review`).
+- 👥 **Red Social Literaria**: Feed de actividad social de lectores seguidos, sistema de bloqueos, perfiles con niveles de privacidad granular y gestión de seguidores.
+- 💬 **Mensajería en Tiempo Real**: Salas de chat uno a uno impulsadas por Django Channels sobre WebSockets con autenticación JWT segura y respaldo en Redis Channel Layer.
+- 🧠 **Motor Híbrido de Recomendaciones**: Algoritmo de sugerencias basado en afinidad de géneros, libros leídos con alta calificación, popularidad ponderada y retroalimentación explícita del usuario.
+- ⚡ **Búsqueda Avanzada y Enriquecimiento**: Búsqueda difusa y por similitud de trigramas en PostgreSQL (`pg_trgm`) y tareas asíncronas en Celery para autocompletado desde Google Books, OpenLibrary y Wikipedia.
+- 🤖 **Asistente Literario con IA**: Generación de resúmenes contextuales, búsqueda semántica y ejecución controlada de herramientas externas con validación de seguridad contra prompt injection.
+- 🛡️ **Seguridad y Observabilidad**: Autenticación SimpleJWT con rotación de refresh tokens y blacklist en BD, limitación de tasa (Rate Limiting), logging estructurado en JSON con redacción de credenciales y cuadro de mando de métricas operativas.
 
-### Frontend
-- React 18
-- TypeScript
-- Vite
-- Tailwind CSS
-- Flowbite Components
+---
 
-## 📋 Requisitos
+## 🏗️ Arquitectura del Sistema
 
-- Docker
-- Docker Compose
+```text
+                     Internet / Navegador Cliente
+                                  │
+                          [ React 18 + Vite ]
+                          [ TypeScript Strict ]
+                                  │
+                                  ▼
+                   [ Nginx / Reverse Proxy (Prod) ]
+                                  │
+        ┌─────────────────────────┴─────────────────────────┐
+        ▼                                                   ▼
+[ Gunicorn / WSGI (HTTP) ]                        [ Daphne / ASGI (WS) ]
+[ Django 5.2 + DRF ]                              [ Django Channels 4 ]
+        │                                                   │
+        └─────────────────────────┬─────────────────────────┘
+                                  │
+               ┌──────────────────┼──────────────────┐
+               ▼                  ▼                  ▼
+     [ PostgreSQL 16 ]     [ Redis 7 ]        [ Celery Worker ]
+     - Fuente de verdad    - Caché central    - Tareas en segundo plano
+     - Índices Trigram/GIN - Channel Layer    - Descarga de portadas
+     - Integridad relacional- Rate limiting   - Enriquecimiento externo
+```
 
-## 🚀 Instalación
+---
 
-1. **Clona el repositorio:**
-   ```bash
-   git clone https://github.com/Zaton81/MyBookConnect.git
-   cd MyBookConnect
-   ```
+## 🚀 Inicio Rápido con Docker
 
-2. **Configura el entorno:**
-   ```bash
-   # Copia el archivo de ejemplo
-   cp backend/.env.example backend/.env
-   
-   # Edita backend/.env y establece:
-   # - Una SECRET_KEY segura
-   # - Credenciales de base de datos
-   # - Otros ajustes según necesites
-   ```
+### Requisitos Previos
+- [Docker Engine](https://docs.docker.com/engine/install/) versión 24+
+- [Docker Compose v2](https://docs.docker.com/compose/)
+- [Node.js](https://nodejs.org/) 20+ y `pnpm` (opcional, para desarrollo frontend local)
 
-3. **Construye y levanta los servicios:**
-   ```bash
-   docker-compose up -d --build
-   ```
+### 1. Clonar el Repositorio
+```bash
+git clone https://github.com/Zaton81/MyBookConnect.git
+cd MyBookConnect
+```
 
-4. **Crea un superusuario (admin):**
-   ```bash
-   docker-compose run --rm backend python manage.py createsuperuser
-   ```
+### 2. Configuración de Variables de Entorno
+```bash
+# Variables del backend
+cp backend/.env.example backend/.env
 
-## 📍 Endpoints
+# Variables del entorno raíz
+cp .env.example .env
+```
+Edite `backend/.env` para configurar claves de seguridad y credenciales seguras.
 
-La aplicación estará disponible en:
+### 3. Construir y Levantar los Contenedores
+```bash
+# Entorno de Desarrollo
+docker compose up -d --build
 
-- **Frontend:** [http://localhost:5173](http://localhost:5173)
-- **API Backend:** [http://localhost:8000/api/v1/](http://localhost:8000/api/v1/)
-- **Admin Django:** [http://localhost:8000/admin/](http://localhost:8000/admin/)
+# Verificar el estado de los contenedores
+docker compose ps
+```
 
-### API Endpoints principales:
+Una vez desplegado:
+- **Frontend SPA**: [http://localhost:5173](http://localhost:5173)
+- **Backend API REST**: [http://localhost:8000/api/v1/](http://localhost:8000/api/v1/)
+- **Documentación Swagger / OpenAPI**: [http://localhost:8000/api/schema/swagger-ui/](http://localhost:8000/api/schema/swagger-ui/)
+- **Métricas de Observabilidad (Admin)**: [http://localhost:8000/api/v1/observability/metrics/](http://localhost:8000/api/v1/observability/metrics/)
 
-- `POST /api/v1/auth/register/` - Registro de usuario
-- `POST /api/v1/auth/token/` - Login (obtener token JWT)
-- `POST /api/v1/auth/token/refresh/` - Refrescar token JWT
-- `GET /api/v1/auth/profile/` - Ver perfil propio
-- `PUT /api/v1/auth/profile/update/` - Actualizar perfil
+---
 
-## 🔧 Desarrollo
+## 🧪 Pruebas y Validación Continua
 
-Para desarrollo local:
+La plataforma cuenta con cobertura de pruebas automatizadas en frontend y backend:
 
-1. **Logs en tiempo real:**
-   ```bash
-   docker-compose logs -f
-   ```
+### Tests de Backend (Pytest + PostgreSQL + Redis)
+```bash
+# Ejecutar suite completa (307 tests)
+docker compose exec -T backend pytest -q
 
-2. **Ejecutar migraciones:**
-   ```bash
-   docker-compose run --rm backend python manage.py migrate
-   ```
+# Ejecutar tests de rendimiento y SLAs
+docker compose exec -T backend pytest -q tests/test_phase43_performance.py
 
-3. **Reiniciar servicios:**
-   ```bash
-   docker-compose restart
-   ```
+# Ejecutar perfilado de consultas EXPLAIN ANALYZE
+docker compose exec -T backend python manage.py benchmark_queries
+```
 
-## 🔒 Seguridad
+### Tests de Frontend (Vitest + Testing Library)
+```bash
+cd frontend
 
-- Los archivos `.env` nunca deben subirse al repositorio
-- Usa `.env.example` como plantilla sin datos sensibles
-- Las credenciales de producción deben ser diferentes
-- Todos los secretos deben cambiarse en producción
+# Verificación de tipos estricta (TypeScript)
+npm run typecheck
 
-## 🤝 Contribuir
+# Pruebas unitarias y de componentes (21 tests)
+npx vitest run
 
-1. Fork el repositorio
-2. Crea una rama (`git checkout -b feature/AmazingFeature`)
-3. Commit tus cambios (`git commit -m 'Add: AmazingFeature'`)
-4. Push a la rama (`git push origin feature/AmazingFeature`)
-5. Abre un Pull Request
+# Construcción del bundle de producción
+npm run build
+```
+
+---
+
+## 📚 Documentación Técnica
+
+La documentación exhaustiva y especializada se organiza en el directorio [`docs/`](./docs/):
+
+- 🏛️ **[Arquitectura](./docs/architecture/overview.md)**: Visión global, diseño en capas y subsistemas.
+- 🗄️ **[Modelo de Datos](./docs/architecture/data_model.md)**: Esquema de base de datos relacional y restricciones de integridad.
+- ⚡ **[Caché y WebSockets](./docs/architecture/caching_and_channels.md)**: Redis caching, TTLs y capas de comunicación en tiempo real.
+- 🔍 **[IA y Búsqueda](./docs/architecture/ai_and_search.md)**: Trigramas, vectorización y seguridad contra inyección de prompts.
+- 🔌 **[Referencia de API](./docs/api/overview.md)**: Catálogo de endpoints OpenAPI, contratos de autenticación y códigos de error.
+- 💻 **[Guía de Desarrollo](./docs/development/getting_started.md)**: Entorno local, estándares de código y linters.
+- 🚢 **[Despliegue y Producción](./docs/deployment/docker_production.md)**: Guía para entornos de producción y checklist de seguridad.
+- 🛡️ **[Seguridad](./docs/security/threat_model_and_hardening.md)**: Modelo de amenazas, endurecimiento JWT y auditoría.
+- 📜 **[Decisiones de Arquitectura (ADRs)](./docs/decisions/)**:
+  - [ADR-001: Desacoplamiento Django + React](./docs/decisions/ADR-001-django-react.md)
+  - [ADR-002: PostgreSQL como Fuente Única de Verdad](./docs/decisions/ADR-002-postgresql-source-of-truth.md)
+  - [ADR-003: Estrategia de Caché y Canales con Redis](./docs/decisions/ADR-003-redis-caching-and-channels.md)
+  - [ADR-004: Tareas Asíncronas con Celery](./docs/decisions/ADR-004-celery-async-workers.md)
+  - [ADR-005: Estrategia de Seguridad y Autenticación JWT](./docs/decisions/ADR-005-jwt-security-strategy.md)
+  - [ADR-006: Separación de Responsabilidades Review vs UserBook](./docs/decisions/ADR-006-review-userbook-separation.md)
+  - [ADR-007: Búsqueda Híbrida con Trigramas y Semántica](./docs/decisions/ADR-007-search-and-trigrams.md)
+  - [ADR-008: Motor de Recomendaciones Literarias Híbrido](./docs/decisions/ADR-008-recommendation-engine.md)
+
+---
 
 ## 📄 Licencia
 
-Este proyecto está bajo la Licencia MIT - ver el archivo [LICENSE](LICENSE) para más detalles.
-
-## ✨ Agradecimientos
-
-- [Django](https://www.djangoproject.com/)
-- [React](https://reactjs.org/)
-- [Tailwind CSS](https://tailwindcss.com/)
-- [Flowbite](https://flowbite.com/)
+Este proyecto está distribuido bajo la licencia MIT. Consulta el archivo `LICENSE` para más información.

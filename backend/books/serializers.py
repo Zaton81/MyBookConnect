@@ -1,4 +1,5 @@
 from django.contrib.auth import get_user_model
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 from .models import (
@@ -122,20 +123,24 @@ class BookSerializer(serializers.ModelSerializer):
             'categories', 'rating_distribution', 'reviews_count'
         )
 
+    @extend_schema_field(serializers.DictField)
     def get_rating_distribution(self, obj):
         from django.db.models import Count
         distribution = dict.fromkeys(range(1, 11), 0)
-        reviews = Review.objects.filter(book=obj, rating__isnull=False).values('rating').annotate(count=Count('id'))
+        reviews = Review.objects.filter(
+            book=obj, rating__isnull=False, deleted_at__isnull=True, is_moderated=False
+        ).values('rating').annotate(count=Count('id'))
         for r in reviews:
             val = r['rating']
             if 1 <= val <= 10:
                 distribution[val] = r['count']
         return distribution
 
+    @extend_schema_field(serializers.IntegerField)
     def get_reviews_count(self, obj):
         if hasattr(obj, 'annotated_reviews_count'):
             return obj.annotated_reviews_count
-        return Review.objects.filter(book=obj).count()
+        return Review.objects.filter(book=obj, deleted_at__isnull=True, is_moderated=False).count()
 
     def validate_cover(self, value):
         """
@@ -177,6 +182,21 @@ class UserBookSerializer(serializers.ModelSerializer):
             'is_read', 'rating', 'is_digital', 'owned', 'wishlist', 'notes', 'updated_at'
         )
 
+    def validate_rating(self, value):
+        if value is not None and not (1 <= value <= 10):
+            raise serializers.ValidationError("La puntuación debe estar comprendida entre 1 y 10.")
+        return value
+
+    def validate_progress(self, value):
+        if value is not None and not (0 <= value <= 100):
+            raise serializers.ValidationError("El progreso debe estar comprendido entre 0 y 100%.")
+        return value
+
+    def validate_current_page(self, value):
+        if value is not None and value < 0:
+            raise serializers.ValidationError("El número de página no puede ser negativo.")
+        return value
+
 
 class ReviewCommentUserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -193,6 +213,7 @@ class ReviewCommentSerializer(serializers.ModelSerializer):
         fields = ('id', 'review', 'user', 'content', 'created_at', 'updated_at', 'is_owner')
         read_only_fields = ('id', 'review', 'user', 'created_at', 'updated_at', 'is_owner')
 
+    @extend_schema_field(serializers.BooleanField)
     def get_is_owner(self, obj):
         request = self.context.get('request')
         if request and request.user.is_authenticated:
@@ -222,6 +243,7 @@ class ReviewSerializer(serializers.ModelSerializer):
             'likes_count', 'user_has_liked', 'comments_count'
         )
 
+    @extend_schema_field(serializers.BooleanField())
     def get_is_friend(self, obj):
         if hasattr(obj, 'is_friend'):
             return obj.is_friend
@@ -230,6 +252,7 @@ class ReviewSerializer(serializers.ModelSerializer):
             return request.user.following.filter(id=obj.user.id).exists()
         return False
 
+    @extend_schema_field(serializers.IntegerField())
     def get_likes_count(self, obj):
         annotated = getattr(obj, 'annotated_likes_count', None)
         if annotated is not None:
@@ -238,6 +261,7 @@ class ReviewSerializer(serializers.ModelSerializer):
             return obj.likes_count
         return obj.likes.count()
 
+    @extend_schema_field(serializers.BooleanField())
     def get_user_has_liked(self, obj):
         annotated = getattr(obj, 'annotated_user_has_liked', None)
         if annotated is not None:
@@ -247,6 +271,7 @@ class ReviewSerializer(serializers.ModelSerializer):
             return obj.likes.filter(user=request.user).exists()
         return False
 
+    @extend_schema_field(serializers.IntegerField())
     def get_comments_count(self, obj):
         annotated = getattr(obj, 'annotated_comments_count', None)
         if annotated is not None:
@@ -336,12 +361,15 @@ class ReadingListSerializer(serializers.ModelSerializer):
         )
         read_only_fields = ('id', 'user', 'slug', 'created_at', 'updated_at')
 
+    @extend_schema_field(serializers.IntegerField())
     def get_items_count(self, obj):
         return obj.items.count()
 
+    @extend_schema_field(serializers.IntegerField())
     def get_followers_count(self, obj):
         return obj.followers.count()
 
+    @extend_schema_field(serializers.BooleanField())
     def get_is_following(self, obj):
         request = self.context.get('request')
         if request and request.user.is_authenticated:

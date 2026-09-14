@@ -86,7 +86,9 @@ def recalculate_book_rating_task(self, book_id: int) -> float | None:
         if not book:
             return None
 
-        review_avg = Review.objects.filter(book=book, rating__isnull=False).aggregate(Avg('rating'))['rating__avg']
+        review_avg = Review.objects.filter(
+            book=book, rating__isnull=False, deleted_at__isnull=True, is_moderated=False
+        ).aggregate(Avg('rating'))['rating__avg']
         if review_avg is not None:
             book.average_rating = round(review_avg, 2)
         else:

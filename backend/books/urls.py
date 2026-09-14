@@ -1,4 +1,4 @@
-from django.urls import path
+from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
 from .admin_views import PublicLegalDocumentView
@@ -26,11 +26,6 @@ from .views import (
     RecommendationFeedbackView,
     RecommendationMetricsView,
     RecommendationView,
-    ReviewCommentDeleteView,
-    ReviewCommentListCreateView,
-    ReviewDetailView,
-    ReviewLikeToggleView,
-    ReviewListCreateView,
     SocialFeedView,
     TrendingBooksView,
     UserBookByBookView,
@@ -79,11 +74,7 @@ urlpatterns = [
     path('user/books/', UserBookListCreateView.as_view(), name='user-books'),
     path('user/books/<int:pk>/', UserBookDetailView.as_view(), name='user-book-detail'),
     path('user/books/by-book/<int:book_id>/', UserBookByBookView.as_view(), name='user-book-by-book'),
-    path('reviews/', ReviewListCreateView.as_view(), name='reviews'),
-    path('reviews/<int:pk>/', ReviewDetailView.as_view(), name='review-detail'),
-    path('reviews/<int:review_id>/like/', ReviewLikeToggleView.as_view(), name='review-like-toggle'),
-    path('reviews/<int:review_id>/comments/', ReviewCommentListCreateView.as_view(), name='review-comments-list-create'),
-    path('reviews/<int:review_id>/comments/<int:comment_id>/', ReviewCommentDeleteView.as_view(), name='review-comment-delete'),
+    path('reviews/', include('books.review_urls')),
     path('erratas/', ErrataListCreateView.as_view(), name='erratas-list-create'),
     path('erratas/<int:pk>/', ErrataDetailUpdateView.as_view(), name='erratas-detail-update'),
 ] + router.urls

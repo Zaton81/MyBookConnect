@@ -55,6 +55,8 @@ class UserReportsListView(generics.ListAPIView):
     pagination_class = StandardResultsSetPagination
 
     def get_queryset(self):
+        if getattr(self, 'swagger_fake_view', False) or not self.request.user.is_authenticated:
+            return Report.objects.none()
         return Report.objects.filter(reporter=self.request.user).select_related('reporter', 'content_type')
 
 

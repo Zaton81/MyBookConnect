@@ -55,6 +55,9 @@ def can_view_review(viewer: Optional[Any], review: Any) -> bool:
     """
     if not review or not getattr(review, "user", None):
         return False
+    if getattr(review, "is_deleted", False):
+        if not (viewer and viewer.is_authenticated and (getattr(viewer, "is_staff", False) or getattr(viewer, "is_superuser", False))):
+            return False
     author = review.user
     if viewer and viewer.is_authenticated:
         if viewer.id == author.id or getattr(viewer, "is_staff", False) or getattr(viewer, "is_superuser", False):
@@ -158,6 +161,9 @@ def filter_visible_reviews(viewer: Optional[Any], queryset: QuerySet) -> QuerySe
       - Excluye autores con perfil privado (salvo las propias reseñas del viewer).
       - Autores con perfil 'friends': solo si el viewer sigue al autor (o es el propio viewer).
     """
+    # Excluir reseñas eliminadas lógicamente
+    queryset = queryset.filter(deleted_at__isnull=True)
+
     # Excluir reseñas ocultadas por moderación a menos que el usuario sea moderador
     if not can_moderate(viewer):
         queryset = queryset.filter(is_moderated=False)

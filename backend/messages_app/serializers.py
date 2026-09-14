@@ -1,4 +1,5 @@
 from django.contrib.auth import get_user_model
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 from .models import Conversation, Message
@@ -67,12 +68,14 @@ class ConversationSerializer(serializers.ModelSerializer):
         model = Conversation
         fields = ['id', 'participants', 'participants_details', 'created_at', 'updated_at', 'last_message', 'unread_count']
 
+    @extend_schema_field(MessageSerializer)
     def get_last_message(self, obj):
-        last = obj.messages.order_by('-created_at').first()
+        last = obj.messages.filter(deleted_at__isnull=True, is_moderated=False).order_by('-created_at').first()
         return MessageSerializer(last).data if last else None
 
+    @extend_schema_field(serializers.IntegerField)
     def get_unread_count(self, obj):
         request = self.context.get('request')
         if request and request.user.is_authenticated:
-            return obj.messages.filter(read=False).exclude(sender=request.user).count()
+            return obj.messages.filter(deleted_at__isnull=True, is_moderated=False, read=False).exclude(sender=request.user).count()
         return 0

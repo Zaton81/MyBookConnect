@@ -3,6 +3,8 @@ import { persist } from 'zustand/middleware';
 import { User, AuthState } from '../types/auth';
 import { authApi } from '../services/api';
 import { api } from '../api/client';
+import { queryClient } from '../app/queryClient';
+import { queryKeys } from '../api/queryKeys';
 
 interface AuthStore extends AuthState {
   login: (username: string, password: string) => Promise<void>;
@@ -40,6 +42,7 @@ export const useAuthStore = create<AuthStore>()(
 
           const user = await authApi.getProfile(token);
           set({ user });
+          queryClient.invalidateQueries({ queryKey: queryKeys.users.profile() });
         } catch (error: any) {
           set({ token: null, refreshToken: null, isAuthenticated: false, user: null, error: error?.message });
           throw error;
@@ -62,6 +65,7 @@ export const useAuthStore = create<AuthStore>()(
 
           const user = await authApi.getProfile(token);
           set({ user });
+          queryClient.invalidateQueries({ queryKey: queryKeys.users.profile() });
         } catch (error: any) {
           set({ token: null, refreshToken: null, isAuthenticated: false, user: null, error: error?.message });
           throw error;
@@ -73,6 +77,8 @@ export const useAuthStore = create<AuthStore>()(
         if (refreshToken) {
           api.post('/api/v1/auth/logout/', { refresh: refreshToken }).catch(() => {});
         }
+        // Limpiar cache del servidor en TanStack Query
+        queryClient.clear();
         set({
           user: null,
           token: null,
@@ -89,6 +95,7 @@ export const useAuthStore = create<AuthStore>()(
         try {
           const updatedUser = await authApi.updateProfile(token, data);
           set({ user: updatedUser });
+          queryClient.invalidateQueries({ queryKey: queryKeys.users.all });
         } catch (error) {
           throw error;
         }
@@ -102,6 +109,8 @@ export const useAuthStore = create<AuthStore>()(
           await api.post(`/api/v1/users/${userId}/follow/`);
           const updatedUser = await authApi.getProfile(token);
           set({ user: updatedUser });
+          queryClient.invalidateQueries({ queryKey: queryKeys.social.all });
+          queryClient.invalidateQueries({ queryKey: queryKeys.users.all });
         } catch (error) {
           throw error;
         }
@@ -115,6 +124,8 @@ export const useAuthStore = create<AuthStore>()(
           await api.post(`/api/v1/users/${userId}/unfollow/`);
           const updatedUser = await authApi.getProfile(token);
           set({ user: updatedUser });
+          queryClient.invalidateQueries({ queryKey: queryKeys.social.all });
+          queryClient.invalidateQueries({ queryKey: queryKeys.users.all });
         } catch (error) {
           throw error;
         }

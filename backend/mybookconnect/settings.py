@@ -20,8 +20,10 @@ DEBUG = _env_bool('DEBUG', '0')
 
 ALLOWED_HOSTS = os.getenv(
     'DJANGO_ALLOWED_HOSTS',
-    os.getenv('ALLOWED_HOSTS', '127.0.0.1'),
+    os.getenv('ALLOWED_HOSTS', '127.0.0.1 localhost backend testserver'),
 ).split()
+if DEBUG and 'backend' not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append('backend')
 
 INSTALLED_APPS = [
     'daphne',
@@ -48,6 +50,7 @@ AUTH_USER_MODEL = 'users.User'
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'mybookconnect.observability.StructuredLoggingMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -178,9 +181,22 @@ REST_FRAMEWORK = {
 
 SPECTACULAR_SETTINGS = {
     'TITLE': 'MyBookConnect API',
-    'DESCRIPTION': 'API REST para la red social de lectura MyBookConnect',
+    'DESCRIPTION': 'API REST y contrato OpenAPI para la red social literaria MyBookConnect (Fase 33).',
     'VERSION': '1.0.0',
     'SERVE_INCLUDE_SCHEMA': False,
+    'COMPONENT_SPLIT_REQUEST': True,
+    'TAGS': [
+        {'name': 'Books', 'description': 'Catálogo editorial, libros, recomendaciones e importación.'},
+        {'name': 'Reviews', 'description': 'Reseñas literarias, likes, comentarios y calificaciones.'},
+        {'name': 'Users', 'description': 'Perfiles de usuario, seguimiento, listas y privacidad.'},
+        {'name': 'Chat', 'description': 'Conversaciones directas y mensajería en tiempo real.'},
+        {'name': 'Moderation', 'description': 'Cola de denuncias y moderación de contenido.'},
+        {'name': 'Audit', 'description': 'Registros inmutables de auditoría de plataforma.'},
+    ],
+    'ENUM_NAME_OVERRIDES': {
+        'ReportStatusEnum': 'users.models.ReportStatus',
+        'UserBookStatusEnum': 'books.models.ReadingStatus',
+    },
 }
 
 SIMPLE_JWT = {
@@ -257,3 +273,41 @@ CACHES = {
         'TIMEOUT': 300,
     }
 }
+
+# ─── Configuración de Observabilidad y Logging Estructurado (Fase 42) ───
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'structured_json': {
+            '()': 'mybookconnect.logging_formatters.StructuredJsonFormatter',
+        },
+        'verbose': {
+            'format': '[{asctime}] {levelname} [{name}] {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose' if DEBUG else 'structured_json',
+        },
+        'structured_console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'structured_json',
+        },
+    },
+    'loggers': {
+        'mybookconnect.structured': {
+            'handlers': ['structured_console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'django.request': {
+            'handlers': ['console'],
+            'level': 'WARNING',
+            'propagate': False,
+        },
+    },
+}
+

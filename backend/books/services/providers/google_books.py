@@ -1,9 +1,11 @@
 import logging
+import time
 
 import requests
 from django.core.cache import cache
 
 from books.cache_utils import TTL_EXTERNAL_API, google_isbn_key, google_search_key
+from mybookconnect.observability import ObservabilityMetricsService
 
 from ..base import DEFAULT_HEADERS, GOOGLE_BOOKS_API_URL, ProviderBookData, get_google_books_api_key
 
@@ -82,8 +84,11 @@ class GoogleBooksProvider:
         if api_key:
             params['key'] = api_key
 
+        t_start = time.perf_counter()
         try:
             resp = requests.get(self.api_url, params=params, timeout=7, headers=DEFAULT_HEADERS)
+            duration_ms = round((time.perf_counter() - t_start) * 1000, 2)
+            ObservabilityMetricsService.record_external_provider_call('google_books', success=(resp.status_code == 200), duration_ms=duration_ms)
             if resp.status_code == 200:
                 payload = resp.json()
                 items = payload.get('items') or []
@@ -95,6 +100,8 @@ class GoogleBooksProvider:
             else:
                 logger.warning(f"Google Books devolvió status {resp.status_code} para '{clean_title}'")
         except Exception as e:
+            duration_ms = round((time.perf_counter() - t_start) * 1000, 2)
+            ObservabilityMetricsService.record_external_provider_call('google_books', success=False, duration_ms=duration_ms)
             logger.warning(f"Error consultando Google Books para título '{clean_title}': {e}")
 
         return []
@@ -116,8 +123,11 @@ class GoogleBooksProvider:
         if api_key:
             params['key'] = api_key
 
+        t_start = time.perf_counter()
         try:
             resp = requests.get(self.api_url, params=params, timeout=8, headers=DEFAULT_HEADERS)
+            duration_ms = round((time.perf_counter() - t_start) * 1000, 2)
+            ObservabilityMetricsService.record_external_provider_call('google_books', success=resp.ok, duration_ms=duration_ms)
             if resp.ok:
                 items = resp.json().get('items') or []
                 if items:
@@ -132,6 +142,8 @@ class GoogleBooksProvider:
                         data.isbn = isbn
                     return data
         except Exception as e:
+            duration_ms = round((time.perf_counter() - t_start) * 1000, 2)
+            ObservabilityMetricsService.record_external_provider_call('google_books', success=False, duration_ms=duration_ms)
             logger.warning(f"Error consultando Google Books para isbn {isbn}: {e}")
 
         return None
