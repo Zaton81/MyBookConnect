@@ -718,7 +718,9 @@ class UserRecommendationsView(APIView):
         version_param = request.query_params.get('version', 'v1').lower().strip()
         strategy = request.query_params.get('strategy')
         if not strategy:
-            if version_param == 'v2':
+            if version_param == 'v3':
+                strategy = 'v3'
+            elif version_param == 'v2':
                 strategy = 'v2'
             elif version_param == 'v1':
                 strategy = 'v1'
@@ -727,8 +729,8 @@ class UserRecommendationsView(APIView):
         else:
             strategy = strategy.lower().strip()
 
-        if strategy not in ('v1', 'canonical_v1', 'v2', 'collab', 'collaborative', 'hybrid', 'rules', 'social', 'semantic'):
-            strategy = 'v2' if version_param == 'v2' else 'v1'
+        if strategy not in ('v1', 'canonical_v1', 'v2', 'collab', 'collaborative', 'v3', 'semantic_v3', 'vector', 'hybrid', 'rules', 'social', 'semantic'):
+            strategy = 'v3' if version_param == 'v3' else ('v2' if version_param == 'v2' else 'v1')
 
         results = services.get_user_recommendations(
             user=request.user,
@@ -736,13 +738,49 @@ class UserRecommendationsView(APIView):
             strategy=strategy,
             request=request,
         )
-        algo_version = 'v2' if (strategy in ('v2', 'collab', 'collaborative') or version_param == 'v2') else 'v1'
+        if strategy in ('v3', 'semantic_v3', 'vector') or version_param == 'v3':
+            algo_version = 'v3'
+        elif strategy in ('v2', 'collab', 'collaborative') or version_param == 'v2':
+            algo_version = 'v2'
+        else:
+            algo_version = 'v1'
+
         return Response({
             'count': len(results),
             'strategy': strategy,
             'algorithm_version': algo_version,
             'results': results,
         })
+
+
+class UserPreferenceEmbeddingView(APIView):
+    """
+    Endpoint para auditar el vector sintético de preferencias semánticas del usuario (v3).
+    Representa el centroide ponderado de los libros leídos, calificados y terminados.
+    """
+    permission_classes = (permissions.IsAuthenticated,)
+
+    @extend_schema(
+        summary="Vector de preferencias semánticas del usuario (v3)",
+        description="Devuelve información de dimensionalidad, norma y componentes del embedding sintético del usuario.",
+        responses={200: inline_serializer(
+            name='UserPreferenceEmbeddingResponse',
+            fields={
+                'user_id': serializers.IntegerField(),
+                'has_embedding': serializers.BooleanField(),
+                'dimensions': serializers.IntegerField(),
+                'books_used': serializers.IntegerField(),
+                'weights_sum': serializers.FloatField(),
+                'sample_components': serializers.ListField(child=serializers.FloatField()),
+            },
+        )},
+        tags=['Books'],
+    )
+    def get(self, request):
+        pref = services.get_user_preference_vector(user=request.user)
+        data = pref.to_dict() if hasattr(pref, 'to_dict') else dict(pref)
+        data['user_id'] = request.user.id
+        return Response(data)
 
 
 class SimilarReadersView(APIView):

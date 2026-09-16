@@ -106,3 +106,42 @@ $$S_{\text{v2}} = \beta \cdot S_{\text{collab}} + (1 - \beta) \cdot S_{\text{v1}
 - `GET /api/v1/books/recommendations/?strategy=v2`: Recomendaciones v2 con desglose colaborativo (`breakdown.collaborative`, `breakdown.shared_peers`, `breakdown.top_peer`).
 - `GET /api/v1/books/recommendations/similar-readers/`: Consulta de lectores más afines (*lectores gemelos*) con score de similitud y conteo de obras comunes.
 
+---
+
+## 7. Motor de Recomendaciones v3 (`RecommendationEngineV3` — Embeddings Semánticos y Vector de Preferencias)
+
+Implementado en `backend/books/services/recommendation_v3_service.py` para la **Fase 51**:
+$$\text{Libros Consumidos} \longrightarrow \text{Promedio Ponderado} \longrightarrow \vec{U} \text{ (User Preference Embedding)} \longrightarrow \text{Similitud Coseno} \longrightarrow \text{Fusión Tri-Híbrida v3}$$
+
+### Vector de Preferencias Sintético de Usuario ($\vec{U}$)
+Condensa la orientación temática y de estilo de un usuario sin necesidad de entrenamiento periódico, derivándolo de las obras con las que ha interactuado:
+$$\vec{U}_{\text{raw}} = \frac{\sum_{i} w_i \cdot \vec{E}(B_i)}{\sum_{i} w_i}$$
+Donde los factores de ponderación $w_i$ priorizan:
+- **Libros con calificación de 5 estrellas:** $w_i = 1.50$
+- **Libros con calificación de 4 estrellas:** $w_i = 1.20$
+- **Libros terminados (`READ`):** $w_i = 1.00$
+- **Libros en curso (`READING`):** $w_i = 0.70$
+- **Libros en lista de deseos (`WANT_TO_READ`):** $w_i = 0.50$
+
+El vector final es normalizado en la esfera euclídea unitaria:
+$$\hat{U} = \frac{\vec{U}_{\text{raw}}}{\|\vec{U}_{\text{raw}}\|_2}$$
+
+### Afinidad Semántica con Candidatos ($S_{\text{semantic}}$)
+Para cualquier libro candidato $B$ no consumido con embedding $\vec{E}(B)$:
+$$S_{\text{semantic}}(B) = \max\left(0.0, \cos(\hat{U}, \vec{E}(B))\right) = \max\left(0.0, \frac{\hat{U} \cdot \vec{E}(B)}{\|\hat{U}\| \|\vec{E}(B)\|}\right)$$
+
+### Fusión Tri-Híbrida v3
+Combina semántica profunda, señal comunitaria colaborativa (v2) y canónicas de contenido (v1):
+$$S_{\text{v3}} = 0.45 \cdot S_{\text{semantic}} + 0.30 \cdot S_{\text{collab}} + 0.25 \cdot S_{\text{content\_v1}}$$
+- Si el usuario aún no posee vector de preferencias (arranque en frío o libros sin embeddings), el motor recurre a la ponderación colaborativa/canónica v2/v1 asegurando recomendaciones de alta calidad y versionadas como `algorithm_version = "v3"`.
+
+### Explicabilidad v3
+- `algorithm_version`: `"v3"`.
+- `breakdown`: Contiene `semantic`, `collaborative`, `content_v1`, `has_user_embedding`, además del desglose detallado de variables canónicas.
+- `reason`: Motivo contextualizado cuando predomina la similitud semántica (*"Afinidad semántica profunda con los temas y estilo de tus libros favoritos"*).
+
+### Endpoints Disponibles
+- `GET /api/v1/books/recommendations/?strategy=v3`: Recomendaciones tri-híbridas v3 con desglose semántico.
+- `GET /api/v1/books/recommendations/user-embedding/`: Consulta del vector sintético de preferencias del lector, dimensionalidad, cantidad de obras analizadas y componentes vectoriales para inspección y visualización.
+
+

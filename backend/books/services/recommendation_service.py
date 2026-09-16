@@ -118,6 +118,10 @@ def get_user_recommendations(
         from .recommendation_v2_service import recommend_books_v2
         return recommend_books_v2(user=user, limit=limit, request=request)
 
+    if strategy in ('v3', 'semantic_v3', 'vector'):
+        from .recommendation_v3_service import recommend_books_v3
+        return recommend_books_v3(user=user, limit=limit, request=request)
+
     cache_key = user_recommendations_key(user.id, strategy)
     cached_data = cache.get(cache_key)
     if cached_data is not None:

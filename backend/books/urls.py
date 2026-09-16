@@ -26,14 +26,15 @@ from .views import (
     RecommendationFeedbackView,
     RecommendationMetricsView,
     RecommendationView,
+    SimilarReadersView,
     SocialFeedView,
     TrendingBooksView,
+    UnifiedBookSearchView,
     UserBookByBookView,
     UserBookDetailView,
     UserBookListCreateView,
+    UserPreferenceEmbeddingView,
     UserRecommendationsView,
-    SimilarReadersView,
-    UnifiedBookSearchView,
 )
 
 router = DefaultRouter()
@@ -47,6 +48,7 @@ urlpatterns = [
     path('feed/', SocialFeedView.as_view(), name='books-social-feed'),
     path('trending/', TrendingBooksView.as_view(), name='books-trending'),
     path('recommendations/', UserRecommendationsView.as_view(), name='user-recommendations'),
+    path('recommendations/user-embedding/', UserPreferenceEmbeddingView.as_view(), name='user-recommendations-embedding'),
     path('recommendations/similar-readers/', SimilarReadersView.as_view(), name='user-recommendations-similar-readers'),
     path('recommendations/feedback/', RecommendationFeedbackView.as_view(), name='recommendation-feedback'),
     path('recommendations/metrics/', RecommendationMetricsView.as_view(), name='recommendation-metrics'),

@@ -2341,32 +2341,37 @@ Hitos completados:
 
 ------------------------------------------------------------------------
 
-# 54. Fase 51 --- Motor de recomendaciones v3
+# 54. Fase 51 --- Motor de recomendaciones v3 [COMPLETADA]
 
-Añadir:
+**Prioridad:** P1 - COMPLETADA
 
+Motor de recomendaciones semántico basado en embeddings vectoriales y vector de preferencias de usuario (*User Preference Embedding* & *Semantic Vector Matching*).
+
+Flujo implementado:
 ``` text
-embeddings
+libros consumidos / leídos / calificados
+ ↓
+promedio ponderado (weighted average) por satisfacción y lectura
+ ↓
+vector de preferencias del usuario U (normalizado en norma unitaria)
+ ↓
+similitud coseno contra libros no consumidos S_semantic
+ ↓
+fusión tri-híbrida v3 (semántica 45% + colaborativa 30% + contenido canónico 25%)
 ```
 
-Representación:
-
-``` text
-book embedding
-user preference embedding
-```
-
-Usuario:
-
-``` text
-vector = weighted average(
-    liked books,
-    highly rated books,
-    finished books
-)
-```
-
-Comparar contra libros no consumidos.
+Hitos completados:
+-   [x] **Vector Sintético de Preferencias ($\vec{U}$):** Cálculo dinámico y en caché del centroide ponderado de embeddings de las obras leídas, en curso y deseadas, priorizando calificaciones de 5 estrellas (1.50) y 4 estrellas (1.20) sobre estados `READ` (1.00), `READING` (0.70) y `WANT_TO_READ` (0.50), con normalización euclídea unitaria ($\|\hat{U}\|_2 = 1.0$).
+-   [x] **Similitud Semántica Vectorial ($S_{\text{semantic}}$):** Similitud coseno en memoria de alta velocidad entre el vector de preferencias de usuario y los embeddings vectoriales persistidos en `Book.embedding` (`JSONField`).
+-   [x] **Fusión Tri-Híbrida v3:**
+    $$S_{\text{v3}} = (0.45 \cdot S_{\text{semantic}}) + (0.30 \cdot S_{\text{collab}}) + (0.25 \cdot S_{\text{content\_v1}})$$
+    con mitigación automática de arranque en frío si el usuario o los libros carecen de embeddings vectoriales.
+-   [x] **Explicabilidad y Desglose Detallado:** Motivo enriquecido destacando afinidad semántica y de estilo ("Afinidad semántica profunda con los temas y estilo de tus libros favoritos"), con desglose completo en `breakdown` (`semantic`, `collaborative`, `content_v1`, `has_user_embedding`).
+-   [x] **Auditoría y Versionado:** `algorithm_version = "v3"` garantizado en respuestas y en telemetría de eventos de feedback (`RecommendationFeedback`).
+-   [x] **Endpoints y API REST:**
+    -   `GET /api/v1/books/recommendations/?strategy=v3` (o `version=v3`).
+    -   `GET /api/v1/books/recommendations/user-embedding/`: Endpoint para auditoría, inspección y visualización del vector sintético de preferencias, dimensionalidad y obras analizadas.
+-   [x] **Cobertura de Pruebas:** Suite exhaustiva `tests/test_phase51_recommendations_v3.py` (9/9 tests pasando al 100%) y suite de regresión completa v1+v2+v3 (30/30 tests pasando).
 
 ------------------------------------------------------------------------
 

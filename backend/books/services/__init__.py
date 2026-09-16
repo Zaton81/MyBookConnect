@@ -72,6 +72,14 @@ from .recommendation_v2_service import (
     get_similar_readers_v2,
     recommend_books_v2,
 )
+from .recommendation_v3_service import (
+    RecommendationEngineV3,
+    RecommendationV3Item,
+    ScoreBreakdownV3,
+    UserPreferenceVector,
+    get_user_preference_vector,
+    recommend_books_v3,
+)
 from .stats_service import get_user_reading_stats
 from .trending_service import get_trending_books
 from .unified_search_service import (
@@ -94,6 +102,9 @@ __all__ = [
     'RecommendationEngineV1',
     'recommend_books_v2',
     'RecommendationEngineV2',
+    'recommend_books_v3',
+    'RecommendationEngineV3',
+    'get_user_preference_vector',
     'SimilarUserPeer',
     'get_similar_readers',
     'get_book_recommendations',
