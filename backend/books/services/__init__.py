@@ -57,6 +57,12 @@ from .recommendation_service import (
     get_book_recommendations,
     get_user_recommendations,
 )
+from .recommendation_v1_service import (
+    RecommendationEngineV1,
+    RecommendationV1Item,
+    ScoreBreakdownV1,
+    recommend_books_v1,
+)
 from .stats_service import get_user_reading_stats
 from .trending_service import get_trending_books
 from .unified_search_service import (
@@ -75,6 +81,8 @@ __all__ = [
     'import_books_by_author',
     'get_trending_books',
     'get_user_recommendations',
+    'recommend_books_v1',
+    'RecommendationEngineV1',
     'get_book_recommendations',
     'record_recommendation_event',
     'get_recommendation_metrics',

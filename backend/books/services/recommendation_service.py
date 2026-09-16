@@ -110,6 +110,10 @@ def get_user_recommendations(
     if not user or not user.is_authenticated:
         return []
 
+    if strategy in ('v1', 'canonical_v1'):
+        from .recommendation_v1_service import recommend_books_v1
+        return recommend_books_v1(user=user, limit=limit, weights=weights, request=request)
+
     cache_key = user_recommendations_key(user.id, strategy)
     cached_data = cache.get(cache_key)
     if cached_data is not None:
@@ -268,6 +272,21 @@ def get_user_recommendations(
             'cover': build_media_url(b.cover.name if b.cover else None, request=request),
             'average_rating': b.average_rating,
             'score': round(float(item['score']), 2),
+            'algorithm_version': 'v1',
+            'breakdown': item.get('breakdown', {
+                'genre': round(float(item.get('score_genre', 0.0)), 4),
+                'author': round(float(item.get('score_author', 0.0)), 4),
+                'rating': round(float(item.get('score_discovery', 0.0)), 4),
+                'history': round(float(item.get('score', 0.0)) * 0.3, 4),
+                'wishlist': 0.0,
+            }),
+            'scores': item.get('scores', {
+                'genre': round(float(item.get('score_genre', 0.0)), 4),
+                'author': round(float(item.get('score_author', 0.0)), 4),
+                'rating': round(float(item.get('score_discovery', 0.0)), 4),
+                'history': round(float(item.get('score', 0.0)) * 0.3, 4),
+                'wishlist': 0.0,
+            }),
             'reason': item['reason'],
         })
 

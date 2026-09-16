@@ -671,11 +671,38 @@ class UserRecommendationsView(APIView):
 
     @extend_schema(
         summary="Recomendaciones personalizadas de libros",
+        parameters=[
+            OpenApiParameter(
+                name='limit',
+                type=int,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                default=10,
+                description="Cantidad máxima de recomendaciones a devolver (1-30).",
+            ),
+            OpenApiParameter(
+                name='strategy',
+                type=str,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                default='v1',
+                description="Estrategia de cálculo: 'v1' (ponderación canónica), 'hybrid', 'rules', 'social', 'semantic'.",
+            ),
+            OpenApiParameter(
+                name='version',
+                type=str,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                default='v1',
+                description="Versión del motor de recomendaciones (ej. 'v1').",
+            ),
+        ],
         responses={200: inline_serializer(
             name='UserRecommendationResponse',
             fields={
                 'count': serializers.IntegerField(),
                 'strategy': serializers.CharField(),
+                'algorithm_version': serializers.CharField(),
                 'results': serializers.ListField(child=serializers.DictField()),
             },
         )},
@@ -688,9 +715,15 @@ class UserRecommendationsView(APIView):
         except (ValueError, TypeError):
             limit = 10
 
-        strategy = request.query_params.get('strategy', 'hybrid').lower().strip()
-        if strategy not in ('hybrid', 'rules', 'social', 'semantic'):
-            strategy = 'hybrid'
+        version_param = request.query_params.get('version', 'v1').lower().strip()
+        strategy = request.query_params.get('strategy')
+        if not strategy:
+            strategy = 'v1' if version_param == 'v1' else 'hybrid'
+        else:
+            strategy = strategy.lower().strip()
+
+        if strategy not in ('v1', 'canonical_v1', 'hybrid', 'rules', 'social', 'semantic'):
+            strategy = 'v1'
 
         results = services.get_user_recommendations(
             user=request.user,
@@ -701,6 +734,7 @@ class UserRecommendationsView(APIView):
         return Response({
             'count': len(results),
             'strategy': strategy,
+            'algorithm_version': 'v1',
             'results': results,
         })
 

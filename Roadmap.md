@@ -2285,31 +2285,29 @@ Hitos completados:
 
 ------------------------------------------------------------------------
 
-# 52. Fase 49 --- Motor de recomendaciones v1
+# 52. Fase 49 --- Motor de recomendaciones v1 [COMPLETADA]
 
-Algoritmo inicial sin ML complejo.
+**Prioridad:** P1 - COMPLETADA
 
-Variables:
+Algoritmo inicial determinista y explicable sin ML complejo.
 
-``` text
-género
-autor
-rating
-historial
-wishlist
-```
+Variables canónicas:
+-   [x] **Género (`S_genre`):** Afinidad de categorías literarias derivada de lecturas, valoraciones y biblioteca del usuario.
+-   [x] **Autor (`S_author`):** Afinidad hacia autores leídos y mejor calificados.
+-   [x] **Rating (`S_rating`):** Calidad comunitaria y atractivo de valoración normalizado en $[0, 1]$.
+-   [x] **Historial (`S_history`):** Nivel de experiencia del lector (`READ`, `READING`) y adecuación a su trayectoria con exclusión estricta de biblioteca propia.
+-   [x] **Wishlist (`S_wishlist`):** Señal de intención explícita a partir de obras en `WANT_TO_READ` y listas de deseos personales.
 
 Resultado:
-
-``` text
-score = weighted_sum(...)
-```
+-   [x] Suma ponderada canónica:
+    $$\text{score} = (0.30 \cdot S_{\text{genre}}) + (0.25 \cdot S_{\text{author}}) + (0.15 \cdot S_{\text{rating}}) + (0.15 \cdot S_{\text{history}}) + (0.15 \cdot S_{\text{wishlist}})$$
+-   [x] Explicabilidad transparente (`reason`) y desglose completo de puntuaciones (`breakdown`).
+-   [x] Resolución de arranque en frío (*Cold-Start*) con obras destacadas para lectores noveles.
+-   [x] Soporte en endpoints `GET /api/v1/books/recommendations/` con parámetro `strategy='v1'` o `version='v1'`.
 
 Guardar versión:
-
-``` text
-algorithm_version = "v1"
-```
+-   [x] Versionado auditado: `algorithm_version = "v1"` persistido en respuestas y en eventos de feedback (`RecommendationFeedback`).
+-   [x] Suite de pruebas automatizadas: `tests/test_phase49_recommendations_v1.py` (11/11 tests pasando al 100%).
 
 ------------------------------------------------------------------------
 
