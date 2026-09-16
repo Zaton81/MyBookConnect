@@ -718,12 +718,17 @@ class UserRecommendationsView(APIView):
         version_param = request.query_params.get('version', 'v1').lower().strip()
         strategy = request.query_params.get('strategy')
         if not strategy:
-            strategy = 'v1' if version_param == 'v1' else 'hybrid'
+            if version_param == 'v2':
+                strategy = 'v2'
+            elif version_param == 'v1':
+                strategy = 'v1'
+            else:
+                strategy = 'hybrid'
         else:
             strategy = strategy.lower().strip()
 
-        if strategy not in ('v1', 'canonical_v1', 'hybrid', 'rules', 'social', 'semantic'):
-            strategy = 'v1'
+        if strategy not in ('v1', 'canonical_v1', 'v2', 'collab', 'collaborative', 'hybrid', 'rules', 'social', 'semantic'):
+            strategy = 'v2' if version_param == 'v2' else 'v1'
 
         results = services.get_user_recommendations(
             user=request.user,
@@ -731,10 +736,54 @@ class UserRecommendationsView(APIView):
             strategy=strategy,
             request=request,
         )
+        algo_version = 'v2' if (strategy in ('v2', 'collab', 'collaborative') or version_param == 'v2') else 'v1'
         return Response({
             'count': len(results),
             'strategy': strategy,
-            'algorithm_version': 'v1',
+            'algorithm_version': algo_version,
+            'results': results,
+        })
+
+
+class SimilarReadersView(APIView):
+    """
+    Endpoint para consultar a los usuarios lectores con gustos más similares (vecinos K-NN v2).
+    Calcula similitud a partir de libros compartidos y congruencia en valoraciones.
+    """
+    permission_classes = (permissions.IsAuthenticated,)
+
+    @extend_schema(
+        summary="Lectores con gustos literarios similares",
+        description="Devuelve la lista de lectores afines con su coeficiente de similitud y obras compartidas.",
+        parameters=[
+            OpenApiParameter(
+                name='limit',
+                type=int,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                default=10,
+                description="Cantidad máxima de lectores a devolver (máx 30).",
+            ),
+        ],
+        responses={200: inline_serializer(
+            name='SimilarReadersResponse',
+            fields={
+                'count': serializers.IntegerField(),
+                'results': serializers.ListField(child=serializers.DictField()),
+            },
+        )},
+        tags=['Books'],
+    )
+    def get(self, request):
+        limit = request.query_params.get('limit', 10)
+        try:
+            limit = max(1, min(30, int(limit)))
+        except (ValueError, TypeError):
+            limit = 10
+
+        results = services.get_similar_readers(user=request.user, limit=limit)
+        return Response({
+            'count': len(results),
             'results': results,
         })
 

@@ -32,6 +32,7 @@ from .views import (
     UserBookDetailView,
     UserBookListCreateView,
     UserRecommendationsView,
+    SimilarReadersView,
     UnifiedBookSearchView,
 )
 
@@ -46,6 +47,7 @@ urlpatterns = [
     path('feed/', SocialFeedView.as_view(), name='books-social-feed'),
     path('trending/', TrendingBooksView.as_view(), name='books-trending'),
     path('recommendations/', UserRecommendationsView.as_view(), name='user-recommendations'),
+    path('recommendations/similar-readers/', SimilarReadersView.as_view(), name='user-recommendations-similar-readers'),
     path('recommendations/feedback/', RecommendationFeedbackView.as_view(), name='recommendation-feedback'),
     path('recommendations/metrics/', RecommendationMetricsView.as_view(), name='recommendation-metrics'),
     path('statistics/', ReadingStatsView.as_view(), name='books-statistics'),

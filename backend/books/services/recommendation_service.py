@@ -114,6 +114,10 @@ def get_user_recommendations(
         from .recommendation_v1_service import recommend_books_v1
         return recommend_books_v1(user=user, limit=limit, weights=weights, request=request)
 
+    if strategy in ('v2', 'collab', 'collaborative'):
+        from .recommendation_v2_service import recommend_books_v2
+        return recommend_books_v2(user=user, limit=limit, request=request)
+
     cache_key = user_recommendations_key(user.id, strategy)
     cached_data = cache.get(cache_key)
     if cached_data is not None:
@@ -400,3 +404,10 @@ def get_book_recommendations(
 
     cache.set(cache_key, results, timeout=TTL_RECOMMENDATIONS)
     return results
+
+
+def get_similar_readers(user, limit: int = 10) -> list[dict]:
+    """Obtiene lectores con gustos literarios similares (vecinos colaboradores v2)."""
+    from .recommendation_v2_service import get_similar_readers_v2
+    return get_similar_readers_v2(user=user, limit=limit)
+

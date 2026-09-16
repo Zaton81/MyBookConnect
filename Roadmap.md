@@ -2311,31 +2311,33 @@ Guardar versión:
 
 ------------------------------------------------------------------------
 
-# 53. Fase 50 --- Motor de recomendaciones v2
+# 53. Fase 50 --- Motor de recomendaciones v2 [COMPLETADA]
 
-Añadir:
+**Prioridad:** P1 - COMPLETADA
 
-``` text
-usuarios similares
-```
+Añadido filtrado colaborativo basado en usuarios con gustos similares (*User-User Similarity*).
 
-Ejemplo:
-
+Flujo implementado:
 ``` text
 Jorge
  ↓
-usuarios con gustos similares
+usuarios con gustos similares (K-NN por Jaccard y ratings comunes)
  ↓
-libros que Jorge no ha leído
+libros que Jorge no ha leído (exclusión estricta)
  ↓
-ranking
+ranking híbrido v2 (fusión colaborativa + canónica v1)
 ```
 
-Método inicial:
-
-``` text
-user-user similarity
-```
+Hitos completados:
+-   [x] **Modelado de Afinidad Usuario-Usuario:** Similitud $\text{sim}(U, V) \in [0, 1]$ combinando coincidencia de catálogo compartido (Jaccard) y congruencia en valoraciones numéricas, con exclusión estricta de usuarios bloqueados.
+-   [x] **Extracción de Candidatos Colaborativos:** Identificación de obras leídas o altamente valoradas por vecinos afines excluyendo la biblioteca del usuario objetivo.
+-   [x] **Puntuación y Fusión Híbrida v2:** Agregación ponderada $S_{\text{collab}}$ fusionada con el motor canónico v1:
+    $$S_{\text{v2}} = (\beta \cdot S_{\text{collab}}) + ((1 - \beta) \cdot S_{\text{v1}})$$
+    con fallback transparente a contenido en caso de lectores noveles (Cold-Start).
+-   [x] **Explicabilidad y Desglose:** `reason` contextual identificando a los lectores afines ("Leído y recomendado por lectores con gustos muy similares a los tuyos como @lectorX") y desglose `breakdown.collaborative`.
+-   [x] **Versionado Auditado:** `algorithm_version = "v2"` persistido en respuestas y telemetría de feedback.
+-   [x] **Endpoints y API:** Soporte de `strategy='v2'` y `version='v2'` en `GET /api/v1/books/recommendations/`, y nuevo endpoint `GET /api/v1/books/recommendations/similar-readers/` para consultar lectores gemelos.
+-   [x] **Cobertura de Pruebas:** Nueva suite `tests/test_phase50_recommendations_v2.py` (10/10 tests pasando al 100%) y regresión completa (26/26 tests pasando).
 
 ------------------------------------------------------------------------
 

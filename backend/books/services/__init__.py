@@ -55,6 +55,7 @@ from .recommendation_feedback_service import (
 )
 from .recommendation_service import (
     get_book_recommendations,
+    get_similar_readers,
     get_user_recommendations,
 )
 from .recommendation_v1_service import (
@@ -62,6 +63,14 @@ from .recommendation_v1_service import (
     RecommendationV1Item,
     ScoreBreakdownV1,
     recommend_books_v1,
+)
+from .recommendation_v2_service import (
+    RecommendationEngineV2,
+    RecommendationV2Item,
+    ScoreBreakdownV2,
+    SimilarUserPeer,
+    get_similar_readers_v2,
+    recommend_books_v2,
 )
 from .stats_service import get_user_reading_stats
 from .trending_service import get_trending_books
@@ -83,6 +92,10 @@ __all__ = [
     'get_user_recommendations',
     'recommend_books_v1',
     'RecommendationEngineV1',
+    'recommend_books_v2',
+    'RecommendationEngineV2',
+    'SimilarUserPeer',
+    'get_similar_readers',
     'get_book_recommendations',
     'record_recommendation_event',
     'get_recommendation_metrics',

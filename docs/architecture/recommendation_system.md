@@ -73,5 +73,36 @@ Cada recomendación devuelta incluye:
 
 Los eventos de interacción sobre recomendaciones se registran en el modelo `RecommendationFeedback`:
 - Acciones: `recommendation_shown`, `recommendation_clicked`, `book_opened`, `wishlist_added`, `reading_started`, `reading_finished`, `rated`.
-- Versión auditada: `algorithm_version = "v1"`.
+- Versiones auditadas: `algorithm_version = "v1"` y `algorithm_version = "v2"`.
 - Permite calcular métricas de conversión y CTR por estrategia y versión de algoritmo a través de `GET /api/v1/books/recommendations/metrics/`.
+
+---
+
+## 6. Motor de Recomendaciones v2 (`RecommendationEngineV2` — User-User Similarity)
+
+Implementado en `backend/books/services/recommendation_v2_service.py` para la **Fase 50**:
+$$\text{Usuario Objetivo} \longrightarrow \text{Lectores Afines (K-NN)} \longrightarrow \text{Libros no leídos por el objetivo} \longrightarrow \text{Ranking Colaborativo v2}$$
+
+### Modelado de Afinidad Usuario-Usuario
+La similitud entre el usuario objetivo $U$ y un lector candidato $V$ combina la intersección de biblioteca con la coherencia en valoraciones numéricas:
+1. **Coeficiente de Jaccard:**
+   $$J(U, V) = \frac{|Books(U) \cap Books(V)|}{|Books(U) \cup Books(V)|}$$
+2. **Consistencia de Calificaciones:**
+   Para cada libro común $b$, se evalúa la desviación absoluta $|r_{u,b} - r_{v,b}|$, normalizada a escala $[0, 1]$.
+3. **Similitud Combinada:**
+   $$\text{sim}(U, V) = 0.55 \cdot J(U, V) + 0.45 \cdot \text{RatingSim}(U, V)$$
+   (con boost estadístico cuando comparten 3 o más libros).
+
+### Extracción de Candidatos y Puntuación Colaborativa
+Para cada libro $B$ leído o calificado por los vecinos similares que $U$ no tiene en su biblioteca:
+$$S_{\text{collab}}(B) = \frac{\sum_{V \in \text{Peers}(B)} \text{sim}(U, V) \cdot \text{weight}(V, B)}{\sum_{V \in \text{Peers}(B)} \text{sim}(U, V)}$$
+
+### Fusión Híbrida v2
+$$S_{\text{v2}} = \beta \cdot S_{\text{collab}} + (1 - \beta) \cdot S_{\text{v1}}$$
+- $\beta = 0.50$ cuando existen lectores afines con lecturas candidatas.
+- Si el usuario es nuevo o no tiene vecinos con lecturas no exploradas, el motor recurre transparentemente al motor canónico de contenido v1 ($\beta = 0$).
+
+### Endpoints Disponibles
+- `GET /api/v1/books/recommendations/?strategy=v2`: Recomendaciones v2 con desglose colaborativo (`breakdown.collaborative`, `breakdown.shared_peers`, `breakdown.top_peer`).
+- `GET /api/v1/books/recommendations/similar-readers/`: Consulta de lectores más afines (*lectores gemelos*) con score de similitud y conteo de obras comunes.
+
