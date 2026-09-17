@@ -12,6 +12,7 @@ export const editProfileSchema = z.object({
   show_birth_date: z.boolean(),
   show_location: z.boolean(),
   show_bio: z.boolean(),
+  gamification_enabled: z.boolean().optional(),
 });
 
 export type EditProfileFormData = z.infer<typeof editProfileSchema>;

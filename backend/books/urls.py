@@ -56,6 +56,7 @@ urlpatterns = [
     path('recommendations/feedback/', RecommendationFeedbackView.as_view(), name='recommendation-feedback'),
     path('recommendations/metrics/', RecommendationMetricsView.as_view(), name='recommendation-metrics'),
     path('statistics/', ReadingStatsView.as_view(), name='books-statistics'),
+    path('gamification/', include('books.gamification_urls')),
     path('match/<int:user_id>/', ReadingMatchView.as_view(), name='user-reading-match'),
     path('import/', ImportBookView.as_view(), name='books-import-root'),
 

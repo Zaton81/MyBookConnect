@@ -62,6 +62,10 @@ class User(AbstractUser):
     show_birth_date = models.BooleanField(default=False)
     show_location = models.BooleanField(default=True)
     show_bio = models.BooleanField(default=True)
+    gamification_enabled = models.BooleanField(
+        default=True,
+        help_text="Permite activar o desactivar opcionalmente la gamificación (retos, rachas, objetivos e insignias).",
+    )
 
     class Meta:
         ordering = ['-date_joined']

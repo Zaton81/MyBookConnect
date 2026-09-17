@@ -13,6 +13,7 @@ export interface User {
   show_birth_date?: boolean;
   show_location?: boolean;
   show_bio?: boolean;
+  gamification_enabled?: boolean;
   following?: number[];
   followers?: number[];
   is_editor?: boolean;

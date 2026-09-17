@@ -555,3 +555,18 @@ class RecommendationFeedback(models.Model):
     def __str__(self):
         return f"{self.user.username} - {self.action} - {self.book.title} ({self.strategy})"
 
+
+# Modelos de gamificación opcional (Fase 54)
+from .gamification_models import (  # noqa: E402, F401
+    Badge,
+    BadgeCategory,
+    ChallengeType,
+    DailyReadingLog,
+    ReadingChallenge,
+    ReadingGoal,
+    ReadingStreak,
+    UserBadge,
+    UserChallenge,
+)
+
+

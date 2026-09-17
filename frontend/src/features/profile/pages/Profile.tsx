@@ -5,6 +5,7 @@ import { useAuthStore } from '../../../store/auth';
 import { User } from '../../../types/auth';
 import DOMPurify from 'dompurify';
 import { resolveMediaUrl } from '../../../utils/media';
+import { GamificationOverviewData } from '../../books/components/gamification';
 
 export function Profile() {
   const { userId, id } = useParams<{ userId?: string; id?: string }>();
@@ -21,6 +22,7 @@ export function Profile() {
     common_books_count: number;
     common_books: { id: number; title: string; cover?: string; author_name: string }[];
   } | null>(null);
+  const [gamification, setGamification] = useState<GamificationOverviewData | null>(null);
 
   const isOwnProfile = !profileId || (currentUser && String(currentUser.id) === String(profileId));
 
@@ -66,6 +68,20 @@ export function Profile() {
           } catch (e) {
             console.warn('Error fetching reading match', e);
           }
+        }
+
+        // Cargar gamificación y logros
+        try {
+          const gamRes = await fetch(
+            `${apiUrl}/api/v1/gamification/overview/${profileId ? `?user_id=${profileId}` : ''}`,
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+          if (gamRes.ok) {
+            const gamData = await gamRes.json();
+            setGamification(gamData);
+          }
+        } catch (e) {
+          console.warn('Error fetching gamification in profile', e);
         }
       } else if (res.status === 403) {
         const errData = await res.json().catch(() => ({}));
@@ -332,6 +348,85 @@ export function Profile() {
             <span className="text-sm text-gray-500">Siguiendo</span>
           </div>
         </div>
+
+        {/* Widget de Gamificación y Logros en Perfil */}
+        {gamification && gamification.gamification_enabled && (
+          <div className="mt-5 pt-4 border-t border-slate-100 dark:border-slate-700/60 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">🏆</span>
+                <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+                  Logros y Progreso Lector
+                </h4>
+              </div>
+              <button
+                type="button"
+                onClick={() => navigate(profileId ? `/users/${profileId}/statistics` : '/statistics')}
+                className="text-xs font-semibold text-teal-600 dark:text-teal-400 hover:underline"
+              >
+                Ver estadísticas completas ➔
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              {/* Racha */}
+              <div className="p-3 rounded-2xl bg-gradient-to-br from-amber-50 to-orange-50 dark:from-slate-700/60 dark:to-orange-950/20 border border-amber-100/80 dark:border-amber-900/40 flex items-center gap-3">
+                <span className="text-2xl">🔥</span>
+                <div>
+                  <div className="text-base font-extrabold text-amber-700 dark:text-amber-300">
+                    {gamification.streak?.current_streak || 0} {gamification.streak?.current_streak === 1 ? 'día' : 'días'}
+                  </div>
+                  <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                    Racha activa
+                  </div>
+                </div>
+              </div>
+
+              {/* Objetivo anual */}
+              <div className="p-3 rounded-2xl bg-gradient-to-br from-teal-50 to-emerald-50 dark:from-slate-700/60 dark:to-teal-950/20 border border-teal-100/80 dark:border-teal-900/40 flex items-center gap-3">
+                <span className="text-2xl">🎯</span>
+                <div>
+                  <div className="text-base font-extrabold text-teal-700 dark:text-teal-300">
+                    {gamification.goal?.has_goal
+                      ? `${gamification.goal.current_books}/${gamification.goal.target_books} libros`
+                      : 'Sin meta fija'}
+                  </div>
+                  <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                    Meta {gamification.goal?.year || new Date().getFullYear()} ({gamification.goal?.percentage || 0}%)
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Insignias destacadas */}
+            {gamification.badges && gamification.badges.unlocked_count > 0 && (
+              <div className="pt-1">
+                <div className="text-xs font-semibold text-slate-600 dark:text-slate-300 mb-2 flex items-center justify-between">
+                  <span>Insignias desbloqueadas:</span>
+                  <span className="text-[11px] text-slate-400">
+                    {gamification.badges.unlocked_count} de {gamification.badges.total_badges}
+                  </span>
+                </div>
+                <div className="flex gap-2 overflow-x-auto pb-1">
+                  {gamification.badges.list
+                    .filter((b) => b.unlocked)
+                    .map((b) => (
+                      <div
+                        key={b.id}
+                        title={`${b.name}: ${b.description}`}
+                        className="px-2.5 py-1.5 rounded-xl bg-white dark:bg-slate-700 border border-teal-100 dark:border-teal-800/60 shadow-xs flex items-center gap-1.5 shrink-0"
+                      >
+                        <span className="text-base">{b.icon}</span>
+                        <span className="text-xs font-medium text-slate-800 dark:text-slate-200">
+                          {b.name}
+                        </span>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </Card>
     </div>
   );

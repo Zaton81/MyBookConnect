@@ -2436,28 +2436,44 @@ Transformación del muro social desde un listado cronológico plano a un ranking
 
 ------------------------------------------------------------------------
 
-# 57. Fase 54 --- Gamificación opcional
+# 57. Fase 54 --- Gamificación opcional [COMPLETADA]
 
-Solo después de estabilizar el núcleo.
+**Prioridad:** P2 - COMPLETADA
 
-Posibilidades:
+Sistema integral de motivación y hábitos de lectura con arquitectura desacoplada, no intrusiva y 100% opcional (conmutable por el usuario mediante `gamification_enabled`).
 
-``` text
-reto mensual
-racha de lectura
-objetivo anual
-insignias
-```
-
-Ejemplo:
-
-``` text
-📚 10 libros en verano
-⭐ 5 reseñas publicadas
-🔥 7 días leyendo
-```
-
-Debe ser opcional y no interferir con la experiencia principal.
+### Entregables implementados y verificados:
+- [x] **Modelos de Datos y Migraciones:**
+  - `ReadingGoal`: Metas anuales configurables (`target_books`, `target_pages`, año) con cálculo dinámico de ritmo/pacing ("Adelantado", "Al día", "Por detrás").
+  - `ReadingStreak`: Racha de lectura consecutiva (`current_streak`, `longest_streak`, `last_reading_date`) con detección automática de continuidad e inactividad.
+  - `DailyReadingLog`: Registro diario de páginas, minutos y obras leídas (`user`, `date`, `pages_read`, `minutes_read`, `books`).
+  - `Badge` y `UserBadge`: Catálogo extensible de insignias y logros por categorías (`reading`, `streak`, `reviews`, `challenges`, `community`) con asignación idempotente.
+  - `ReadingChallenge` y `UserChallenge`: Retos comunitarios periódicos y temáticos con progreso porcentual y recompensa de insignia.
+  - Campo `gamification_enabled` en modelo `User` con migración aplicada (`users.0016`).
+- [x] **Servicio Central de Gamificación (`GamificationService`):**
+  - Siembra idempotente de insignias iniciales (`ensure_default_badges`).
+  - Registro de lectura diaria (`record_daily_reading`), evaluación de objetivos (`evaluate_reading_goal`) y desbloqueo automático de insignias por hitos (`evaluate_user_badges`).
+  - Detección de rotura de racha por omisión de días (`get_or_calculate_streak`).
+  - Avance reactivo de retos en `on_book_finished`, `on_review_created` y lectura diaria.
+- [x] **API REST y Endpoints DRF:**
+  - `GET /api/v1/gamification/overview/`: Resumen integral respetando preferencias y privacidad del usuario.
+  - `GET, POST /api/v1/gamification/goals/`: Fijar o consultar objetivo anual.
+  - `POST /api/v1/gamification/log/`: Registrar sesión diaria o pulsar "He leído hoy".
+  - `GET /api/v1/gamification/badges/`: Catálogo de insignias con estado de desbloqueo.
+  - `GET /api/v1/gamification/challenges/`: Retos activos con progreso personal.
+  - `POST /api/v1/gamification/challenges/<slug>/join/`: Inscripción en retos.
+  - `PATCH /api/v1/gamification/preferences/`: Conmutador de activación/desactivación opcional.
+- [x] **Componentes e Integración Frontend:**
+  - `ReadingGoalCard`: Tarjeta de progreso anual con barra graduada y fijación de meta.
+  - `ReadingStreakCard`: Tarjeta de racha con llama animada y botón rápido "He leído hoy".
+  - `BadgesGrid`: Escaparate con filtro por categorías y distinción entre desbloqueadas y bloqueadas.
+  - `ActiveChallengesCard`: Tarjetas de retos con barra de progreso y botón de inscripción.
+  - Integración en `ReadingStats.tsx` y `Profile.tsx`.
+  - Control de activación opcional en `EditProfileForm.tsx`.
+- [x] **Pruebas y Verificación:**
+  - Suite dedicada `backend/tests/test_phase54_gamification.py` (**8/8 tests PASSED**).
+  - Comprobación estricta de tipos TypeScript (`npm run typecheck` con **0 errores**).
+  - Suite de pruebas de frontend (`npx vitest run`: **21/21 tests PASSED**).
 
 ------------------------------------------------------------------------
 

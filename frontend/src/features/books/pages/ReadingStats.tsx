@@ -2,6 +2,13 @@ import { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { Button, Spinner } from 'flowbite-react';
 import { useAuthStore } from '../../../store/auth';
+import {
+  ActiveChallengesCard,
+  BadgesGrid,
+  GamificationOverviewData,
+  ReadingGoalCard,
+  ReadingStreakCard,
+} from '../components/gamification';
 
 interface TopGenre {
   name: string;
@@ -45,10 +52,26 @@ export function ReadingStats() {
   const isOwnStats = !userIdParam || (user && String(user.id) === userIdParam);
 
   const [stats, setStats] = useState<ReadingStatsData | null>(null);
+  const [gamification, setGamification] = useState<GamificationOverviewData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const apiUrl = (import.meta as any).env.VITE_API_URL || 'http://localhost:8000';
+
+  const fetchGamification = async () => {
+    try {
+      const query = userIdParam ? `?user_id=${encodeURIComponent(userIdParam)}` : '';
+      const res = await fetch(`${apiUrl}/api/v1/gamification/overview/${query}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setGamification(data);
+      }
+    } catch (e) {
+      console.warn('Error fetching gamification overview', e);
+    }
+  };
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -81,6 +104,7 @@ export function ReadingStats() {
     };
 
     fetchStats();
+    fetchGamification();
   }, [apiUrl, token, userIdParam]);
 
   if (loading) {
@@ -225,6 +249,37 @@ export function ReadingStats() {
           </div>
         </div>
       </div>
+
+      {/* ── Gamificación Opcional (Objetivos, Rachas, Insignias y Retos) ── */}
+      {gamification && gamification.gamification_enabled && (
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <ReadingGoalCard
+              goal={gamification.goal}
+              isOwn={!!isOwnStats}
+              onGoalUpdated={fetchGamification}
+            />
+            <ReadingStreakCard
+              streak={gamification.streak}
+              isOwn={!!isOwnStats}
+              onStreakUpdated={fetchGamification}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2">
+              <BadgesGrid badges={gamification.badges} />
+            </div>
+            <div>
+              <ActiveChallengesCard
+                challenges={gamification.challenges}
+                isOwn={!!isOwnStats}
+                onChallengeUpdated={fetchGamification}
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Gráfico de Evolución Mensual (Últimos 12 meses) */}
       <div className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm">

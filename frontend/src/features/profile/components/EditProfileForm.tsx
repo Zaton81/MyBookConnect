@@ -34,6 +34,7 @@ export function EditProfileForm() {
       show_birth_date: user?.show_birth_date ?? false,
       show_location: user?.show_location ?? false,
       show_bio: user?.show_bio ?? false,
+      gamification_enabled: user?.gamification_enabled ?? true,
     },
   });
 
@@ -224,6 +225,34 @@ export function EditProfileForm() {
         {errors.bio && (
           <p className="mt-1 text-xs text-red-600">{errors.bio.message}</p>
         )}
+      </div>
+
+      <div className="mb-6 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700 space-y-2">
+        <h3 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
+          <span>🎮</span>
+          <span>Gamificación de Lectura (Opcional)</span>
+        </h3>
+        <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+          Si prefieres una experiencia minimalista centrada únicamente en tus libros y reseñas, puedes desactivar los retos, rachas de lectura y metas anuales en cualquier momento.
+        </p>
+        <div className="pt-2">
+          <label className="flex items-center gap-2 cursor-pointer text-sm">
+            <Controller
+              name="gamification_enabled"
+              control={control}
+              render={({ field }) => (
+                <Checkbox
+                  id="gamification_enabled"
+                  checked={field.value ?? true}
+                  onChange={(e) => field.onChange(e.target.checked)}
+                />
+              )}
+            />
+            <span className="text-gray-700 dark:text-gray-300 font-medium">
+              Habilitar objetivos anuales, rachas de lectura e insignias
+            </span>
+          </label>
+        </div>
       </div>
 
       {serverError && (
