@@ -137,9 +137,9 @@ def precompute_trending_task(self) -> dict[str, int]:
 
 
 @shared_task(bind=True, max_retries=2, default_retry_delay=60)
-def precompute_user_recommendations_task(self, user_id: int) -> int:
+def precompute_user_recommendations_task(self, user_id: int, strategy: str = 'hybrid') -> int:
     """
-    Precalcula y calienta en caché las recomendaciones híbridas de un usuario
+    Precalcula y calienta en caché las recomendaciones de un usuario
     para optimizar la carga instantánea de su página de inicio.
     """
     try:
@@ -149,11 +149,41 @@ def precompute_user_recommendations_task(self, user_id: int) -> int:
 
         User = get_user_model()
         user = User.objects.get(pk=user_id)
-        recommendations = get_user_recommendations(user=user, limit=10, strategy='hybrid')
-        logger.info(f"precompute_user_recommendations_task: {len(recommendations)} recomendaciones calculadas para usuario {user_id}")
+        recommendations = get_user_recommendations(user=user, limit=10, strategy=strategy)
+        logger.info(f"precompute_user_recommendations_task ({strategy}): {len(recommendations)} recomendaciones calculadas para usuario {user_id}")
         return len(recommendations)
     except Exception as exc:
         logger.warning(f"Error en precompute_user_recommendations_task para usuario {user_id}: {exc}")
         raise self.retry(exc=exc) from exc
+
+
+@shared_task(bind=True, max_retries=2, default_retry_delay=60)
+def generate_book_embedding_task(self, book_id: int) -> bool:
+    """
+    Genera y almacena el vector de embedding semántico para una obra literaria.
+    """
+    try:
+        book = Book.objects.filter(id=book_id).first()
+        if not book:
+            logger.warning(f"generate_book_embedding_task: Libro {book_id} no encontrado")
+            return False
+
+        from ai.embeddings import get_embedding_for_text
+
+        author_name = book.author.name if book.author else ''
+        cat_names = ', '.join([c.name for c in book.categories.all()])
+        text_to_embed = f"Título: {book.title}. Autor: {author_name}. Géneros: {cat_names}. Sinopsis: {book.description or ''}"
+
+        emb = get_embedding_for_text(text_to_embed)
+        if emb:
+            book.embedding = emb
+            book.save(update_fields=['embedding'])
+            logger.info(f"generate_book_embedding_task: Embedding guardado con éxito para libro {book_id} ({book.title})")
+            return True
+        return False
+    except Exception as exc:
+        logger.warning(f"Error en generate_book_embedding_task para libro {book_id}: {exc}")
+        raise self.retry(exc=exc) from exc
+
 
 

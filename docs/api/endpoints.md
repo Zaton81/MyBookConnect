@@ -2,6 +2,19 @@
 
 Resumen de las rutas REST y recursos expuestos por la API de MyBookConnect:
 
+## 0. Autenticación y Credenciales (`/api/v1/auth/`)
+- `POST /api/v1/auth/token/`: Inicio de sesión con mitigación de fuerza bruta (`LoginRateThrottle`).
+- `POST /api/v1/auth/token/refresh/`: Rotación estricta de refresh tokens (detección de reuso y lista negra).
+- `POST /api/v1/auth/register/`: Registro de usuarios con validación de complejidad de contraseña (`AUTH_PASSWORD_VALIDATORS`).
+- `POST /api/v1/auth/logout/`: Cierre de sesión y revocación del refresh token activo.
+- `POST /api/v1/auth/password/change/`: Cambio autenticado de contraseña con revocación de otras sesiones.
+- `POST /api/v1/auth/password/reset/`: Solicitud de restablecimiento vía correo con protección anti-enumeración.
+- `POST /api/v1/auth/password/reset/confirm/`: Confirmación de restablecimiento con token efímero y revocación total de sesiones.
+- `POST /api/v1/auth/email/verify-request/`: Solicitud de confirmación de correo electrónico.
+- `POST /api/v1/auth/email/verify/`: Validación de token efímero de correo y activación de `is_email_verified`.
+- `POST /api/v1/auth/sessions/revoke-all/`: Cierre de sesión global en todos los dispositivos (*OutstandingToken* blacklist).
+- `POST /api/v1/auth/google/`: Autenticación federada con Google Sign-In (provisión o enlace automático).
+
 ## 1. Libros y Catálogo (`/api/v1/books/`)
 - `GET /api/v1/books/`: Lista paginada del catálogo de libros con filtros y búsqueda textual (`?search=...`, `?author=...`, `?category=...`).
 - `POST /api/v1/books/`: Creación de una nueva obra literaria (requiere autenticación).
@@ -35,5 +48,6 @@ Resumen de las rutas REST y recursos expuestos por la API de MyBookConnect:
 - `POST /api/v1/books/ai/semantic-search/`: Búsqueda por lenguaje natural basada en significado.
 
 ## 6. Observabilidad y Salud (`/api/v1/`)
-- `GET /api/v1/health/`: Comprobación básica de disponibilidad de proceso.
+- `GET /api/v1/health/`: Sonda de liveness (disponibilidad de proceso Django/Daphne sin dependencias externas).
+- `GET /api/v1/ready/`: Sonda de readiness (comprobación activa de dependencias críticas: PostgreSQL y Redis).
 - `GET /api/v1/observability/metrics/`: Cuadro de mando consolidado (latencias, p95, 5xx rate, consultas SQL). Solo administradores.

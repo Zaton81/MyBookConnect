@@ -34,6 +34,10 @@ class User(AbstractUser):
         help_text="Imagen de avatar (JPEG, PNG, WebP; máx 5MB; dimensiones 50x50 a 6000x6000px)",
     )
     email = models.EmailField(unique=True, blank=False, null=False)
+    is_email_verified = models.BooleanField(
+        default=False,
+        help_text="Indica si la dirección de correo electrónico ha sido confirmada.",
+    )
     following = models.ManyToManyField('self', symmetrical=False, related_name='followers', blank=True)
     blocked_users = models.ManyToManyField('self', symmetrical=False, related_name='blocked_by', blank=True)
     is_editor = models.BooleanField(default=False)

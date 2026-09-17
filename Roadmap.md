@@ -2211,57 +2211,52 @@ Añadir árbol de documentación modular `docs/`:
 
 ------------------------------------------------------------------------
 
-# 49. Fase 46 --- API de salud y readiness
+# 49. Fase 46 --- API de salud y readiness [COMPLETADA]
 
-Crear:
+**Prioridad:** P2 - COMPLETADA
 
-``` text
-/api/v1/health/
-/api/v1/ready/
-```
-
-`health`:
-
-``` text
-process alive
-```
-
-`ready`:
-
-``` text
-database available
-redis available
-```
-
-Esto facilita Docker, reverse proxy y futuras plataformas de despliegue.
+Crear y separar formalmente sondas de disponibilidad:
+-   [x] `/api/v1/health/` (Sonda de Liveness):
+    -   `process alive`: Comprueba que el proceso Django/Daphne está levantado y responde HTTP sin acoplamiento a dependencias externas (evita reinicios en cascada del contenedor por microcortes transitorios).
+    -   Respuesta 200 OK: `{"status": "healthy", "process": "alive"}`.
+-   [x] `/api/v1/ready/` (Sonda de Readiness):
+    -   `database available`: Comprobación activa de PostgreSQL mediante `SELECT 1;`.
+    -   `redis available`: Comprobación de lectura y escritura en la capa de caché Redis.
+    -   Respuesta 200 OK (`status: "ready"`) cuando todos los servicios están disponibles.
+    -   Respuesta 503 SERVICE UNAVAILABLE (`status: "not_ready"`) con desglose de servicios si alguno falla.
+-   [x] Decoración OpenAPI completa mediante `drf_spectacular` en ambos endpoints.
+-   [x] Integración en `backend/mybookconnect/urls.py` con acceso público sin requerir tokens JWT (esencial para orquestadores Docker, Kubernetes y reverse proxies).
+-   [x] Suite de pruebas automatizadas en `backend/tests/test_phase46_health_readiness.py` (9 tests) y `backend/tests/test_healthcheck.py` (5 tests) con 100% de éxito.
 
 ------------------------------------------------------------------------
 
-# 50. Fase 47 --- Seguridad de contraseñas y autenticación
+# 50. Fase 47 --- Seguridad de contraseñas y autenticación [COMPLETADA]
 
-Revisar:
+**Prioridad:** P1 - COMPLETADA
 
--   [ ] Password validators.
--   [ ] Protección contra brute force.
--   [ ] Rate limiting.
--   [ ] Password reset.
--   [ ] Email verification.
--   [ ] Google OAuth.
--   [ ] Revocación de sesiones.
--   [ ] Logout.
--   [ ] Rotación de refresh tokens.
+Revisar y robustecer:
+-   [x] Password validators: Configuración estricta en `AUTH_PASSWORD_VALIDATORS` (longitud mínima 8, similitud de atributos con usuario, diccionario de contraseñas comunes y rechazo de contraseñas numéricas) aplicada en registro, cambio y restablecimiento.
+-   [x] Protección contra brute force: Limitación de intentos en `/api/v1/auth/token/` por IP y par `IP + username` para neutralizar ataques de fuerza bruta y credential stuffing.
+-   [x] Rate limiting: Implementación de limitadores dedicados con Redis en `backend/users/throttles.py` (`LoginRateThrottle: 10/min`, `PasswordResetRateThrottle: 5/min`, `AuthAnonRateThrottle: 10/min`).
+-   [x] Password reset: Flujo completo en dos fases (`/password/reset/` y `/password/reset/confirm/`) con protección anti-enumeración de usuarios, tokens criptográficos efímeros (`PasswordResetTokenGenerator`) y revocación automática de sesiones previas tras la actualización.
+-   [x] Email verification: Campo `is_email_verified` en modelo `User` (migración `0015_user_is_email_verified`), generador de tokens de confirmación (`EmailVerificationTokenGenerator`) y endpoints `/email/verify-request/` y `/email/verify/`.
+-   [x] Google OAuth: Endpoint `/api/v1/auth/google/` para validación de `id_token` de Google Sign-In, provisión automática de usuarios con email verificado y emisión de par JWT.
+-   [x] Revocación de sesiones: Endpoint `/api/v1/auth/sessions/revoke-all/` (cierre de sesión global mediante invalidación de todos los `OutstandingToken` en `BlacklistedToken`), integrado automáticamente en restablecimiento y cambio de clave.
+-   [x] Logout: Endpoint `/api/v1/auth/logout/` con blacklisting del refresh token provisto.
+-   [x] Rotación de refresh tokens: `ROTATE_REFRESH_TOKENS = True` y `BLACKLIST_AFTER_ROTATION = True` con detección y bloqueo de reuso.
 
 Opcional posteriormente:
-
 ``` text
-2FA
+2FA (TOTP / WebAuthn)
 ```
 
 ------------------------------------------------------------------------
 
-# 51. Fase 48 --- Sistema de búsqueda unificado
+# 51. Fase 48 --- Sistema de búsqueda unificado [COMPLETADA]
 
-Objetivo final:
+**Prioridad:** P1 - COMPLETADA
+
+Objetivo cumplido: Motor de búsqueda unificado multicanal con scoring fusionado y re-ranking.
 
 ``` text
                      SEARCH
@@ -2270,7 +2265,7 @@ Objetivo final:
           │            │            │
        textual       fuzzy      semantic
           │            │            │
-       PostgreSQL    pg_trgm      pgvector
+       PostgreSQL    pg_trgm   embeddings/vector
           │            │            │
           └────────────┼────────────┘
                        │
@@ -2279,90 +2274,104 @@ Objetivo final:
                     results
 ```
 
+Hitos completados:
+-   [x] **Canal Textual (PostgreSQL FTS):** Configuración en español (`spanish`), vectores ponderados en título (A), ISBN (A), autor (B), géneros (B) y descripción (C) con normalización de `SearchRank` a $[0, 1]$.
+-   [x] **Canal Difuso (pg_trgm):** Similitud trigramática combinada con `Greatest(TrigramSimilarity, TrigramWordSimilarity)` sobre título, autor y sinopsis; tolerancia a erratas tipográficas leves y severas ("soledd" $\rightarrow$ "soledad", "Cortzar" $\rightarrow$ "Cortázar").
+-   [x] **Canal Semántico (Embeddings & Conceptual Expansion):** Representación vectorial persistida en `Book.embedding` (`JSONField`), cálculo de similitud coseno vectorial en memoria con fallback inteligente a expansión conceptual temática (`ai.services.semantic_search_books`), y tarea Celery asíncrona `generate_book_embedding_task`.
+-   [x] **Fusión Multicanal y Re-Ranking:** Algoritmo ponderado $S_{\text{unified}} = (0.45 \cdot S_{\text{text}}) + (0.30 \cdot S_{\text{fuzzy}}) + (0.25 \cdot S_{\text{semantic}}) + \text{boost}_{\text{rating}}$, con clasificación de coincidencia (`exact`, `fuzzy`, `semantic`, `hybrid`).
+-   [x] **Endpoint Unificado:** `GET /api/v1/books/search/` con parámetros `q`, `mode` (`hybrid|text|fuzzy|semantic`), `category`, `author`, `min_rating`, `page`, `page_size`, `auto_import`, documentado con esquemas OpenAPI/Swagger.
+-   [x] **Compatibilidad Retroactiva:** Refactorización limpia de `BookListCreateView` para delegar automáticamente en `UnifiedSearchEngine(mode='hybrid')` preservando orden y rendimiento sin regresiones.
+-   [x] **Cobertura de Pruebas:** Suite exhaustiva `tests/test_phase48_unified_search.py` (14/14 tests pasando) y regresión de `tests/test_search_postgres.py` (9/9 tests pasando).
+
 ------------------------------------------------------------------------
 
-# 52. Fase 49 --- Motor de recomendaciones v1
+# 52. Fase 49 --- Motor de recomendaciones v1 [COMPLETADA]
 
-Algoritmo inicial sin ML complejo.
+**Prioridad:** P1 - COMPLETADA
 
-Variables:
+Algoritmo inicial determinista y explicable sin ML complejo.
 
-``` text
-género
-autor
-rating
-historial
-wishlist
-```
+Variables canónicas:
+-   [x] **Género (`S_genre`):** Afinidad de categorías literarias derivada de lecturas, valoraciones y biblioteca del usuario.
+-   [x] **Autor (`S_author`):** Afinidad hacia autores leídos y mejor calificados.
+-   [x] **Rating (`S_rating`):** Calidad comunitaria y atractivo de valoración normalizado en $[0, 1]$.
+-   [x] **Historial (`S_history`):** Nivel de experiencia del lector (`READ`, `READING`) y adecuación a su trayectoria con exclusión estricta de biblioteca propia.
+-   [x] **Wishlist (`S_wishlist`):** Señal de intención explícita a partir de obras en `WANT_TO_READ` y listas de deseos personales.
 
 Resultado:
-
-``` text
-score = weighted_sum(...)
-```
+-   [x] Suma ponderada canónica:
+    $$\text{score} = (0.30 \cdot S_{\text{genre}}) + (0.25 \cdot S_{\text{author}}) + (0.15 \cdot S_{\text{rating}}) + (0.15 \cdot S_{\text{history}}) + (0.15 \cdot S_{\text{wishlist}})$$
+-   [x] Explicabilidad transparente (`reason`) y desglose completo de puntuaciones (`breakdown`).
+-   [x] Resolución de arranque en frío (*Cold-Start*) con obras destacadas para lectores noveles.
+-   [x] Soporte en endpoints `GET /api/v1/books/recommendations/` con parámetro `strategy='v1'` o `version='v1'`.
 
 Guardar versión:
-
-``` text
-algorithm_version = "v1"
-```
+-   [x] Versionado auditado: `algorithm_version = "v1"` persistido en respuestas y en eventos de feedback (`RecommendationFeedback`).
+-   [x] Suite de pruebas automatizadas: `tests/test_phase49_recommendations_v1.py` (11/11 tests pasando al 100%).
 
 ------------------------------------------------------------------------
 
-# 53. Fase 50 --- Motor de recomendaciones v2
+# 53. Fase 50 --- Motor de recomendaciones v2 [COMPLETADA]
 
-Añadir:
+**Prioridad:** P1 - COMPLETADA
 
-``` text
-usuarios similares
-```
+Añadido filtrado colaborativo basado en usuarios con gustos similares (*User-User Similarity*).
 
-Ejemplo:
-
+Flujo implementado:
 ``` text
 Jorge
  ↓
-usuarios con gustos similares
+usuarios con gustos similares (K-NN por Jaccard y ratings comunes)
  ↓
-libros que Jorge no ha leído
+libros que Jorge no ha leído (exclusión estricta)
  ↓
-ranking
+ranking híbrido v2 (fusión colaborativa + canónica v1)
 ```
 
-Método inicial:
-
-``` text
-user-user similarity
-```
+Hitos completados:
+-   [x] **Modelado de Afinidad Usuario-Usuario:** Similitud $\text{sim}(U, V) \in [0, 1]$ combinando coincidencia de catálogo compartido (Jaccard) y congruencia en valoraciones numéricas, con exclusión estricta de usuarios bloqueados.
+-   [x] **Extracción de Candidatos Colaborativos:** Identificación de obras leídas o altamente valoradas por vecinos afines excluyendo la biblioteca del usuario objetivo.
+-   [x] **Puntuación y Fusión Híbrida v2:** Agregación ponderada $S_{\text{collab}}$ fusionada con el motor canónico v1:
+    $$S_{\text{v2}} = (\beta \cdot S_{\text{collab}}) + ((1 - \beta) \cdot S_{\text{v1}})$$
+    con fallback transparente a contenido en caso de lectores noveles (Cold-Start).
+-   [x] **Explicabilidad y Desglose:** `reason` contextual identificando a los lectores afines ("Leído y recomendado por lectores con gustos muy similares a los tuyos como @lectorX") y desglose `breakdown.collaborative`.
+-   [x] **Versionado Auditado:** `algorithm_version = "v2"` persistido en respuestas y telemetría de feedback.
+-   [x] **Endpoints y API:** Soporte de `strategy='v2'` y `version='v2'` en `GET /api/v1/books/recommendations/`, y nuevo endpoint `GET /api/v1/books/recommendations/similar-readers/` para consultar lectores gemelos.
+-   [x] **Cobertura de Pruebas:** Nueva suite `tests/test_phase50_recommendations_v2.py` (10/10 tests pasando al 100%) y regresión completa (26/26 tests pasando).
 
 ------------------------------------------------------------------------
 
-# 54. Fase 51 --- Motor de recomendaciones v3
+# 54. Fase 51 --- Motor de recomendaciones v3 [COMPLETADA]
 
-Añadir:
+**Prioridad:** P1 - COMPLETADA
 
+Motor de recomendaciones semántico basado en embeddings vectoriales y vector de preferencias de usuario (*User Preference Embedding* & *Semantic Vector Matching*).
+
+Flujo implementado:
 ``` text
-embeddings
+libros consumidos / leídos / calificados
+ ↓
+promedio ponderado (weighted average) por satisfacción y lectura
+ ↓
+vector de preferencias del usuario U (normalizado en norma unitaria)
+ ↓
+similitud coseno contra libros no consumidos S_semantic
+ ↓
+fusión tri-híbrida v3 (semántica 45% + colaborativa 30% + contenido canónico 25%)
 ```
 
-Representación:
-
-``` text
-book embedding
-user preference embedding
-```
-
-Usuario:
-
-``` text
-vector = weighted average(
-    liked books,
-    highly rated books,
-    finished books
-)
-```
-
-Comparar contra libros no consumidos.
+Hitos completados:
+-   [x] **Vector Sintético de Preferencias ($\vec{U}$):** Cálculo dinámico y en caché del centroide ponderado de embeddings de las obras leídas, en curso y deseadas, priorizando calificaciones de 5 estrellas (1.50) y 4 estrellas (1.20) sobre estados `READ` (1.00), `READING` (0.70) y `WANT_TO_READ` (0.50), con normalización euclídea unitaria ($\|\hat{U}\|_2 = 1.0$).
+-   [x] **Similitud Semántica Vectorial ($S_{\text{semantic}}$):** Similitud coseno en memoria de alta velocidad entre el vector de preferencias de usuario y los embeddings vectoriales persistidos en `Book.embedding` (`JSONField`).
+-   [x] **Fusión Tri-Híbrida v3:**
+    $$S_{\text{v3}} = (0.45 \cdot S_{\text{semantic}}) + (0.30 \cdot S_{\text{collab}}) + (0.25 \cdot S_{\text{content\_v1}})$$
+    con mitigación automática de arranque en frío si el usuario o los libros carecen de embeddings vectoriales.
+-   [x] **Explicabilidad y Desglose Detallado:** Motivo enriquecido destacando afinidad semántica y de estilo ("Afinidad semántica profunda con los temas y estilo de tus libros favoritos"), con desglose completo en `breakdown` (`semantic`, `collaborative`, `content_v1`, `has_user_embedding`).
+-   [x] **Auditoría y Versionado:** `algorithm_version = "v3"` garantizado en respuestas y en telemetría de eventos de feedback (`RecommendationFeedback`).
+-   [x] **Endpoints y API REST:**
+    -   `GET /api/v1/books/recommendations/?strategy=v3` (o `version=v3`).
+    -   `GET /api/v1/books/recommendations/user-embedding/`: Endpoint para auditoría, inspección y visualización del vector sintético de preferencias, dimensionalidad y obras analizadas.
+-   [x] **Cobertura de Pruebas:** Suite exhaustiva `tests/test_phase51_recommendations_v3.py` (9/9 tests pasando al 100%) y suite de regresión completa v1+v2+v3 (30/30 tests pasando).
 
 ------------------------------------------------------------------------
 

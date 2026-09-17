@@ -415,3 +415,28 @@ class RecommendationFeedbackSerializer(serializers.ModelSerializer):
         )
         read_only_fields = ('id', 'user', 'user_username', 'book_title', 'created_at')
 
+
+class SearchScoreBreakdownSerializer(serializers.Serializer):
+    text_score = serializers.FloatField()
+    fuzzy_score = serializers.FloatField()
+    semantic_score = serializers.FloatField()
+
+
+class UnifiedSearchResultSerializer(serializers.Serializer):
+    book = BookSerializer()
+    unified_score = serializers.FloatField()
+    match_type = serializers.CharField()
+    scores = SearchScoreBreakdownSerializer(source='*')
+
+
+class UnifiedSearchResponseSerializer(serializers.Serializer):
+    query = serializers.CharField()
+    mode = serializers.CharField()
+    count = serializers.IntegerField()
+    total = serializers.IntegerField()
+    page = serializers.IntegerField()
+    page_size = serializers.IntegerField()
+    results = UnifiedSearchResultSerializer(many=True)
+
+
+

@@ -26,11 +26,14 @@ from .views import (
     RecommendationFeedbackView,
     RecommendationMetricsView,
     RecommendationView,
+    SimilarReadersView,
     SocialFeedView,
     TrendingBooksView,
+    UnifiedBookSearchView,
     UserBookByBookView,
     UserBookDetailView,
     UserBookListCreateView,
+    UserPreferenceEmbeddingView,
     UserRecommendationsView,
 )
 
@@ -41,9 +44,12 @@ urlpatterns = [
     path('legal/<slug:slug>/', PublicLegalDocumentView.as_view(), name='books-legal-document'),
     # Rutas estándar limpias (/api/v1/books/...)
     path('', BookListCreateView.as_view(), name='books-list-root'),
+    path('search/', UnifiedBookSearchView.as_view(), name='books-unified-search'),
     path('feed/', SocialFeedView.as_view(), name='books-social-feed'),
     path('trending/', TrendingBooksView.as_view(), name='books-trending'),
     path('recommendations/', UserRecommendationsView.as_view(), name='user-recommendations'),
+    path('recommendations/user-embedding/', UserPreferenceEmbeddingView.as_view(), name='user-recommendations-embedding'),
+    path('recommendations/similar-readers/', SimilarReadersView.as_view(), name='user-recommendations-similar-readers'),
     path('recommendations/feedback/', RecommendationFeedbackView.as_view(), name='recommendation-feedback'),
     path('recommendations/metrics/', RecommendationMetricsView.as_view(), name='recommendation-metrics'),
     path('statistics/', ReadingStatsView.as_view(), name='books-statistics'),
