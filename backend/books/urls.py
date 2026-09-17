@@ -1,6 +1,8 @@
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
+from users.views import FeedView
+
 from .admin_views import PublicLegalDocumentView
 from .ai_views import (
     AIAssistantView,
@@ -28,7 +30,6 @@ from .views import (
     RecommendationMetricsView,
     RecommendationView,
     SimilarReadersView,
-    SocialFeedView,
     TrendingBooksView,
     UnifiedBookSearchView,
     UserBookByBookView,
@@ -46,7 +47,7 @@ urlpatterns = [
     # Rutas estándar limpias (/api/v1/books/...)
     path('', BookListCreateView.as_view(), name='books-list-root'),
     path('search/', UnifiedBookSearchView.as_view(), name='books-unified-search'),
-    path('feed/', SocialFeedView.as_view(), name='books-social-feed'),
+    path('feed/', FeedView.as_view(), name='books-social-feed'),
     path('trending/', TrendingBooksView.as_view(), name='books-trending'),
     path('recommendations/', UserRecommendationsView.as_view(), name='user-recommendations'),
     path('recommendations/<int:book_id>/explain/', BookRecommendationExplainView.as_view(), name='book-recommendation-explain'),

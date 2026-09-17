@@ -29,19 +29,29 @@ interface RecommendedBook {
 }
 
 interface FeedItem {
-  id: string;
-  type: 'review' | 'finished_reading';
-  timestamp: string;
+  id: string | number;
+  type: string;
+  type_display?: string;
+  timestamp?: string;
+  created_at?: string;
+  score?: number;
+  feed_signal?: string;
   user: {
     id: number;
     username: string;
     avatar?: string;
   };
-  book: {
+  book?: {
     id: number;
     title: string;
     cover?: string;
-    author_name: string;
+    author_name?: string;
+  };
+  review?: {
+    id: number;
+    rating?: number;
+    title?: string;
+    text?: string;
   };
   rating?: number;
   comment?: string;
@@ -56,6 +66,8 @@ export const Home = () => {
   const [trendingPeriod, setTrendingPeriod] = useState<'week' | 'month' | 'all'>('week');
   const [trendingLoading, setTrendingLoading] = useState(false);
   const [feed, setFeed] = useState<FeedItem[]>([]);
+  const [feedMode, setFeedMode] = useState<'smart' | 'chronological'>('smart');
+  const [feedLoading, setFeedLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
 
@@ -76,7 +88,7 @@ export const Home = () => {
         const [recsRes, trendingRes, feedRes] = await Promise.all([
           fetch(`${apiUrl}/api/v1/books/recommendations/?limit=6`, { headers }),
           fetch(`${apiUrl}/api/v1/books/trending/?period=week`, { headers }),
-          fetch(`${apiUrl}/api/v1/books/feed/`, { headers }),
+          fetch(`${apiUrl}/api/v1/users/feed/?mode=smart`, { headers }),
         ]);
 
         if (recsRes.ok) {
@@ -142,6 +154,49 @@ export const Home = () => {
     }
   };
 
+  // Cambio interactivo del modo de feed (Inteligente vs Cronológico)
+  const handleFeedModeChange = async (mode: 'smart' | 'chronological') => {
+    if (mode === feedMode) return;
+    setFeedMode(mode);
+    try {
+      setFeedLoading(true);
+      const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
+      const res = await fetch(`${apiUrl}/api/v1/users/feed/?mode=${mode}`, { headers });
+      if (res.ok) {
+        const data = await res.json();
+        setFeed(data.results || []);
+      }
+    } catch (e) {
+      console.error('Error switching feed mode', e);
+    } finally {
+      setFeedLoading(false);
+    }
+  };
+
+  const getActivityActionText = (item: FeedItem) => {
+    if (item.type_display) return item.type_display.toLowerCase();
+    switch (item.type) {
+      case 'REVIEW_CREATED':
+      case 'review':
+        return 'ha publicado una reseña de';
+      case 'BOOK_FINISHED':
+      case 'finished_reading':
+        return 'ha terminado de leer';
+      case 'BOOK_STARTED':
+        return 'ha empezado a leer';
+      case 'BOOK_RATED':
+        return 'ha calificado';
+      case 'BOOK_ADDED':
+        return 'ha añadido a su biblioteca';
+      case 'LIST_CREATED':
+        return 'ha creado una lista de lectura';
+      case 'USER_FOLLOWED':
+        return 'ha comenzado a seguir a un lector';
+      default:
+        return 'ha compartido una novedad sobre';
+    }
+  };
+
   if (!user) return null;
 
   const renderStars = (rating?: number) => {
@@ -156,8 +211,10 @@ export const Home = () => {
     );
   };
 
-  const formatRelativeTime = (timestamp: string) => {
+  const formatRelativeTime = (timestamp?: string) => {
+    if (!timestamp) return 'Reciente';
     const diffMs = Date.now() - new Date(timestamp).getTime();
+    if (isNaN(diffMs)) return 'Reciente';
     const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
     if (diffHours < 1) return 'Hace unos minutos';
     if (diffHours < 24) return `Hace ${diffHours} h`;
@@ -440,19 +497,51 @@ export const Home = () => {
         {/* ── Muro Social de Actividad ── */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
                 <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
                   <span>✨</span>
                   <span>Muro Social de Lecturas</span>
                 </h2>
                 <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">
-                  Actividad reciente de amigos y lectores de la plataforma
+                  {feedMode === 'smart'
+                    ? 'Feed inteligente personalizado por tus gustos, lecturas y amigos'
+                    : 'Actividad social reciente en estricto orden cronológico'}
                 </p>
+              </div>
+
+              {/* Selector de modo Feed */}
+              <div className="inline-flex p-1 bg-gray-100 dark:bg-gray-700/60 rounded-xl border border-gray-200 dark:border-gray-600/50 self-start sm:self-auto shadow-inner">
+                <button
+                  type="button"
+                  disabled={feedLoading}
+                  onClick={() => handleFeedModeChange('smart')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
+                    feedMode === 'smart'
+                      ? 'bg-teal-600 text-white shadow-sm'
+                      : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'
+                  }`}
+                >
+                  <span>✨</span>
+                  <span>Para ti</span>
+                </button>
+                <button
+                  type="button"
+                  disabled={feedLoading}
+                  onClick={() => handleFeedModeChange('chronological')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
+                    feedMode === 'chronological'
+                      ? 'bg-teal-600 text-white shadow-sm'
+                      : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'
+                  }`}
+                >
+                  <span>🕒</span>
+                  <span>Cronológico</span>
+                </button>
               </div>
             </div>
 
-            {loading ? (
+            {loading || feedLoading ? (
               <div className="flex justify-center items-center py-12">
                 <Spinner size="lg" color="info" />
               </div>
@@ -475,74 +564,81 @@ export const Home = () => {
                     key={item.id}
                     className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-100 dark:border-gray-700 shadow-sm hover:shadow-md transition-shadow"
                   >
-                    <div className="flex items-start justify-between">
+                    <div className="flex items-start justify-between gap-3">
                       <div className="flex items-center space-x-3">
                         {item.user.avatar ? (
                           <img
                             src={resolveMediaUrl(item.user.avatar)}
                             alt={item.user.username}
-                            className="w-10 h-10 rounded-full object-cover cursor-pointer hover:opacity-80"
+                            className="w-10 h-10 rounded-full object-cover cursor-pointer hover:opacity-80 shrink-0"
                             onClick={() => navigate(`/users/${item.user.id}`)}
                           />
                         ) : (
                           <div
                             onClick={() => navigate(`/users/${item.user.id}`)}
-                            className="w-10 h-10 rounded-full bg-teal-600 text-white flex items-center justify-center font-bold cursor-pointer hover:bg-teal-700"
+                            className="w-10 h-10 rounded-full bg-teal-600 text-white flex items-center justify-center font-bold cursor-pointer hover:bg-teal-700 shrink-0"
                           >
                             {item.user.username[0]?.toUpperCase()}
                           </div>
                         )}
                         <div>
-                          <p className="text-sm text-gray-900 dark:text-white">
-                            <strong
-                              onClick={() => navigate(`/users/${item.user.id}`)}
-                              className="cursor-pointer hover:text-teal-600 font-bold"
-                            >
-                              @{item.user.username}
-                            </strong>{' '}
-                            <span className="text-gray-500 dark:text-gray-400">
-                              {item.type === 'review'
-                                ? 'ha publicado una reseña de'
-                                : 'ha terminado de leer'}
-                            </span>
-                          </p>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="text-sm text-gray-900 dark:text-white">
+                              <strong
+                                onClick={() => navigate(`/users/${item.user.id}`)}
+                                className="cursor-pointer hover:text-teal-600 font-bold"
+                              >
+                                @{item.user.username}
+                              </strong>{' '}
+                              <span className="text-gray-500 dark:text-gray-400">
+                                {getActivityActionText(item)}
+                              </span>
+                            </p>
+                            {item.feed_signal && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-teal-50 text-teal-700 dark:bg-teal-950/60 dark:text-teal-300 border border-teal-200/60 dark:border-teal-800/60">
+                                {item.feed_signal}
+                              </span>
+                            )}
+                          </div>
                           <span className="text-[11px] text-gray-400">
-                            {formatRelativeTime(item.timestamp)}
+                            {formatRelativeTime(item.timestamp || item.created_at)}
                           </span>
                         </div>
                       </div>
 
-                      {item.rating && renderStars(item.rating)}
+                      {(item.rating || item.review?.rating) && renderStars(item.rating || item.review?.rating || 0)}
                     </div>
 
-                    <div
-                      onClick={() => navigate(`/books/${item.book.id}`)}
-                      className="mt-4 p-3 rounded-xl bg-gray-50 dark:bg-gray-700/50 hover:bg-teal-50/50 dark:hover:bg-gray-700 cursor-pointer flex items-center space-x-3 border border-gray-100 dark:border-gray-600/50 transition-colors"
-                    >
-                      {item.book.cover ? (
-                        <img
-                          src={resolveMediaUrl(item.book.cover)}
-                          alt={item.book.title}
-                          className="w-12 h-16 object-cover rounded shadow shrink-0"
-                        />
-                      ) : (
-                        <div className="w-12 h-16 bg-teal-700 text-white rounded flex items-center justify-center text-[10px] text-center font-medium shrink-0 p-1">
-                          {item.book.title}
+                    {item.book && (
+                      <div
+                        onClick={() => navigate(`/books/${item.book?.id}`)}
+                        className="mt-4 p-3 rounded-xl bg-gray-50 dark:bg-gray-700/50 hover:bg-teal-50/50 dark:hover:bg-gray-700 cursor-pointer flex items-center space-x-3 border border-gray-100 dark:border-gray-600/50 transition-colors"
+                      >
+                        {item.book.cover ? (
+                          <img
+                            src={resolveMediaUrl(item.book.cover)}
+                            alt={item.book.title}
+                            className="w-12 h-16 object-cover rounded shadow shrink-0"
+                          />
+                        ) : (
+                          <div className="w-12 h-16 bg-teal-700 text-white rounded flex items-center justify-center text-[10px] text-center font-medium shrink-0 p-1">
+                            {item.book.title}
+                          </div>
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <h4 className="font-bold text-sm text-gray-900 dark:text-white truncate">
+                            {item.book.title}
+                          </h4>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                            {item.book.author_name}
+                          </p>
                         </div>
-                      )}
-                      <div className="min-w-0 flex-1">
-                        <h4 className="font-bold text-sm text-gray-900 dark:text-white truncate">
-                          {item.book.title}
-                        </h4>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                          {item.book.author_name}
-                        </p>
                       </div>
-                    </div>
+                    )}
 
-                    {item.comment && (
+                    {(item.comment || item.review?.text) && (
                       <div className="mt-3 text-sm text-gray-700 dark:text-gray-300 italic bg-gray-50/70 dark:bg-gray-700/30 p-3 rounded-xl border-l-2 border-teal-500">
-                        "{item.comment}"
+                        "{item.comment || item.review?.text}"
                       </div>
                     )}
                   </div>

@@ -180,6 +180,9 @@ class ActivitySerializer(serializers.ModelSerializer):
     book = ActivityBookSerializer(read_only=True)
     review = ActivityReviewSerializer(read_only=True)
     type_display = serializers.CharField(source='get_type_display', read_only=True)
+    score = serializers.SerializerMethodField()
+    feed_signal = serializers.SerializerMethodField()
+    timestamp = serializers.DateTimeField(source='created_at', read_only=True)
 
     class Meta:
         from .models import Activity
@@ -193,8 +196,17 @@ class ActivitySerializer(serializers.ModelSerializer):
             'review',
             'target_user',
             'metadata',
+            'score',
+            'feed_signal',
             'created_at',
+            'timestamp',
         )
+
+    def get_score(self, obj):
+        return getattr(obj, 'score', None)
+
+    def get_feed_signal(self, obj):
+        return getattr(obj, 'feed_signal', None)
 
 
 class PasswordChangeSerializer(serializers.Serializer):

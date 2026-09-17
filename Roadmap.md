@@ -2408,24 +2408,31 @@ Te recomendamos Dune porque:
 
 ------------------------------------------------------------------------
 
-# 56. Fase 53 --- Feed inteligente
+# 56. Fase 53 --- Feed inteligente [COMPLETADA]
 
-Primera versión:
+**Prioridad:** P1 - COMPLETADA
 
-``` text
-cronológico
-```
+Transformación del muro social desde un listado cronológico plano a un ranking dinámico multicriterio ponderado (`SmartFeedRankingEngine`), preservando la vista cronológica clásica bajo demanda del usuario.
 
-Después:
-
-``` text
-engagement
-recency
-relationship
-content relevance
-```
-
-No introducir ML antes de tener datos suficientes.
+### Entregables implementados y verificados:
+- [x] **Motor de Ranking Multicriterio (`SmartFeedRankingEngine`):**
+  - **Recency ($w = 0.30$):** Decaimiento exponencial temporal ($e^{-\Delta t / 72\text{h}}$) para priorizar frescura temporal sin ocultar contenido relevante reciente.
+  - **Relationship ($w = 0.25$):** Ponderación del grafo social: máxima puntuación para amistades mutuas (`is_friend = True`), usuarios seguidos e histórico de interacciones comunitarias (likes y comentarios).
+  - **Engagement ($w = 0.25$):** Peso intrínseco del tipo de evento (`REVIEW_CREATED`, `BOOK_FINISHED` > `BOOK_ADDED`) incrementado con la tracción social activa de la reseña (`likes` y `comments`).
+  - **Content Relevance ($w = 0.20$):** Afinidad de categorías con el perfil lector del usuario, autores frecuentes y presencia del libro en la lista de deseos (`wishlist` o `want_to_read`).
+- [x] **Insignias y Señales Explicativas (`feed_signal`):**
+  - Generación de señales comprensibles ("De tu lista de deseos", "Amistad mutua", "Reseña destacada", "En tus géneros favoritos", etc.) para aportar total transparencia algorítmica al feed.
+- [x] **Endpoints y Control de Modo:**
+  - Soporte de parámetro `?mode=smart` (por defecto) y `?mode=chronological` tanto en `/api/v1/users/feed/` como en `/api/v1/books/feed/`.
+  - Serialización enriquecida en `ActivitySerializer` con `score`, `feed_signal` y `timestamp`.
+  - Respeto estricto de bloqueos de usuarios (`is_blocked`).
+- [x] **Experiencia de Usuario en Frontend:**
+  - Conmutador interactivo de doble modo ("✨ Para ti" / "🕒 Cronológico") en `Home.tsx` con recarga asíncrona.
+  - Renderizado de badges `feed_signal`, textos descriptivos de eventos y estrellas/reseñas asociadas.
+- [x] **Pruebas y Verificación:**
+  - Suite dedicada `backend/tests/test_phase53_smart_feed.py` (10/10 tests pasando).
+  - Suite de regresión social `backend/tests/test_social_feed.py` (7/7 tests pasando).
+  - Verificación estricta de tipos en frontend (`npm run typecheck` con 0 errores).
 
 ------------------------------------------------------------------------
 

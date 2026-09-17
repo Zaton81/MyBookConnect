@@ -434,14 +434,17 @@ class FeedPagination(StandardResultsSetPagination):
 
 class FeedView(generics.ListAPIView):
     """
-    Feed social que muestra actividades cronológicas de los usuarios seguidos y del propio usuario.
-    Respeta bloqueos mutuos y políticas de privacidad.
+    Feed social inteligente (Fase 53) y cronológico de actividades.
+    Soporta modos:
+    - ?mode=smart (por defecto): ordenado por relevancia multi-criterio (recency, relationship, engagement, content).
+    - ?mode=chronological: orden cronológico estricto (-created_at).
     """
     from .serializers import ActivitySerializer
 
     serializer_class = ActivitySerializer
     permission_classes = (permissions.IsAuthenticated,)
     pagination_class = FeedPagination
+    filter_backends = []
 
     def get_queryset(self):
         from .models import Activity
@@ -458,10 +461,33 @@ class FeedView(generics.ListAPIView):
         )
         allowed_user_ids = [uid for uid in feed_user_ids if uid not in blocked_ids]
 
-        return (
+        qs = (
             Activity.objects.filter(user_id__in=allowed_user_ids)
             .select_related('user', 'book', 'book__author', 'review', 'target_user')
-            .order_by('-created_at')
+            .prefetch_related('book__categories', 'review__likes', 'review__comments')
         )
+
+        activity_type = self.request.query_params.get('type')
+        if activity_type:
+            qs = qs.filter(type=activity_type)
+
+        mode = self.request.query_params.get('mode', 'smart').lower()
+        if mode == 'chronological':
+            return qs.order_by('-created_at')
+
+        # Modo 'smart': ranking multi-factor
+        from .smart_feed_service import get_smart_feed
+        candidates = list(qs.order_by('-created_at')[:200])
+        return get_smart_feed(user=user, activities_queryset=candidates, mode='smart')
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
 
 
