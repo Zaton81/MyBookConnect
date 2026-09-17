@@ -826,6 +826,53 @@ class SimilarReadersView(APIView):
         })
 
 
+class BookRecommendationExplainView(APIView):
+    """
+    Endpoint para obtener la explicación estructurada multi-señal que justifica
+    por qué se recomienda un libro específico al usuario autenticado (Fase 52).
+    """
+    permission_classes = (permissions.IsAuthenticated,)
+
+    @extend_schema(
+        summary="Explicación detallada de recomendación de libro",
+        description="Devuelve el titular ('headline'), viñetas de evidencia (género, autor, semántica, social, colaborativa) y motivo principal.",
+        parameters=[
+            OpenApiParameter(
+                name='version',
+                type=str,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                default='v3',
+                description="Versión del motor de recomendaciones para contextualizar la explicación ('v1', 'v2', 'v3').",
+            ),
+        ],
+        responses={200: inline_serializer(
+            name='RecommendationExplainResponse',
+            fields={
+                'book_id': serializers.IntegerField(),
+                'book_title': serializers.CharField(),
+                'headline': serializers.CharField(),
+                'primary_reason': serializers.CharField(),
+                'total_signals': serializers.IntegerField(),
+                'algorithm_version': serializers.CharField(),
+                'reasons': serializers.ListField(child=serializers.DictField()),
+            },
+        )},
+        tags=['Books'],
+    )
+    def get(self, request, book_id):
+        book = get_object_or_404(Book, pk=book_id)
+        version = request.query_params.get('version', 'v3')
+        explanation = services.explain_recommendation(
+            user=request.user,
+            book=book,
+            algorithm_version=version,
+        )
+        explanation['book_id'] = book.id
+        explanation['book_title'] = book.title
+        return Response(explanation)
+
+
 class RecommendationView(APIView):
     """
     Endpoint para obtener recomendaciones contextuales a partir de un libro específico (Item-to-Item).

@@ -14,6 +14,132 @@ from .providers.wikipedia import WikipediaProvider
 logger = logging.getLogger(__name__)
 
 
+CATEGORY_TRANSLATIONS = {
+    'science fiction': 'Ciencia Ficción',
+    'sci-fi': 'Ciencia Ficción',
+    'scifi': 'Ciencia Ficción',
+    'fantasy': 'Fantasía',
+    'fiction': 'Ficción',
+    'historical fiction': 'Novela Histórica',
+    'history': 'Historia',
+    'mystery': 'Misterio',
+    'detective': 'Policiaca y Detective',
+    'thriller': 'Thriller y Suspense',
+    'suspense': 'Thriller y Suspense',
+    'horror': 'Terror',
+    'romance': 'Romance',
+    'love stories': 'Romance',
+    'biography': 'Biografía',
+    'autobiography': 'Autobiografía',
+    'memoir': 'Memorias',
+    'philosophy': 'Filosofía',
+    'poetry': 'Poesía',
+    'drama': 'Teatro y Drama',
+    'plays': 'Teatro y Drama',
+    'young adult': 'Juvenil',
+    'young adult fiction': 'Juvenil',
+    'ya': 'Juvenil',
+    'juvenile': 'Juvenil',
+    'children': 'Infantil',
+    'children\'s stories': 'Infantil',
+    'juvenile fiction': 'Infantil',
+    'comics': 'Cómics y Novela Gráfica',
+    'graphic novels': 'Cómics y Novela Gráfica',
+    'short stories': 'Cuentos',
+    'tales': 'Cuentos',
+    'classic': 'Clásicos',
+    'classics': 'Clásicos',
+    'classic literature': 'Clásicos',
+    'nonfiction': 'No Ficción',
+    'non-fiction': 'No Ficción',
+    'adventure': 'Aventuras',
+    'adventures': 'Aventuras',
+    'adventure stories': 'Aventuras',
+    'utopias': 'Utopía y Distopía',
+    'dystopia': 'Distopía',
+    'dystopian': 'Distopía',
+    'satire': 'Sátira',
+    'psychology': 'Psicología',
+    'sociology': 'Sociología',
+    'politics': 'Política',
+    'art': 'Arte',
+    'music': 'Música',
+    'cinema': 'Cine',
+}
+
+GENRE_KEYWORD_RULES = [
+    (('ciencia ficción', 'scifi', 'sci-fi', 'cyberpunk', 'distopía', 'dystopian', 'androide', 'robot', 'inteligencia artificial', 'futurista', 'extraterrestre', 'nave espacial', 'viaje en el tiempo', 'universo'), 'Ciencia Ficción'),
+    (('fantasía', 'fantasy', 'magia', 'mago', 'hechicero', 'dragón', 'elfo', 'espada y brujería', 'mitología', 'reino mágico'), 'Fantasía'),
+    (('terror', 'horror', 'miedo', 'fantasma', 'vampiro', 'sobrenatural', 'pesadilla', 'siniestro', 'monstruo'), 'Terror'),
+    (('policíac', 'detective', 'crimen', 'asesino', 'asesinato', 'misterio', 'investigación', 'thriller', 'suspense', 'intriga'), 'Misterio y Suspense'),
+    (('novela histórica', 'histórica', 'guerra mundial', 'edad media', 'imperio romano', 'revolución francesa', 'siglo xix', 'siglo xviii', 'siglo xvi', 'reyes católicos'), 'Novela Histórica'),
+    (('romance', 'romántica', 'amor', 'pasión', 'enamorados', 'desamor', 'sentimientos'), 'Romance'),
+    (('filosofía', 'filosófico', 'ética', 'moral', 'existencialismo', 'pensamiento'), 'Filosofía'),
+    (('poesía', 'poema', 'versos', 'lírica', 'estrofas'), 'Poesía'),
+    (('infantil', 'niños', 'cuentos infantiles', 'fábula', 'álbum ilustrado'), 'Infantil'),
+    (('juvenil', 'adolescentes', 'young adult', 'instituto', 'coming of age'), 'Juvenil'),
+    (('aventuras', 'aventura', 'expedición', 'viaje', 'viajes', 'isla desierta', 'tesoro', 'corsario', 'pirata', 'náufrago', 'odisea'), 'Aventuras'),
+    (('biografía', 'autobiografía', 'memorias', 'vida de', 'semblanza'), 'Biografía'),
+    (('ensayo', 'sociología', 'política', 'sociedad', 'economía', 'ensayos'), 'Ensayo'),
+    (('clásico', 'clásicos', 'universal', 'literatura clásica'), 'Clásicos'),
+    (('novela', 'relato', 'cuento', 'narrativa', 'ficción'), 'Ficción'),
+]
+
+
+def normalize_category_name(name: str) -> str:
+    """Normaliza y traduce nombres de categorías al español canónico."""
+    clean = str(name).strip()
+    if not clean:
+        return ''
+    lower = clean.lower()
+    if lower in CATEGORY_TRANSLATIONS:
+        return CATEGORY_TRANSLATIONS[lower]
+    # Limpiar prefijos comunes como 'Genre: ' o 'Subject: '
+    for prefix in ('genre:', 'subject:', 'topic:'):
+        if lower.startswith(prefix):
+            clean = clean[len(prefix):].strip()
+            lower = clean.lower()
+            if lower in CATEGORY_TRANSLATIONS:
+                return CATEGORY_TRANSLATIONS[lower]
+    return clean.title() if len(clean) <= 40 else clean
+
+
+def infer_categories_from_book(book: Book) -> list[str]:
+    """Infiere categorías temáticas de respaldo a partir del autor, título y descripción."""
+    inferred: list[str] = []
+
+    # 1. Inferir a partir de categorías conocidas de otras obras del mismo autor
+    if book.author:
+        try:
+            author_cats = list(
+                Category.objects.filter(books__author=book.author)
+                .exclude(books=book)
+                .distinct()
+                .values_list('name', flat=True)[:2]
+            )
+            for ac in author_cats:
+                if ac and ac not in inferred:
+                    inferred.append(ac)
+        except Exception as e:
+            logger.debug(f"Error consultando categorías del autor {book.author}: {e}")
+
+    # 2. Análisis léxico de título y descripción
+    text_corpus = f"{book.title or ''} {book.description or ''}".lower()
+    if text_corpus.strip():
+        for keywords, cat_name in GENRE_KEYWORD_RULES:
+            if any(kw in text_corpus for kw in keywords):
+                if cat_name not in inferred:
+                    inferred.append(cat_name)
+            if len(inferred) >= 3:
+                break
+
+    # 3. Categoría por defecto si no se pudo determinar ninguna
+    if not inferred:
+        inferred.append('Ficción' if book.description else 'Literatura')
+
+    return inferred[:3]
+
+
 def attach_categories_to_book(book: Book, category_names: list[str]) -> None:
     """
     Asocia de forma segura nombres de categorías/géneros literarios al libro.
@@ -23,13 +149,13 @@ def attach_categories_to_book(book: Book, category_names: list[str]) -> None:
         category_names (list[str]): Lista de cadenas con los nombres de categorías/géneros.
 
     Comportamiento:
-        - Normaliza el nombre y genera o recupera el slug correspondiente.
-        - Evita registros duplicados y respeta constraints de unicidad en la base de datos.
+        - Normaliza y traduce el nombre al español canónico.
+        - Evita duplicados y respeta constraints de unicidad en la base de datos.
     """
     if not category_names:
         return
     for name in category_names:
-        clean_name = str(name).strip()[:100]
+        clean_name = normalize_category_name(name)[:100]
         if not clean_name:
             continue
         slug = slugify(clean_name)[:100] or 'genero'
@@ -57,6 +183,7 @@ def enrich_book_metadata(book: Book) -> None:
     1. Google Books API (vía ISBN o título).
     2. OpenLibrary API (búsqueda por ISBN o título).
     3. Wikipedia API (búsqueda de sinopsis y autor en español).
+    4. Inferencia heurística y temática de categorías como red de seguridad.
     """
     has_author = book.author is not None
     has_categories = book.categories.exists()
@@ -147,9 +274,13 @@ def enrich_book_metadata(book: Book) -> None:
             if book.isbn:
                 ol_data = ol_provider.get_by_isbn(book.isbn)
             if not ol_data and book.title:
-                ol_results = ol_provider.search_by_title(book.title, limit=1)
+                ol_results = ol_provider.search_by_title(book.title, limit=3)
                 if ol_results:
                     ol_data = ol_results[0]
+                    for cand in ol_results:
+                        if cand.categories and (not ol_data or not ol_data.categories):
+                            ol_data.categories = cand.categories
+                            break
 
             if ol_data:
                 changed = False
@@ -209,6 +340,12 @@ def enrich_book_metadata(book: Book) -> None:
                     book.save()
         except Exception as e:
             logger.warning(f"Error consultando Wikipedia para sinopsis de {book.title}: {e}")
+
+    # 4. Red de seguridad: Inferencia temática si el libro aún no tiene categorías asignadas
+    if not book.categories.exists():
+        inferred_cats = infer_categories_from_book(book)
+        if inferred_cats:
+            attach_categories_to_book(book, inferred_cats)
 
     # Si finalmente se completó autor pero este carece de biografía o foto, enriquecer autor
     if book.author and (not book.author.biography or not book.author.photo):

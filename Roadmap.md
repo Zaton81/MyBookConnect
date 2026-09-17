@@ -2375,7 +2375,7 @@ Hitos completados:
 
 ------------------------------------------------------------------------
 
-# 55. Fase 52 --- Recomendaciones explicables
+# 55. Fase 52 --- Recomendaciones explicables [COMPLETADA]
 
 Cada recomendación debe poder explicar:
 
@@ -2383,7 +2383,7 @@ Cada recomendación debe poder explicar:
 ¿Por qué?
 ```
 
-Ejemplo:
+Ejemplo canónico implementado:
 
 ``` text
 Te recomendamos Dune porque:
@@ -2393,6 +2393,18 @@ Te recomendamos Dune porque:
 ✓ tiene similitud semántica alta con Fundación;
 ✓ 3 usuarios que sigues lo han leído.
 ```
+
+### Entregables implementados y verificados:
+- [x] **Motor multi-señal (`RecommendationExplanationEngine`):**
+  - Señal de género/temática (`genre`): conteo de obras disfrutadas en la categoría.
+  - Señal de autoría y libros ancla (`author`): obras valoradas con altas calificaciones del mismo autor.
+  - Señal semántica vectorial (`semantic`): similitud coseno sobre embeddings respecto a lecturas favoritas.
+  - Señal de grafo social (`social`): usuarios seguidos que han leído la recomendación.
+  - Señal colaborativa comunitaria (`collaborative`): afinidad de lectores gemelos o afines (v2).
+  - Señal de aclamación comunitaria (`community`) y lista de deseos (`wishlist`).
+- [x] **Integración transparente en motores de recomendación:** Inclusión del payload estructurado `explanation` en las respuestas de `v1`, `v2` y `v3`.
+- [x] **API REST dedicada:** Endpoint `GET /api/v1/books/recommendations/<book_id>/explain/` para modal o consulta bajo demanda de la justificación multi-señal.
+- [x] **Pruebas y Regresión:** Suite `tests/test_phase52_explainable_recommendations.py` (9/9 tests pasando al 100%) y regresión de recomendaciones v1+v2+v3 (30/30 tests pasando).
 
 ------------------------------------------------------------------------
 

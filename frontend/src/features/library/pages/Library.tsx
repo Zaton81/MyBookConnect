@@ -18,6 +18,7 @@ interface UserBookItem {
     };
     average_rating?: number;
     description?: string;
+    categories?: Array<{ id: number; name: string; slug?: string }>;
   };
   status?: 'want_to_read' | 'reading' | 'read' | 'abandoned';
   status_display?: string;
@@ -415,6 +416,21 @@ export function Library() {
                         'Autor desconocido'
                       )}
                     </p>
+
+                    {/* Categorías del Libro */}
+                    {b.categories && b.categories.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-1.5">
+                        {b.categories.slice(0, 2).map((cat) => (
+                          <span
+                            key={cat.id}
+                            className="inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold bg-teal-50 text-teal-800 dark:bg-teal-900/40 dark:text-teal-300 border border-teal-200/60 dark:border-teal-800/40 truncate max-w-[120px]"
+                            title={cat.name}
+                          >
+                            {cat.name}
+                          </span>
+                        ))}
+                      </div>
+                    )}
 
                     {/* Barra de Progreso si está Leyendo */}
                     {ub.status === 'reading' && (

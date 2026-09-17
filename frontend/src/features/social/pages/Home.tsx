@@ -25,6 +25,7 @@ interface RecommendedBook {
   average_rating?: number;
   score: number;
   reason: string;
+  categories?: Array<{ id: number; name: string }>;
 }
 
 interface FeedItem {
@@ -280,6 +281,18 @@ export const Home = () => {
                     <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
                       {book.author_name || 'Autor desconocido'}
                     </p>
+                    {book.categories && book.categories.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {book.categories.slice(0, 1).map((c) => (
+                          <span
+                            key={c.id}
+                            className="inline-block text-[9px] font-semibold text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-900/30 px-1.5 py-0.5 rounded border border-teal-200/50 dark:border-teal-800/40 truncate max-w-[110px]"
+                          >
+                            {c.name}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                     <div className="mt-1">
                       {book.average_rating ? renderStars(book.average_rating) : (
                         <span className="text-[11px] text-gray-400">Sin reseñas aún</span>

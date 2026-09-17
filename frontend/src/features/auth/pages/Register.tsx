@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useAuthStore } from '../../../store/auth';
 import { registerSchema, RegisterFormData } from '../schemas/authSchemas';
+import { GoogleLoginButton } from '../components/GoogleLoginButton';
 
 export const Register = () => {
   const navigate = useNavigate();
@@ -137,6 +138,23 @@ export const Register = () => {
               {isSubmitting ? 'Registrando...' : 'Registrarse'}
             </button>
           </div>
+
+          <div className="relative my-4">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-gray-300 dark:border-slate-700" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-white dark:bg-slate-800 px-2 text-gray-500 dark:text-slate-400">
+                O regístrate con
+              </span>
+            </div>
+          </div>
+
+          <GoogleLoginButton
+            onSuccess={() => navigate('/')}
+            onError={(err) => setServerError(err)}
+            label="Continuar con Google"
+          />
         </form>
       </div>
     </div>

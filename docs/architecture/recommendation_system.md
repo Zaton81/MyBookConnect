@@ -144,4 +144,75 @@ $$S_{\text{v3}} = 0.45 \cdot S_{\text{semantic}} + 0.30 \cdot S_{\text{collab}} 
 - `GET /api/v1/books/recommendations/?strategy=v3`: Recomendaciones tri-híbridas v3 con desglose semántico.
 - `GET /api/v1/books/recommendations/user-embedding/`: Consulta del vector sintético de preferencias del lector, dimensionalidad, cantidad de obras analizadas y componentes vectoriales para inspección y visualización.
 
+---
+
+## 8. Recomendaciones Explicables (Fase 52)
+
+### Objetivos y Enfoque Multi-Señal
+El módulo de recomendaciones explicables (`RecommendationExplanationEngine` en `backend/books/services/recommendation_explanation_service.py`) transforma las puntuaciones matemáticas de los algoritmos en explicaciones transparentes, persuasivas y comprensibles para el lector, respondiendo a la pregunta fundamental: **¿Por qué te recomendamos este libro?**
+
+### Tipos de Evidencia Extraída
+1. **Temático-Literaria (`genre`)**:
+   - Analiza el historial lector del usuario en los géneros del libro recomendado.
+   - Ejemplo: *"Te han gustado 5 libros de Ciencia Ficción"*.
+2. **Autor y Obras Ancla (`author`)**:
+   - Detecta si el lector ha leído o calificado con alta puntuación obras previas del mismo autor.
+   - Ejemplo: *"Has valorado 1984 con 5 estrellas"*.
+3. **Semántico-Conceptual (`semantic`)**:
+   - Compara el vector de embedding del candidato contra las obras leídas o favoritas usando similitud coseno.
+   - Ejemplo: *"Tiene similitud semántica alta con Fundación (88%)"*.
+4. **Red Social (`social`)**:
+   - Consulta el grafo social del usuario (amigos o autores seguidos) que hayan leído la obra.
+   - Ejemplo: *"3 usuarios que sigues lo han leído (@amigo1, @amigo2)"*.
+5. **Colaborativa Comunitaria (`collaborative`)**:
+   - Respaldo de lectores con gustos afines (vecinos k-NN o gemelos de lectura).
+   - Ejemplo: *"Lectores con gustos afines (@lector1) han disfrutado de este libro"*.
+6. **Comunidad y Deseos (`community` / `wishlist`)**:
+   - Calificación promedio destacada en la comunidad o inclusión en la lista de deseos del usuario.
+
+### Estructura de la Explicación
+Cada recomendación en las APIs (`v1`, `v2`, `v3`) incluye ahora un objeto estructurado `explanation`:
+```json
+{
+  "headline": "Te recomendamos Dune porque:",
+  "primary_reason": "Has valorado 1984 con 5 estrellas",
+  "total_signals": 4,
+  "algorithm_version": "v3",
+  "reasons": [
+    {
+      "type": "genre",
+      "text": "Te han gustado 5 libros de Ciencia Ficción",
+      "confidence": 0.95,
+      "icon": "book-open",
+      "metadata": {"liked_count": 5, "category_name": "Ciencia Ficción"}
+    },
+    {
+      "type": "author",
+      "text": "Has valorado 1984 con 5 estrellas",
+      "confidence": 0.95,
+      "icon": "pen-tool",
+      "metadata": {"author": "Frank Herbert", "anchor_book": "1984"}
+    },
+    {
+      "type": "semantic",
+      "text": "Tiene similitud semántica alta con Fundación (88%)",
+      "confidence": 0.88,
+      "icon": "sparkles",
+      "metadata": {"anchor_book_title": "Fundación", "similarity": 0.88, "percentage": 88}
+    },
+    {
+      "type": "social",
+      "text": "3 usuarios que sigues lo han leído (@amigo1, @amigo2 y 1 más)",
+      "confidence": 0.92,
+      "icon": "users",
+      "metadata": {"count": 3, "followed_readers": ["amigo1", "amigo2"]}
+    }
+  ]
+}
+```
+
+### Endpoints
+- `GET /api/v1/books/recommendations/<book_id>/explain/`: Endpoint público/autenticado para consultar bajo demanda la justificación multi-señal de un libro específico para el usuario actual.
+
+
 

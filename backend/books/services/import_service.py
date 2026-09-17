@@ -223,6 +223,13 @@ def _import_from_wikipedia_by_title(title: str) -> list[Book]:
                 filename_hint=f"{slugify(new_book.title)}-{new_book.id}.jpg",
             )
 
+        # Enriquecer libro con categorías y metadatos adicionales de forma proactiva
+        try:
+            from .enrichment_service import enrich_book_metadata
+            enrich_book_metadata(new_book)
+        except Exception as ee:
+            logger.debug(f"Error enriqueciendo libro importado {new_book.id}: {ee}")
+
         books.append(new_book)
 
     return books

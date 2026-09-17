@@ -8,6 +8,7 @@ import { queryKeys } from '../api/queryKeys';
 
 interface AuthStore extends AuthState {
   login: (username: string, password: string) => Promise<void>;
+  loginWithGoogle: (idToken: string) => Promise<void>;
   register: (username: string, email: string, password: string) => Promise<void>;
   logout: () => void;
   updateProfile: (data: FormData | Partial<User>) => Promise<void>;
@@ -41,6 +42,27 @@ export const useAuthStore = create<AuthStore>()(
           set({ token, refreshToken, isAuthenticated: true, error: null });
 
           const user = await authApi.getProfile(token);
+          set({ user });
+          queryClient.invalidateQueries({ queryKey: queryKeys.users.profile() });
+        } catch (error: any) {
+          set({ token: null, refreshToken: null, isAuthenticated: false, user: null, error: error?.message });
+          throw error;
+        }
+      },
+
+      loginWithGoogle: async (idToken: string) => {
+        try {
+          const data = await authApi.loginWithGoogle(idToken);
+          const token = data.access;
+          const refreshToken = data.refresh || null;
+
+          if (!token) {
+            throw new Error('No se recibió token del servidor tras autenticación con Google');
+          }
+
+          set({ token, refreshToken, isAuthenticated: true, error: null });
+
+          const user = data.user || (await authApi.getProfile(token));
           set({ user });
           queryClient.invalidateQueries({ queryKey: queryKeys.users.profile() });
         } catch (error: any) {
