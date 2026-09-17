@@ -2477,7 +2477,7 @@ Sistema integral de motivación y hábitos de lectura con arquitectura desacopla
 
 ------------------------------------------------------------------------
 
-# 58. Fase 55 --- Importación avanzada
+# 58. Fase 55 --- Importación avanzada [COMPLETADA]
 
 Mejorar importadores para:
 
@@ -2506,9 +2506,32 @@ validation
 rollback
 ```
 
+### Implementación realizada:
+- [x] **Detección Automática de Formatos (`CSVFormatDetector`)**:
+  - Reconocimiento de **Goodreads CSV** (`Exclusive Shelf`, `My Rating`, `ISBN13`, limpieza de fórmulas `="978..."`).
+  - Reconocimiento de **Calibre CSV** (`identifiers`, `tags`, `rating`, mapeo de tags a categorías).
+  - Reconocimiento de **CSV Genérico** (`title`, `author`, `isbn`, `status`, `rating`, `review`).
+- [x] **Previsualización No Destructiva (`POST /api/v1/books/import/csv/preview/`)**:
+  - Analiza el archivo sin modificar la base de datos.
+  - Clasifica cada libro con badge de destino: `new` (🟢 nuevo en catálogo y biblioteca), `in_catalog` (🟡 ya existe en catálogo general, se agregará a tu estantería), `in_library` (⚪ ya en tu estantería personal).
+  - Devuelve métricas agregadas de válidos, inválidos y destinos.
+- [x] **Deduplicación Multinivel**:
+  - Búsqueda por ISBN normalizado (ISBN-10 / ISBN-13).
+  - Búsqueda por ID externo (`google_books_id`, `openlibrary_id`).
+  - Búsqueda por coincidencia exacta insensible a mayúsculas/minúsculas de `(title, author)`.
+- [x] **Validación Rigurosa**:
+  - Validación de título obligatorio y autor.
+  - Normalización de ISBN y mapeo de estados de estantería (`want_to_read`, `reading`, `read`, `abandoned`).
+  - Validación de rango de puntuación (1 a 5) y extracción de notas/reseñas.
+- [x] **Interfaz de Usuario (`ImportBooksModal.tsx` en `Library.tsx`)**:
+  - Modal con zona de arrastrar y soltar (drag & drop) o selector de archivo `.csv`.
+  - Guía informativa de cómo exportar desde Goodreads y Calibre.
+  - Tabla de vista previa con insignias de estado y destino.
+  - Botón de confirmación con indicador de progreso y resumen final.
+
 ------------------------------------------------------------------------
 
-# 59. Fase 56 --- Importación idempotente
+# 59. Fase 56 --- Importación idempotente [COMPLETADA]
 
 Garantizar:
 
@@ -2523,6 +2546,17 @@ mismo Book
 ```
 
 Evitar duplicados aunque el cliente reintente la petición.
+
+### Implementación realizada:
+- [x] **Transacciones Atómicas y Rollback (`POST /api/v1/books/import/csv/confirm/`)**:
+  - Ejecución integral dentro de `transaction.atomic()`. Si ocurre un error fatal o inconsistencia irrecuperable, se produce rollback garantizado sin estados intermedios.
+- [x] **Garantía de Idempotencia**:
+  - La re-ejecución repetida de la importación sobre el mismo CSV o con reintentos de red no crea duplicados de `Book`, `UserBook` ni `Review`.
+  - Actualiza o preserva los registros existentes de manera limpia y devuelve contadores exactos de creados vs. actualizados.
+- [x] **Verificación Automatizada**:
+  - Suite de pruebas completa en `backend/tests/test_phase55_advanced_import.py` (7/7 tests **PASSED**).
+  - Comprobación de tipos en frontend (`tsc --noEmit` con **0 errores**).
+  - Suite de pruebas de frontend (`vitest run`: **21/21 tests PASSED**).
 
 ------------------------------------------------------------------------
 

@@ -12,6 +12,7 @@ from .ai_views import (
     AIToolExecuteView,
     AIToolsListView,
 )
+from .import_views import CSVImportConfirmView, CSVImportPreviewView
 from .views import (
     AuthorBookRefreshView,
     AuthorBooksView,
@@ -59,6 +60,8 @@ urlpatterns = [
     path('gamification/', include('books.gamification_urls')),
     path('match/<int:user_id>/', ReadingMatchView.as_view(), name='user-reading-match'),
     path('import/', ImportBookView.as_view(), name='books-import-root'),
+    path('import/csv/preview/', CSVImportPreviewView.as_view(), name='books-import-csv-preview'),
+    path('import/csv/confirm/', CSVImportConfirmView.as_view(), name='books-import-csv-confirm'),
 
     # Rutas de Inteligencia Artificial (OpenAI-compatible)
     path('ai/status/', AIStatusView.as_view(), name='book-ai-status'),
