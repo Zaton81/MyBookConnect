@@ -2660,28 +2660,35 @@ Se ha implementado un sistema integral de moderación de contenido y disciplina 
 
 ------------------------------------------------------------------------
 
-# 62. Fase 59 --- Seguridad de contenido generado por usuarios
+# 62. Fase 59 --- Seguridad de contenido generado por usuarios [COMPLETADA]
 
-Todo contenido HTML debe sanitizarse.
+**Prioridad:** P1 - COMPLETADA
 
-Especialmente:
+Se ha implementado una estrategia integral de defensa en profundidad (*Defense in Depth*) para la sanitización y neutralización de ataques XSS / inyección HTML en todo el contenido generado por usuarios (UGC):
 
-``` text
-reviews
-comments
-profiles
-chat
-```
-
-Si se usa Tiptap:
-
-``` text
-frontend sanitization
-+
-backend sanitization
-```
-
-No confiar únicamente en el frontend.
+1. **Defensa en Profundidad (Frontend + Backend)**:
+   - **Frontend (DOMPurify)**:
+     - Sanitización proactiva en el editor enriquecido Tiptap (`BioEditor.tsx`) antes de propagar cambios en `onUpdate`.
+     - Todas las visualizaciones de HTML (`dangerouslySetInnerHTML`) están blindadas con `DOMPurify.sanitize(...)` (`Profile.tsx`, `BookDetail.tsx`, `TermsOfService.tsx`, `AdminDashboard.tsx`).
+   - **Backend (Ammonia / `nh3`)**:
+     - Biblioteca de alto rendimiento escrita en Rust (`nh3>=0.2.14`) integrada en backend (`backend/mybookconnect/html_sanitizer.py`).
+     - No confía en los clientes ni en el frontend: sanea todo payload antes de la validación y persistencia en base de datos.
+2. **Superficies Protegidas (UGC)**:
+   - **Perfiles (`profiles`)**:
+     - `bio`: Sanitización enriquecida (`sanitize_html`), permitiendo únicamente etiquetas semánticas y seguras (`<p>`, `<strong>`, `<em>`, `<h1>`-`<h6>`, `<blockquote>`, `<ul>`, `<ol>`, `<li>`, `<code>`, `<pre>`, `<a>`), forzando `rel="noopener noreferrer nofollow"` y neutralizando URIs `javascript:`, scripts y manejadores de eventos en `UserUpdateSerializer` y `UserCreateSerializer`.
+     - `location`, `first_name`, `last_name`: Eliminación total de etiquetas HTML (`sanitize_plain_text`).
+   - **Reseñas (`reviews`)**:
+     - `title`: Eliminación de etiquetas HTML para título en texto plano limpio.
+     - `text`: Sanitización de HTML enriquecido en `ReviewSerializer` y `ReviewListCreateView.create`, neutralizando scripts, iframes y atributos inline (`onerror`, `onclick`).
+   - **Comentarios (`comments`)**:
+     - `content`: Sanitizado en `ReviewCommentSerializer` y `ReviewCommentListCreateView.post`.
+   - **Mensajería / Chat (`chat`)**:
+     - `text`: Sanitizado en `MessageSerializer.validate_text` mediante `sanitize_plain_text`, previniendo cualquier inyección en mensajes directos y WebSockets.
+3. **Verificación y Pruebas**:
+   - Suite de pruebas automatizada `backend/tests/test_phase59_ugc_security.py` (**10/10 tests PASSED**).
+   - Linter Python `ruff check` (**0 errores, All checks passed!**).
+   - Verificación estricta de tipos TypeScript `tsc --noEmit` (**0 errores**).
+   - Suite de pruebas frontend Vitest `npx vitest run` (**21/21 tests PASSED**).
 
 ------------------------------------------------------------------------
 

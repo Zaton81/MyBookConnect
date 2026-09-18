@@ -403,8 +403,10 @@ class ReviewListCreateView(generics.ListCreateAPIView):
         except (ValueError, TypeError):
             return Response({'detail': 'La puntuación debe ser un valor entre 1 y 10'}, status=status.HTTP_400_BAD_REQUEST)
 
-        title = request.data.get('title', '')
-        text = request.data.get('text', '')
+        from mybookconnect.html_sanitizer import sanitize_html, sanitize_plain_text
+
+        title = sanitize_plain_text(request.data.get('title', ''))
+        text = sanitize_html(request.data.get('text', ''))
 
         active_review = Review.objects.filter(user=request.user, book_id=book_id, deleted_at__isnull=True).first()
         if active_review:
@@ -584,7 +586,10 @@ class ReviewCommentListCreateView(APIView):
         ):
             return Response({'detail': 'No puedes interactuar con esta reseña.'}, status=status.HTTP_403_FORBIDDEN)
 
-        content = (request.data.get('content') or '').strip()
+        from mybookconnect.html_sanitizer import sanitize_plain_text
+
+        raw_content = (request.data.get('content') or '').strip()
+        content = sanitize_plain_text(raw_content)
         if not content:
             return Response({'detail': 'El comentario no puede estar vacío.'}, status=status.HTTP_400_BAD_REQUEST)
         if len(content) > 1000:

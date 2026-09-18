@@ -223,6 +223,10 @@ class ReviewCommentSerializer(serializers.ModelSerializer):
             return obj.user_id == request.user.id or request.user.is_staff or request.user.is_superuser
         return False
 
+    def validate_content(self, value):
+        from mybookconnect.html_sanitizer import sanitize_plain_text
+        return sanitize_plain_text(value)
+
 
 class ReviewSerializer(serializers.ModelSerializer):
     user = serializers.SlugRelatedField(slug_field='username', read_only=True)
@@ -283,7 +287,13 @@ class ReviewSerializer(serializers.ModelSerializer):
             return obj.comments_count
         return obj.comments.filter(deleted_at__isnull=True).count()
 
+    def validate_title(self, value):
+        from mybookconnect.html_sanitizer import sanitize_plain_text
+        return sanitize_plain_text(value)
 
+    def validate_text(self, value):
+        from mybookconnect.html_sanitizer import sanitize_html
+        return sanitize_html(value)
 
 
 class ErrataSerializer(serializers.ModelSerializer):

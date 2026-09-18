@@ -31,6 +31,10 @@ class MessageSerializer(serializers.ModelSerializer):
         fields = ['id', 'conversation', 'sender', 'sender_details', 'text', 'image', 'created_at', 'read']
         read_only_fields = ['id', 'sender', 'created_at', 'read']
 
+    def validate_text(self, value):
+        from mybookconnect.html_sanitizer import sanitize_plain_text
+        return sanitize_plain_text(value)
+
     def validate_image(self, value):
         """
         Valida y sanitiza la imagen adjunta en el mensaje de chat.

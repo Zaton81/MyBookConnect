@@ -4,6 +4,8 @@ from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 from rest_framework.validators import UniqueValidator
 
+from mybookconnect.html_sanitizer import sanitize_html, sanitize_plain_text
+
 User = get_user_model()
 
 class UserBasicSerializer(serializers.ModelSerializer):
@@ -64,6 +66,22 @@ class UserSerializer(serializers.ModelSerializer):
         except DjangoValidationError as err:
             msg = err.messages if hasattr(err, 'messages') else str(err)
             raise serializers.ValidationError(msg) from err
+
+    def validate_bio(self, value):
+        from mybookconnect.html_sanitizer import sanitize_html
+        return sanitize_html(value)
+
+    def validate_location(self, value):
+        from mybookconnect.html_sanitizer import sanitize_plain_text
+        return sanitize_plain_text(value)
+
+    def validate_first_name(self, value):
+        from mybookconnect.html_sanitizer import sanitize_plain_text
+        return sanitize_plain_text(value)
+
+    def validate_last_name(self, value):
+        from mybookconnect.html_sanitizer import sanitize_plain_text
+        return sanitize_plain_text(value)
 
     def to_representation(self, instance):
         """Normaliza la URL pública del avatar."""
@@ -155,7 +173,12 @@ class UserCreateSerializer(serializers.ModelSerializer):
         try:
             validate_password(attrs['password'], user=temp_user)
         except DjangoValidationError as err:
-            raise serializers.ValidationError({"password": list(err.messages)})
+            raise serializers.ValidationError({"password": list(err.messages)}) from err
+        attrs['bio'] = sanitize_html(attrs.get('bio', ''))
+        if attrs.get('first_name'):
+            attrs['first_name'] = sanitize_plain_text(attrs['first_name'])
+        if attrs.get('last_name'):
+            attrs['last_name'] = sanitize_plain_text(attrs['last_name'])
         return attrs
 
     def create(self, validated_data):
@@ -247,7 +270,7 @@ class PasswordChangeSerializer(serializers.Serializer):
         try:
             validate_password(attrs['new_password'], user=user)
         except DjangoValidationError as err:
-            raise serializers.ValidationError({"new_password": list(err.messages)})
+            raise serializers.ValidationError({"new_password": list(err.messages)}) from err
         return attrs
 
 
