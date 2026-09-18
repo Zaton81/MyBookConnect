@@ -12,12 +12,15 @@ from users.moderation_views import (
 )
 
 from .admin_views import (
+    AdminAuthorBulkActionView,
     AdminAuthorDetailView,
     AdminAuthorEnrichView,
     AdminAuthorListView,
+    AdminBookBulkActionView,
     AdminBookDetailView,
     AdminBookEnrichView,
     AdminBookListView,
+    AdminCategoryListView,
     AdminErrataDetailView,
     AdminErrataListView,
     AdminLegalDocumentDetailView,
@@ -37,13 +40,18 @@ urlpatterns = [
 
     # Catálogo: Libros
     path('books/', AdminBookListView.as_view(), name='admin-books-list'),
+    path('books/bulk-action/', AdminBookBulkActionView.as_view(), name='admin-books-bulk-action'),
     path('books/<int:pk>/', AdminBookDetailView.as_view(), name='admin-books-detail'),
     path('books/<int:pk>/enrich/', AdminBookEnrichView.as_view(), name='admin-books-enrich'),
 
     # Catálogo: Autores
     path('authors/', AdminAuthorListView.as_view(), name='admin-authors-list'),
+    path('authors/bulk-action/', AdminAuthorBulkActionView.as_view(), name='admin-authors-bulk-action'),
     path('authors/<int:pk>/', AdminAuthorDetailView.as_view(), name='admin-authors-detail'),
     path('authors/<int:pk>/enrich/', AdminAuthorEnrichView.as_view(), name='admin-authors-enrich'),
+
+    # Categorías
+    path('categories/', AdminCategoryListView.as_view(), name='admin-categories-list'),
 
     # Erratas y sugerencias
     path('erratas/', AdminErrataListView.as_view(), name='admin-erratas-list'),

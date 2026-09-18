@@ -2560,7 +2560,7 @@ Evitar duplicados aunque el cliente reintente la petición.
 
 ------------------------------------------------------------------------
 
-# 60. Fase 57 --- Administración
+# 60. Fase 57 --- Administración [COMPLETADA]
 
 Mejorar Django Admin para:
 
@@ -2591,6 +2591,33 @@ re-enrich
 rebuild embedding
 moderate
 ```
+
+### Implementación realizada:
+- [x] **ModelAdmins en Django Admin (`backend/books/admin.py`, `backend/users/admin.py`)**:
+  - `BookAdmin`: list_display extendido, filtros `ProviderListFilter` (Google Books, OpenLibrary, ISBN), `RatingRangeFilter`, `enrichment_attempted`, `categories`, `created_at`. Acciones masivas `re_enrich_books` y `rebuild_embeddings`.
+  - `AuthorAdmin`: list_display, búsqueda por nombre y biografía, filtro por enriquecimiento, acción masiva `re_enrich_authors`.
+  - `ReviewAdmin`: list_display, filtros por moderación, calificación y fechas, acciones masivas `mark_as_moderated`, `unmark_as_moderated`, `soft_delete_reviews`, `restore_reviews`.
+  - `CustomUserAdmin`: list_display, filtros por rol, staff, editor, activo, privacidad y fecha, acciones masivas `ban_users`, `unban_users`, `make_editor`, `remove_editor`.
+  - `ReportAdmin`: list_display, filtros por estado, motivo y fecha, acciones masivas `mark_as_resolved`, `mark_as_rejected`.
+  - `ErrataAdmin`: list_display, filtros por estado, tipo y fecha, acciones masivas `approve_erratas`, `reject_erratas`.
+  - `NotificationAdmin` y `ActivityAdmin`: registros completos con filtros y acciones de marcado de lectura.
+- [x] **API REST de Administración Ampliada (`backend/books/admin_views.py`, `backend/books/admin_urls.py`, `backend/books/serializers.py`)**:
+  - `BookSerializer`: soporte de escritura directa para `category_ids`.
+  - `AdminBookListView`: filtros por `provider`, `min_rating`, `enrichment`, `ordering`.
+  - Endpoints de acciones masivas en lote: `POST /api/v1/admin/books/bulk-action/` y `POST /api/v1/admin/authors/bulk-action/`.
+  - Endpoint de listado de categorías: `GET /api/v1/admin/categories/`.
+- [x] **Control Total de Catálogo desde el Frontend (`AdminDashboard.tsx`)**:
+  - Pestaña de Catálogo enriquecida con subpestañas para Libros y Autores.
+  - Filtros en vivo por proveedor externo (`Google Books`, `OpenLibrary`, `Con ISBN`), enriquecimiento (`Enriquecidos`, `Pendientes`) y puntuación mínima.
+  - Barra de acciones masivas en lote con selección mediante checkboxes (`re-enriquecer`, `reconstruir embeddings`, `eliminar`).
+  - Modal interactivo de creación y edición completa de libros (`EditBookModal`) con selector de autor, ISBN, fecha, categorías interactivas y sinopsis.
+  - Modal interactivo de creación y edición completa de autores (`EditAuthorModal`) con nombre y biografía.
+- [x] **Verificación Automatizada y Tipos**:
+  - Suite de pruebas de backend en `backend/tests/test_phase57_admin.py` (6/6 tests **PASSED**).
+  - Suite de regresión en `backend/tests/test_admin_api.py` (4/4 tests **PASSED**).
+  - Linter backend `ruff check` con 0 errores.
+  - Tipado de frontend `tsc --noEmit` con **0 errores**.
+  - Pruebas frontend `npx vitest run` (**21/21 tests PASSED**).
 
 ------------------------------------------------------------------------
 

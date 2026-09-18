@@ -111,6 +111,9 @@ class BookSerializer(serializers.ModelSerializer):
         queryset=Author.objects.all(), source='author', write_only=True, required=False, allow_null=True
     )
     categories = CategorySerializer(many=True, read_only=True)
+    category_ids = serializers.PrimaryKeyRelatedField(
+        queryset=Category.objects.all(), many=True, source='categories', write_only=True, required=False
+    )
     rating_distribution = serializers.SerializerMethodField()
     reviews_count = serializers.SerializerMethodField()
 
@@ -120,7 +123,7 @@ class BookSerializer(serializers.ModelSerializer):
             'id', 'title', 'author', 'author_id', 'isbn',
             'google_volume_id', 'openlibrary_work_id', 'openlibrary_edition_id',
             'cover', 'description', 'published_date', 'average_rating', 'created_at',
-            'categories', 'rating_distribution', 'reviews_count'
+            'categories', 'category_ids', 'rating_distribution', 'reviews_count'
         )
 
     @extend_schema_field(serializers.DictField)
