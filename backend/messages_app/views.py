@@ -79,8 +79,13 @@ class MessageViewSet(
         return qs
 
     def perform_create(self, serializer):
+        from rest_framework.exceptions import PermissionDenied
+
         from users.models import Notification, NotificationType
         from users.policies import can_access_conversation, can_message
+
+        if getattr(self.request.user, 'is_disciplinary_muted', False):
+            raise PermissionDenied(f'Tu cuenta se encuentra silenciada temporalmente por moderación hasta {self.request.user.muted_until}.')
 
         conv_id = self.request.data.get('conversation')
         conv = Conversation.objects.filter(id=conv_id).first()
@@ -93,8 +98,10 @@ class MessageViewSet(
 
         msg = serializer.save(sender=self.request.user, conversation=conv)
 
-        # Generar notificación para los demás participantes
+        # Generar notificación para los demás participantes que no hayan silenciado al remitente
         for participant in conv.participants.exclude(id=self.request.user.id):
+            if hasattr(participant, 'muted_users') and participant.muted_users.filter(id=self.request.user.id).exists():
+                continue
             Notification.objects.create(
                 recipient=participant,
                 actor=self.request.user,

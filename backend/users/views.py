@@ -224,6 +224,76 @@ class UnblockUserView(APIView):
         return Response({"detail": f"Has desbloqueado a {user_to_unblock.username}"}, status=status.HTTP_200_OK)
 
 
+class MuteUserView(APIView):
+    """Silencia a un usuario para no ver sus reseñas, comentarios ni recibir notificaciones (Fase 58)."""
+    permission_classes = (permissions.IsAuthenticated,)
+
+    @extend_schema(
+        summary="Silenciar usuario",
+        responses={
+            200: inline_serializer(
+                name='MuteUserResponse',
+                fields={'detail': serializers.CharField(), 'is_muted': serializers.BooleanField()},
+            ),
+            400: OpenApiResponse(description="No puedes silenciarte a ti mismo"),
+        },
+        tags=['Users'],
+    )
+    def post(self, request, user_id):
+        from .audit_service import log_audit
+        from .models import AuditAction
+
+        user_to_mute = get_object_or_404(User, id=user_id)
+        if request.user == user_to_mute:
+            return Response({"detail": "No puedes silenciarte a ti mismo."}, status=status.HTTP_400_BAD_REQUEST)
+
+        request.user.muted_users.add(user_to_mute)
+        log_audit(
+            action=AuditAction.USER_MUTE,
+            actor=request.user,
+            target=user_to_mute,
+            request=request,
+            metadata={"target_username": user_to_mute.username},
+        )
+        return Response(
+            {"detail": f"Has silenciado a {user_to_mute.username}", "is_muted": True},
+            status=status.HTTP_200_OK,
+        )
+
+
+class UnmuteUserView(APIView):
+    """Elimina el silenciamiento social sobre un usuario (Fase 58)."""
+    permission_classes = (permissions.IsAuthenticated,)
+
+    @extend_schema(
+        summary="Des-silenciar usuario",
+        responses={
+            200: inline_serializer(
+                name='UnmuteUserResponse',
+                fields={'detail': serializers.CharField(), 'is_muted': serializers.BooleanField()},
+            ),
+        },
+        tags=['Users'],
+    )
+    def post(self, request, user_id):
+        from .audit_service import log_audit
+        from .models import AuditAction
+
+        user_to_unmute = get_object_or_404(User, id=user_id)
+        request.user.muted_users.remove(user_to_unmute)
+        log_audit(
+            action=AuditAction.USER_UNMUTE,
+            actor=request.user,
+            target=user_to_unmute,
+            request=request,
+            metadata={"target_username": user_to_unmute.username},
+        )
+        return Response(
+            {"detail": f"Has reactivado a {user_to_unmute.username}", "is_muted": False},
+            status=status.HTTP_200_OK,
+        )
+
+
 class UserSearchListView(generics.ListAPIView):
     """Búsqueda de usuarios filtrando aquellos bloqueados o que bloquearon al solicitante."""
     permission_classes = (permissions.IsAuthenticated,)

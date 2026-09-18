@@ -2621,21 +2621,42 @@ moderate
 
 ------------------------------------------------------------------------
 
-# 61. Fase 58 --- Moderación de contenido
+# 61. Fase 58 --- Moderación de contenido [COMPLETADA]
 
-Añadir herramientas para:
+**Prioridad:** P1 - COMPLETADA
 
-``` text
-report
-review
-hide
-restore
-ban
-mute
-block
-```
+Se ha implementado un sistema integral de moderación de contenido y disciplina comunitaria que cubre las 7 herramientas esenciales y establece el marco ético y normativo previo a la automatización mediante IA:
 
-Definir políticas antes de implementar automatización IA.
+1. **`report`**:
+   - Endpoint autenticado `POST /api/v1/reports/` y `GET /api/v1/reports/my/`.
+   - Componente modal universal en frontend (`ReportModal.tsx`) integrado en reseñas (`BookReviewsSection.tsx`), comentarios y perfiles de usuarios (`Profile.tsx`).
+2. **`review`**:
+   - Cola de moderación administrativa con filtros multicriterio en `AdminDashboard.tsx`.
+   - Tramitación formal y resolución de expedientes (`OPEN`, `UNDER_REVIEW`, `RESOLVED`, `REJECTED`) con asignación de moderador y marca temporal.
+3. **`hide`**:
+   - Endpoint administrativo `POST /api/v1/admin/moderation/hide/` para ocultar reseñas (`is_moderated=True`), comentarios (`deleted_at=now`) y mensajes (`is_moderated=True`).
+4. **`restore`**:
+   - Endpoint administrativo `POST /api/v1/admin/moderation/restore/` para restaurar contenido previamente moderado o tras resolver una apelación favorable.
+5. **`ban`**:
+   - Endpoints administrativos `POST /api/v1/admin/moderation/users/<id>/ban/` y `unban/` para suspensión y reactivación de cuentas infractoras (`is_active=False/True`), con protección ante auto-baneo y baneo de administradores.
+6. **`mute`**:
+   - **Silenciamiento Social (Usuario a Usuario)**:
+     - Relación M2M `muted_users` en `User` y endpoints `POST /api/v1/users/<id>/mute/` y `unmute/`.
+     - Filtrado automático de reseñas en `filter_visible_reviews`, comentarios en `ReviewCommentListCreateView` y omisión de notificaciones.
+     - Botón de silenciar/des-silenciar en el menú contextual de perfil de usuario.
+   - **Silenciamiento Disciplinario (Moderación)**:
+     - Campo `muted_until` en `User` y endpoints `POST /api/v1/admin/moderation/users/<id>/mute/` y `unmute/`.
+     - Acciones `MUTE_USER_24H` y `MUTE_USER_7D` en la resolución de denuncias.
+     - Restricción estricta (`403 Forbidden`) en endpoints de creación de reseñas, comentarios y mensajes mientras dure la sanción.
+7. **`block`**:
+   - Bloqueo social bidireccional severo (`User.blocked_users`, `POST /api/v1/users/<id>/block/` y `unblock/`), integrado con selector en el perfil de usuario.
+8. **Políticas de Moderación Pre-IA**:
+   - Documento normativo [docs/moderation_policies.md](file:///c:/Users/zaton/Desktop/Escritorio/proyectos/MyBookConnect/docs/moderation_policies.md) con tipología de infracciones (Nivel 1, 2, 3), escala disciplinaria gradual, garantías de apelación y salvaguardas éticas (*Human-in-the-Loop*, umbrales >95% de confianza) antes de la activación de IA.
+9. **Trazabilidad y Tests**:
+   - Trazabilidad inmutable en `AuditLog` para todas las acciones de moderación.
+   - Suite de pruebas completa `backend/tests/test_phase58_moderation.py` (**7/7 tests PASSED**).
+   - Suite de regresión `test_phase57_admin.py` y `test_admin_api.py` (**10/10 tests PASSED**).
+   - Verificación estricta de tipos TypeScript `tsc --noEmit` (**0 errores**) y Vitest (**21/21 tests PASSED**).
 
 ------------------------------------------------------------------------
 

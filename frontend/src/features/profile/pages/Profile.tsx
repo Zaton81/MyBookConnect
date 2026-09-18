@@ -4,6 +4,7 @@ import { Button, Card, Dropdown, Spinner } from 'flowbite-react';
 import { useAuthStore } from '../../../store/auth';
 import { User } from '../../../types/auth';
 import DOMPurify from 'dompurify';
+import { ReportModal } from '../../moderation';
 import { resolveMediaUrl } from '../../../utils/media';
 import { GamificationOverviewData } from '../../books/components/gamification';
 
@@ -15,6 +16,7 @@ export function Profile() {
   const [profileUser, setProfileUser] = useState<User | null>(null);
   const [isFollowing, setIsFollowing] = useState(false);
   const [isMutual, setIsMutual] = useState(false);
+  const [isReportingUser, setIsReportingUser] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [readingMatch, setReadingMatch] = useState<{
@@ -104,7 +106,7 @@ export function Profile() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profileId, token]);
 
-  const handleAction = async (action: 'follow' | 'unfollow' | 'block' | 'unblock') => {
+  const handleAction = async (action: 'follow' | 'unfollow' | 'block' | 'unblock' | 'mute' | 'unmute') => {
     if (!profileUser || !token) return;
     const apiUrl = (import.meta as any).env.VITE_API_URL || 'http://localhost:8000';
     try {
@@ -246,11 +248,19 @@ export function Profile() {
                   </Button>
                 )}
                 <Dropdown label="" renderTrigger={() => <Button color="light" size="sm">...</Button>}>
+                  {profileUser.is_muted ? (
+                    <Dropdown.Item onClick={() => handleAction('unmute')}>🔊 Dejar de silenciar</Dropdown.Item>
+                  ) : (
+                    <Dropdown.Item onClick={() => handleAction('mute')}>🔇 Silenciar usuario</Dropdown.Item>
+                  )}
                   {profileUser.is_blocked ? (
                     <Dropdown.Item onClick={() => handleAction('unblock')}>Desbloquear</Dropdown.Item>
                   ) : (
                     <Dropdown.Item onClick={() => handleAction('block')} className="text-red-600">Bloquear</Dropdown.Item>
                   )}
+                  <Dropdown.Item onClick={() => setIsReportingUser(true)} className="text-amber-600">
+                    🚩 Denunciar usuario
+                  </Dropdown.Item>
                 </Dropdown>
               </>
             )}
@@ -428,6 +438,17 @@ export function Profile() {
           </div>
         )}
       </Card>
+
+      {/* Modal para denunciar perfil de usuario */}
+      {profileUser && (
+        <ReportModal
+          isOpen={isReportingUser}
+          onClose={() => setIsReportingUser(false)}
+          targetType="user"
+          targetId={profileUser.id}
+          targetTitle={`@${profileUser.username}`}
+        />
+      )}
     </div>
   );
 }

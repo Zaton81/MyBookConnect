@@ -40,6 +40,13 @@ class User(AbstractUser):
     )
     following = models.ManyToManyField('self', symmetrical=False, related_name='followers', blank=True)
     blocked_users = models.ManyToManyField('self', symmetrical=False, related_name='blocked_by', blank=True)
+    muted_users = models.ManyToManyField('self', symmetrical=False, related_name='muted_by', blank=True, help_text="Usuarios silenciados socialmente por este usuario (Fase 58).")
+    muted_until = models.DateTimeField(
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text="Fecha y hora de finalización del silenciamiento disciplinario impuesto por moderación (Fase 58).",
+    )
     is_editor = models.BooleanField(default=False)
     role = models.CharField(
         max_length=20,
@@ -79,6 +86,17 @@ class User(AbstractUser):
     def is_editor_user(self) -> bool:
         """Determina si el usuario tiene privilegios editoriales o superiores."""
         return self.is_editor or self.role in (UserRole.EDITOR, UserRole.MODERATOR, UserRole.ADMIN) or self.is_staff or self.is_superuser
+
+    @property
+    def is_disciplinary_muted(self) -> bool:
+        """Determina si el usuario está bajo una sanción activa de silenciamiento disciplinario."""
+        if not self.muted_until:
+            return False
+        return self.muted_until > timezone.now()
+
+    def is_muted(self) -> bool:
+        """Método auxiliar para comprobar silenciamiento disciplinario activo."""
+        return self.is_disciplinary_muted
 
     def save(self, *args, **kwargs):
         """Mantiene sincronizado el rol con banderas booleanas heredadas."""
@@ -251,8 +269,14 @@ class AuditAction(models.TextChoices):
     USER_UNBAN = 'USER_UNBAN', 'Desbloqueo de Usuario'
     USER_BLOCK = 'USER_BLOCK', 'Bloqueo Social entre Usuarios'
     USER_UNBLOCK = 'USER_UNBLOCK', 'Desbloqueo Social entre Usuarios'
+    USER_MUTE = 'USER_MUTE', 'Silenciamiento Social entre Usuarios'
+    USER_UNMUTE = 'USER_UNMUTE', 'Des-silenciamiento Social entre Usuarios'
+    MODERATOR_MUTE = 'MODERATOR_MUTE', 'Silenciamiento Disciplinario de Usuario'
+    MODERATOR_UNMUTE = 'MODERATOR_UNMUTE', 'Levantamiento de Silenciamiento Disciplinario'
     MODERATION_RESOLVE = 'MODERATION_RESOLVE', 'Resolución de Denuncia'
     MODERATION_REJECT = 'MODERATION_REJECT', 'Rechazo de Denuncia'
+    CONTENT_HIDE = 'CONTENT_HIDE', 'Ocultación de Contenido'
+    CONTENT_RESTORE = 'CONTENT_RESTORE', 'Restauración de Contenido'
     CONTENT_DELETE = 'CONTENT_DELETE', 'Eliminación de Contenido'
     SECURITY_PASSWORD_CHANGE = 'SECURITY_PASSWORD_CHANGE', 'Cambio de Contraseña'
     OTHER = 'OTHER', 'Otra Acción'

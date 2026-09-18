@@ -385,6 +385,12 @@ class ReviewListCreateView(generics.ListCreateAPIView):
     def create(self, request, *args, **kwargs):
         from rest_framework import status
 
+        if request.user.is_authenticated and getattr(request.user, 'is_disciplinary_muted', False):
+            return Response(
+                {'detail': f"Tu cuenta se encuentra silenciada temporalmente por moderación hasta {request.user.muted_until}."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
         book_id = request.data.get('book_id') or request.data.get('book')
         if not book_id:
             return Response({'detail': 'book_id es requerido'}, status=status.HTTP_400_BAD_REQUEST)
@@ -442,6 +448,8 @@ class ReviewDetailView(generics.RetrieveUpdateDestroyAPIView):
             if not can_view_review(request.user, obj):
                 raise PermissionDenied('No tienes permiso para ver esta reseña.')
         else:
+            if getattr(request.user, 'is_disciplinary_muted', False):
+                raise PermissionDenied('Tu cuenta se encuentra silenciada temporalmente por moderación.')
             if not can_edit_review(request.user, obj):
                 raise PermissionDenied('No tienes permiso para modificar esta reseña.')
 
@@ -533,7 +541,8 @@ class ReviewCommentListCreateView(APIView):
         if request.user.is_authenticated:
             blocked_by_user = set(request.user.blocked_users.values_list('id', flat=True))
             blocking_user = set(request.user.blocked_by.values_list('id', flat=True))
-            excluded = blocked_by_user.union(blocking_user)
+            muted_by_user = set(request.user.muted_users.values_list('id', flat=True)) if hasattr(request.user, 'muted_users') else set()
+            excluded = blocked_by_user.union(blocking_user).union(muted_by_user)
             if excluded:
                 comments = comments.exclude(user_id__in=excluded)
 
@@ -559,6 +568,12 @@ class ReviewCommentListCreateView(APIView):
         if not request.user.is_authenticated:
             return Response({'detail': 'Autenticación requerida.'}, status=status.HTTP_401_UNAUTHORIZED)
 
+        if getattr(request.user, 'is_disciplinary_muted', False):
+            return Response(
+                {'detail': f"Tu cuenta se encuentra silenciada temporalmente por moderación hasta {request.user.muted_until}."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
         review = get_object_or_404(Review.objects.select_related('user', 'book'), id=review_id)
         if not can_view_review(request.user, review):
             raise PermissionDenied('No tienes permiso para ver esta reseña.')
@@ -582,14 +597,16 @@ class ReviewCommentListCreateView(APIView):
         )
 
         if review.user_id != request.user.id:
-            Notification.objects.create(
-                recipient=review.user,
-                actor=request.user,
-                type=NotificationType.COMMENT,
-                title=f"{request.user.username} comentó en tu reseña",
-                message=content[:120],
-                link=f"/books/{review.book_id}?review={review.id}",
-            )
+            # No enviar notificación si el receptor ha silenciado al autor
+            if not review.user.muted_users.filter(id=request.user.id).exists():
+                Notification.objects.create(
+                    recipient=review.user,
+                    actor=request.user,
+                    type=NotificationType.COMMENT,
+                    title=f"{request.user.username} comentó en tu reseña",
+                    message=content[:120],
+                    link=f"/books/{review.book_id}?review={review.id}",
+                )
 
         serializer = ReviewCommentSerializer(comment, context={'request': request})
         return Response(serializer.data, status=status.HTTP_201_CREATED)

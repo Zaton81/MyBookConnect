@@ -2062,6 +2062,9 @@ export function AdminDashboard() {
                         className="w-full text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700 p-2.5"
                       >
                         <option value="HIDE_CONTENT">🚫 HIDE_CONTENT (Ocultar contenido moderado)</option>
+                        <option value="RESTORE_CONTENT">♻️ RESTORE_CONTENT (Restaurar contenido moderado)</option>
+                        <option value="MUTE_USER_24H">🔇 MUTE_USER_24H (Silenciar infractor 24 horas)</option>
+                        <option value="MUTE_USER_7D">🔇 MUTE_USER_7D (Silenciar infractor 7 días)</option>
                         <option value="BAN_USER">⛔ BAN_USER (Bloquear/Desactivar cuenta de usuario)</option>
                         <option value="WARNING">⚠️ WARNING (Apercibimiento / Advertencia)</option>
                         <option value="DISMISS">ℹ️ DISMISS (Resolver sin acción directa)</option>

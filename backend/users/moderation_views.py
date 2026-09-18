@@ -142,18 +142,36 @@ class AdminReportDetailView(generics.RetrieveUpdateAPIView):
                     target.is_moderated = True
                     target.save(update_fields=['is_moderated'])
 
-            elif action_taken == 'BAN_USER' and target:
-                user_to_ban = None
-                if isinstance(target, User):
-                    user_to_ban = target
-                elif isinstance(target, (Review, ReviewComment)):
-                    user_to_ban = target.user
+            elif action_taken == 'RESTORE_CONTENT' and target:
+                if isinstance(target, Review):
+                    target.is_moderated = False
+                    target.save(update_fields=['is_moderated'])
+                elif isinstance(target, ReviewComment):
+                    target.deleted_at = None
+                    target.save(update_fields=['deleted_at'])
                 elif isinstance(target, Message):
-                    user_to_ban = target.sender
+                    target.is_moderated = False
+                    target.save(update_fields=['is_moderated'])
 
-                if user_to_ban and not (user_to_ban.is_staff or user_to_ban.is_superuser):
-                    user_to_ban.is_active = False
-                    user_to_ban.save(update_fields=['is_active'])
+            elif action_taken in ('BAN_USER', 'MUTE_USER_24H', 'MUTE_USER_7D') and target:
+                user_to_act = None
+                if isinstance(target, User):
+                    user_to_act = target
+                elif isinstance(target, (Review, ReviewComment)):
+                    user_to_act = target.user
+                elif isinstance(target, Message):
+                    user_to_act = target.sender
+
+                if user_to_act and not (user_to_act.is_staff or user_to_act.is_superuser):
+                    if action_taken == 'BAN_USER':
+                        user_to_act.is_active = False
+                        user_to_act.save(update_fields=['is_active'])
+                    elif action_taken == 'MUTE_USER_24H':
+                        user_to_act.muted_until = timezone.now() + timezone.timedelta(hours=24)
+                        user_to_act.save(update_fields=['muted_until'])
+                    elif action_taken == 'MUTE_USER_7D':
+                        user_to_act.muted_until = timezone.now() + timezone.timedelta(days=7)
+                        user_to_act.save(update_fields=['muted_until'])
 
         instance.save()
 
@@ -213,3 +231,258 @@ class AdminModerationStatsView(APIView):
             },
             "by_reason": by_reason,
         })
+
+
+class AdminContentHideView(APIView):
+    """
+    Ocultación directa de contenido infractor (Fase 58).
+    POST /api/v1/admin/moderation/hide/
+    Payload: { "target_type": "review" | "comment" | "message", "target_id": <int>, "reason": <str> }
+    """
+    permission_classes = [IsModeratorOrAdmin]
+
+    def post(self, request):
+        from users.audit_service import log_audit
+        from users.models import AuditAction
+
+        target_type = request.data.get('target_type')
+        target_id = request.data.get('target_id')
+        reason = request.data.get('reason', 'Ocultado por moderación')
+
+        if not target_type or not target_id:
+            return Response({'detail': 'target_type y target_id son requeridos.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        target = None
+        if target_type == 'review':
+            target = Review.objects.filter(id=target_id).first()
+            if not target:
+                return Response({'detail': 'Reseña no encontrada.'}, status=status.HTTP_404_NOT_FOUND)
+            target.is_moderated = True
+            target.save(update_fields=['is_moderated'])
+        elif target_type == 'comment':
+            target = ReviewComment.objects.filter(id=target_id).first()
+            if not target:
+                return Response({'detail': 'Comentario no encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+            target.deleted_at = timezone.now()
+            target.save(update_fields=['deleted_at'])
+        elif target_type == 'message':
+            target = Message.objects.filter(id=target_id).first()
+            if not target:
+                return Response({'detail': 'Mensaje no encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+            target.is_moderated = True
+            target.save(update_fields=['is_moderated'])
+        else:
+            return Response({'detail': f"target_type no válido: {target_type}"}, status=status.HTTP_400_BAD_REQUEST)
+
+        log_audit(
+            action=AuditAction.CONTENT_HIDE,
+            actor=request.user,
+            target=target,
+            request=request,
+            metadata={"target_type": target_type, "target_id": target_id, "reason": reason},
+        )
+        return Response({'detail': f"Elemento {target_type} #{target_id} ocultado correctamente.", "hidden": True}, status=status.HTTP_200_OK)
+
+
+class AdminContentRestoreView(APIView):
+    """
+    Restauración directa de contenido previamente moderado u ocultado (Fase 58).
+    POST /api/v1/admin/moderation/restore/
+    Payload: { "target_type": "review" | "comment" | "message", "target_id": <int> }
+    """
+    permission_classes = [IsModeratorOrAdmin]
+
+    def post(self, request):
+        from users.audit_service import log_audit
+        from users.models import AuditAction
+
+        target_type = request.data.get('target_type')
+        target_id = request.data.get('target_id')
+
+        if not target_type or not target_id:
+            return Response({'detail': 'target_type y target_id son requeridos.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        target = None
+        if target_type == 'review':
+            target = Review.objects.filter(id=target_id).first()
+            if not target:
+                return Response({'detail': 'Reseña no encontrada.'}, status=status.HTTP_404_NOT_FOUND)
+            target.is_moderated = False
+            target.save(update_fields=['is_moderated'])
+        elif target_type == 'comment':
+            target = ReviewComment.objects.filter(id=target_id).first()
+            if not target:
+                return Response({'detail': 'Comentario no encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+            target.deleted_at = None
+            target.save(update_fields=['deleted_at'])
+        elif target_type == 'message':
+            target = Message.objects.filter(id=target_id).first()
+            if not target:
+                return Response({'detail': 'Mensaje no encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+            target.is_moderated = False
+            target.save(update_fields=['is_moderated'])
+        else:
+            return Response({'detail': f"target_type no válido: {target_type}"}, status=status.HTTP_400_BAD_REQUEST)
+
+        log_audit(
+            action=AuditAction.CONTENT_RESTORE,
+            actor=request.user,
+            target=target,
+            request=request,
+            metadata={"target_type": target_type, "target_id": target_id},
+        )
+        return Response({'detail': f"Elemento {target_type} #{target_id} restaurado correctamente.", "hidden": False}, status=status.HTTP_200_OK)
+
+
+class AdminUserMuteView(APIView):
+    """
+    Silenciamiento disciplinario de un usuario por parte de un moderador (Fase 58).
+    POST /api/v1/admin/moderation/users/<int:user_id>/mute/
+    Payload: { "duration_hours": <int, opcional>, "reason": <str> }
+    """
+    permission_classes = [IsModeratorOrAdmin]
+
+    def post(self, request, user_id):
+        from users.audit_service import log_audit
+        from users.models import AuditAction
+
+        user_to_mute = User.objects.filter(id=user_id).first()
+        if not user_to_mute:
+            return Response({'detail': 'Usuario no encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if user_to_mute.is_superuser or user_to_mute.is_staff:
+            return Response({'detail': 'No se puede aplicar silenciamiento disciplinario a administradores o miembros del staff.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        duration_hours = request.data.get('duration_hours')
+        reason = request.data.get('reason', 'Silenciamiento disciplinario')
+
+        if duration_hours and int(duration_hours) > 0:
+            user_to_mute.muted_until = timezone.now() + timezone.timedelta(hours=int(duration_hours))
+        else:
+            # Permanente / Indefinido (10 años)
+            user_to_mute.muted_until = timezone.now() + timezone.timedelta(days=3650)
+
+        user_to_mute.save(update_fields=['muted_until'])
+
+        log_audit(
+            action=AuditAction.MODERATOR_MUTE,
+            actor=request.user,
+            target=user_to_mute,
+            request=request,
+            metadata={
+                "target_username": user_to_mute.username,
+                "muted_until": user_to_mute.muted_until.isoformat(),
+                "reason": reason,
+            },
+        )
+
+        return Response({
+            'detail': f"Usuario @{user_to_mute.username} silenciado disciplinariamente hasta {user_to_mute.muted_until.isoformat()}.",
+            'muted_until': user_to_mute.muted_until,
+            'is_disciplinary_muted': True,
+        }, status=status.HTTP_200_OK)
+
+
+class AdminUserUnmuteView(APIView):
+    """
+    Levantamiento del silenciamiento disciplinario de un usuario (Fase 58).
+    POST /api/v1/admin/moderation/users/<int:user_id>/unmute/
+    """
+    permission_classes = [IsModeratorOrAdmin]
+
+    def post(self, request, user_id):
+        from users.audit_service import log_audit
+        from users.models import AuditAction
+
+        user_to_unmute = User.objects.filter(id=user_id).first()
+        if not user_to_unmute:
+            return Response({'detail': 'Usuario no encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+
+        user_to_unmute.muted_until = None
+        user_to_unmute.save(update_fields=['muted_until'])
+
+        log_audit(
+            action=AuditAction.MODERATOR_UNMUTE,
+            actor=request.user,
+            target=user_to_unmute,
+            request=request,
+            metadata={"target_username": user_to_unmute.username},
+        )
+
+        return Response({
+            'detail': f"Silenciamiento disciplinario revocado para @{user_to_unmute.username}.",
+            'muted_until': None,
+            'is_disciplinary_muted': False,
+        }, status=status.HTTP_200_OK)
+
+
+class AdminUserBanView(APIView):
+    """
+    Suspensión/bloqueo de cuenta de usuario por moderación (Fase 58).
+    POST /api/v1/admin/moderation/users/<int:user_id>/ban/
+    Payload: { "reason": <str> }
+    """
+    permission_classes = [IsModeratorOrAdmin]
+
+    def post(self, request, user_id):
+        from users.audit_service import log_audit
+        from users.models import AuditAction
+
+        user_to_ban = User.objects.filter(id=user_id).first()
+        if not user_to_ban:
+            return Response({'detail': 'Usuario no encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if user_to_ban == request.user:
+            return Response({'detail': 'No puedes auto-suspender tu propia cuenta.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if user_to_ban.is_superuser or user_to_ban.is_staff:
+            return Response({'detail': 'No se puede suspender a administradores o miembros del staff.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        reason = request.data.get('reason', 'Suspensión de cuenta por moderación')
+        user_to_ban.is_active = False
+        user_to_ban.save(update_fields=['is_active'])
+
+        log_audit(
+            action=AuditAction.USER_BAN,
+            actor=request.user,
+            target=user_to_ban,
+            request=request,
+            metadata={"target_username": user_to_ban.username, "reason": reason},
+        )
+
+        return Response({
+            'detail': f"Usuario @{user_to_ban.username} suspendido exitosamente.",
+            'is_active': False,
+        }, status=status.HTTP_200_OK)
+
+
+class AdminUserUnbanView(APIView):
+    """
+    Reactivación de cuenta de usuario suspendida (Fase 58).
+    POST /api/v1/admin/moderation/users/<int:user_id>/unban/
+    """
+    permission_classes = [IsModeratorOrAdmin]
+
+    def post(self, request, user_id):
+        from users.audit_service import log_audit
+        from users.models import AuditAction
+
+        user_to_unban = User.objects.filter(id=user_id).first()
+        if not user_to_unban:
+            return Response({'detail': 'Usuario no encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+
+        user_to_unban.is_active = True
+        user_to_unban.save(update_fields=['is_active'])
+
+        log_audit(
+            action=AuditAction.USER_UNBAN,
+            actor=request.user,
+            target=user_to_unban,
+            request=request,
+            metadata={"target_username": user_to_unban.username},
+        )
+
+        return Response({
+            'detail': f"Cuenta de @{user_to_unban.username} reactivada exitosamente.",
+            'is_active': True,
+        }, status=status.HTTP_200_OK)

@@ -32,6 +32,8 @@ class UserSerializer(serializers.ModelSerializer):
     is_following = serializers.SerializerMethodField()
     is_blocked = serializers.SerializerMethodField()
     am_i_blocked = serializers.SerializerMethodField()
+    is_muted = serializers.SerializerMethodField()
+    is_disciplinary_muted = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -41,9 +43,9 @@ class UserSerializer(serializers.ModelSerializer):
             'show_email', 'show_birth_date', 'show_location', 'show_bio',
             'following', 'followers', 'is_editor', 'is_staff', 'is_superuser', 'role',
             'reviews_count', 'books_read_count', 'following_count', 'followers_count',
-            'is_following', 'is_blocked', 'am_i_blocked'
+            'is_following', 'is_blocked', 'am_i_blocked', 'is_muted', 'is_disciplinary_muted', 'muted_until'
         )
-        read_only_fields = ('id', 'followers', 'is_editor', 'is_staff', 'is_superuser', 'role', 'is_email_verified')
+        read_only_fields = ('id', 'followers', 'is_editor', 'is_staff', 'is_superuser', 'role', 'is_email_verified', 'muted_until')
 
     def validate_avatar(self, value):
         """
@@ -116,6 +118,19 @@ class UserSerializer(serializers.ModelSerializer):
         if request and request.user.is_authenticated:
             return obj.blocked_users.filter(id=request.user.id).exists()
         return False
+
+    @extend_schema_field(serializers.BooleanField)
+    def get_is_muted(self, obj):
+        if hasattr(obj, 'is_muted_val'):
+            return obj.is_muted_val
+        request = self.context.get('request')
+        if request and request.user.is_authenticated and hasattr(request.user, 'muted_users'):
+            return request.user.muted_users.filter(id=obj.id).exists()
+        return False
+
+    @extend_schema_field(serializers.BooleanField)
+    def get_is_disciplinary_muted(self, obj):
+        return getattr(obj, 'is_disciplinary_muted', False)
 
 class UserCreateSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=True, validators=[validate_password])
