@@ -34,6 +34,14 @@ ALLOWED_IMAGE_FORMATS: Tuple[str, ...] = ('JPEG', 'PNG', 'WEBP')
 # Tipos MIME permitidos
 ALLOWED_MIME_TYPES: Tuple[str, ...] = ('image/jpeg', 'image/png', 'image/webp')
 
+# Mapeo MIME a Formato Pillow
+MIME_TO_FORMAT_MAP = {
+    'image/jpeg': 'JPEG',
+    'image/pjpeg': 'JPEG',
+    'image/png': 'PNG',
+    'image/webp': 'WEBP',
+}
+
 # Límites de tamaño en bytes
 MAX_AVATAR_SIZE_BYTES: int = 5 * 1024 * 1024  # 5 MB
 MAX_AUTHOR_PHOTO_SIZE_BYTES: int = 5 * 1024 * 1024  # 5 MB
@@ -43,6 +51,39 @@ MAX_CHAT_IMAGE_SIZE_BYTES: int = 10 * 1024 * 1024  # 10 MB
 # Límites de dimensiones en píxeles (ancho, alto)
 MIN_IMAGE_DIMENSIONS: Tuple[int, int] = (50, 50)
 MAX_IMAGE_DIMENSIONS: Tuple[int, int] = (6000, 6000)
+
+# Presets de dimensiones de destino para redimensionamiento optimizado (Fase 60)
+AVATAR_PRESET: Tuple[int, int] = (512, 512)
+AUTHOR_PHOTO_PRESET: Tuple[int, int] = (800, 1200)
+COVER_PRESET: Tuple[int, int] = (1200, 1800)
+CHAT_IMAGE_PRESET: Tuple[int, int] = (1920, 1920)
+
+
+def detect_magic_format(file_obj) -> str | None:
+    """
+    Inspecciona los primeros bytes del archivo para identificar su firma binaria (Magic Bytes).
+    Soporta firmas estándar para JPEG, PNG y WebP.
+    """
+    if not file_obj:
+        return None
+    current_pos = file_obj.tell() if hasattr(file_obj, 'tell') else 0
+    try:
+        if hasattr(file_obj, 'seek'):
+            file_obj.seek(0)
+        header = file_obj.read(16) if hasattr(file_obj, 'read') else b""
+        if header.startswith(b"\xff\xd8\xff"):
+            return "JPEG"
+        if header.startswith(b"\x89PNG\r\n\x1a\n"):
+            return "PNG"
+        if len(header) >= 12 and header.startswith(b"RIFF") and header[8:12] == b"WEBP":
+            return "WEBP"
+        return None
+    finally:
+        if hasattr(file_obj, 'seek'):
+            try:
+                file_obj.seek(current_pos)
+            except Exception:
+                pass
 
 
 def validate_image_file(
@@ -55,16 +96,7 @@ def validate_image_file(
 ) -> None:
     """
     Valida un archivo de imagen asegurando extensión, tamaño, formato binario e integridad.
-
-    Lanza django.core.exceptions.ValidationError con mensajes descriptivos si alguna
-    validación no se cumple.
-
-    :param file_obj: Objeto archivo subido (UploadedFile, FieldFile, ContentFile o similar).
-    :param max_size_bytes: Límite máximo de tamaño en bytes.
-    :param min_dims: Tupla (ancho_min, alto_min).
-    :param max_dims: Tupla (ancho_max, alto_max).
-    :param allowed_formats: Formatos internos de Pillow admitidos ('JPEG', 'PNG', 'WEBP').
-    :param allowed_extensions: Extensiones de nombre de archivo admitidas.
+    Implementa validación estricta de MIME, firmas Magic Bytes e inspección antivirus (Fase 60).
     """
     if not file_obj:
         return
@@ -73,7 +105,6 @@ def validate_image_file(
     file_size = getattr(file_obj, 'size', None)
     if file_size is None:
         try:
-            # Fallback si es un buffer de bytes
             pos = file_obj.tell()
             file_obj.seek(0, os.SEEK_END)
             file_size = file_obj.tell()
@@ -96,28 +127,56 @@ def validate_image_file(
             raise ValidationError(
                 f"Extensión '{ext}' no permitida. Formatos válidos: {', '.join(allowed_extensions)}."
             )
-    elif not hasattr(file_obj, 'name'):
-        # Si no tiene nombre (p.ej. ContentFile puro sin nombre), permitimos la validación por contenido
-        pass
 
-    # 3. Validación de contenido binario mediante Pillow
+    # 3. Validación de tipo MIME declarado en HTTP request
+    declared_mime = getattr(file_obj, 'content_type', None)
+    if declared_mime:
+        declared_mime = declared_mime.lower().strip()
+        if declared_mime not in ALLOWED_MIME_TYPES:
+            raise ValidationError(
+                f"Tipo MIME '{declared_mime}' no permitido. Formatos aceptados: {', '.join(ALLOWED_MIME_TYPES)}."
+            )
+
+    # 4. Inspección de seguridad y antivirus (Fase 60)
+    from mybookconnect.media_scanner import scan_media_file
+    scan_media_file(file_obj)
+
+    # 5. Validación de firma binaria (Magic Bytes)
+    magic_fmt = detect_magic_format(file_obj)
+    if not magic_fmt or magic_fmt not in allowed_formats:
+        raise ValidationError(
+            "El archivo no es una imagen válida: firma binaria (magic bytes) inválida o no coincide con un formato permitido."
+        )
+
+    # 6. Validación de contenido binario mediante Pillow
     try:
-        # Guardar posición inicial del puntero para restaurarlo tras la lectura
         current_pos = file_obj.tell() if hasattr(file_obj, 'tell') else 0
         if hasattr(file_obj, 'seek'):
             file_obj.seek(0)
 
-        # Abrir imagen con Pillow sin decodificar toda la imagen en RAM todavía
         img = Image.open(file_obj)
 
-        # Verificar formato binario real detectado por la cabecera
         detected_format = img.format
         if not detected_format or detected_format.upper() not in allowed_formats:
             raise ValidationError(
                 f"Formato de imagen '{detected_format}' no permitido. Formatos aceptados: {', '.join(allowed_formats)}."
             )
 
-        # Verificar dimensiones (ancho x alto)
+        # Comprobar consistencia estricta entre Magic Bytes y Pillow
+        if magic_fmt != detected_format.upper():
+            raise ValidationError(
+                f"Discrepancia entre firma binaria ('{magic_fmt}') y formato detectado ('{detected_format}')."
+            )
+
+        # Comprobar concordancia entre MIME declarado y formato binario real
+        if declared_mime:
+            expected_format = MIME_TO_FORMAT_MAP.get(declared_mime)
+            if expected_format and expected_format != detected_format.upper():
+                raise ValidationError(
+                    f"Discrepancia entre tipo MIME declarado ('{declared_mime}') y formato binario real ('{detected_format}')."
+                )
+
+        # Verificar dimensiones
         width, height = img.size
         min_w, min_h = min_dims
         max_w, max_h = max_dims
@@ -135,7 +194,6 @@ def validate_image_file(
         # Verificar integridad estructural del archivo
         img.verify()
 
-        # Restaurar puntero de lectura original
         if hasattr(file_obj, 'seek'):
             file_obj.seek(current_pos)
 
@@ -162,24 +220,21 @@ def sanitize_image(
     output_format: str | None = None,
     strip_exif: bool = True,
     quality: int = 85,
+    max_dimensions: Tuple[int, int] | None = None,
 ) -> ContentFile:
     """
-    Sanitiza una imagen abriéndola en Pillow, eliminando metadatos EXIF/IPTC/XMP y
-    re-codificándola de forma segura en un buffer limpio.
-
-    Esto neutraliza:
-    - Filtraciones de privacidad (coordenadas GPS, nombre de autor, dispositivo).
-    - Payloads ocultos en bloques de comentarios o metadatos manipulados.
-    - Archivos con estructuras anómalas.
+    Sanitiza una imagen abriéndola en Pillow, eliminando metadatos EXIF/IPTC/XMP/comentarios,
+    redimensionando si excede max_dimensions preservando el aspect ratio (Fase 60),
+    y re-codificándola de forma segura en un buffer limpio.
 
     :param file_or_bytes: Objeto UploadedFile, ContentFile o bytes de la imagen.
     :param filename: Nombre sugerido para el archivo resultante.
-    :param output_format: Formato deseado ('JPEG', 'PNG', 'WEBP'). Si es None, se deduce de la extensión o imagen.
-    :param strip_exif: Si es True, no se preserva ningún metadato EXIF.
+    :param output_format: Formato deseado ('JPEG', 'PNG', 'WEBP').
+    :param strip_exif: Si es True, no se preserva ningún metadato.
     :param quality: Calidad de compresión para formatos JPEG o WebP (1-100).
+    :param max_dimensions: Tupla opcional (max_w, max_h) para aplicar redimensionamiento/downscale.
     :return: ContentFile sanitizado listo para asignar a un ImageField o FileField.
     """
-    # Determinar nombre base y extensión de salida
     orig_name = filename or getattr(file_or_bytes, 'name', 'image.jpg') or 'image.jpg'
     base_name, ext = os.path.splitext(orig_name)
     ext_lower = ext.lower() if ext else '.jpg'
@@ -187,15 +242,25 @@ def sanitize_image(
     if ext_lower not in ALLOWED_IMAGE_EXTENSIONS:
         ext_lower = '.jpg'
 
-    # Preparar origen para Pillow
+    if isinstance(file_or_bytes, (bytes, bytearray)):
+        file_or_bytes = io.BytesIO(file_or_bytes)
+
     if hasattr(file_or_bytes, 'seek'):
         file_or_bytes.seek(0)
 
     try:
         img = Image.open(file_or_bytes)
-        img.load()  # Cargar pixeles en memoria para desacoplar del archivo origen
+        img.load()
 
-        # Determinar formato de guardado: dar precedencia a output_format o a la extensión solicitada
+        # Redimensionamiento inteligente conservando aspect ratio (Fase 60)
+        if max_dimensions and (img.width > max_dimensions[0] or img.height > max_dimensions[1]):
+            img.thumbnail(max_dimensions, Image.Resampling.LANCZOS)
+
+        # Eliminación exhaustiva de metadatos del diccionario info
+        if strip_exif:
+            for meta_key in ('exif', 'icc_profile', 'photoshop', 'xmp', 'comment', 'parameters', 'Software'):
+                img.info.pop(meta_key, None)
+
         if output_format:
             fmt = output_format.upper()
         elif ext_lower in ('.jpg', '.jpeg'):
@@ -211,10 +276,8 @@ def sanitize_image(
             fmt = 'JPEG'
             ext_lower = '.jpg'
 
-        # Ajuste de modo de color si se guarda como JPEG (JPEG no soporta canal Alpha / RGBA)
         if fmt.upper() == 'JPEG':
             if img.mode in ('RGBA', 'LA', 'P'):
-                # Crear fondo blanco para transparencias
                 background = Image.new('RGB', img.size, (255, 255, 255))
                 if img.mode == 'P':
                     img = img.convert('RGBA')
@@ -232,8 +295,6 @@ def sanitize_image(
         elif fmt.upper() == 'PNG':
             save_kwargs['optimize'] = True
 
-        # Al llamar save() sin el parámetro `exif`, Pillow NO exporta los metadatos EXIF originales
-        # garantizando una imagen 100% limpia de metadatos de geolocalización o scripts incrustados.
         img.save(output_buffer, **save_kwargs)
         sanitized_bytes = output_buffer.getvalue()
 
@@ -242,7 +303,6 @@ def sanitize_image(
 
     except Exception as exc:
         logger.error(f"Fallo al sanitizar imagen {orig_name}: {exc}")
-        # En caso de error crítico al sanitizar, se relanza como ValidationError
         raise ValidationError(f"No se pudo sanitizar el archivo de imagen: {exc}") from exc
     finally:
         if hasattr(file_or_bytes, 'seek'):

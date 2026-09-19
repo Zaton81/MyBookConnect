@@ -44,11 +44,15 @@ class MessageSerializer(serializers.ModelSerializer):
             return value
         from django.core.exceptions import ValidationError as DjangoValidationError
 
-        from mybookconnect.media_security import sanitize_image, validate_chat_image
+        from mybookconnect.media_security import (
+            CHAT_IMAGE_PRESET,
+            sanitize_image,
+            validate_chat_image,
+        )
 
         try:
             validate_chat_image(value)
-            return sanitize_image(value)
+            return sanitize_image(value, max_dimensions=CHAT_IMAGE_PRESET)
         except DjangoValidationError as err:
             msg = err.messages if hasattr(err, 'messages') else str(err)
             raise serializers.ValidationError(msg) from err

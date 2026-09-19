@@ -2692,18 +2692,45 @@ Se ha implementado una estrategia integral de defensa en profundidad (*Defense i
 
 ------------------------------------------------------------------------
 
-# 63. Fase 60 --- Seguridad de imágenes
+# 63. Fase 60 --- Seguridad de imágenes [COMPLETADA]
 
-Procesar imágenes:
+**Prioridad:** P1 - COMPLETADA
 
-``` text
-resize
-strip metadata
-validate MIME
-validate dimensions
-```
+Se ha implementado una infraestructura avanzada y multicapa para el procesamiento, validación e higienización de imágenes en el backend:
 
-Considerar antivirus/scanner si el proyecto crece.
+1. **Redimensionamiento Inteligente (*resize / downscale*)**:
+   - Presets adaptados por caso de uso en `media_security.py`:
+     - `AVATAR_PRESET = (512, 512)` para avatares de usuario.
+     - `AUTHOR_PHOTO_PRESET = (800, 1200)` para fotos de autores.
+     - `COVER_PRESET = (1200, 1800)` para portadas de libros.
+     - `CHAT_IMAGE_PRESET = (1920, 1920)` para imágenes adjuntas en mensajería/chat.
+   - Algoritmo de remuestreo de alta calidad `Image.Resampling.LANCZOS` que preserva la relación de aspecto original (*aspect ratio*) sin distorsionar la imagen.
+   - Si la imagen original es menor al preset, no se sobredimensiona artificialmente.
+2. **Eliminación Profunda de Metadatos (*strip metadata*)**:
+   - Purgado exhaustivo de bloques `exif`, `icc_profile`, `photoshop`, `xmp`, `comment`, `parameters` y `Software` en `sanitize_image`.
+   - Re-codificación limpia en buffer en memoria para JPEG, PNG y WebP, eliminando cualquier carga maliciosa oculta en cabeceras o metadatos manipulados.
+3. **Validación Estricta de MIME y Magic Bytes**:
+   - Verificación estricta de extensiones permitidas (`.jpg`, `.jpeg`, `.png`, `.webp`).
+   - Verificación de tipos MIME declarados en la petición HTTP contra `ALLOWED_MIME_TYPES`.
+   - Inspección binaria de firmas de cabecera (*Magic Bytes*):
+     - JPEG: `\xff\xd8\xff`
+     - PNG: `\x89PNG\r\n\x1a\n`
+     - WebP: `RIFF....WEBP`
+   - Comprobación de consistencia obligatoria entre firma binaria, MIME declarado y formato decodificado por Pillow, bloqueando discrepancias y archivos camuflados (ejecutables, polyglots, scripts).
+4. **Control de Dimensiones y Bombas de Descompresión**:
+   - Validación de resolución mínima (50x50 px) y techo máximo de subida (6000x6000 px).
+   - Manejo explícito de `Image.DecompressionBombError` para prevenir ataques de denegación de servicio (DoS).
+5. **Arquitectura para Escáner Antivirus / Malware (`media_scanner.py`)**:
+   - Módulo pluggable con interfaz base `BaseMediaScanner`.
+   - Implementación `ClamAVScanner` con protocolo TCP/INSTREAM para demonios ClamAV en entornos de producción.
+   - Implementación `SecurityHeuristicScanner` con detección de la firma estándar EICAR y detección de cabeceras ejecutables camufladas (`MZ`, `\x7fELF`), bloqueando de inmediato cualquier archivo infectado con `ValidationError`.
+6. **Verificación y Pruebas**:
+   - Suite de pruebas de la fase: `backend/tests/test_phase60_image_security.py` (**15/15 tests PASSED**).
+   - Suite de regresión de medios: `backend/tests/test_phase28_media_security.py` (**17/17 tests PASSED**).
+   - Suite de regresión UGC: `backend/tests/test_phase59_ugc_security.py` (**10/10 tests PASSED**).
+   - Linter Python `ruff check` (**0 errores, All checks passed!**).
+   - Verificación estricta de tipos TypeScript `tsc --noEmit` (**0 errores**).
+   - Suite de pruebas frontend Vitest `npx vitest run` (**21/21 tests PASSED**).
 
 ------------------------------------------------------------------------
 

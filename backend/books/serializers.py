@@ -47,11 +47,15 @@ class AuthorBasicSerializer(serializers.ModelSerializer):
             return value
         from django.core.exceptions import ValidationError as DjangoValidationError
 
-        from mybookconnect.media_security import sanitize_image, validate_author_photo
+        from mybookconnect.media_security import (
+            AUTHOR_PHOTO_PRESET,
+            sanitize_image,
+            validate_author_photo,
+        )
 
         try:
             validate_author_photo(value)
-            return sanitize_image(value)
+            return sanitize_image(value, max_dimensions=AUTHOR_PHOTO_PRESET)
         except DjangoValidationError as err:
             msg = err.messages if hasattr(err, 'messages') else str(err)
             raise serializers.ValidationError(msg) from err
@@ -81,11 +85,15 @@ class AuthorSerializer(serializers.ModelSerializer):
             return value
         from django.core.exceptions import ValidationError as DjangoValidationError
 
-        from mybookconnect.media_security import sanitize_image, validate_author_photo
+        from mybookconnect.media_security import (
+            AUTHOR_PHOTO_PRESET,
+            sanitize_image,
+            validate_author_photo,
+        )
 
         try:
             validate_author_photo(value)
-            return sanitize_image(value)
+            return sanitize_image(value, max_dimensions=AUTHOR_PHOTO_PRESET)
         except DjangoValidationError as err:
             msg = err.messages if hasattr(err, 'messages') else str(err)
             raise serializers.ValidationError(msg) from err
@@ -154,11 +162,15 @@ class BookSerializer(serializers.ModelSerializer):
             return value
         from django.core.exceptions import ValidationError as DjangoValidationError
 
-        from mybookconnect.media_security import sanitize_image, validate_cover_image
+        from mybookconnect.media_security import (
+            COVER_PRESET,
+            sanitize_image,
+            validate_cover_image,
+        )
 
         try:
             validate_cover_image(value)
-            return sanitize_image(value)
+            return sanitize_image(value, max_dimensions=COVER_PRESET)
         except DjangoValidationError as err:
             msg = err.messages if hasattr(err, 'messages') else str(err)
             raise serializers.ValidationError(msg) from err

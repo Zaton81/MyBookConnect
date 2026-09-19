@@ -58,11 +58,11 @@ class UserSerializer(serializers.ModelSerializer):
             return value
         from django.core.exceptions import ValidationError as DjangoValidationError
 
-        from mybookconnect.media_security import sanitize_image, validate_avatar_image
+        from mybookconnect.media_security import AVATAR_PRESET, sanitize_image, validate_avatar_image
 
         try:
             validate_avatar_image(value)
-            return sanitize_image(value)
+            return sanitize_image(value, max_dimensions=AVATAR_PRESET)
         except DjangoValidationError as err:
             msg = err.messages if hasattr(err, 'messages') else str(err)
             raise serializers.ValidationError(msg) from err
