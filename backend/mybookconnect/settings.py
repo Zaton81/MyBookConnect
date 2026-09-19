@@ -58,6 +58,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'mybookconnect.middleware.ApiErrorContractMiddleware',
 ]
 
 ROOT_URLCONF = 'mybookconnect.urls'
@@ -186,6 +187,7 @@ REST_FRAMEWORK = {
     },
     'DEFAULT_PAGINATION_CLASS': 'books.pagination.StandardResultsSetPagination',
     'PAGE_SIZE': 20,
+    'EXCEPTION_HANDLER': 'mybookconnect.exceptions.custom_exception_handler',
 }
 
 GOOGLE_OAUTH_CLIENT_ID = os.getenv('GOOGLE_OAUTH_CLIENT_ID', '')

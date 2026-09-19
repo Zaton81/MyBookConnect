@@ -2734,34 +2734,49 @@ Se ha implementado una infraestructura avanzada y multicapa para el procesamient
 
 ------------------------------------------------------------------------
 
-# 64. Fase 61 --- Contrato de errores API
+# 64. Fase 61 --- Contrato de errores API [COMPLETADA]
 
-Unificar errores.
+**Prioridad:** P1 - COMPLETADA
 
-Formato recomendado:
+Se ha implementado un contrato unificado, predecible y estandarizado de respuestas de error para todos los endpoints de la API, manteniendo total retrocompatibilidad con clientes existentes y pruebas preexistentes:
 
-``` json
-{
-  "error": {
-    "code": "REVIEW_ALREADY_EXISTS",
-    "message": "El usuario ya tiene una reseña para este libro.",
-    "details": {}
-  }
-}
-```
-
-Códigos estables:
-
-``` text
-AUTH_INVALID
-PERMISSION_DENIED
-NOT_FOUND
-VALIDATION_ERROR
-REVIEW_ALREADY_EXISTS
-BOOK_DUPLICATE
-USER_BLOCKED
-RATE_LIMITED
-```
+1. **Estructura Unificada de Error**:
+   - Formato estándar implementado en todas las respuestas con código HTTP >= 400 bajo `/api/`:
+     ```json
+     {
+       "error": {
+         "code": "REVIEW_ALREADY_EXISTS",
+         "message": "El usuario ya tiene una reseña para este libro.",
+         "details": {}
+       }
+     }
+     ```
+2. **Códigos de Error Estables (`ErrorCode`)**:
+   - `AUTH_INVALID` (401 - Credenciales no suministradas, inválidas o expiradas).
+   - `PERMISSION_DENIED` (403 - Permisos insuficientes para el recurso).
+   - `NOT_FOUND` (404 - Recurso no encontrado).
+   - `VALIDATION_ERROR` (400 - Parámetros de solicitud o datos de entrada no válidos).
+   - `REVIEW_ALREADY_EXISTS` (409/400 - El usuario ya tiene una reseña para el libro indicado).
+   - `BOOK_DUPLICATE` (409/400 - Ya existe un libro con ese título/autor o ISBN en el catálogo).
+   - `USER_BLOCKED` (403 - Interacción rechazada debido a bloqueo mutuo o silenciamiento disciplinario).
+   - `RATE_LIMITED` (429 - Límite de tasa de peticiones excedido con tiempo de espera dinámico).
+   - `METHOD_NOT_ALLOWED` (405 - Verbo HTTP no soportado por el endpoint).
+   - `INTERNAL_SERVER_ERROR` (500 - Error inesperado del servidor protegido y registrado).
+3. **Manejador Centralizado de Excepciones y Middleware**:
+   - `custom_exception_handler` registrado en `REST_FRAMEWORK['EXCEPTION_HANDLER']` en `settings.py`.
+   - Clases de excepción de dominio específicas: `ReviewAlreadyExistsError`, `BookDuplicateError`, `UserBlockedError`, `RateLimitedError`.
+   - `ApiErrorContractMiddleware` registrado en `MIDDLEWARE` para normalizar también aquellas vistas que devuelven directamente `Response({'detail': ...}, status=4xx)` sin lanzar excepciones.
+4. **Retrocompatibilidad Garantizada**:
+   - Preservación de claves heredadas a nivel de raíz (`detail`, `avatar`, `cover_image`, `title`, etc.) en la respuesta, garantizando que clientes y suites de tests previos continúen funcionando sin romperse.
+5. **Cliente Frontend Unificado**:
+   - Definición de interfaces tipadas `ApiErrorData`, `ApiErrorResponse` y clase de excepción de primera clase `ApiError extends Error` en `frontend/src/api/client.ts`.
+   - `apiClient` extrae automáticamente `error.code`, `error.message` y `error.details` para un manejo declarativo y robusto en la UI.
+6. **Verificación y Pruebas**:
+   - Suite de pruebas de contrato: `backend/tests/test_phase61_error_contract.py` (**16/16 tests PASSED**).
+   - Suites de regresión: `test_phase60_image_security.py`, `test_phase59_ugc_security.py`, `test_phase28_media_security.py`, `test_review_social.py` (**48/48 tests PASSED**).
+   - Linter Python `ruff check` (**0 errores, All checks passed!**).
+   - Verificación estricta de tipos TypeScript `tsc --noEmit` (**0 errores**).
+   - Suite de pruebas frontend Vitest `npx vitest run` (**21/21 tests PASSED**).
 
 ------------------------------------------------------------------------
 

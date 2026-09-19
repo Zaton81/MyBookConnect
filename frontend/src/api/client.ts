@@ -53,6 +53,37 @@ async function refreshAccessToken(): Promise<string | null> {
   return refreshPromise;
 }
 
+export interface ApiErrorData {
+  code: string;
+  message: string;
+  details?: Record<string, any>;
+}
+
+export interface ApiErrorResponse {
+  error?: ApiErrorData;
+  detail?: string;
+  [key: string]: any;
+}
+
+export class ApiError extends Error {
+  public code: string;
+  public status: number;
+  public details?: Record<string, any>;
+
+  constructor(
+    message: string,
+    code: string = 'ERROR',
+    status: number = 400,
+    details?: Record<string, any>
+  ) {
+    super(message);
+    this.name = 'ApiError';
+    this.code = code;
+    this.status = status;
+    this.details = details;
+  }
+}
+
 export interface RequestOptions extends RequestInit {
   requireAuth?: boolean;
 }
@@ -102,10 +133,17 @@ export async function apiClient<T = any>(
 
   if (!response.ok) {
     let errorDetail = `Error ${response.status}: ${response.statusText}`;
+    let errorCode = 'ERROR';
+    let errorDetails: Record<string, any> | undefined = undefined;
+
     try {
       const errorJson = await response.json();
       if (errorJson && typeof errorJson === 'object') {
-        if (errorJson.detail) {
+        if (errorJson.error && typeof errorJson.error === 'object') {
+          errorCode = errorJson.error.code || errorCode;
+          errorDetail = errorJson.error.message || errorDetail;
+          errorDetails = errorJson.error.details;
+        } else if (errorJson.detail) {
           errorDetail = errorJson.detail;
         } else {
           const parts: string[] = [];
@@ -120,7 +158,7 @@ export async function apiClient<T = any>(
     } catch {
       // Ignorar error al parsear cuerpo no-JSON
     }
-    throw new Error(errorDetail);
+    throw new ApiError(errorDetail, errorCode, response.status, errorDetails);
   }
 
   if (response.status === 204) {

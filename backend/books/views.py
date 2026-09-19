@@ -485,14 +485,14 @@ class ReviewLikeToggleView(APIView):
         from users.policies import can_view_review
 
         review = get_object_or_404(Review.objects.select_related('user', 'book'), id=review_id)
-        if not can_view_review(request.user, review):
-            raise PermissionDenied('No tienes permiso para ver esta reseña.')
-
         if (
             review.user.blocked_users.filter(id=request.user.id).exists()
             or request.user.blocked_users.filter(id=review.user_id).exists()
         ):
             return Response({'detail': 'No puedes interactuar con esta reseña.'}, status=403)
+
+        if not can_view_review(request.user, review):
+            raise PermissionDenied('No tienes permiso para ver esta reseña.')
 
         like = ReviewLike.objects.filter(user=request.user, review=review).first()
         if like:
@@ -577,14 +577,14 @@ class ReviewCommentListCreateView(APIView):
             )
 
         review = get_object_or_404(Review.objects.select_related('user', 'book'), id=review_id)
-        if not can_view_review(request.user, review):
-            raise PermissionDenied('No tienes permiso para ver esta reseña.')
-
         if (
             review.user.blocked_users.filter(id=request.user.id).exists()
             or request.user.blocked_users.filter(id=review.user_id).exists()
         ):
             return Response({'detail': 'No puedes interactuar con esta reseña.'}, status=status.HTTP_403_FORBIDDEN)
+
+        if not can_view_review(request.user, review):
+            raise PermissionDenied('No tienes permiso para ver esta reseña.')
 
         from mybookconnect.html_sanitizer import sanitize_plain_text
 

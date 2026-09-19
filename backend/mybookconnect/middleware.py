@@ -85,3 +85,44 @@ class JwtAuthMiddleware:
 
 def JwtAuthMiddlewareStack(inner):
     return JwtAuthMiddleware(inner)
+
+
+class ApiErrorContractMiddleware:
+    """
+    Middleware HTTP que garantiza que todas las respuestas de error (status >= 400)
+    bajo rutas de la API (/api/) tengan la estructura unificada del contrato de errores,
+    incluso si la vista devolvió directamente un Response(status=4xx) sin lanzar una excepción.
+    """
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        response = self.get_response(request)
+        if request.path.startswith("/api/") and response.status_code >= 400:
+            try:
+                from mybookconnect.exceptions import normalize_error_data
+
+                if hasattr(response, "data") and isinstance(response.data, (dict, list)):
+                    if not (isinstance(response.data, dict) and "error" in response.data):
+                        response.data = normalize_error_data(
+                            response.data,
+                            response.status_code,
+                            method=request.method,
+                        )
+                        if getattr(response, "_is_rendered", False):
+                            response._is_rendered = False
+                            response.render()
+                elif "application/json" in response.get("Content-Type", ""):
+                    import json
+
+                    content = json.loads(response.content.decode("utf-8"))
+                    if isinstance(content, (dict, list)):
+                        if not (isinstance(content, dict) and "error" in content):
+                            normalized = normalize_error_data(content, response.status_code, method=request.method)
+                            response.content = json.dumps(normalized).encode("utf-8")
+            except Exception as e:
+                logger.debug("Error al normalizar contrato de error en middleware: %s", e)
+
+        return response
+
