@@ -3124,31 +3124,44 @@ Se ha formalizado la estrategia oficial de ramas de Git basada en un flujo GitFl
 
 ------------------------------------------------------------------------
 
-# 73. Fase 70 --- Convención de commits
+# 73. Fase 70 --- Convención de commits [COMPLETADA]
 
-Usar Conventional Commits:
+**Prioridad:** P1 - COMPLETADA
 
-``` text
-feat:
-fix:
-refactor:
-test:
-docs:
-perf:
-security:
-chore:
-ci:
-```
+Se ha adoptado, estandarizado y automatizado el cumplimiento de la especificación internacional [Conventional Commits 1.0.0](https://www.conventionalcommits.org/es/v1.0.0/) en todo el ciclo de vida de desarrollo de MyBookConnect:
 
-Ejemplos:
+1. **Especificación Oficial de Commits (`docs/development/commit_conventions.md`)**:
+   - **Estructura obligatoria**: `<tipo>[ámbito opcional][!]: <descripción imperativa en presente>` con cuerpo y pie opcionales.
+   - **Tipos estandarizados**:
+     - `feat`: Nuevas características (`### Added` en `CHANGELOG.md`).
+     - `fix`: Corrección de errores (`### Fixed` en `CHANGELOG.md`).
+     - `refactor`: Limpieza y reestructuración sin impacto funcional (`### Changed`).
+     - `perf`: Mejoras de rendimiento en BD, caché o frontend (`### Changed`).
+     - `security`: Parches de seguridad, endurecimiento JWT, sanitización (`### Security`).
+     - `test`: Añadir o actualizar pruebas unitarias/integración.
+     - `docs`: Documentación y guías de desarrollo.
+     - `chore`: Mantenimiento, dependencias y scripts de tooling.
+     - `ci`: Integración continua y GitHub Actions.
+     - `build`: Configuración de compilación y empaquetado.
+     - `style`: Formateo de código sin alteración lógica.
+     - `revert`: Reversión de commits previos.
+   - **Ámbitos (Scopes) reconocidos**: `(books)`, `(users)`, `(auth)`, `(reviews)`, `(chat)`, `(gamification)`, `(lists)`, `(cache)`, `(api)`, `(frontend)`, `(db)`, `(deps)`, `(docker)`, `(ci)`, `(release)`.
+   - **Breaking Changes**: Soporte explícito de `!` antes de los dos puntos y pie de página `BREAKING CHANGE:`.
 
-``` text
-feat: add reading status
-fix: prevent duplicate reviews
-refactor: split external book providers
-test: add privacy permission tests
-security: rotate refresh tokens
-```
+2. **Linter Automatizado de Commits (`scripts/validate_commit_msg.py`)**:
+   - Validador Python autónomo y multiplataforma (compatible con Windows cp1252, Linux y macOS).
+   - Valida longitud máxima de cabecera (100 caracteres), tipos en minúsculas, espacio obligatorio tras dos puntos, descripción no vacía y ausencia de punto final.
+   - Permite ejecución directa por CLI o como validador de archivos de commit.
+
+3. **Hook Local de Git (`.githooks/commit-msg`)**:
+   - Hook versionado en el repositorio que intercepta cada `git commit` y ejecuta automáticamente `scripts/validate_commit_msg.py`.
+   - Activación directa mediante `git config core.hooksPath .githooks`.
+
+4. **Pruebas Automatizadas y Verificación de Calidad**:
+   - Suite dedicada: `backend/tests/test_phase70_commit_conventions.py` (**32/32 tests PASSED**), validando mensajes conformes, rechazo determinista de formatos erróneos, integridad de la documentación y presencia del hook de Git.
+   - Suites de regresión (Fases 68 y 69): (**10/10 tests PASSED**).
+   - Linters Python: `ruff check` (**All checks passed!**).
+   - Verificación de tipos TypeScript: `tsc --noEmit` (**0 errores**).
 
 ------------------------------------------------------------------------
 
