@@ -2985,19 +2985,36 @@ Se ha diseñado e implementado una arquitectura integral de copias de seguridad 
 
 ------------------------------------------------------------------------
 
-# 70. Fase 67 --- Disaster recovery
+# 70. Fase 67 --- Disaster recovery [COMPLETADA]
 
-Documentar:
+**Prioridad:** P1 - COMPLETADA
 
-``` text
-cómo recuperar DB
-cómo recuperar media
-cómo regenerar Redis
-cómo desplegar versión anterior
-cómo restaurar secretos
-```
+Se ha formalizado e implementado la estrategia integral de Recuperación ante Desastres (*Disaster Recovery - DRP*) para MyBookConnect, garantizando mediante manuales operativos y validaciones en código el principio rector: **"Redis no debe ser fuente de verdad"**:
 
-Redis no debe ser fuente de verdad.
+1. **Manual Maestro de Recuperación ante Desastres (`docs/deployment/disaster_recovery.md`)**:
+   - Establece objetivos de contingencia: **RPO $\le$ 24 horas** (respaldos diarios validados) y **RTO $\le$ 30 minutos**.
+   - **Runbook 1 (Cómo recuperar DB)**: aislamiento de tráfico, terminación de conexiones abiertas (`pg_terminate_backend`), restauración atómica desde volcado validado con SHA-256 (`restore_db.sh` / `manage.py restore_db`) y reanudación de servicios.
+   - **Runbook 2 (Cómo recuperar media)**: restauración de archivos multimedia desde tarball validado (`restore_media.sh` / `manage.py restore_media`) o sincronización desde almacenamiento de objetos remoto (`aws s3 sync`), resolución de permisos y propiedad `appuser:appgroup`.
+   - **Runbook 3 (Cómo regenerar Redis)**: reinicio o recreación limpia del contenedor `cache` sin pérdida de información de negocio, validación de latencia y conectividad con `redis-cli ping` y precalentamiento determinista.
+   - **Runbook 4 (Cómo desplegar versión anterior / Rollback)**: reversión de código e imágenes Docker etiquetadas, ejecución de migraciones inversas de base de datos (`manage.py migrate <app> <version_previa>`), purga de caché y verificación de healthchecks.
+   - **Runbook 5 (Cómo restaurar secretos)**: generación criptográfica de nuevas variables de entorno (`SECRET_KEY`, `POSTGRES_PASSWORD`), actualización en PostgreSQL, invalidación masiva de sesiones y revocación de tokens JWT mediante `token_blacklist`.
+
+2. **Comando de Regeneración de Caché (`backend/books/management/commands/rebuild_cache.py`)**:
+   - `python manage.py rebuild_cache [--limit <N>] [--flush-first]`:
+     - Consulta directamente PostgreSQL y calcula los rankings de tendencias para todas las ventanas temporales (`trending:week`, `trending:month`, `trending:year`, `trending:all`).
+     - Precalienta el detalle de los libros principales (`book:{id}`) para evitar *cache stampedes* o latencia tras un reinicio de Redis.
+     - Demuestra fácticamente que Redis es una caché volátil reconstruible al 100% desde la base de datos.
+
+3. **Verificación y Pruebas Automatizadas**:
+   - Suite dedicada: `backend/tests/test_phase67_disaster_recovery.py` (**4/4 tests PASSED**), validando:
+     - **Resiliencia ante vaciado total de Redis (`cache.clear()`)**: las consultas a la API continúan respondiendo con éxito (código 200) y recargando los datos fielmente desde PostgreSQL (patrón cache-aside).
+     - **Precalentamiento determinista**: el comando `rebuild_cache` repuebla las claves multi-período y libros destacados en Redis.
+     - **Drill E2E de Desastre**: caída y corrupción de datos → restauración desde backup → purga/regeneración de caché → coherencia íntegra verificada.
+     - **Seguridad y Revocación**: lista negra y rechazo inmediato de tokens JWT tras incidentes de seguridad (código 401).
+   - Pruebas conjuntas de backup y DR: `test_phase67_disaster_recovery.py` y `test_phase66_backups.py` (**12/12 tests PASSED**).
+   - Linters Python: `ruff check` (**All checks passed!**).
+   - Verificación de tipos TypeScript: `tsc --noEmit` (**0 errores**).
+   - Suite frontend Vitest: `npx vitest run` (**21/21 tests PASSED**).
 
 ------------------------------------------------------------------------
 
