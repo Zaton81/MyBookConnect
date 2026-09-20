@@ -2895,30 +2895,42 @@ Se ha blindado la consistencia y resiliencia de la plataforma ante condiciones d
 
 ------------------------------------------------------------------------
 
-# 68. Fase 65 --- Cache invalidation
+# 68. Fase 65 --- Cache invalidation [COMPLETADA]
 
-Definir explícitamente cuándo invalidar:
+**Prioridad:** P1 - COMPLETADA
 
-``` text
-book cache
-profile cache
-recommendation cache
-trending cache
-```
+Se ha implementado una política explícita y automatizada de invalidación de caché reactiva y proactiva, eliminando la dependencia del TTL como única estrategia y garantizando la coherencia inmediata de datos en libros, perfiles, recomendaciones y tendencias:
 
-Ejemplo:
+1. **Estructura y Claves de Invalidación (`backend/books/cache_utils.py`)**:
+   - `book cache`: invalidación de detalle (`book:{id}`) y recalculo/evicción reactiva.
+   - `profile cache`: añadido soporte de caché de perfil (`user:profile:{id}`) con TTL explícito (`TTL_USER_PROFILE = 900`) e invalidación `invalidate_user_profile_cache(user_id)`.
+   - `recommendation cache`: invalidación integral de recomendaciones por usuario (`recommendations:user:{id}:{strategy}`) para todas las estrategias (`hybrid`, `rules`, `social`, `semantic`, `v1`, `v2`, `v3`, `all`), recomendaciones a nivel libro (`recommendations:book:{id}`), libros similares (`similar_books_{id}`) y vectores/embeddings de preferencia de usuario (`user_pref_vector_{id}`, `user_pref_embedding_{id}`).
+   - `trending cache`: invalidación completa multi-período (`trending:week`, `trending:month`, `trending:year`, `trending:all`).
+   - Cascada reactiva orquestada: función `cascade_review_invalidation(book_id, user_id)` que ejecuta la secuencia exacta:
+     `new review` → `invalidate book rating & detail` → `invalidate recommendations (book & user)` → `invalidate trending (all periods)` → `invalidate user profile & stats`.
 
-``` text
-new review
- ↓
-invalidate book rating
- ↓
-invalidate recommendations
- ↓
-invalidate trending
-```
+2. **Señales Reactivas y Desencadenantes del Modelo (`backend/books/models.py`)**:
+   - `update_book_rating`: llama a `invalidate_book_cache(self.id)` e `invalidate_trending_cache()` tras actualizar promedios.
+   - `handle_review_signals`: al crear, actualizar o eliminar una reseña activa, dispara `cascade_review_invalidation(instance.book_id, instance.user_id)`.
+   - `handle_userbook_signals`: cambios de estado de lectura en `UserBook` invalidan el perfil del usuario, estadísticas, recomendaciones de usuario y libro, tendencias y caché del libro.
+   - `invalidate_book_cache_signal`: al actualizar o eliminar un `Book`, se invalidan su caché de detalle, recomendaciones asociadas y el ranking de tendencias.
 
-No usar TTL como única estrategia.
+3. **Caché e Invalidación en Vistas de Usuario (`backend/users/views.py`)**:
+   - `UserProfileView.retrieve`: respuesta del perfil autenticado cacheada en `user:profile:{id}` con cabeceras y serialización DRF.
+   - `UserUpdateView.perform_update`: invalida proactivamente `invalidate_user_profile_cache(instance.id)`.
+   - `FollowUserView.post` & `UnfollowUserView.post`: invalidan el perfil y estadísticas de ambos usuarios y purgan las recomendaciones del usuario (`recommendations:user:{id}:social`).
+   - `BlockUserView.post` & `UnblockUserView.post`: invalidan el perfil y recomendaciones de los usuarios involucrados.
+
+4. **Verificación y Pruebas**:
+   - Suite dedicada: `backend/tests/test_phase65_cache_invalidation.py` (**7/7 tests PASSED**), validando:
+     - Cascada reactiva completa ante creación, edición y eliminación de reviews.
+     - Invalidación de caché de perfiles ante actualizaciones de usuario, follow/unfollow y cambios de UserBook.
+     - Purga de recomendaciones (estrategias híbridas, sociales, vectoriales) y embeddings.
+     - Evicción de tendencias en todos sus rangos de tiempo (`week`, `month`, `year`, `all`).
+   - Suites de regresión: `test_phase64_concurrency.py`, `test_phase63_transactions.py`, `test_phase62_idempotency.py`, `test_caching.py` (**45/45 tests PASSED**).
+   - Linters Python: `ruff check` (**All checks passed!**).
+   - Verificación de tipos TypeScript: `tsc --noEmit` (**0 errores**).
+   - Suite frontend Vitest: `npx vitest run` (**21/21 tests PASSED**).
 
 ------------------------------------------------------------------------
 

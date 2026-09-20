@@ -10,6 +10,7 @@ TTL_BOOK_DETAIL = 900          # 15 minutos
 TTL_TRENDING = 900             # 15 minutos
 TTL_STATS = 900                # 15 minutos
 TTL_RECOMMENDATIONS = 900      # 15 minutos
+TTL_USER_PROFILE = 900         # 15 minutos
 TTL_EXTERNAL_API = 86400       # 24 horas
 TTL_WIKIPEDIA_AUTHOR = 172800  # 48 horas
 
@@ -69,25 +70,41 @@ def wikipedia_book_key(title: str) -> str:
 
 def invalidate_book_cache(book_id: int | str) -> None:
     """
-    Invalida atómicamente la caché del detalle del libro y los rankings de tendencias dependientes.
+    Invalida atómicamente la caché del detalle del libro y todos los rankings de tendencias dependientes.
     """
     try:
         key = book_detail_key(book_id)
         cache.delete(key)
-        # Limpiar también tendencias ya que ratings y lectores pueden haber variado
-        cache.delete(trending_key('all'))
+        invalidate_trending_cache()
         logger.debug(f"Caché invalidada para libro {book_id}")
     except Exception as exc:
         logger.warning(f"Error invalidando caché para libro {book_id}: {exc}")
 
 
 def invalidate_trending_cache() -> None:
-    """Invalida la caché de todos los periodos del ranking de tendencias."""
+    """Invalida la caché de todos los periodos del ranking de tendencias ('week', 'month', 'year', 'all')."""
     try:
         for p in ('week', 'month', 'year', 'all'):
             cache.delete(trending_key(p))
     except Exception as exc:
         logger.warning(f"Error invalidando caché de tendencias: {exc}")
+
+
+def user_profile_key(user_id: int | str) -> str:
+    """Namespace de perfil de usuario: user:profile:{user_id}"""
+    return f"user:profile:{user_id}"
+
+
+def invalidate_user_profile_cache(user_id: int | str) -> None:
+    """
+    Invalida atómicamente la caché del perfil y de las estadísticas del usuario.
+    """
+    try:
+        cache.delete(user_profile_key(user_id))
+        cache.delete(user_stats_key(user_id))
+        logger.debug(f"Caché de perfil y estadísticas invalidada para usuario {user_id}")
+    except Exception as exc:
+        logger.warning(f"Error invalidando caché de perfil para usuario {user_id}: {exc}")
 
 
 def user_stats_key(user_id: int | str) -> str:
@@ -119,24 +136,63 @@ def book_recommendations_key(book_id: int | str) -> str:
 
 def invalidate_user_recommendations_cache(user_id: int | str) -> None:
     """
-    Invalida la caché de recomendaciones de un usuario para todas sus estrategias.
+    Invalida la caché de recomendaciones de un usuario para todas sus estrategias y embeddings.
     """
     try:
-        for strat in ('hybrid', 'rules', 'social', 'semantic', 'all'):
+        for strat in ('hybrid', 'rules', 'social', 'semantic', 'v1', 'v2', 'v3', 'all'):
             cache.delete(user_recommendations_key(user_id, strat))
-        logger.debug(f"Caché de recomendaciones invalidada para usuario {user_id}")
+        cache.delete(f"user_pref_embedding_{user_id}")
+        cache.delete(f"user_pref_vector_{user_id}")
+        logger.debug(f"Caché de recomendaciones y vectores invalidada para usuario {user_id}")
     except Exception as exc:
         logger.warning(f"Error invalidando caché de recomendaciones para usuario {user_id}: {exc}")
 
 
 def invalidate_book_recommendations_cache(book_id: int | str) -> None:
     """
-    Invalida la caché de recomendaciones contextuales de un libro específico.
+    Invalida la caché de recomendaciones contextuales de un libro específico y libros similares.
     """
     try:
         cache.delete(book_recommendations_key(book_id))
+        cache.delete(f"similar_books_{book_id}")
         logger.debug(f"Caché de recomendaciones contextuales invalidada para libro {book_id}")
     except Exception as exc:
         logger.warning(f"Error invalidando recomendaciones para libro {book_id}: {exc}")
+
+
+def cascade_review_invalidation(book_id: int | str, user_id: int | str) -> None:
+    """
+    Cascada reactiva completa ante mutación de reseña (Roadmap Fase 65):
+    new review
+     ↓
+    invalidate book rating & book cache
+     ↓
+    invalidate recommendations (book & user)
+     ↓
+    invalidate trending (all periods)
+     ↓
+    invalidate user profile & stats
+    """
+    try:
+        # 1. Invalida libro y desencadena recálculo de promedio
+        invalidate_book_cache(book_id)
+        try:
+            from books.tasks import recalculate_book_rating_task
+            recalculate_book_rating_task.delay(int(book_id))
+        except Exception:
+            pass
+
+        # 2. Invalida recomendaciones de libro y usuario
+        invalidate_book_recommendations_cache(book_id)
+        invalidate_user_recommendations_cache(user_id)
+
+        # 3. Invalida ranking de tendencias
+        invalidate_trending_cache()
+
+        # 4. Invalida perfil y estadísticas del autor de la reseña
+        invalidate_user_profile_cache(user_id)
+        logger.debug(f"Cascada de invalidación completada para review (libro={book_id}, user={user_id})")
+    except Exception as exc:
+        logger.warning(f"Error en cascada de invalidación de reseña: {exc}")
 
 
