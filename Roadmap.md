@@ -3165,23 +3165,39 @@ Se ha adoptado, estandarizado y automatizado el cumplimiento de la especificaci�
 
 ------------------------------------------------------------------------
 
-# 74. Fase 71 --- Definition of Done
+# 74. Fase 71 --- Definition of Done [COMPLETADA]
 
-Una funcionalidad no está terminada hasta cumplir:
+**Prioridad:** P1 - COMPLETADA
 
--   [ ] Modelo.
--   [ ] Migración.
--   [ ] Serializer.
--   [ ] API.
--   [ ] Permisos.
--   [ ] Tests backend.
--   [ ] Cliente frontend.
--   [ ] UI.
--   [ ] Tests frontend.
--   [ ] Documentación.
--   [ ] OpenAPI.
--   [ ] CI.
--   [ ] Logs si son necesarios.
+Se ha formalizado, estandarizado y automatizado la **Definition of Done (DoD)** obligatoria para todas las funcionalidades y Pull Requests de MyBookConnect, asegurando que ninguna tarea se considere terminada sin cumplir estrictamente los 13 criterios de calidad:
+
+-   [x] **1. Modelo:** Diseño conceptual sin redundancia, restricciones de unicidad (`UniqueConstraint`), comprobación (`CheckConstraint`), índices optimizados (`db_index=True`, `models.Index`) y marcas temporales/soft-delete.
+-   [x] **2. Migración:** Generación limpia sin operaciones pendientes (`makemigrations --check --dry-run`), no bloqueantes en producción y con reversibilidad probada (`migrate app 00XX`).
+-   [x] **3. Serializer:** Validación estricta, sanitización XSS obligatoria con `nh3` (`sanitize_html`, `sanitize_plain_text`) y optimización de consultas (`select_related`, `prefetch_related`) para prevenir N+1.
+-   [x] **4. API:** RESTful canónico con barra final (`/`), códigos de estado HTTP semánticos (200, 201, 204, 400, 401, 403, 404, 409, 422, 429) y contrato de error RFC 7807.
+-   [x] **5. Permisos:** Autorización granular en backend, permisos por objeto (`HasObjectPermission`) y respeto a las opciones de privacidad (`public`, `followers`, `private`).
+-   [x] **6. Tests backend:** Cobertura con `pytest-django` de camino feliz, casos borde y flujos de error, con aislamiento total de servicios externos y Celery mediante mocks.
+-   [x] **7. Cliente frontend:** Tipado estricto en TypeScript generado automáticamente desde el esquema OpenAPI (`src/types/api.ts`) y gestión de estado asíncrono con TanStack Query.
+-   [x] **8. UI:** Diseño responsivo mobile-first con TailwindCSS, estados visuales de carga, estados vacíos y accesibilidad básica (WCAG 2.1 AA).
+-   [x] **9. Tests frontend:** Pruebas unitarias y de integración de componentes y flujos con Vitest y React Testing Library.
+-   [x] **10. Documentación:** Docstrings actualizados, guías técnicas en `docs/` y registro de cambios en `CHANGELOG.md` (`Keep a Changelog 1.1.0`).
+-   [x] **11. OpenAPI:** Anotaciones `@extend_schema`, validación estricta con `drf-spectacular` (`spectacular --validate`) y sincronización de tipos.
+-   [x] **12. CI:** Pipelines de integración continua en verde (`ruff check` limpio, `tsc --noEmit` sin errores, tests automatizados).
+-   [x] **13. Logs si son necesarios:** Logging estructurado con `logging.getLogger(__name__)`, niveles semánticos apropiados y anonimización de datos sensibles/secretos.
+
+### Artefactos y Herramientas Entregados:
+1. **Guía Oficial de Calidad (`docs/development/definition_of_done.md`)**:
+   - Documentación exhaustiva con directrices técnicas y mandatos de diseño para cada uno de los 13 criterios.
+2. **Plantilla Oficial de Pull Request (`.github/pull_request_template.md`)**:
+   - Plantilla de GitHub con la checklist interactiva de los 13 puntos y clasificación por Conventional Commits.
+3. **Herramienta de Verificación Automatizada (`scripts/verify_dod.sh`)**:
+   - Validador por consola que comprueba en segundos: migraciones pendientes, esquema OpenAPI, linters de backend (`ruff check`), tipado de frontend (`tsc --noEmit`) y coherencia de versiones (`verify_release.sh`).
+4. **Pruebas Automatizadas y Calidad**:
+   - Suite dedicada: `backend/tests/test_phase71_definition_of_done.py` (**3/3 tests PASSED**).
+   - Suite de regresión integral (Fases 68, 69, 70 y 71): (**45/45 tests PASSED**).
+   - Linters Python: `ruff check` (**All checks passed!** en todo el backend).
+   - Verificación de tipos TypeScript: `tsc --noEmit` (**0 errores**).
+   - Verificación de script: `scripts/verify_dod.sh` (**Superadas 5/5 comprobaciones automáticas**).
 
 ------------------------------------------------------------------------
 

@@ -10,9 +10,7 @@ Proporciona:
 - ObservabilityMetricsView: Endpoint administrativo seguro (/api/v1/observability/metrics/).
 """
 import datetime
-import json
 import logging
-import re
 import time
 import uuid
 from typing import Any, Dict
@@ -23,13 +21,6 @@ from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
-
-from .logging_formatters import (
-    REDACTED_PLACEHOLDER,
-    SENSITIVE_KEY_PATTERNS,
-    StructuredJsonFormatter,
-    sanitize_sensitive_data,
-)
 
 logger = logging.getLogger('mybookconnect.structured')
 
@@ -46,7 +37,6 @@ class ObservabilityMetricsService:
     def record_request(cls, status_code: int, duration_ms: float, db_queries: int = 0) -> None:
         """Registra una petición HTTP procesada con su código, duración y consultas SQL."""
         try:
-            now = int(time.time())
             cache.incr(f"{cls.METRICS_PREFIX}:requests_total", 1)
         except Exception:
             # Si no existe la clave para incr, inicializar

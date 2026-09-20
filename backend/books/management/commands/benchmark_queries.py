@@ -3,12 +3,11 @@ Fase 43: Comando de consola para perfilado y benchmarking de consultas en Postgr
 Ejecuta EXPLAIN (ANALYZE, BUFFERS) en las consultas críticas del dominio y reporta
 tiempos de planificación, ejecución y uso de índices.
 """
-from django.core.management.base import BaseCommand
-from django.db import connection
-
-from mybookconnect.query_profiler import QueryProfiler
-from books.models import Author, Book, Category, Review, UserBook
 from django.contrib.auth import get_user_model
+from django.core.management.base import BaseCommand
+
+from books.models import Author, Book, Category, Review, UserBook
+from mybookconnect.query_profiler import QueryProfiler
 
 User = get_user_model()
 
