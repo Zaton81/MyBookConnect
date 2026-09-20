@@ -173,7 +173,8 @@ def filter_visible_reviews(viewer: Optional[Any], queryset: QuerySet) -> QuerySe
 
     blocked_by_viewer = viewer.blocked_users.values_list("id", flat=True)
     blocking_viewer = viewer.blocked_by.values_list("id", flat=True)
-    excluded_user_ids = set(blocked_by_viewer).union(set(blocking_viewer))
+    muted_by_viewer = viewer.muted_users.values_list("id", flat=True) if hasattr(viewer, 'muted_users') else []
+    excluded_user_ids = set(blocked_by_viewer).union(set(blocking_viewer)).union(set(muted_by_viewer))
 
     if excluded_user_ids:
         queryset = queryset.exclude(user_id__in=excluded_user_ids)
@@ -187,6 +188,20 @@ def filter_visible_reviews(viewer: Optional[Any], queryset: QuerySet) -> QuerySe
     )
 
     return queryset.filter(privacy_condition)
+
+
+def is_user_muted_by_moderation(user: Optional[Any]) -> bool:
+    """
+    Determina si un usuario se encuentra bajo una sanción activa de silenciamiento disciplinario (Fase 58).
+    Un usuario silenciado no puede crear ni editar reseñas, comentarios ni enviar mensajes directos.
+    """
+    if not user or not user.is_authenticated:
+        return False
+    muted_until = getattr(user, 'muted_until', None)
+    if not muted_until:
+        return False
+    from django.utils import timezone
+    return muted_until > timezone.now()
 
 
 def filter_visible_users(viewer: Optional[Any], queryset: QuerySet) -> QuerySet:

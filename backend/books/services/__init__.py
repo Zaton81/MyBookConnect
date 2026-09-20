@@ -49,6 +49,12 @@ from .providers import (
     OpenLibraryProvider,
     WikipediaProvider,
 )
+from .recommendation_explanation_service import (
+    ExplanationBullet,
+    RecommendationExplanation,
+    RecommendationExplanationEngine,
+    explain_recommendation,
+)
 from .recommendation_feedback_service import (
     get_recommendation_metrics,
     record_recommendation_event,
@@ -105,6 +111,10 @@ __all__ = [
     'recommend_books_v3',
     'RecommendationEngineV3',
     'get_user_preference_vector',
+    'RecommendationExplanationEngine',
+    'RecommendationExplanation',
+    'ExplanationBullet',
+    'explain_recommendation',
     'SimilarUserPeer',
     'get_similar_readers',
     'get_book_recommendations',

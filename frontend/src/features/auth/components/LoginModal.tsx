@@ -4,6 +4,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { login as doLogin } from '../../../lib/auth';
 import { useAuth } from '../../../lib/useAuth';
 import { loginSchema, LoginFormData } from '../schemas/authSchemas';
+import { GoogleLoginButton } from './GoogleLoginButton';
+import { useAuthStore } from '../../../store/auth';
 
 export type LoginModalProps = {
   open: boolean;
@@ -89,23 +91,36 @@ export default function LoginModal({ open, onClose, onLoginSuccess }: LoginModal
             </p>
           )}
 
-          <div className="flex items-center justify-between pt-2">
+          <div className="pt-2 space-y-3">
             <button
               type="submit"
               disabled={isSubmitting}
-              className="rounded-xl bg-teal-600 hover:bg-teal-700 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-all disabled:opacity-50 cursor-pointer"
+              className="w-full rounded-xl bg-teal-600 hover:bg-teal-700 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-all disabled:opacity-50 cursor-pointer"
             >
               {isSubmitting ? 'Entrando...' : 'Entrar'}
             </button>
-            <button
-              type="button"
-              onClick={() => {
-                window.location.href = '/auth/google';
+
+            <div className="relative my-2">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-200 dark:border-gray-700" />
+              </div>
+              <div className="relative flex justify-center text-[11px] uppercase">
+                <span className="bg-white dark:bg-gray-800 px-2 text-gray-400">
+                  O entra con
+                </span>
+              </div>
+            </div>
+
+            <GoogleLoginButton
+              onSuccess={() => {
+                const token = useAuthStore.getState().token;
+                if (token && onLoginSuccess) onLoginSuccess(token);
+                reset();
+                onClose();
               }}
-              className="rounded-xl border border-gray-300 dark:border-gray-600 px-4 py-2.5 text-xs font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-            >
-              Entrar con Google
-            </button>
+              onError={(err) => setServerError(err)}
+              label="Continuar con Google"
+            />
           </div>
         </form>
 

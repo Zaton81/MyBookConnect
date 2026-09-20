@@ -7,10 +7,7 @@ from drf_spectacular.views import (
     SpectacularRedocView,
     SpectacularSwaggerView,
 )
-from rest_framework_simplejwt.views import (
-    TokenObtainPairView,
-    TokenRefreshView,
-)
+from rest_framework_simplejwt.views import TokenRefreshView
 
 from users.auth_views import CustomTokenObtainPairView
 from users.moderation_views import ReportCreateView, UserReportsListView
@@ -32,7 +29,9 @@ urlpatterns = [
             path('', include('users.urls')),
         ])),
         path('books/', include('books.urls')),
+        path('gamification/', include('books.gamification_urls')),
         path('users/', include('users.urls')),
+        path('notifications/', include('users.urls')),
         path('reviews/', include('books.review_urls')),
         path('', include('messages_app.urls')),
         path('chat/', include('messages_app.urls')),

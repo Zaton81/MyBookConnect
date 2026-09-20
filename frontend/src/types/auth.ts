@@ -13,6 +13,7 @@ export interface User {
   show_birth_date?: boolean;
   show_location?: boolean;
   show_bio?: boolean;
+  gamification_enabled?: boolean;
   following?: number[];
   followers?: number[];
   is_editor?: boolean;
@@ -22,6 +23,9 @@ export interface User {
   is_following?: boolean;
   is_blocked?: boolean;
   am_i_blocked?: boolean;
+  is_muted?: boolean;
+  is_disciplinary_muted?: boolean;
+  muted_until?: string | null;
   reviews_count?: number;
   books_read_count?: number;
   following_count?: number;

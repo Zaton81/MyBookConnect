@@ -124,6 +124,7 @@ class RecommendationV3Item:
     reason: str
     algorithm_version: str = ALGORITHM_VERSION_V3
     breakdown: ScoreBreakdownV3 = field(default_factory=ScoreBreakdownV3)
+    explanation: dict[str, Any] | None = None
 
     def to_dict(self, request=None) -> dict[str, Any]:
         b = self.book
@@ -139,6 +140,8 @@ class RecommendationV3Item:
             'breakdown': self.breakdown.to_dict(),
             'scores': self.breakdown.to_dict(),
             'reason': self.reason,
+            'explanation': self.explanation,
+            'categories': [{'id': c.id, 'name': c.name} for c in b.categories.all()],
         }
 
 
@@ -419,6 +422,19 @@ class RecommendationEngineV3:
                     ),
                 )
                 v3_items.append(fb_item)
+
+        from books.services.recommendation_explanation_service import explain_recommendation
+        for item in v3_items[:limit]:
+            expl = explain_recommendation(
+                user=user,
+                book=item.book,
+                breakdown=item.breakdown.to_dict(),
+                algorithm_version=ALGORITHM_VERSION_V3,
+                existing_reason=item.reason,
+            )
+            item.explanation = expl
+            if expl.get('primary_reason'):
+                item.reason = expl['primary_reason']
 
         results = [item.to_dict(request=request) for item in v3_items[:limit]]
         cache.set(cache_key, results, timeout=TTL_RECOMMENDATIONS)

@@ -2375,7 +2375,7 @@ Hitos completados:
 
 ------------------------------------------------------------------------
 
-# 55. Fase 52 --- Recomendaciones explicables
+# 55. Fase 52 --- Recomendaciones explicables [COMPLETADA]
 
 Cada recomendación debe poder explicar:
 
@@ -2383,7 +2383,7 @@ Cada recomendación debe poder explicar:
 ¿Por qué?
 ```
 
-Ejemplo:
+Ejemplo canónico implementado:
 
 ``` text
 Te recomendamos Dune porque:
@@ -2394,55 +2394,90 @@ Te recomendamos Dune porque:
 ✓ 3 usuarios que sigues lo han leído.
 ```
 
-------------------------------------------------------------------------
-
-# 56. Fase 53 --- Feed inteligente
-
-Primera versión:
-
-``` text
-cronológico
-```
-
-Después:
-
-``` text
-engagement
-recency
-relationship
-content relevance
-```
-
-No introducir ML antes de tener datos suficientes.
+### Entregables implementados y verificados:
+- [x] **Motor multi-señal (`RecommendationExplanationEngine`):**
+  - Señal de género/temática (`genre`): conteo de obras disfrutadas en la categoría.
+  - Señal de autoría y libros ancla (`author`): obras valoradas con altas calificaciones del mismo autor.
+  - Señal semántica vectorial (`semantic`): similitud coseno sobre embeddings respecto a lecturas favoritas.
+  - Señal de grafo social (`social`): usuarios seguidos que han leído la recomendación.
+  - Señal colaborativa comunitaria (`collaborative`): afinidad de lectores gemelos o afines (v2).
+  - Señal de aclamación comunitaria (`community`) y lista de deseos (`wishlist`).
+- [x] **Integración transparente en motores de recomendación:** Inclusión del payload estructurado `explanation` en las respuestas de `v1`, `v2` y `v3`.
+- [x] **API REST dedicada:** Endpoint `GET /api/v1/books/recommendations/<book_id>/explain/` para modal o consulta bajo demanda de la justificación multi-señal.
+- [x] **Pruebas y Regresión:** Suite `tests/test_phase52_explainable_recommendations.py` (9/9 tests pasando al 100%) y regresión de recomendaciones v1+v2+v3 (30/30 tests pasando).
 
 ------------------------------------------------------------------------
 
-# 57. Fase 54 --- Gamificación opcional
+# 56. Fase 53 --- Feed inteligente [COMPLETADA]
 
-Solo después de estabilizar el núcleo.
+**Prioridad:** P1 - COMPLETADA
 
-Posibilidades:
+Transformación del muro social desde un listado cronológico plano a un ranking dinámico multicriterio ponderado (`SmartFeedRankingEngine`), preservando la vista cronológica clásica bajo demanda del usuario.
 
-``` text
-reto mensual
-racha de lectura
-objetivo anual
-insignias
-```
-
-Ejemplo:
-
-``` text
-📚 10 libros en verano
-⭐ 5 reseñas publicadas
-🔥 7 días leyendo
-```
-
-Debe ser opcional y no interferir con la experiencia principal.
+### Entregables implementados y verificados:
+- [x] **Motor de Ranking Multicriterio (`SmartFeedRankingEngine`):**
+  - **Recency ($w = 0.30$):** Decaimiento exponencial temporal ($e^{-\Delta t / 72\text{h}}$) para priorizar frescura temporal sin ocultar contenido relevante reciente.
+  - **Relationship ($w = 0.25$):** Ponderación del grafo social: máxima puntuación para amistades mutuas (`is_friend = True`), usuarios seguidos e histórico de interacciones comunitarias (likes y comentarios).
+  - **Engagement ($w = 0.25$):** Peso intrínseco del tipo de evento (`REVIEW_CREATED`, `BOOK_FINISHED` > `BOOK_ADDED`) incrementado con la tracción social activa de la reseña (`likes` y `comments`).
+  - **Content Relevance ($w = 0.20$):** Afinidad de categorías con el perfil lector del usuario, autores frecuentes y presencia del libro en la lista de deseos (`wishlist` o `want_to_read`).
+- [x] **Insignias y Señales Explicativas (`feed_signal`):**
+  - Generación de señales comprensibles ("De tu lista de deseos", "Amistad mutua", "Reseña destacada", "En tus géneros favoritos", etc.) para aportar total transparencia algorítmica al feed.
+- [x] **Endpoints y Control de Modo:**
+  - Soporte de parámetro `?mode=smart` (por defecto) y `?mode=chronological` tanto en `/api/v1/users/feed/` como en `/api/v1/books/feed/`.
+  - Serialización enriquecida en `ActivitySerializer` con `score`, `feed_signal` y `timestamp`.
+  - Respeto estricto de bloqueos de usuarios (`is_blocked`).
+- [x] **Experiencia de Usuario en Frontend:**
+  - Conmutador interactivo de doble modo ("✨ Para ti" / "🕒 Cronológico") en `Home.tsx` con recarga asíncrona.
+  - Renderizado de badges `feed_signal`, textos descriptivos de eventos y estrellas/reseñas asociadas.
+- [x] **Pruebas y Verificación:**
+  - Suite dedicada `backend/tests/test_phase53_smart_feed.py` (10/10 tests pasando).
+  - Suite de regresión social `backend/tests/test_social_feed.py` (7/7 tests pasando).
+  - Verificación estricta de tipos en frontend (`npm run typecheck` con 0 errores).
 
 ------------------------------------------------------------------------
 
-# 58. Fase 55 --- Importación avanzada
+# 57. Fase 54 --- Gamificación opcional [COMPLETADA]
+
+**Prioridad:** P2 - COMPLETADA
+
+Sistema integral de motivación y hábitos de lectura con arquitectura desacoplada, no intrusiva y 100% opcional (conmutable por el usuario mediante `gamification_enabled`).
+
+### Entregables implementados y verificados:
+- [x] **Modelos de Datos y Migraciones:**
+  - `ReadingGoal`: Metas anuales configurables (`target_books`, `target_pages`, año) con cálculo dinámico de ritmo/pacing ("Adelantado", "Al día", "Por detrás").
+  - `ReadingStreak`: Racha de lectura consecutiva (`current_streak`, `longest_streak`, `last_reading_date`) con detección automática de continuidad e inactividad.
+  - `DailyReadingLog`: Registro diario de páginas, minutos y obras leídas (`user`, `date`, `pages_read`, `minutes_read`, `books`).
+  - `Badge` y `UserBadge`: Catálogo extensible de insignias y logros por categorías (`reading`, `streak`, `reviews`, `challenges`, `community`) con asignación idempotente.
+  - `ReadingChallenge` y `UserChallenge`: Retos comunitarios periódicos y temáticos con progreso porcentual y recompensa de insignia.
+  - Campo `gamification_enabled` en modelo `User` con migración aplicada (`users.0016`).
+- [x] **Servicio Central de Gamificación (`GamificationService`):**
+  - Siembra idempotente de insignias iniciales (`ensure_default_badges`).
+  - Registro de lectura diaria (`record_daily_reading`), evaluación de objetivos (`evaluate_reading_goal`) y desbloqueo automático de insignias por hitos (`evaluate_user_badges`).
+  - Detección de rotura de racha por omisión de días (`get_or_calculate_streak`).
+  - Avance reactivo de retos en `on_book_finished`, `on_review_created` y lectura diaria.
+- [x] **API REST y Endpoints DRF:**
+  - `GET /api/v1/gamification/overview/`: Resumen integral respetando preferencias y privacidad del usuario.
+  - `GET, POST /api/v1/gamification/goals/`: Fijar o consultar objetivo anual.
+  - `POST /api/v1/gamification/log/`: Registrar sesión diaria o pulsar "He leído hoy".
+  - `GET /api/v1/gamification/badges/`: Catálogo de insignias con estado de desbloqueo.
+  - `GET /api/v1/gamification/challenges/`: Retos activos con progreso personal.
+  - `POST /api/v1/gamification/challenges/<slug>/join/`: Inscripción en retos.
+  - `PATCH /api/v1/gamification/preferences/`: Conmutador de activación/desactivación opcional.
+- [x] **Componentes e Integración Frontend:**
+  - `ReadingGoalCard`: Tarjeta de progreso anual con barra graduada y fijación de meta.
+  - `ReadingStreakCard`: Tarjeta de racha con llama animada y botón rápido "He leído hoy".
+  - `BadgesGrid`: Escaparate con filtro por categorías y distinción entre desbloqueadas y bloqueadas.
+  - `ActiveChallengesCard`: Tarjetas de retos con barra de progreso y botón de inscripción.
+  - Integración en `ReadingStats.tsx` y `Profile.tsx`.
+  - Control de activación opcional en `EditProfileForm.tsx`.
+- [x] **Pruebas y Verificación:**
+  - Suite dedicada `backend/tests/test_phase54_gamification.py` (**8/8 tests PASSED**).
+  - Comprobación estricta de tipos TypeScript (`npm run typecheck` con **0 errores**).
+  - Suite de pruebas de frontend (`npx vitest run`: **21/21 tests PASSED**).
+
+------------------------------------------------------------------------
+
+# 58. Fase 55 --- Importación avanzada [COMPLETADA]
 
 Mejorar importadores para:
 
@@ -2471,9 +2506,32 @@ validation
 rollback
 ```
 
+### Implementación realizada:
+- [x] **Detección Automática de Formatos (`CSVFormatDetector`)**:
+  - Reconocimiento de **Goodreads CSV** (`Exclusive Shelf`, `My Rating`, `ISBN13`, limpieza de fórmulas `="978..."`).
+  - Reconocimiento de **Calibre CSV** (`identifiers`, `tags`, `rating`, mapeo de tags a categorías).
+  - Reconocimiento de **CSV Genérico** (`title`, `author`, `isbn`, `status`, `rating`, `review`).
+- [x] **Previsualización No Destructiva (`POST /api/v1/books/import/csv/preview/`)**:
+  - Analiza el archivo sin modificar la base de datos.
+  - Clasifica cada libro con badge de destino: `new` (🟢 nuevo en catálogo y biblioteca), `in_catalog` (🟡 ya existe en catálogo general, se agregará a tu estantería), `in_library` (⚪ ya en tu estantería personal).
+  - Devuelve métricas agregadas de válidos, inválidos y destinos.
+- [x] **Deduplicación Multinivel**:
+  - Búsqueda por ISBN normalizado (ISBN-10 / ISBN-13).
+  - Búsqueda por ID externo (`google_books_id`, `openlibrary_id`).
+  - Búsqueda por coincidencia exacta insensible a mayúsculas/minúsculas de `(title, author)`.
+- [x] **Validación Rigurosa**:
+  - Validación de título obligatorio y autor.
+  - Normalización de ISBN y mapeo de estados de estantería (`want_to_read`, `reading`, `read`, `abandoned`).
+  - Validación de rango de puntuación (1 a 5) y extracción de notas/reseñas.
+- [x] **Interfaz de Usuario (`ImportBooksModal.tsx` en `Library.tsx`)**:
+  - Modal con zona de arrastrar y soltar (drag & drop) o selector de archivo `.csv`.
+  - Guía informativa de cómo exportar desde Goodreads y Calibre.
+  - Tabla de vista previa con insignias de estado y destino.
+  - Botón de confirmación con indicador de progreso y resumen final.
+
 ------------------------------------------------------------------------
 
-# 59. Fase 56 --- Importación idempotente
+# 59. Fase 56 --- Importación idempotente [COMPLETADA]
 
 Garantizar:
 
@@ -2489,9 +2547,20 @@ mismo Book
 
 Evitar duplicados aunque el cliente reintente la petición.
 
+### Implementación realizada:
+- [x] **Transacciones Atómicas y Rollback (`POST /api/v1/books/import/csv/confirm/`)**:
+  - Ejecución integral dentro de `transaction.atomic()`. Si ocurre un error fatal o inconsistencia irrecuperable, se produce rollback garantizado sin estados intermedios.
+- [x] **Garantía de Idempotencia**:
+  - La re-ejecución repetida de la importación sobre el mismo CSV o con reintentos de red no crea duplicados de `Book`, `UserBook` ni `Review`.
+  - Actualiza o preserva los registros existentes de manera limpia y devuelve contadores exactos de creados vs. actualizados.
+- [x] **Verificación Automatizada**:
+  - Suite de pruebas completa en `backend/tests/test_phase55_advanced_import.py` (7/7 tests **PASSED**).
+  - Comprobación de tipos en frontend (`tsc --noEmit` con **0 errores**).
+  - Suite de pruebas de frontend (`vitest run`: **21/21 tests PASSED**).
+
 ------------------------------------------------------------------------
 
-# 60. Fase 57 --- Administración
+# 60. Fase 57 --- Administración [COMPLETADA]
 
 Mejorar Django Admin para:
 
@@ -2523,218 +2592,429 @@ rebuild embedding
 moderate
 ```
 
-------------------------------------------------------------------------
-
-# 61. Fase 58 --- Moderación de contenido
-
-Añadir herramientas para:
-
-``` text
-report
-review
-hide
-restore
-ban
-mute
-block
-```
-
-Definir políticas antes de implementar automatización IA.
-
-------------------------------------------------------------------------
-
-# 62. Fase 59 --- Seguridad de contenido generado por usuarios
-
-Todo contenido HTML debe sanitizarse.
-
-Especialmente:
-
-``` text
-reviews
-comments
-profiles
-chat
-```
-
-Si se usa Tiptap:
-
-``` text
-frontend sanitization
-+
-backend sanitization
-```
-
-No confiar únicamente en el frontend.
+### Implementación realizada:
+- [x] **ModelAdmins en Django Admin (`backend/books/admin.py`, `backend/users/admin.py`)**:
+  - `BookAdmin`: list_display extendido, filtros `ProviderListFilter` (Google Books, OpenLibrary, ISBN), `RatingRangeFilter`, `enrichment_attempted`, `categories`, `created_at`. Acciones masivas `re_enrich_books` y `rebuild_embeddings`.
+  - `AuthorAdmin`: list_display, búsqueda por nombre y biografía, filtro por enriquecimiento, acción masiva `re_enrich_authors`.
+  - `ReviewAdmin`: list_display, filtros por moderación, calificación y fechas, acciones masivas `mark_as_moderated`, `unmark_as_moderated`, `soft_delete_reviews`, `restore_reviews`.
+  - `CustomUserAdmin`: list_display, filtros por rol, staff, editor, activo, privacidad y fecha, acciones masivas `ban_users`, `unban_users`, `make_editor`, `remove_editor`.
+  - `ReportAdmin`: list_display, filtros por estado, motivo y fecha, acciones masivas `mark_as_resolved`, `mark_as_rejected`.
+  - `ErrataAdmin`: list_display, filtros por estado, tipo y fecha, acciones masivas `approve_erratas`, `reject_erratas`.
+  - `NotificationAdmin` y `ActivityAdmin`: registros completos con filtros y acciones de marcado de lectura.
+- [x] **API REST de Administración Ampliada (`backend/books/admin_views.py`, `backend/books/admin_urls.py`, `backend/books/serializers.py`)**:
+  - `BookSerializer`: soporte de escritura directa para `category_ids`.
+  - `AdminBookListView`: filtros por `provider`, `min_rating`, `enrichment`, `ordering`.
+  - Endpoints de acciones masivas en lote: `POST /api/v1/admin/books/bulk-action/` y `POST /api/v1/admin/authors/bulk-action/`.
+  - Endpoint de listado de categorías: `GET /api/v1/admin/categories/`.
+- [x] **Control Total de Catálogo desde el Frontend (`AdminDashboard.tsx`)**:
+  - Pestaña de Catálogo enriquecida con subpestañas para Libros y Autores.
+  - Filtros en vivo por proveedor externo (`Google Books`, `OpenLibrary`, `Con ISBN`), enriquecimiento (`Enriquecidos`, `Pendientes`) y puntuación mínima.
+  - Barra de acciones masivas en lote con selección mediante checkboxes (`re-enriquecer`, `reconstruir embeddings`, `eliminar`).
+  - Modal interactivo de creación y edición completa de libros (`EditBookModal`) con selector de autor, ISBN, fecha, categorías interactivas y sinopsis.
+  - Modal interactivo de creación y edición completa de autores (`EditAuthorModal`) con nombre y biografía.
+- [x] **Verificación Automatizada y Tipos**:
+  - Suite de pruebas de backend en `backend/tests/test_phase57_admin.py` (6/6 tests **PASSED**).
+  - Suite de regresión en `backend/tests/test_admin_api.py` (4/4 tests **PASSED**).
+  - Linter backend `ruff check` con 0 errores.
+  - Tipado de frontend `tsc --noEmit` con **0 errores**.
+  - Pruebas frontend `npx vitest run` (**21/21 tests PASSED**).
 
 ------------------------------------------------------------------------
 
-# 63. Fase 60 --- Seguridad de imágenes
+# 61. Fase 58 --- Moderación de contenido [COMPLETADA]
 
-Procesar imágenes:
+**Prioridad:** P1 - COMPLETADA
 
-``` text
-resize
-strip metadata
-validate MIME
-validate dimensions
-```
+Se ha implementado un sistema integral de moderación de contenido y disciplina comunitaria que cubre las 7 herramientas esenciales y establece el marco ético y normativo previo a la automatización mediante IA:
 
-Considerar antivirus/scanner si el proyecto crece.
-
-------------------------------------------------------------------------
-
-# 64. Fase 61 --- Contrato de errores API
-
-Unificar errores.
-
-Formato recomendado:
-
-``` json
-{
-  "error": {
-    "code": "REVIEW_ALREADY_EXISTS",
-    "message": "El usuario ya tiene una reseña para este libro.",
-    "details": {}
-  }
-}
-```
-
-Códigos estables:
-
-``` text
-AUTH_INVALID
-PERMISSION_DENIED
-NOT_FOUND
-VALIDATION_ERROR
-REVIEW_ALREADY_EXISTS
-BOOK_DUPLICATE
-USER_BLOCKED
-RATE_LIMITED
-```
+1. **`report`**:
+   - Endpoint autenticado `POST /api/v1/reports/` y `GET /api/v1/reports/my/`.
+   - Componente modal universal en frontend (`ReportModal.tsx`) integrado en reseñas (`BookReviewsSection.tsx`), comentarios y perfiles de usuarios (`Profile.tsx`).
+2. **`review`**:
+   - Cola de moderación administrativa con filtros multicriterio en `AdminDashboard.tsx`.
+   - Tramitación formal y resolución de expedientes (`OPEN`, `UNDER_REVIEW`, `RESOLVED`, `REJECTED`) con asignación de moderador y marca temporal.
+3. **`hide`**:
+   - Endpoint administrativo `POST /api/v1/admin/moderation/hide/` para ocultar reseñas (`is_moderated=True`), comentarios (`deleted_at=now`) y mensajes (`is_moderated=True`).
+4. **`restore`**:
+   - Endpoint administrativo `POST /api/v1/admin/moderation/restore/` para restaurar contenido previamente moderado o tras resolver una apelación favorable.
+5. **`ban`**:
+   - Endpoints administrativos `POST /api/v1/admin/moderation/users/<id>/ban/` y `unban/` para suspensión y reactivación de cuentas infractoras (`is_active=False/True`), con protección ante auto-baneo y baneo de administradores.
+6. **`mute`**:
+   - **Silenciamiento Social (Usuario a Usuario)**:
+     - Relación M2M `muted_users` en `User` y endpoints `POST /api/v1/users/<id>/mute/` y `unmute/`.
+     - Filtrado automático de reseñas en `filter_visible_reviews`, comentarios en `ReviewCommentListCreateView` y omisión de notificaciones.
+     - Botón de silenciar/des-silenciar en el menú contextual de perfil de usuario.
+   - **Silenciamiento Disciplinario (Moderación)**:
+     - Campo `muted_until` en `User` y endpoints `POST /api/v1/admin/moderation/users/<id>/mute/` y `unmute/`.
+     - Acciones `MUTE_USER_24H` y `MUTE_USER_7D` en la resolución de denuncias.
+     - Restricción estricta (`403 Forbidden`) en endpoints de creación de reseñas, comentarios y mensajes mientras dure la sanción.
+7. **`block`**:
+   - Bloqueo social bidireccional severo (`User.blocked_users`, `POST /api/v1/users/<id>/block/` y `unblock/`), integrado con selector en el perfil de usuario.
+8. **Políticas de Moderación Pre-IA**:
+   - Documento normativo [docs/moderation_policies.md](file:///c:/Users/zaton/Desktop/Escritorio/proyectos/MyBookConnect/docs/moderation_policies.md) con tipología de infracciones (Nivel 1, 2, 3), escala disciplinaria gradual, garantías de apelación y salvaguardas éticas (*Human-in-the-Loop*, umbrales >95% de confianza) antes de la activación de IA.
+9. **Trazabilidad y Tests**:
+   - Trazabilidad inmutable en `AuditLog` para todas las acciones de moderación.
+   - Suite de pruebas completa `backend/tests/test_phase58_moderation.py` (**7/7 tests PASSED**).
+   - Suite de regresión `test_phase57_admin.py` y `test_admin_api.py` (**10/10 tests PASSED**).
+   - Verificación estricta de tipos TypeScript `tsc --noEmit` (**0 errores**) y Vitest (**21/21 tests PASSED**).
 
 ------------------------------------------------------------------------
 
-# 65. Fase 62 --- Idempotencia
+# 62. Fase 59 --- Seguridad de contenido generado por usuarios [COMPLETADA]
 
-Añadir idempotency keys a operaciones sensibles/costosas cuando sea
-necesario:
+**Prioridad:** P1 - COMPLETADA
 
-``` text
-POST /books/import
-POST /notifications
-POST /external sync
-```
+Se ha implementado una estrategia integral de defensa en profundidad (*Defense in Depth*) para la sanitización y neutralización de ataques XSS / inyección HTML en todo el contenido generado por usuarios (UGC):
 
-Especialmente cuando haya retries automáticos.
-
-------------------------------------------------------------------------
-
-# 66. Fase 63 --- Transacciones
-
-Usar:
-
-``` python
-transaction.atomic()
-```
-
-en operaciones que actualizan varias entidades.
-
-Ejemplos:
-
-``` text
-crear review + actualizar estadísticas
-follow + activity
-block + limpieza de relación
-import book + author + categories
-```
+1. **Defensa en Profundidad (Frontend + Backend)**:
+   - **Frontend (DOMPurify)**:
+     - Sanitización proactiva en el editor enriquecido Tiptap (`BioEditor.tsx`) antes de propagar cambios en `onUpdate`.
+     - Todas las visualizaciones de HTML (`dangerouslySetInnerHTML`) están blindadas con `DOMPurify.sanitize(...)` (`Profile.tsx`, `BookDetail.tsx`, `TermsOfService.tsx`, `AdminDashboard.tsx`).
+   - **Backend (Ammonia / `nh3`)**:
+     - Biblioteca de alto rendimiento escrita en Rust (`nh3>=0.2.14`) integrada en backend (`backend/mybookconnect/html_sanitizer.py`).
+     - No confía en los clientes ni en el frontend: sanea todo payload antes de la validación y persistencia en base de datos.
+2. **Superficies Protegidas (UGC)**:
+   - **Perfiles (`profiles`)**:
+     - `bio`: Sanitización enriquecida (`sanitize_html`), permitiendo únicamente etiquetas semánticas y seguras (`<p>`, `<strong>`, `<em>`, `<h1>`-`<h6>`, `<blockquote>`, `<ul>`, `<ol>`, `<li>`, `<code>`, `<pre>`, `<a>`), forzando `rel="noopener noreferrer nofollow"` y neutralizando URIs `javascript:`, scripts y manejadores de eventos en `UserUpdateSerializer` y `UserCreateSerializer`.
+     - `location`, `first_name`, `last_name`: Eliminación total de etiquetas HTML (`sanitize_plain_text`).
+   - **Reseñas (`reviews`)**:
+     - `title`: Eliminación de etiquetas HTML para título en texto plano limpio.
+     - `text`: Sanitización de HTML enriquecido en `ReviewSerializer` y `ReviewListCreateView.create`, neutralizando scripts, iframes y atributos inline (`onerror`, `onclick`).
+   - **Comentarios (`comments`)**:
+     - `content`: Sanitizado en `ReviewCommentSerializer` y `ReviewCommentListCreateView.post`.
+   - **Mensajería / Chat (`chat`)**:
+     - `text`: Sanitizado en `MessageSerializer.validate_text` mediante `sanitize_plain_text`, previniendo cualquier inyección en mensajes directos y WebSockets.
+3. **Verificación y Pruebas**:
+   - Suite de pruebas automatizada `backend/tests/test_phase59_ugc_security.py` (**10/10 tests PASSED**).
+   - Linter Python `ruff check` (**0 errores, All checks passed!**).
+   - Verificación estricta de tipos TypeScript `tsc --noEmit` (**0 errores**).
+   - Suite de pruebas frontend Vitest `npx vitest run` (**21/21 tests PASSED**).
 
 ------------------------------------------------------------------------
 
-# 67. Fase 64 --- Concurrencia
+# 63. Fase 60 --- Seguridad de imágenes [COMPLETADA]
 
-Proteger operaciones sensibles con:
+**Prioridad:** P1 - COMPLETADA
 
-``` text
-select_for_update()
-constraints
-transactions
-```
+Se ha implementado una infraestructura avanzada y multicapa para el procesamiento, validación e higienización de imágenes en el backend:
 
-cuando sea necesario.
-
-Ejemplos:
-
-``` text
-duplicación de reviews
-importación simultánea
-contadores
-listas
-```
-
-------------------------------------------------------------------------
-
-# 68. Fase 65 --- Cache invalidation
-
-Definir explícitamente cuándo invalidar:
-
-``` text
-book cache
-profile cache
-recommendation cache
-trending cache
-```
-
-Ejemplo:
-
-``` text
-new review
- ↓
-invalidate book rating
- ↓
-invalidate recommendations
- ↓
-invalidate trending
-```
-
-No usar TTL como única estrategia.
+1. **Redimensionamiento Inteligente (*resize / downscale*)**:
+   - Presets adaptados por caso de uso en `media_security.py`:
+     - `AVATAR_PRESET = (512, 512)` para avatares de usuario.
+     - `AUTHOR_PHOTO_PRESET = (800, 1200)` para fotos de autores.
+     - `COVER_PRESET = (1200, 1800)` para portadas de libros.
+     - `CHAT_IMAGE_PRESET = (1920, 1920)` para imágenes adjuntas en mensajería/chat.
+   - Algoritmo de remuestreo de alta calidad `Image.Resampling.LANCZOS` que preserva la relación de aspecto original (*aspect ratio*) sin distorsionar la imagen.
+   - Si la imagen original es menor al preset, no se sobredimensiona artificialmente.
+2. **Eliminación Profunda de Metadatos (*strip metadata*)**:
+   - Purgado exhaustivo de bloques `exif`, `icc_profile`, `photoshop`, `xmp`, `comment`, `parameters` y `Software` en `sanitize_image`.
+   - Re-codificación limpia en buffer en memoria para JPEG, PNG y WebP, eliminando cualquier carga maliciosa oculta en cabeceras o metadatos manipulados.
+3. **Validación Estricta de MIME y Magic Bytes**:
+   - Verificación estricta de extensiones permitidas (`.jpg`, `.jpeg`, `.png`, `.webp`).
+   - Verificación de tipos MIME declarados en la petición HTTP contra `ALLOWED_MIME_TYPES`.
+   - Inspección binaria de firmas de cabecera (*Magic Bytes*):
+     - JPEG: `\xff\xd8\xff`
+     - PNG: `\x89PNG\r\n\x1a\n`
+     - WebP: `RIFF....WEBP`
+   - Comprobación de consistencia obligatoria entre firma binaria, MIME declarado y formato decodificado por Pillow, bloqueando discrepancias y archivos camuflados (ejecutables, polyglots, scripts).
+4. **Control de Dimensiones y Bombas de Descompresión**:
+   - Validación de resolución mínima (50x50 px) y techo máximo de subida (6000x6000 px).
+   - Manejo explícito de `Image.DecompressionBombError` para prevenir ataques de denegación de servicio (DoS).
+5. **Arquitectura para Escáner Antivirus / Malware (`media_scanner.py`)**:
+   - Módulo pluggable con interfaz base `BaseMediaScanner`.
+   - Implementación `ClamAVScanner` con protocolo TCP/INSTREAM para demonios ClamAV en entornos de producción.
+   - Implementación `SecurityHeuristicScanner` con detección de la firma estándar EICAR y detección de cabeceras ejecutables camufladas (`MZ`, `\x7fELF`), bloqueando de inmediato cualquier archivo infectado con `ValidationError`.
+6. **Verificación y Pruebas**:
+   - Suite de pruebas de la fase: `backend/tests/test_phase60_image_security.py` (**15/15 tests PASSED**).
+   - Suite de regresión de medios: `backend/tests/test_phase28_media_security.py` (**17/17 tests PASSED**).
+   - Suite de regresión UGC: `backend/tests/test_phase59_ugc_security.py` (**10/10 tests PASSED**).
+   - Linter Python `ruff check` (**0 errores, All checks passed!**).
+   - Verificación estricta de tipos TypeScript `tsc --noEmit` (**0 errores**).
+   - Suite de pruebas frontend Vitest `npx vitest run` (**21/21 tests PASSED**).
 
 ------------------------------------------------------------------------
 
-# 69. Fase 66 --- Backups
+# 64. Fase 61 --- Contrato de errores API [COMPLETADA]
 
-Producción:
+**Prioridad:** P1 - COMPLETADA
 
-``` text
-PostgreSQL
-daily backup
-retention
-```
+Se ha implementado un contrato unificado, predecible y estandarizado de respuestas de error para todos los endpoints de la API, manteniendo total retrocompatibilidad con clientes existentes y pruebas preexistentes:
 
-Media:
-
-``` text
-backup / object storage
-```
-
-Probar restauración.
-
-Un backup que nunca se ha restaurado no se considera validado.
+1. **Estructura Unificada de Error**:
+   - Formato estándar implementado en todas las respuestas con código HTTP >= 400 bajo `/api/`:
+     ```json
+     {
+       "error": {
+         "code": "REVIEW_ALREADY_EXISTS",
+         "message": "El usuario ya tiene una reseña para este libro.",
+         "details": {}
+       }
+     }
+     ```
+2. **Códigos de Error Estables (`ErrorCode`)**:
+   - `AUTH_INVALID` (401 - Credenciales no suministradas, inválidas o expiradas).
+   - `PERMISSION_DENIED` (403 - Permisos insuficientes para el recurso).
+   - `NOT_FOUND` (404 - Recurso no encontrado).
+   - `VALIDATION_ERROR` (400 - Parámetros de solicitud o datos de entrada no válidos).
+   - `REVIEW_ALREADY_EXISTS` (409/400 - El usuario ya tiene una reseña para el libro indicado).
+   - `BOOK_DUPLICATE` (409/400 - Ya existe un libro con ese título/autor o ISBN en el catálogo).
+   - `USER_BLOCKED` (403 - Interacción rechazada debido a bloqueo mutuo o silenciamiento disciplinario).
+   - `RATE_LIMITED` (429 - Límite de tasa de peticiones excedido con tiempo de espera dinámico).
+   - `METHOD_NOT_ALLOWED` (405 - Verbo HTTP no soportado por el endpoint).
+   - `INTERNAL_SERVER_ERROR` (500 - Error inesperado del servidor protegido y registrado).
+3. **Manejador Centralizado de Excepciones y Middleware**:
+   - `custom_exception_handler` registrado en `REST_FRAMEWORK['EXCEPTION_HANDLER']` en `settings.py`.
+   - Clases de excepción de dominio específicas: `ReviewAlreadyExistsError`, `BookDuplicateError`, `UserBlockedError`, `RateLimitedError`.
+   - `ApiErrorContractMiddleware` registrado en `MIDDLEWARE` para normalizar también aquellas vistas que devuelven directamente `Response({'detail': ...}, status=4xx)` sin lanzar excepciones.
+4. **Retrocompatibilidad Garantizada**:
+   - Preservación de claves heredadas a nivel de raíz (`detail`, `avatar`, `cover_image`, `title`, etc.) en la respuesta, garantizando que clientes y suites de tests previos continúen funcionando sin romperse.
+5. **Cliente Frontend Unificado**:
+   - Definición de interfaces tipadas `ApiErrorData`, `ApiErrorResponse` y clase de excepción de primera clase `ApiError extends Error` en `frontend/src/api/client.ts`.
+   - `apiClient` extrae automáticamente `error.code`, `error.message` y `error.details` para un manejo declarativo y robusto en la UI.
+6. **Verificación y Pruebas**:
+   - Suite de pruebas de contrato: `backend/tests/test_phase61_error_contract.py` (**16/16 tests PASSED**).
+   - Suites de regresión: `test_phase60_image_security.py`, `test_phase59_ugc_security.py`, `test_phase28_media_security.py`, `test_review_social.py` (**48/48 tests PASSED**).
+   - Linter Python `ruff check` (**0 errores, All checks passed!**).
+   - Verificación estricta de tipos TypeScript `tsc --noEmit` (**0 errores**).
+   - Suite de pruebas frontend Vitest `npx vitest run` (**21/21 tests PASSED**).
 
 ------------------------------------------------------------------------
 
-# 70. Fase 67 --- Disaster recovery
+# 65. Fase 62 --- Idempotencia [COMPLETADA]
 
-Documentar:
+**Prioridad:** P1 - COMPLETADA
 
-``` text
-cómo recuperar DB
-cómo recuperar media
-cómo regenerar Redis
-cómo desplegar versión anterior
-cómo restaurar secretos
-```
+Se ha implementado una arquitectura de idempotencia robusta para operaciones sensibles, costosas y tolerantes a reintentos automáticos de red:
 
-Redis no debe ser fuente de verdad.
+1. **Gestor Central de Idempotencia (`IdempotencyManager` en `backend/mybookconnect/idempotency.py`)**:
+   - Soporte para cabeceras HTTP estándar `Idempotency-Key` y alias `X-Idempotency-Key` (hasta 128 caracteres).
+   - Cálculo determinista de hash SHA-256 sobre el cuerpo (`request.data` / `request.body`) y query parameters, garantizando consistencia independientemente del orden de claves en JSON.
+   - Prevención de condiciones de carrera e in-flight duplication mediante bloqueos atómicos en Redis (`cache.add("lock:...")` con TTL de 60s). Peticiones concurrentes idénticas reciben **409 Conflict**.
+   - Detección de discrepancia de payload: si se reutiliza una misma clave con un payload distinto, se rechaza de inmediato con **400 Bad Request** (`VALIDATION_ERROR`).
+   - Retransmisión transparente de respuestas completadas desde caché con cabecera `Idempotent-Replayed: true` (TTL por defecto: 24 horas).
+2. **Decorador `@idempotent(required=False, timeout=86400)`**:
+   - Anotación declarativa y modular para métodos de vistas DRF (`APIView`, `generics`, `viewsets`).
+   - Marca `request._idempotency_handled = True` para evitar doble procesamiento por middlewares.
+3. **Middleware Global (`IdempotencyMiddleware` en `backend/mybookconnect/middleware.py`)**:
+   - Intercepta cualquier petición mutante (`POST`, `PUT`, `PATCH`, `DELETE`) bajo `/api/` que incluya `Idempotency-Key` y no haya sido consumida por un decorador, garantizando soporte transversal en toda la API.
+   - Preserva el atributo `.data` en respuestas intermedias `JsonResponse` para compatibilidad completa con el cliente de pruebas de DRF y consumidores API.
+4. **Endpoints Blindados con Idempotencia**:
+   - `POST /api/v1/books/import/` (`ImportBookView`): importación de libros por ISBN o título desde proveedores externos (Google Books, OpenLibrary).
+   - `POST /api/v1/books/import/csv/confirm/` (`CSVImportConfirmView`): confirmación e importación masiva atómica de bibliotecas CSV.
+   - `POST /api/v1/books/authors/<pk>/refresh-books/` (`AuthorBookRefreshView`): refresco y sincronización de catálogo de un autor.
+   - `POST /api/v1/books/sync/external/` (`ExternalSyncView`): nuevo endpoint unificado para sincronización externa bajo demanda por ISBN, autor o título.
+   - `POST /api/v1/users/notifications/` y `/api/v1/notifications/` (`NotificationListView` / `NotificationCreateView`): emisión y registro de notificaciones de sistema y usuario con `NotificationCreateSerializer`, previniendo notificaciones duplicadas ante reintentos.
+5. **Soporte Frontend (`frontend/src/api/client.ts`)**:
+   - `RequestOptions` extendido con `idempotencyKey?: string`.
+   - Inyección automática de `Idempotency-Key` en las cabeceras HTTP de peticiones cliente.
+6. **Verificación y Pruebas**:
+   - Suite de la fase: `backend/tests/test_phase62_idempotency.py` (**12/12 tests PASSED**).
+   - Suites de regresión: `test_phase61_error_contract.py` y `test_phase55_advanced_import.py` (**23/23 tests PASSED**).
+   - Linter Python `ruff check` (**0 errores, All checks passed!**).
+   - Verificación estricta de tipos TypeScript `tsc --noEmit` (**0 errores**).
+   - Suite de pruebas frontend Vitest `npx vitest run` (**21/21 tests PASSED**).
+
+------------------------------------------------------------------------
+
+# 66. Fase 63 --- Transacciones [COMPLETADA]
+
+**Prioridad:** P1 - COMPLETADA
+
+Se ha blindado la consistencia transaccional ACID en todas las operaciones que actualizan múltiples entidades relacionadas, garantizando rollback completo ante cualquier fallo imprevisto:
+
+1. **Creación/Edición de Reseñas y Gamificación (`backend/books/views.py`)**:
+   - `ReviewListCreateView.create`: encapsulado en `transaction.atomic()` para asegurar que la persistencia de `Review` y la evaluación de insignias y rachas (`GamificationService.evaluate_user_badges`) sean atómicas.
+   - `ReviewDetailView`: métodos `perform_update` y `perform_destroy` blindados con `transaction.atomic()`.
+   - `ReviewLikeToggleView.post`: creación/borrado de `ReviewLike` y emisión de `Notification` bajo `transaction.atomic()`.
+   - `ReviewCommentListCreateView.post`: creación de `ReviewComment` y notificación al autor bajo `transaction.atomic()`.
+   - `ReviewCommentDeleteView.delete`: borrado de comentario encapsulado en `transaction.atomic()`.
+
+2. **Relaciones Sociales y Auditoría (`backend/users/views.py`)**:
+   - `FollowUserView.post`: adición de relación de seguimiento (`user.following.add`), notificación para el usuario seguido (`Notification.objects.create`) y registro de actividad social (`record_activity`) protegidos bajo `transaction.atomic()`.
+   - `UnfollowUserView.post`: eliminación de seguimiento bajo `transaction.atomic()`.
+   - `BlockUserView.post`: bloqueo (`user.blocked_users.add`), ruptura bidireccional inmediata del seguimiento (`userA.following.remove(userB)` y `userB.following.remove(userA)`) y registro de auditoría (`AuditLog`) atómicos.
+   - `UnblockUserView.post`, `MuteUserView.post`, `UnmuteUserView.post`: mutación de estado y auditoría bajo `transaction.atomic()`.
+   - `toggle_editor`, `NotificationMarkReadView`, `NotificationMarkAllReadView`: estados actualizados bajo `transaction.atomic()`.
+
+3. **Catálogo, Estanterías y Listas de Lectura (`backend/books/views.py`)**:
+   - `UserBookListCreateView.perform_create`, `UserBookDetailView.perform_update` y `perform_destroy`: protegidos bajo `transaction.atomic()`.
+   - `ReadingListViewSet`: acciones `perform_create`, `perform_update`, `perform_destroy`, `add_book`, `remove_book`, `reorder`, `follow` y `unfollow` encapsuladas en `transaction.atomic()`.
+
+4. **Importación Multi-Proveedor (`backend/books/services/import_service.py`)**:
+   - `_create_or_get_from_volume`: creación del autor, guardado de libro y vinculación M2M de categorías atómicos (evita libros huérfanos sin autor o categorías ante caídas).
+   - `import_single_by_query`: fallback de OpenLibrary con autor + libro + categorías + portada bajo `transaction.atomic()`.
+   - `_import_from_wikipedia_by_title` y `_import_from_openlibrary_by_title`: importación atómica por cada volumen procesado.
+   - `_import_books_by_author_from_wikipedia`: creación y asociación de portada atómica.
+
+5. **Moderación Disciplinaria y Administrativa (`backend/users/moderation_views.py`)**:
+   - `AdminReportDetailView.update`: resolución/rechazo de reportes, aplicación de sanciones (ocultación de reseñas/comentarios/mensajes, baneo, silenciamiento temporal) y registro de auditoría (`AuditLog`) blindados en bloque `transaction.atomic()`.
+   - `AdminContentHideView`, `AdminContentRestoreView`, `AdminUserMuteView`, `AdminUserUnmuteView`, `AdminUserBanView`, `AdminUserUnbanView`: mutación directa y auditoría completamente atómicas.
+
+6. **Verificación y Pruebas**:
+   - Suite dedicada: `backend/tests/test_phase63_transactions.py` (**15/15 tests PASSED**), verificando tanto rollbacks atómicos ante fallos simulados como commits nominales completos.
+   - Suites de regresión: `test_phase62_idempotency.py`, `test_phase61_error_contract.py`, `test_phase55_advanced_import.py`, `test_social_feed.py` (**42/42 tests PASSED**).
+   - Linters Python: `ruff check` (**All checks passed!**).
+   - Verificación de tipos TypeScript: `tsc --noEmit` (**0 errores**).
+   - Suite frontend Vitest: `npx vitest run` (**21/21 tests PASSED**).
+
+------------------------------------------------------------------------
+
+# 67. Fase 64 --- Concurrencia [COMPLETADA]
+
+**Prioridad:** P1 - COMPLETADA
+
+Se ha blindado la consistencia y resiliencia de la plataforma ante condiciones de carrera y peticiones simultáneas utilizando bloqueos de fila (`select_for_update()`), restricciones de base de datos (`UniqueConstraint`) y savepoints anidados (`transaction.atomic()`):
+
+1. **Duplicación de Reseñas Concurrentes (`backend/books/views.py`)**:
+   - `ReviewListCreateView.create`: implementado bloqueo exclusivo con `select_for_update()` sobre reseñas activas existentes `(user, book)` y creación encapsulada en savepoint. Ante colisión concurrente con la restricción `unique_active_review_user_book` (`IntegrityError`), el savepoint recupera limpiamente el registro ganador, actualiza sus campos y retorna HTTP 200 OK en lugar de fallar con un 500 no controlado.
+   - `ReviewLikeToggleView.post`: protegido con `select_for_update()` y savepoint para gestionar clics rápidos o dobles concurrentes sin colisiones de clave única ni notificaciones duplicadas.
+   - `UserBookListCreateView.create`: protegido con `select_for_update()` y recuperación de savepoint ante colisiones con `unique_together = ('user', 'book')`.
+
+2. **Importación Simultánea Multi-Proveedor (`backend/books/services/import_service.py`)**:
+   - `_create_or_get_from_volume`: encapsulado completamente bajo `transaction.atomic()` con `select_for_update()` en búsquedas por `google_volume_id`, `isbn` y `(title, author)`. Creación de libro y autor protegida con savepoint y recuperación atómica.
+   - `import_single_by_query`: bloqueo con `select_for_update()` en búsquedas y fallback de OpenLibrary protegido contra colisiones concurrentes de ISBN.
+   - `_import_from_wikipedia_by_title` y `_import_from_openlibrary_by_title`: búsquedas y actualizaciones protegidas con `select_for_update()`.
+
+3. **Contadores y Métricas Concurrentes (`backend/books/services/gamification_service.py`, `backend/books/tasks.py`)**:
+   - `GamificationService.record_daily_reading`: bloqueo exclusivo con `select_for_update()` sobre `DailyReadingLog` y `ReadingStreak`. Previene pérdida de actualizaciones acumuladas de páginas y minutos (*lost updates*) y colisiones `unique_together = ('user', 'date')`.
+   - `recalculate_book_rating_task`: recálculo asíncrono atómico con `select_for_update()` sobre la fila del `Book`, serializando recálculos de promedios ante reseñas simultáneas.
+
+4. **Listas de Lectura Concurrentes (`backend/books/views.py:ReadingListViewSet`)**:
+   - `add_book`: bloquea la fila padre `ReadingList` con `select_for_update()` para serializar el cómputo de posiciones (`max_pos + 1`) y atrapa colisiones concurrentes con `unique_reading_list_book` devolviendo HTTP 400 limpio.
+   - `reorder`: reordenación serializada bajo bloqueo exclusivo de la lista padre con `select_for_update()`.
+
+5. **Acciones Sociales Concurrentes (`backend/users/views.py:FollowUserView`)**:
+   - `FollowUserView.post`: verificación atómica de seguimiento previo dentro de la transacción para evitar notificaciones y registros de actividad duplicados por solicitudes simultáneas.
+
+6. **Verificación y Pruebas**:
+   - Suite dedicada: `backend/tests/test_phase64_concurrency.py` (**11/11 tests PASSED**), evaluando condiciones de carrera simuladas en reviews, importación, lectura diaria, listas de lectura, likes y seguimiento.
+   - Suites de regresión: `test_phase63_transactions.py`, `test_phase62_idempotency.py`, `test_phase61_error_contract.py`, `test_phase21_reading_lists.py` (**48/48 tests PASSED**).
+   - Linters Python: `ruff check` (**All checks passed!**).
+   - Verificación de tipos TypeScript: `tsc --noEmit` (**0 errores**).
+   - Suite frontend Vitest: `npx vitest run` (**21/21 tests PASSED**).
+
+------------------------------------------------------------------------
+
+# 68. Fase 65 --- Cache invalidation [COMPLETADA]
+
+**Prioridad:** P1 - COMPLETADA
+
+Se ha implementado una política explícita y automatizada de invalidación de caché reactiva y proactiva, eliminando la dependencia del TTL como única estrategia y garantizando la coherencia inmediata de datos en libros, perfiles, recomendaciones y tendencias:
+
+1. **Estructura y Claves de Invalidación (`backend/books/cache_utils.py`)**:
+   - `book cache`: invalidación de detalle (`book:{id}`) y recalculo/evicción reactiva.
+   - `profile cache`: añadido soporte de caché de perfil (`user:profile:{id}`) con TTL explícito (`TTL_USER_PROFILE = 900`) e invalidación `invalidate_user_profile_cache(user_id)`.
+   - `recommendation cache`: invalidación integral de recomendaciones por usuario (`recommendations:user:{id}:{strategy}`) para todas las estrategias (`hybrid`, `rules`, `social`, `semantic`, `v1`, `v2`, `v3`, `all`), recomendaciones a nivel libro (`recommendations:book:{id}`), libros similares (`similar_books_{id}`) y vectores/embeddings de preferencia de usuario (`user_pref_vector_{id}`, `user_pref_embedding_{id}`).
+   - `trending cache`: invalidación completa multi-período (`trending:week`, `trending:month`, `trending:year`, `trending:all`).
+   - Cascada reactiva orquestada: función `cascade_review_invalidation(book_id, user_id)` que ejecuta la secuencia exacta:
+     `new review` → `invalidate book rating & detail` → `invalidate recommendations (book & user)` → `invalidate trending (all periods)` → `invalidate user profile & stats`.
+
+2. **Señales Reactivas y Desencadenantes del Modelo (`backend/books/models.py`)**:
+   - `update_book_rating`: llama a `invalidate_book_cache(self.id)` e `invalidate_trending_cache()` tras actualizar promedios.
+   - `handle_review_signals`: al crear, actualizar o eliminar una reseña activa, dispara `cascade_review_invalidation(instance.book_id, instance.user_id)`.
+   - `handle_userbook_signals`: cambios de estado de lectura en `UserBook` invalidan el perfil del usuario, estadísticas, recomendaciones de usuario y libro, tendencias y caché del libro.
+   - `invalidate_book_cache_signal`: al actualizar o eliminar un `Book`, se invalidan su caché de detalle, recomendaciones asociadas y el ranking de tendencias.
+
+3. **Caché e Invalidación en Vistas de Usuario (`backend/users/views.py`)**:
+   - `UserProfileView.retrieve`: respuesta del perfil autenticado cacheada en `user:profile:{id}` con cabeceras y serialización DRF.
+   - `UserUpdateView.perform_update`: invalida proactivamente `invalidate_user_profile_cache(instance.id)`.
+   - `FollowUserView.post` & `UnfollowUserView.post`: invalidan el perfil y estadísticas de ambos usuarios y purgan las recomendaciones del usuario (`recommendations:user:{id}:social`).
+   - `BlockUserView.post` & `UnblockUserView.post`: invalidan el perfil y recomendaciones de los usuarios involucrados.
+
+4. **Verificación y Pruebas**:
+   - Suite dedicada: `backend/tests/test_phase65_cache_invalidation.py` (**7/7 tests PASSED**), validando:
+     - Cascada reactiva completa ante creación, edición y eliminación de reviews.
+     - Invalidación de caché de perfiles ante actualizaciones de usuario, follow/unfollow y cambios de UserBook.
+     - Purga de recomendaciones (estrategias híbridas, sociales, vectoriales) y embeddings.
+     - Evicción de tendencias en todos sus rangos de tiempo (`week`, `month`, `year`, `all`).
+   - Suites de regresión: `test_phase64_concurrency.py`, `test_phase63_transactions.py`, `test_phase62_idempotency.py`, `test_caching.py` (**45/45 tests PASSED**).
+   - Linters Python: `ruff check` (**All checks passed!**).
+   - Verificación de tipos TypeScript: `tsc --noEmit` (**0 errores**).
+   - Suite frontend Vitest: `npx vitest run` (**21/21 tests PASSED**).
+
+------------------------------------------------------------------------
+
+# 69. Fase 66 --- Backups [COMPLETADA]
+
+**Prioridad:** P1 - COMPLETADA
+
+Se ha diseñado e implementado una arquitectura integral de copias de seguridad (backups), retención automatizada y simulacros de restauración validados para PostgreSQL y almacenamiento multimedia (Media), cumpliendo la premisa fundamental: *"Un backup que nunca se ha restaurado no se considera validado"*:
+
+1. **Servicios de Backup y Restauración (`backend/books/services/backup_service.py`)**:
+   - `DatabaseBackupService`:
+     - Generación de volcados diarios con compresión (`.sql.gz` vía `pg_dump` con fallback a `.json.gz` mediante serialización Django).
+     - Generación de manifest JSON criptográfico con metadatos: fecha UTC, nombre de DB, número de registros, formato y firma SHA-256.
+     - Política de retención automática (`BACKUP_RETENTION_DAYS`, por defecto 7 días), eliminando copias expiradas pero preservando siempre al menos la más reciente.
+     - Restauración atómica (`restore_database`) con validación obligatoria contra la firma SHA-256 del manifest (rechazo automático de copias corruptas o manipuladas).
+   - `MediaBackupService`:
+     - Empaquetado completo de `/app/media` en tarball comprimido `.tar.gz`.
+     - Generación de manifest detallado con SHA-256 global y hashes individuales archivo por archivo.
+     - Política de retención configurable (`MEDIA_BACKUP_RETENTION_DAYS`, por defecto 30 días).
+     - Soporte para sincronización con Object Storage / S3 / MinIO.
+     - Restauración segura con protección contra Directory Traversal (CWE-22) y verificación de integridad hash por archivo restaurado.
+
+2. **Comandos de Gestión Django (`backend/books/management/commands/`)**:
+   - `python manage.py backup_db`: volcado programable de base de datos con opciones `--output-dir`, `--retention-days` y `--force-django-dump`.
+   - `python manage.py restore_db <archivo>`: restauración con verificación SHA-256 y opción de emergencia `--no-verify`.
+   - `python manage.py backup_media`: empaquetado de media con opciones `--output-dir`, `--media-root`, `--retention-days` y `--s3-sync`.
+   - `python manage.py restore_media <archivo>`: extracción y validación de integridad con `--target-dir` y `--no-verify`.
+
+3. **Scripts de Producción y Docker Compose (`scripts/backup/`, `docker-compose.prod.yml`)**:
+   - `scripts/backup/backup_db.sh` y `restore_db.sh`: scripts shell para cron de servidor y ejecución en entornos de producción con comprobación SHA-256.
+   - `scripts/backup/backup_media.sh` y `restore_media.sh`: empaquetado y restauración de medios con soporte de sincronización AWS CLI / S3.
+   - `docker-compose.prod.yml`: volumen persistente aislado `backups_data` montado en `/app/backups`.
+   - `backend/Dockerfile`: instalación de `postgresql-client` para disponer de herramientas nativas `pg_dump` y `psql`.
+
+4. **Documentación Operativa (`docs/deployment/backup_and_recovery.md`)**:
+   - Guía exhaustiva de frecuencias de respaldo, retención, programación cron en producción, configuración de buckets S3/R2/MinIO y paso a paso para simulacros periódicos de restauración (*restoration drills*).
+
+5. **Verificación y Pruebas Automatizadas**:
+   - Suite dedicada: `backend/tests/test_phase66_backups.py` (**8/8 tests PASSED**), validando:
+     - Generación de volcado y manifest con hash SHA-256 exacto.
+     - Política de retención de base de datos (purgado de copias antiguas >7 días preservando recientes).
+     - Empaquetado de media con hashes individuales por archivo.
+     - Política de retención de archivos multimedia (>30 días).
+     - **Drill completo de BD**: inserción de datos → backup → pérdida/corrupción intencionada → restauración → aserción del 100% de datos recuperados.
+     - **Drill completo de Media**: creación de archivos → backup → eliminación física total → restauración → verificación de integridad byte a byte y coincidencia de SHA-256.
+     - Detección y rechazo inmediato de backups manipulados o corruptos (tampered files).
+     - Ejecución limpia de los 4 comandos de gestión Django (`backup_db`, `restore_db`, `backup_media`, `restore_media`).
+   - Suites de regresión: `test_phase65_cache_invalidation.py`, `test_phase64_concurrency.py`, `test_phase63_transactions.py`, `test_phase62_idempotency.py` (**45/45 tests PASSED**).
+   - Linters Python: `ruff check` (**All checks passed!**).
+   - Verificación de tipos TypeScript: `tsc --noEmit` (**0 errores**).
+   - Suite frontend Vitest: `npx vitest run` (**21/21 tests PASSED**).
+
+------------------------------------------------------------------------
+
+# 70. Fase 67 --- Disaster recovery [COMPLETADA]
+
+**Prioridad:** P1 - COMPLETADA
+
+Se ha formalizado e implementado la estrategia integral de Recuperación ante Desastres (*Disaster Recovery - DRP*) para MyBookConnect, garantizando mediante manuales operativos y validaciones en código el principio rector: **"Redis no debe ser fuente de verdad"**:
+
+1. **Manual Maestro de Recuperación ante Desastres (`docs/deployment/disaster_recovery.md`)**:
+   - Establece objetivos de contingencia: **RPO $\le$ 24 horas** (respaldos diarios validados) y **RTO $\le$ 30 minutos**.
+   - **Runbook 1 (Cómo recuperar DB)**: aislamiento de tráfico, terminación de conexiones abiertas (`pg_terminate_backend`), restauración atómica desde volcado validado con SHA-256 (`restore_db.sh` / `manage.py restore_db`) y reanudación de servicios.
+   - **Runbook 2 (Cómo recuperar media)**: restauración de archivos multimedia desde tarball validado (`restore_media.sh` / `manage.py restore_media`) o sincronización desde almacenamiento de objetos remoto (`aws s3 sync`), resolución de permisos y propiedad `appuser:appgroup`.
+   - **Runbook 3 (Cómo regenerar Redis)**: reinicio o recreación limpia del contenedor `cache` sin pérdida de información de negocio, validación de latencia y conectividad con `redis-cli ping` y precalentamiento determinista.
+   - **Runbook 4 (Cómo desplegar versión anterior / Rollback)**: reversión de código e imágenes Docker etiquetadas, ejecución de migraciones inversas de base de datos (`manage.py migrate <app> <version_previa>`), purga de caché y verificación de healthchecks.
+   - **Runbook 5 (Cómo restaurar secretos)**: generación criptográfica de nuevas variables de entorno (`SECRET_KEY`, `POSTGRES_PASSWORD`), actualización en PostgreSQL, invalidación masiva de sesiones y revocación de tokens JWT mediante `token_blacklist`.
+
+2. **Comando de Regeneración de Caché (`backend/books/management/commands/rebuild_cache.py`)**:
+   - `python manage.py rebuild_cache [--limit <N>] [--flush-first]`:
+     - Consulta directamente PostgreSQL y calcula los rankings de tendencias para todas las ventanas temporales (`trending:week`, `trending:month`, `trending:year`, `trending:all`).
+     - Precalienta el detalle de los libros principales (`book:{id}`) para evitar *cache stampedes* o latencia tras un reinicio de Redis.
+     - Demuestra fácticamente que Redis es una caché volátil reconstruible al 100% desde la base de datos.
+
+3. **Verificación y Pruebas Automatizadas**:
+   - Suite dedicada: `backend/tests/test_phase67_disaster_recovery.py` (**4/4 tests PASSED**), validando:
+     - **Resiliencia ante vaciado total de Redis (`cache.clear()`)**: las consultas a la API continúan respondiendo con éxito (código 200) y recargando los datos fielmente desde PostgreSQL (patrón cache-aside).
+     - **Precalentamiento determinista**: el comando `rebuild_cache` repuebla las claves multi-período y libros destacados en Redis.
+     - **Drill E2E de Desastre**: caída y corrupción de datos → restauración desde backup → purga/regeneración de caché → coherencia íntegra verificada.
+     - **Seguridad y Revocación**: lista negra y rechazo inmediato de tokens JWT tras incidentes de seguridad (código 401).
+   - Pruebas conjuntas de backup y DR: `test_phase67_disaster_recovery.py` y `test_phase66_backups.py` (**12/12 tests PASSED**).
+   - Linters Python: `ruff check` (**All checks passed!**).
+   - Verificación de tipos TypeScript: `tsc --noEmit` (**0 errores**).
+   - Suite frontend Vitest: `npx vitest run` (**21/21 tests PASSED**).
 
 ------------------------------------------------------------------------
 

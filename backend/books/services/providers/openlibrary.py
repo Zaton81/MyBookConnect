@@ -81,7 +81,12 @@ class OpenLibraryProvider:
         try:
             res = requests.get(
                 self.search_url,
-                params={'q': clean_title, 'page': page, 'limit': limit},
+                params={
+                    'q': clean_title,
+                    'page': page,
+                    'limit': limit,
+                    'fields': 'key,title,author_name,cover_i,first_publish_year,edition_key,subject,subject_facet',
+                },
                 timeout=8,
                 headers=OPENLIBRARY_HEADERS,
             )

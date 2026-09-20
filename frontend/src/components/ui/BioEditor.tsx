@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
+import DOMPurify from 'dompurify';
 
 interface BioEditorProps {
   content: string;
@@ -17,7 +18,7 @@ export const BioEditor: React.FC<BioEditorProps> = ({ content, onChange }) => {
       },
     },
     onUpdate: ({ editor }) => {
-      onChange(editor.getHTML());
+      onChange(DOMPurify.sanitize(editor.getHTML()));
     },
   });
 

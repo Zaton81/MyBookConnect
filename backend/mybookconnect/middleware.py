@@ -85,3 +85,158 @@ class JwtAuthMiddleware:
 
 def JwtAuthMiddlewareStack(inner):
     return JwtAuthMiddleware(inner)
+
+
+class ApiErrorContractMiddleware:
+    """
+    Middleware HTTP que garantiza que todas las respuestas de error (status >= 400)
+    bajo rutas de la API (/api/) tengan la estructura unificada del contrato de errores,
+    incluso si la vista devolvió directamente un Response(status=4xx) sin lanzar una excepción.
+    """
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        response = self.get_response(request)
+        if request.path.startswith("/api/") and response.status_code >= 400:
+            try:
+                from mybookconnect.exceptions import normalize_error_data
+
+                if hasattr(response, "data") and isinstance(response.data, (dict, list)):
+                    if not (isinstance(response.data, dict) and "error" in response.data):
+                        response.data = normalize_error_data(
+                            response.data,
+                            response.status_code,
+                            method=request.method,
+                        )
+                        if getattr(response, "_is_rendered", False):
+                            response._is_rendered = False
+                            response.render()
+                elif "application/json" in response.get("Content-Type", ""):
+                    import json
+
+                    content = json.loads(response.content.decode("utf-8"))
+                    if isinstance(content, (dict, list)):
+                        if not (isinstance(content, dict) and "error" in content):
+                            normalized = normalize_error_data(content, response.status_code, method=request.method)
+                            response.content = json.dumps(normalized).encode("utf-8")
+            except Exception as e:
+                logger.debug("Error al normalizar contrato de error en middleware: %s", e)
+
+        return response
+
+
+class IdempotencyMiddleware:
+    """
+    Middleware HTTP para garantizar idempotencia automática cuando se proporcione
+    la cabecera Idempotency-Key o X-Idempotency-Key en peticiones mutantes bajo /api/.
+    Si la vista ya fue procesada por el decorador @idempotent, este middleware la omite.
+    """
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        if not request.path.startswith("/api/") or request.method not in ("POST", "PUT", "PATCH", "DELETE"):
+            return self.get_response(request)
+
+        # Si la vista ya se encargó de la idempotencia mediante decorador
+        if getattr(request, "_idempotency_handled", False):
+            return self.get_response(request)
+
+        from django.http import JsonResponse
+
+        from mybookconnect.idempotency import IdempotencyManager, IdempotencyStatus
+
+        key = IdempotencyManager.extract_key(request)
+        if not key:
+            return self.get_response(request)
+
+        user_id = getattr(request.user, "id", None) if getattr(request, "user", None) and request.user.is_authenticated else None
+        cache_key = IdempotencyManager.build_cache_key(user_id, request.method, request.path, key)
+        payload_hash = IdempotencyManager.compute_payload_hash(request)
+
+        # 1. Comprobar registros existentes
+        stored = IdempotencyManager.get_stored_record(cache_key)
+        if stored:
+            if stored.get("payload_hash") != payload_hash:
+                err_data = {
+                    "detail": "La clave de idempotencia ya fue utilizada con un cuerpo de petición diferente.",
+                    "error": {
+                        "code": "VALIDATION_ERROR",
+                        "message": "La clave de idempotencia ya fue utilizada con un cuerpo de petición diferente.",
+                        "details": {"idempotency_key": "Payload mismatch for reused key"},
+                    },
+                }
+                resp = JsonResponse(err_data, status=400)
+                resp.data = err_data
+                return resp
+
+            if stored.get("status") == IdempotencyStatus.PROCESSING:
+                err_data = {
+                    "detail": "Existe una solicitud idéntica en proceso con esta clave de idempotencia.",
+                    "error": {
+                        "code": "VALIDATION_ERROR",
+                        "message": "Existe una solicitud idéntica en proceso con esta clave de idempotencia.",
+                        "details": {"idempotency_key": "Request in progress"},
+                    },
+                }
+                resp = JsonResponse(err_data, status=409)
+                resp.data = err_data
+                return resp
+
+            if stored.get("status") == IdempotencyStatus.COMPLETED:
+                resp_data = stored.get("response_data")
+                resp = JsonResponse(resp_data, status=stored.get("status_code", 200), safe=False)
+                resp.data = resp_data
+                resp["Idempotent-Replayed"] = "true"
+                resp["Idempotency-Key"] = key
+                return resp
+
+        # 2. Adquirir bloqueo atómico
+        if not IdempotencyManager.acquire_lock(cache_key):
+            err_data = {
+                "detail": "Existe una solicitud idéntica en proceso con esta clave de idempotencia.",
+                "error": {
+                    "code": "VALIDATION_ERROR",
+                    "message": "Existe una solicitud idéntica en proceso con esta clave de idempotencia.",
+                    "details": {"idempotency_key": "Concurrent request lock active"},
+                },
+            }
+            resp = JsonResponse(err_data, status=409)
+            resp.data = err_data
+            return resp
+
+        IdempotencyManager.set_processing(cache_key, payload_hash)
+
+        try:
+            response = self.get_response(request)
+            if getattr(request, "_idempotency_handled", False):
+                return response
+
+            if hasattr(response, "status_code") and response.status_code < 500:
+                data_to_save = getattr(response, "data", None)
+                if data_to_save is None and "application/json" in response.get("Content-Type", ""):
+                    try:
+                        import json
+
+                        data_to_save = json.loads(response.content.decode("utf-8"))
+                    except Exception:
+                        pass
+
+                if data_to_save is not None:
+                    IdempotencyManager.save_response(
+                        cache_key=cache_key,
+                        payload_hash=payload_hash,
+                        status_code=response.status_code,
+                        response_data=data_to_save,
+                    )
+
+            if hasattr(response, "__setitem__"):
+                response["Idempotency-Key"] = key
+
+            return response
+        finally:
+            IdempotencyManager.release_lock(cache_key)
+

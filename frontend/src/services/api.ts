@@ -17,6 +17,14 @@ export const authApi = {
     });
   },
 
+  async loginWithGoogle(token: string) {
+    return apiClient('/api/v1/auth/google/', {
+      method: 'POST',
+      body: JSON.stringify({ token }),
+      requireAuth: false,
+    });
+  },
+
   async getProfile(token?: string) {
     const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
     return apiClient('/api/v1/auth/profile/', {

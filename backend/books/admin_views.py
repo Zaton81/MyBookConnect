@@ -7,11 +7,12 @@ from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import Author, Book, Errata, ErrataStatus, LegalDocument, Review, UserBook
+from .models import Author, Book, Category, Errata, ErrataStatus, LegalDocument, Review, UserBook
 from .serializers import (
     AdminUserSerializer,
     AuthorSerializer,
     BookSerializer,
+    CategorySerializer,
     ErrataSerializer,
     LegalDocumentSerializer,
 )
@@ -193,7 +194,8 @@ class AdminBookListView(generics.ListCreateAPIView):
     serializer_class = BookSerializer
 
     def get_queryset(self):
-        qs = Book.objects.select_related('author').prefetch_related('categories').order_by('-id')
+        qs = Book.objects.select_related('author').prefetch_related('categories')
+
         search = self.request.query_params.get('search')
         if search:
             search = search.strip()
@@ -202,13 +204,71 @@ class AdminBookListView(generics.ListCreateAPIView):
                 | Q(isbn__icontains=search)
                 | Q(author__name__icontains=search)
             )
+
+        provider = self.request.query_params.get('provider')
+        if provider == 'google':
+            qs = qs.filter(google_volume_id__isnull=False).exclude(google_volume_id='')
+        elif provider == 'openlibrary':
+            qs = qs.filter(
+                Q(openlibrary_work_id__isnull=False) | Q(openlibrary_edition_id__isnull=False)
+            ).exclude(openlibrary_work_id='', openlibrary_edition_id='')
+        elif provider == 'isbn':
+            qs = qs.filter(isbn__isnull=False).exclude(isbn='')
+
+        enrichment = self.request.query_params.get('enrichment')
+        if enrichment in ('true', '1'):
+            qs = qs.filter(enrichment_attempted=True)
+        elif enrichment in ('false', '0'):
+            qs = qs.filter(enrichment_attempted=False)
+
+        min_rating = self.request.query_params.get('min_rating')
+        if min_rating:
+            try:
+                qs = qs.filter(average_rating__gte=float(min_rating))
+            except ValueError:
+                pass
+
+        category = self.request.query_params.get('category')
+        if category:
+            qs = qs.filter(categories__id=category)
+
+        ordering = self.request.query_params.get('ordering', '-id')
+        if ordering in ('-id', 'id', '-created_at', 'created_at', 'title', '-title', '-average_rating', 'average_rating'):
+            qs = qs.order_by(ordering)
+        else:
+            qs = qs.order_by('-id')
+
         return qs
+
+    def perform_create(self, serializer):
+        instance = serializer.save()
+        from users.audit_service import log_audit
+        from users.models import AuditAction
+        log_audit(
+            action=AuditAction.OTHER,
+            actor=self.request.user,
+            target=instance,
+            request=self.request,
+            metadata={"created_type": "Book", "title": instance.title},
+        )
 
 
 class AdminBookDetailView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [IsAdminOrEditor]
     serializer_class = BookSerializer
     queryset = Book.objects.all()
+
+    def perform_update(self, serializer):
+        instance = serializer.save()
+        from users.audit_service import log_audit
+        from users.models import AuditAction
+        log_audit(
+            action=AuditAction.OTHER,
+            actor=self.request.user,
+            target=instance,
+            request=self.request,
+            metadata={"updated_type": "Book", "title": instance.title, "fields": list(self.request.data.keys())},
+        )
 
     def perform_destroy(self, instance):
         from users.audit_service import log_audit
@@ -241,23 +301,111 @@ class AdminBookEnrichView(APIView):
         return Response(data, status=status.HTTP_202_ACCEPTED)
 
 
+class AdminBookBulkActionView(APIView):
+    permission_classes = [IsAdminOrEditor]
+
+    def post(self, request):
+        action = request.data.get('action')
+        book_ids = request.data.get('book_ids', [])
+        if not action or not isinstance(book_ids, list):
+            return Response(
+                {"detail": "Se requieren los campos 'action' y 'book_ids' (lista)."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        books = Book.objects.filter(id__in=book_ids)
+        count = 0
+        if action == 're_enrich':
+            for book in books:
+                book.enrichment_attempted = False
+                book.save(update_fields=['enrichment_attempted'])
+                enrich_book_task.delay(book.id)
+                count += 1
+            return Response({"success": True, "processed": count, "message": f"{count} libros encolados para re-enriquecimiento."})
+
+        elif action == 'rebuild_embedding':
+            for book in books:
+                try:
+                    from ai.embedding_service import generate_book_embedding
+                    book.embedding = generate_book_embedding(book)
+                    book.save(update_fields=['embedding'])
+                except Exception:
+                    pass
+                count += 1
+            return Response({"success": True, "processed": count, "message": f"{count} libros procesados para reconstrucción de embedding."})
+
+        elif action == 'delete':
+            from users.audit_service import log_audit
+            from users.models import AuditAction
+            for book in books:
+                log_audit(
+                    action=AuditAction.CONTENT_DELETE,
+                    actor=request.user,
+                    target=book,
+                    request=request,
+                    metadata={"deleted_type": "Book", "title": book.title, "bulk": True},
+                )
+            count = books.count()
+            books.delete()
+            return Response({"success": True, "processed": count, "message": f"{count} libros eliminados permanentemente."})
+
+        return Response({"detail": f"Acción '{action}' no reconocida."}, status=status.HTTP_400_BAD_REQUEST)
+
+
 class AdminAuthorListView(generics.ListCreateAPIView):
     permission_classes = [IsAdminOrEditor]
     serializer_class = AuthorSerializer
 
     def get_queryset(self):
-        qs = Author.objects.all().order_by('name')
+        qs = Author.objects.all()
         search = self.request.query_params.get('search')
         if search:
             search = search.strip()
             qs = qs.filter(name__icontains=search)
+
+        enrichment = self.request.query_params.get('enrichment')
+        if enrichment in ('true', '1'):
+            qs = qs.filter(enrichment_attempted=True)
+        elif enrichment in ('false', '0'):
+            qs = qs.filter(enrichment_attempted=False)
+
+        ordering = self.request.query_params.get('ordering', 'name')
+        if ordering in ('name', '-name', 'id', '-id'):
+            qs = qs.order_by(ordering)
+        else:
+            qs = qs.order_by('name')
+
         return qs
+
+    def perform_create(self, serializer):
+        instance = serializer.save()
+        from users.audit_service import log_audit
+        from users.models import AuditAction
+        log_audit(
+            action=AuditAction.OTHER,
+            actor=self.request.user,
+            target=instance,
+            request=self.request,
+            metadata={"created_type": "Author", "name": instance.name},
+        )
 
 
 class AdminAuthorDetailView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [IsAdminOrEditor]
     serializer_class = AuthorSerializer
     queryset = Author.objects.all()
+
+    def perform_update(self, serializer):
+        instance = serializer.save()
+        from users.audit_service import log_audit
+        from users.models import AuditAction
+        log_audit(
+            action=AuditAction.OTHER,
+            actor=self.request.user,
+            target=instance,
+            request=self.request,
+            metadata={"updated_type": "Author", "name": instance.name, "fields": list(self.request.data.keys())},
+        )
 
     def perform_destroy(self, instance):
         from users.audit_service import log_audit
@@ -288,6 +436,52 @@ class AdminAuthorEnrichView(APIView):
         data['task_id'] = task.id
         data['status'] = 'queued'
         return Response(data, status=status.HTTP_202_ACCEPTED)
+
+
+class AdminAuthorBulkActionView(APIView):
+    permission_classes = [IsAdminOrEditor]
+
+    def post(self, request):
+        action = request.data.get('action')
+        author_ids = request.data.get('author_ids', [])
+        if not action or not isinstance(author_ids, list):
+            return Response(
+                {"detail": "Se requieren los campos 'action' y 'author_ids' (lista)."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        authors = Author.objects.filter(id__in=author_ids)
+        count = 0
+        if action == 're_enrich':
+            for author in authors:
+                author.enrichment_attempted = False
+                author.save(update_fields=['enrichment_attempted'])
+                refresh_author_task.delay(author.id)
+                count += 1
+            return Response({"success": True, "processed": count, "message": f"{count} autores encolados para re-enriquecimiento."})
+
+        elif action == 'delete':
+            from users.audit_service import log_audit
+            from users.models import AuditAction
+            for author in authors:
+                log_audit(
+                    action=AuditAction.CONTENT_DELETE,
+                    actor=request.user,
+                    target=author,
+                    request=request,
+                    metadata={"deleted_type": "Author", "name": author.name, "bulk": True},
+                )
+            count = authors.count()
+            authors.delete()
+            return Response({"success": True, "processed": count, "message": f"{count} autores eliminados permanentemente."})
+
+        return Response({"detail": f"Acción '{action}' no reconocida."}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class AdminCategoryListView(generics.ListCreateAPIView):
+    permission_classes = [IsAdminOrEditor]
+    serializer_class = CategorySerializer
+    queryset = Category.objects.all().order_by('name')
 
 
 class AdminErrataListView(generics.ListAPIView):

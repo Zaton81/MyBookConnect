@@ -1,6 +1,7 @@
 import logging
 
 from django.core.cache import cache
+from django.db import IntegrityError, transaction
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema, inline_serializer
@@ -8,6 +9,8 @@ from rest_framework import generics, permissions, serializers, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
+
+from mybookconnect.idempotency import idempotent
 
 from . import services
 from .cache_utils import TTL_BOOK_DETAIL, book_detail_key
@@ -41,6 +44,8 @@ from .serializers import (
     UnifiedSearchResultSerializer,
     UserBookSerializer,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class BookListCreateView(generics.ListCreateAPIView):
@@ -314,8 +319,34 @@ class UserBookListCreateView(generics.ListCreateAPIView):
 
         return queryset
 
-    def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        book = serializer.validated_data.get('book')
+
+        with transaction.atomic():
+            user_book = UserBook.objects.select_for_update().filter(user=request.user, book=book).first()
+            if user_book:
+                for attr, val in serializer.validated_data.items():
+                    if attr != 'book':
+                        setattr(user_book, attr, val)
+                user_book.save()
+                return Response(self.get_serializer(user_book).data, status=status.HTTP_200_OK)
+
+            try:
+                with transaction.atomic():
+                    user_book = serializer.save(user=request.user)
+                return Response(self.get_serializer(user_book).data, status=status.HTTP_201_CREATED)
+            except IntegrityError:
+                # Recuperar limpiamente ante colisión concurrente de inserción
+                user_book = UserBook.objects.select_for_update().filter(user=request.user, book=book).first()
+                if user_book:
+                    for attr, val in serializer.validated_data.items():
+                        if attr != 'book':
+                            setattr(user_book, attr, val)
+                    user_book.save()
+                    return Response(self.get_serializer(user_book).data, status=status.HTTP_200_OK)
+                raise
 
 
 class UserBookDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -324,6 +355,14 @@ class UserBookDetailView(generics.RetrieveUpdateDestroyAPIView):
 
     def get_object(self):
         return get_object_or_404(UserBook, pk=self.kwargs['pk'], user=self.request.user)
+
+    def perform_update(self, serializer):
+        with transaction.atomic():
+            serializer.save()
+
+    def perform_destroy(self, instance):
+        with transaction.atomic():
+            instance.delete()
 
 
 class UserBookByBookView(APIView):
@@ -385,6 +424,12 @@ class ReviewListCreateView(generics.ListCreateAPIView):
     def create(self, request, *args, **kwargs):
         from rest_framework import status
 
+        if request.user.is_authenticated and getattr(request.user, 'is_disciplinary_muted', False):
+            return Response(
+                {'detail': f"Tu cuenta se encuentra silenciada temporalmente por moderación hasta {request.user.muted_until}."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
         book_id = request.data.get('book_id') or request.data.get('book')
         if not book_id:
             return Response({'detail': 'book_id es requerido'}, status=status.HTTP_400_BAD_REQUEST)
@@ -397,26 +442,56 @@ class ReviewListCreateView(generics.ListCreateAPIView):
         except (ValueError, TypeError):
             return Response({'detail': 'La puntuación debe ser un valor entre 1 y 10'}, status=status.HTTP_400_BAD_REQUEST)
 
-        title = request.data.get('title', '')
-        text = request.data.get('text', '')
+        from mybookconnect.html_sanitizer import sanitize_html, sanitize_plain_text
 
-        active_review = Review.objects.filter(user=request.user, book_id=book_id, deleted_at__isnull=True).first()
-        if active_review:
-            active_review.rating = rating_val
-            active_review.title = title
-            active_review.text = text
-            active_review.save()
-            review = active_review
-            created = False
-        else:
-            review = Review.objects.create(
-                user=request.user,
-                book_id=book_id,
-                rating=rating_val,
-                title=title,
-                text=text,
-            )
-            created = True
+        title = sanitize_plain_text(request.data.get('title', ''))
+        text = sanitize_html(request.data.get('text', ''))
+
+        with transaction.atomic():
+            active_review = Review.objects.select_for_update().filter(
+                user=request.user, book_id=book_id, deleted_at__isnull=True
+            ).first()
+
+            if active_review:
+                active_review.rating = rating_val
+                active_review.title = title
+                active_review.text = text
+                active_review.save()
+                review = active_review
+                created = False
+            else:
+                try:
+                    with transaction.atomic():
+                        review = Review.objects.create(
+                            user=request.user,
+                            book_id=book_id,
+                            rating=rating_val,
+                            title=title,
+                            text=text,
+                        )
+                    created = True
+                except IntegrityError:
+                    # Colisión concurrente: otro worker/hilo creó la reseña simultáneamente
+                    active_review = Review.objects.select_for_update().filter(
+                        user=request.user, book_id=book_id, deleted_at__isnull=True
+                    ).first()
+                    if active_review:
+                        active_review.rating = rating_val
+                        active_review.title = title
+                        active_review.text = text
+                        active_review.save()
+                        review = active_review
+                        created = False
+                    else:
+                        raise
+
+            if created:
+                try:
+                    from books.services.gamification_service import GamificationService
+                    GamificationService.evaluate_user_badges(request.user)
+                except Exception as g_exc:
+                    logger.debug(f"Error evaluando badges para usuario {request.user.id}: {g_exc}")
+
         serializer = self.get_serializer(review)
         status_code = status.HTTP_201_CREATED if created else status.HTTP_200_OK
         return Response(serializer.data, status=status_code)
@@ -442,11 +517,18 @@ class ReviewDetailView(generics.RetrieveUpdateDestroyAPIView):
             if not can_view_review(request.user, obj):
                 raise PermissionDenied('No tienes permiso para ver esta reseña.')
         else:
+            if getattr(request.user, 'is_disciplinary_muted', False):
+                raise PermissionDenied('Tu cuenta se encuentra silenciada temporalmente por moderación.')
             if not can_edit_review(request.user, obj):
                 raise PermissionDenied('No tienes permiso para modificar esta reseña.')
 
+    def perform_update(self, serializer):
+        with transaction.atomic():
+            serializer.save()
+
     def perform_destroy(self, instance):
-        instance.delete()
+        with transaction.atomic():
+            instance.delete()
 
 
 class ReviewLikeToggleView(APIView):
@@ -475,31 +557,46 @@ class ReviewLikeToggleView(APIView):
         from users.policies import can_view_review
 
         review = get_object_or_404(Review.objects.select_related('user', 'book'), id=review_id)
-        if not can_view_review(request.user, review):
-            raise PermissionDenied('No tienes permiso para ver esta reseña.')
-
         if (
             review.user.blocked_users.filter(id=request.user.id).exists()
             or request.user.blocked_users.filter(id=review.user_id).exists()
         ):
             return Response({'detail': 'No puedes interactuar con esta reseña.'}, status=403)
 
-        like = ReviewLike.objects.filter(user=request.user, review=review).first()
-        if like:
-            like.delete()
-            liked = False
-        else:
-            ReviewLike.objects.create(user=request.user, review=review)
-            liked = True
-            if review.user_id != request.user.id:
-                Notification.objects.create(
-                    recipient=review.user,
-                    actor=request.user,
-                    type=NotificationType.LIKE,
-                    title=f"{request.user.username} le dio me gusta a tu reseña",
-                    message=f"A {request.user.username} le gustó tu reseña de '{review.book.title}'",
-                    link=f"/books/{review.book_id}?review={review.id}",
-                )
+        if not can_view_review(request.user, review):
+            raise PermissionDenied('No tienes permiso para ver esta reseña.')
+
+        with transaction.atomic():
+            like = ReviewLike.objects.select_for_update().filter(user=request.user, review=review).first()
+            if like:
+                like.delete()
+                liked = False
+            else:
+                try:
+                    with transaction.atomic():
+                        ReviewLike.objects.create(user=request.user, review=review)
+                        liked = True
+                except IntegrityError:
+                    # Concurrencia: otro request simultáneo ya creó el like
+                    liked = True
+
+                if liked and review.user_id != request.user.id:
+                    from users.models import Notification, NotificationType
+                    notif_exists = Notification.objects.filter(
+                        recipient=review.user,
+                        actor=request.user,
+                        type=NotificationType.LIKE,
+                        link=f"/books/{review.book_id}?review={review.id}",
+                    ).exists()
+                    if not notif_exists:
+                        Notification.objects.create(
+                            recipient=review.user,
+                            actor=request.user,
+                            type=NotificationType.LIKE,
+                            title=f"{request.user.username} le dio me gusta a tu reseña",
+                            message=f"A {request.user.username} le gustó tu reseña de '{review.book.title}'",
+                            link=f"/books/{review.book_id}?review={review.id}",
+                        )
 
         return Response({
             'liked': liked,
@@ -533,7 +630,8 @@ class ReviewCommentListCreateView(APIView):
         if request.user.is_authenticated:
             blocked_by_user = set(request.user.blocked_users.values_list('id', flat=True))
             blocking_user = set(request.user.blocked_by.values_list('id', flat=True))
-            excluded = blocked_by_user.union(blocking_user)
+            muted_by_user = set(request.user.muted_users.values_list('id', flat=True)) if hasattr(request.user, 'muted_users') else set()
+            excluded = blocked_by_user.union(blocking_user).union(muted_by_user)
             if excluded:
                 comments = comments.exclude(user_id__in=excluded)
 
@@ -559,37 +657,49 @@ class ReviewCommentListCreateView(APIView):
         if not request.user.is_authenticated:
             return Response({'detail': 'Autenticación requerida.'}, status=status.HTTP_401_UNAUTHORIZED)
 
-        review = get_object_or_404(Review.objects.select_related('user', 'book'), id=review_id)
-        if not can_view_review(request.user, review):
-            raise PermissionDenied('No tienes permiso para ver esta reseña.')
+        if getattr(request.user, 'is_disciplinary_muted', False):
+            return Response(
+                {'detail': f"Tu cuenta se encuentra silenciada temporalmente por moderación hasta {request.user.muted_until}."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
 
+        review = get_object_or_404(Review.objects.select_related('user', 'book'), id=review_id)
         if (
             review.user.blocked_users.filter(id=request.user.id).exists()
             or request.user.blocked_users.filter(id=review.user_id).exists()
         ):
             return Response({'detail': 'No puedes interactuar con esta reseña.'}, status=status.HTTP_403_FORBIDDEN)
 
-        content = (request.data.get('content') or '').strip()
+        if not can_view_review(request.user, review):
+            raise PermissionDenied('No tienes permiso para ver esta reseña.')
+
+        from mybookconnect.html_sanitizer import sanitize_plain_text
+
+        raw_content = (request.data.get('content') or '').strip()
+        content = sanitize_plain_text(raw_content)
         if not content:
             return Response({'detail': 'El comentario no puede estar vacío.'}, status=status.HTTP_400_BAD_REQUEST)
         if len(content) > 1000:
             return Response({'detail': 'El comentario excede el máximo permitido (1000 caracteres).'}, status=status.HTTP_400_BAD_REQUEST)
 
-        comment = ReviewComment.objects.create(
-            user=request.user,
-            review=review,
-            content=content,
-        )
-
-        if review.user_id != request.user.id:
-            Notification.objects.create(
-                recipient=review.user,
-                actor=request.user,
-                type=NotificationType.COMMENT,
-                title=f"{request.user.username} comentó en tu reseña",
-                message=content[:120],
-                link=f"/books/{review.book_id}?review={review.id}",
+        with transaction.atomic():
+            comment = ReviewComment.objects.create(
+                user=request.user,
+                review=review,
+                content=content,
             )
+
+            if review.user_id != request.user.id:
+                # No enviar notificación si el receptor ha silenciado al autor
+                if not review.user.muted_users.filter(id=request.user.id).exists():
+                    Notification.objects.create(
+                        recipient=review.user,
+                        actor=request.user,
+                        type=NotificationType.COMMENT,
+                        title=f"{request.user.username} comentó en tu reseña",
+                        message=content[:120],
+                        link=f"/books/{review.book_id}?review={review.id}",
+                    )
 
         serializer = ReviewCommentSerializer(comment, context={'request': request})
         return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -612,7 +722,8 @@ class ReviewCommentDeleteView(APIView):
         if comment.user_id != request.user.id and not request.user.is_staff and not request.user.is_superuser:
             return Response({'detail': 'No tienes permiso para eliminar este comentario.'}, status=status.HTTP_403_FORBIDDEN)
 
-        comment.delete()
+        with transaction.atomic():
+            comment.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -638,6 +749,7 @@ class ImportBookView(APIView):
         },
         tags=['Books'],
     )
+    @idempotent(required=False)
     def post(self, request):
         query_isbn = (request.data.get('isbn') or '').strip()
         query_title = (request.data.get('title') or request.data.get('q') or '').strip()
@@ -826,6 +938,53 @@ class SimilarReadersView(APIView):
         })
 
 
+class BookRecommendationExplainView(APIView):
+    """
+    Endpoint para obtener la explicación estructurada multi-señal que justifica
+    por qué se recomienda un libro específico al usuario autenticado (Fase 52).
+    """
+    permission_classes = (permissions.IsAuthenticated,)
+
+    @extend_schema(
+        summary="Explicación detallada de recomendación de libro",
+        description="Devuelve el titular ('headline'), viñetas de evidencia (género, autor, semántica, social, colaborativa) y motivo principal.",
+        parameters=[
+            OpenApiParameter(
+                name='version',
+                type=str,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                default='v3',
+                description="Versión del motor de recomendaciones para contextualizar la explicación ('v1', 'v2', 'v3').",
+            ),
+        ],
+        responses={200: inline_serializer(
+            name='RecommendationExplainResponse',
+            fields={
+                'book_id': serializers.IntegerField(),
+                'book_title': serializers.CharField(),
+                'headline': serializers.CharField(),
+                'primary_reason': serializers.CharField(),
+                'total_signals': serializers.IntegerField(),
+                'algorithm_version': serializers.CharField(),
+                'reasons': serializers.ListField(child=serializers.DictField()),
+            },
+        )},
+        tags=['Books'],
+    )
+    def get(self, request, book_id):
+        book = get_object_or_404(Book, pk=book_id)
+        version = request.query_params.get('version', 'v3')
+        explanation = services.explain_recommendation(
+            user=request.user,
+            book=book,
+            algorithm_version=version,
+        )
+        explanation['book_id'] = book.id
+        explanation['book_title'] = book.title
+        return Response(explanation)
+
+
 class RecommendationView(APIView):
     """
     Endpoint para obtener recomendaciones contextuales a partir de un libro específico (Item-to-Item).
@@ -1003,6 +1162,7 @@ class AuthorBookRefreshView(APIView):
         },
         tags=['Authors'],
     )
+    @idempotent(required=False)
     def post(self, request, pk):
         try:
             author = Author.objects.get(pk=pk)
@@ -1013,6 +1173,67 @@ class AuthorBookRefreshView(APIView):
         except Exception as e:
             logging.exception(e)
             return Response({'detail': 'Error al actualizar libros'}, status=500)
+
+
+class ExternalSyncView(APIView):
+    """
+    Endpoint para sincronización externa bajo demanda de catálogo o libros (Fase 62).
+    Soporta sincronización por ISBN, título o autor consultando Google Books / OpenLibrary.
+    Protegido con @idempotent para prevenir duplicación o llamadas externas redundantes.
+    """
+    permission_classes = (permissions.IsAuthenticated,)
+
+    @extend_schema(
+        summary="Sincronización externa de libros bajo demanda",
+        description="Sincroniza metadatos y libros externos de forma idempotente.",
+        request=inline_serializer(
+            name='ExternalSyncRequest',
+            fields={
+                'isbn': serializers.CharField(required=False),
+                'title': serializers.CharField(required=False),
+                'author': serializers.CharField(required=False),
+            },
+        ),
+        responses={
+            200: inline_serializer(
+                name='ExternalSyncResponse',
+                fields={'synced': serializers.BooleanField(), 'detail': serializers.CharField(), 'count': serializers.IntegerField(required=False)},
+            ),
+            400: OpenApiResponse(description="Parámetros insuficientes"),
+        },
+        tags=['Books'],
+    )
+    @idempotent(required=False)
+    def post(self, request):
+        query_isbn = (request.data.get('isbn') or '').strip()
+        query_title = (request.data.get('title') or '').strip()
+        author_name = (request.data.get('author') or '').strip()
+
+        if not query_isbn and not query_title and not author_name:
+            return Response({'detail': 'Debe indicar al menos isbn, title o author para sincronizar.'}, status=400)
+
+        if query_isbn:
+            book = services.import_single_by_query(query_isbn=query_isbn)
+            return Response({
+                'synced': book is not None,
+                'detail': f"Sincronización de ISBN {query_isbn} completada." if book else "No se encontraron datos externos para este ISBN.",
+                'book_id': book.id if book else None,
+            }, status=200)
+
+        if author_name:
+            count = services.import_books_by_author(author_name)
+            return Response({
+                'synced': True,
+                'count': count,
+                'detail': f"Se sincronizaron {count} libros para el autor {author_name}.",
+            }, status=200)
+
+        books = services.import_multiple_by_title(query_title, offset=0)
+        return Response({
+            'synced': bool(books),
+            'count': len(books),
+            'detail': f"Se encontraron y sincronizaron {len(books)} libros para el título {query_title}.",
+        }, status=200)
 
 
 class ErrataListCreateView(generics.ListCreateAPIView):
@@ -1247,24 +1468,27 @@ class ReadingListViewSet(viewsets.ModelViewSet):
         return ReadingListSerializer
 
     def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
+        with transaction.atomic():
+            serializer.save(user=self.request.user)
 
     def perform_update(self, serializer):
         instance = self.get_object()
         if instance.user != self.request.user and not self.request.user.is_staff:
             from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied("Solo el creador puede editar esta lista.")
-        serializer.save()
+        with transaction.atomic():
+            serializer.save()
 
     def perform_destroy(self, instance):
         if instance.user != self.request.user and not self.request.user.is_staff:
             from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied("Solo el creador puede eliminar esta lista.")
-        instance.delete()
+        with transaction.atomic():
+            instance.delete()
 
     @action(detail=True, methods=['post'], url_path='add-book', permission_classes=[permissions.IsAuthenticated])
     def add_book(self, request, pk=None):
-        """Añade un libro a la lista en una posición específica o al final."""
+        """Añade un libro a la lista en una posición específica o al final bajo bloqueo exclusivo de fila."""
         reading_list = self.get_object()
         if reading_list.user != request.user and not request.user.is_staff:
             return Response({'detail': 'No tienes permiso para modificar esta lista.'}, status=status.HTTP_403_FORBIDDEN)
@@ -1274,23 +1498,36 @@ class ReadingListViewSet(viewsets.ModelViewSet):
             return Response({'detail': 'El campo book_id es obligatorio.'}, status=status.HTTP_400_BAD_REQUEST)
 
         book = get_object_or_404(Book, id=book_id)
-
-        if ReadingListItem.objects.filter(reading_list=reading_list, book=book).exists():
-            return Response({'detail': 'Este libro ya se encuentra en la lista.'}, status=status.HTTP_400_BAD_REQUEST)
-
-        position = request.data.get('position')
-        if position is None:
-            max_pos = reading_list.items.count()
-            position = max_pos + 1
-
+        position_req = request.data.get('position')
         notes = request.data.get('notes', '')
 
-        item = ReadingListItem.objects.create(
-            reading_list=reading_list,
-            book=book,
-            position=position,
-            notes=notes,
-        )
+        with transaction.atomic():
+            # Bloquear la lista padre para serializar adiciones concurrentes y cómputo de posiciones
+            locked_list = ReadingList.objects.select_for_update().get(pk=reading_list.pk)
+
+            if ReadingListItem.objects.filter(reading_list=locked_list, book=book).exists():
+                return Response({'detail': 'Este libro ya se encuentra en la lista.'}, status=status.HTTP_400_BAD_REQUEST)
+
+            if position_req is None:
+                from django.db.models import Max
+                max_pos = ReadingListItem.objects.filter(reading_list=locked_list).aggregate(m=Max('position'))['m'] or 0
+                position = max_pos + 1
+            else:
+                try:
+                    position = int(position_req)
+                except (ValueError, TypeError):
+                    position = 1
+
+            try:
+                with transaction.atomic():
+                    item = ReadingListItem.objects.create(
+                        reading_list=locked_list,
+                        book=book,
+                        position=position,
+                        notes=notes,
+                    )
+            except IntegrityError:
+                return Response({'detail': 'Este libro ya se encuentra en la lista.'}, status=status.HTTP_400_BAD_REQUEST)
 
         return Response(ReadingListItemSerializer(item, context={'request': request}).data, status=status.HTTP_201_CREATED)
 
@@ -1305,7 +1542,8 @@ class ReadingListViewSet(viewsets.ModelViewSet):
         if not book_id:
             return Response({'detail': 'El parámetro book_id es obligatorio.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        deleted_count, _ = ReadingListItem.objects.filter(reading_list=reading_list, book_id=book_id).delete()
+        with transaction.atomic():
+            deleted_count, _ = ReadingListItem.objects.filter(reading_list=reading_list, book_id=book_id).delete()
         if deleted_count == 0:
             return Response({'detail': 'El libro no estaba en esta lista.'}, status=status.HTTP_404_NOT_FOUND)
 
@@ -1314,7 +1552,7 @@ class ReadingListViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['put', 'post'], url_path='reorder', permission_classes=[permissions.IsAuthenticated])
     def reorder(self, request, pk=None):
         """
-        Reordena los libros de la lista. Acepta:
+        Reordena los libros de la lista bajo bloqueo exclusivo de fila. Acepta:
         [ {"book_id": 1, "position": 1}, {"book_id": 2, "position": 2} ] o [1, 2, 3] (lista ordenada de IDs).
         """
         reading_list = self.get_object()
@@ -1325,15 +1563,17 @@ class ReadingListViewSet(viewsets.ModelViewSet):
         if not isinstance(orders, list):
             return Response({'detail': 'Se espera una lista de elementos para reordenar.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        for idx, entry in enumerate(orders, start=1):
-            if isinstance(entry, dict):
-                b_id = entry.get('book_id') or entry.get('id')
-                pos = entry.get('position', idx)
-            else:
-                b_id = entry
-                pos = idx
+        with transaction.atomic():
+            locked_list = ReadingList.objects.select_for_update().get(pk=reading_list.pk)
+            for idx, entry in enumerate(orders, start=1):
+                if isinstance(entry, dict):
+                    b_id = entry.get('book_id') or entry.get('id')
+                    pos = entry.get('position', idx)
+                else:
+                    b_id = entry
+                    pos = idx
 
-            ReadingListItem.objects.filter(reading_list=reading_list, book_id=b_id).update(position=pos)
+                ReadingListItem.objects.filter(reading_list=locked_list, book_id=b_id).update(position=pos)
 
         updated_list = ReadingList.objects.prefetch_related('items__book', 'items__book__author').get(pk=reading_list.pk)
         return Response(ReadingListSerializer(updated_list, context={'request': request}).data)
@@ -1345,20 +1585,22 @@ class ReadingListViewSet(viewsets.ModelViewSet):
         if reading_list.user == request.user:
             return Response({'detail': 'No puedes seguir tu propia lista.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        follow_obj, created = ReadingListFollow.objects.get_or_create(
-            user=request.user,
-            reading_list=reading_list,
-        )
+        with transaction.atomic():
+            follow_obj, created = ReadingListFollow.objects.get_or_create(
+                user=request.user,
+                reading_list=reading_list,
+            )
         return Response({'detail': 'Ahora sigues esta lista.', 'created': created}, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=['delete', 'post'], url_path='unfollow', permission_classes=[permissions.IsAuthenticated])
     def unfollow(self, request, pk=None):
         """Deja de seguir una lista de lectura."""
         reading_list = self.get_object()
-        deleted_count, _ = ReadingListFollow.objects.filter(
-            user=request.user,
-            reading_list=reading_list,
-        ).delete()
+        with transaction.atomic():
+            deleted_count, _ = ReadingListFollow.objects.filter(
+                user=request.user,
+                reading_list=reading_list,
+            ).delete()
         return Response({'detail': 'Has dejado de seguir esta lista.', 'deleted': deleted_count > 0}, status=status.HTTP_200_OK)
 
 

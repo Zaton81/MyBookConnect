@@ -1,4 +1,5 @@
 from django.contrib.auth import get_user_model
+from django.db import transaction
 from django.db.models import Count, Exists, OuterRef, Q
 from django.shortcuts import get_object_or_404
 from drf_spectacular.utils import OpenApiResponse, extend_schema, inline_serializer
@@ -8,6 +9,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from books.pagination import StandardResultsSetPagination
+from mybookconnect.idempotency import idempotent
 
 from . import policies
 from .serializers import UserBasicSerializer, UserCreateSerializer, UserSerializer
@@ -28,6 +30,22 @@ class UserProfileView(generics.RetrieveAPIView):
     def get_object(self):
         return self.request.user
 
+    def retrieve(self, request, *args, **kwargs):
+        from django.core.cache import cache
+
+        from books.cache_utils import TTL_USER_PROFILE, user_profile_key
+
+        cache_key = user_profile_key(request.user.id)
+        cached_data = cache.get(cache_key)
+        if cached_data is not None:
+            return Response(cached_data)
+
+        instance = self.get_object()
+        serializer = self.get_serializer(instance)
+        data = serializer.data
+        cache.set(cache_key, data, timeout=TTL_USER_PROFILE)
+        return Response(data)
+
 
 class UserUpdateView(generics.UpdateAPIView):
     permission_classes = (permissions.IsAuthenticated,)
@@ -35,6 +53,12 @@ class UserUpdateView(generics.UpdateAPIView):
 
     def get_object(self):
         return self.request.user
+
+    def perform_update(self, serializer):
+        with transaction.atomic():
+            instance = serializer.save()
+            from books.cache_utils import invalidate_user_profile_cache
+            invalidate_user_profile_cache(instance.id)
 
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop('partial', False)
@@ -112,28 +136,34 @@ class FollowUserView(APIView):
         ):
             return Response({"detail": "No puedes seguir a este usuario."}, status=status.HTTP_403_FORBIDDEN)
 
-        if user_to_follow in request.user.following.all():
-            return Response({"detail": "Ya sigues a este usuario."}, status=status.HTTP_400_BAD_REQUEST)
+        with transaction.atomic():
+            if request.user.following.filter(id=user_to_follow.id).exists():
+                return Response({"detail": "Ya sigues a este usuario."}, status=status.HTTP_400_BAD_REQUEST)
 
-        request.user.following.add(user_to_follow)
+            request.user.following.add(user_to_follow)
 
-        from .activity_service import record_activity
-        from .models import ActivityType, Notification, NotificationType
+            from .activity_service import record_activity
+            from .models import ActivityType, Notification, NotificationType
 
-        Notification.objects.create(
-            recipient=user_to_follow,
-            actor=request.user,
-            type=NotificationType.FOLLOW,
-            title='Nuevo seguidor',
-            message=f'{request.user.username} ha comenzado a seguirte.',
-            link=f'/users/{request.user.id}',
-        )
+            Notification.objects.create(
+                recipient=user_to_follow,
+                actor=request.user,
+                type=NotificationType.FOLLOW,
+                title='Nuevo seguidor',
+                message=f'{request.user.username} ha comenzado a seguirte.',
+                link=f'/users/{request.user.id}',
+            )
 
-        record_activity(
-            user=request.user,
-            activity_type=ActivityType.USER_FOLLOWED,
-            target_user=user_to_follow,
-        )
+            record_activity(
+                user=request.user,
+                activity_type=ActivityType.USER_FOLLOWED,
+                target_user=user_to_follow,
+            )
+
+            from books.cache_utils import invalidate_user_profile_cache, invalidate_user_recommendations_cache
+            invalidate_user_profile_cache(request.user.id)
+            invalidate_user_profile_cache(user_to_follow.id)
+            invalidate_user_recommendations_cache(request.user.id)
 
         return Response({"detail": f"Ahora sigues a {user_to_follow.username}"}, status=status.HTTP_200_OK)
 
@@ -153,7 +183,12 @@ class UnfollowUserView(APIView):
     )
     def post(self, request, user_id):
         user_to_unfollow = get_object_or_404(User, id=user_id)
-        request.user.following.remove(user_to_unfollow)
+        with transaction.atomic():
+            request.user.following.remove(user_to_unfollow)
+            from books.cache_utils import invalidate_user_profile_cache, invalidate_user_recommendations_cache
+            invalidate_user_profile_cache(request.user.id)
+            invalidate_user_profile_cache(user_to_unfollow.id)
+            invalidate_user_recommendations_cache(request.user.id)
         return Response({"detail": f"Dejaste de seguir a {user_to_unfollow.username}"}, status=status.HTTP_200_OK)
 
 
@@ -179,18 +214,25 @@ class BlockUserView(APIView):
         if request.user == user_to_block:
             return Response({"detail": "No puedes bloquearte a ti mismo."}, status=status.HTTP_400_BAD_REQUEST)
 
-        request.user.blocked_users.add(user_to_block)
-        # Ruptura bidireccional inmediata del seguimiento
-        request.user.following.remove(user_to_block)
-        user_to_block.following.remove(request.user)
+        with transaction.atomic():
+            request.user.blocked_users.add(user_to_block)
+            # Ruptura bidireccional inmediata del seguimiento
+            request.user.following.remove(user_to_block)
+            user_to_block.following.remove(request.user)
 
-        log_audit(
-            action=AuditAction.USER_BLOCK,
-            actor=request.user,
-            target=user_to_block,
-            request=request,
-            metadata={"target_username": user_to_block.username},
-        )
+            log_audit(
+                action=AuditAction.USER_BLOCK,
+                actor=request.user,
+                target=user_to_block,
+                request=request,
+                metadata={"target_username": user_to_block.username},
+            )
+
+            from books.cache_utils import invalidate_user_profile_cache, invalidate_user_recommendations_cache
+            invalidate_user_profile_cache(request.user.id)
+            invalidate_user_profile_cache(user_to_block.id)
+            invalidate_user_recommendations_cache(request.user.id)
+            invalidate_user_recommendations_cache(user_to_block.id)
         return Response({"detail": f"Has bloqueado a {user_to_block.username}"}, status=status.HTTP_200_OK)
 
 
@@ -212,16 +254,93 @@ class UnblockUserView(APIView):
         from .models import AuditAction
 
         user_to_unblock = get_object_or_404(User, id=user_id)
-        request.user.blocked_users.remove(user_to_unblock)
+        with transaction.atomic():
+            request.user.blocked_users.remove(user_to_unblock)
 
-        log_audit(
-            action=AuditAction.USER_UNBLOCK,
-            actor=request.user,
-            target=user_to_unblock,
-            request=request,
-            metadata={"target_username": user_to_unblock.username},
-        )
+            log_audit(
+                action=AuditAction.USER_UNBLOCK,
+                actor=request.user,
+                target=user_to_unblock,
+                request=request,
+                metadata={"target_username": user_to_unblock.username},
+            )
+
+            from books.cache_utils import invalidate_user_profile_cache
+            invalidate_user_profile_cache(request.user.id)
+            invalidate_user_profile_cache(user_to_unblock.id)
         return Response({"detail": f"Has desbloqueado a {user_to_unblock.username}"}, status=status.HTTP_200_OK)
+
+
+class MuteUserView(APIView):
+    """Silencia a un usuario para no ver sus reseñas, comentarios ni recibir notificaciones (Fase 58)."""
+    permission_classes = (permissions.IsAuthenticated,)
+
+    @extend_schema(
+        summary="Silenciar usuario",
+        responses={
+            200: inline_serializer(
+                name='MuteUserResponse',
+                fields={'detail': serializers.CharField(), 'is_muted': serializers.BooleanField()},
+            ),
+            400: OpenApiResponse(description="No puedes silenciarte a ti mismo"),
+        },
+        tags=['Users'],
+    )
+    def post(self, request, user_id):
+        from .audit_service import log_audit
+        from .models import AuditAction
+
+        user_to_mute = get_object_or_404(User, id=user_id)
+        if request.user == user_to_mute:
+            return Response({"detail": "No puedes silenciarte a ti mismo."}, status=status.HTTP_400_BAD_REQUEST)
+
+        with transaction.atomic():
+            request.user.muted_users.add(user_to_mute)
+            log_audit(
+                action=AuditAction.USER_MUTE,
+                actor=request.user,
+                target=user_to_mute,
+                request=request,
+                metadata={"target_username": user_to_mute.username},
+            )
+        return Response(
+            {"detail": f"Has silenciado a {user_to_mute.username}", "is_muted": True},
+            status=status.HTTP_200_OK,
+        )
+
+
+class UnmuteUserView(APIView):
+    """Elimina el silenciamiento social sobre un usuario (Fase 58)."""
+    permission_classes = (permissions.IsAuthenticated,)
+
+    @extend_schema(
+        summary="Des-silenciar usuario",
+        responses={
+            200: inline_serializer(
+                name='UnmuteUserResponse',
+                fields={'detail': serializers.CharField(), 'is_muted': serializers.BooleanField()},
+            ),
+        },
+        tags=['Users'],
+    )
+    def post(self, request, user_id):
+        from .audit_service import log_audit
+        from .models import AuditAction
+
+        user_to_unmute = get_object_or_404(User, id=user_id)
+        with transaction.atomic():
+            request.user.muted_users.remove(user_to_unmute)
+            log_audit(
+                action=AuditAction.USER_UNMUTE,
+                actor=request.user,
+                target=user_to_unmute,
+                request=request,
+                metadata={"target_username": user_to_unmute.username},
+            )
+        return Response(
+            {"detail": f"Has reactivado a {user_to_unmute.username}", "is_muted": False},
+            status=status.HTTP_200_OK,
+        )
 
 
 class UserSearchListView(generics.ListAPIView):
@@ -306,8 +425,9 @@ class CheckFollowStatusView(APIView):
 @permission_classes([permissions.IsAdminUser])
 def toggle_editor(request, user_id):
     user = get_object_or_404(User, id=user_id)
-    user.is_editor = not getattr(user, 'is_editor', False)
-    user.save(update_fields=['is_editor'])
+    with transaction.atomic():
+        user.is_editor = not getattr(user, 'is_editor', False)
+        user.save(update_fields=['is_editor'])
     return Response({'id': user.id, 'is_editor': user.is_editor})
 
 
@@ -346,11 +466,17 @@ class LogoutView(APIView):
             return Response({'detail': 'Token inválido o ya revocado.'}, status=status.HTTP_400_BAD_REQUEST)
 
 
-class NotificationListView(generics.ListAPIView):
-    """Lista las notificaciones del usuario autenticado."""
+class NotificationListView(generics.ListCreateAPIView):
+    """
+    Lista y emite notificaciones para usuarios autenticados (Fase 62).
+    La creación está protegida con @idempotent para prevenir duplicados.
+    """
     permission_classes = (permissions.IsAuthenticated,)
 
     def get_serializer_class(self):
+        if self.request.method == 'POST':
+            from .serializers import NotificationCreateSerializer
+            return NotificationCreateSerializer
         from .serializers import NotificationSerializer
         return NotificationSerializer
 
@@ -363,6 +489,14 @@ class NotificationListView(generics.ListAPIView):
         if unread_only:
             queryset = queryset.filter(read=False)
         return queryset
+
+    @idempotent(required=False)
+    def post(self, request, *args, **kwargs):
+        with transaction.atomic():
+            return super().post(request, *args, **kwargs)
+
+
+NotificationCreateView = NotificationListView
 
 
 class NotificationMarkReadView(APIView):
@@ -383,8 +517,9 @@ class NotificationMarkReadView(APIView):
     def post(self, request, notification_id):
         from .models import Notification
         notif = get_object_or_404(Notification, id=notification_id, recipient=request.user)
-        notif.read = True
-        notif.save(update_fields=['read'])
+        with transaction.atomic():
+            notif.read = True
+            notif.save(update_fields=['read'])
         return Response({'status': 'marked_read', 'id': notif.id}, status=status.HTTP_200_OK)
 
 
@@ -404,7 +539,8 @@ class NotificationMarkAllReadView(APIView):
     )
     def post(self, request):
         from .models import Notification
-        updated_count = Notification.objects.filter(recipient=request.user, read=False).update(read=True)
+        with transaction.atomic():
+            updated_count = Notification.objects.filter(recipient=request.user, read=False).update(read=True)
         return Response({'status': 'all_marked_read', 'updated_count': updated_count}, status=status.HTTP_200_OK)
 
 
@@ -434,14 +570,17 @@ class FeedPagination(StandardResultsSetPagination):
 
 class FeedView(generics.ListAPIView):
     """
-    Feed social que muestra actividades cronológicas de los usuarios seguidos y del propio usuario.
-    Respeta bloqueos mutuos y políticas de privacidad.
+    Feed social inteligente (Fase 53) y cronológico de actividades.
+    Soporta modos:
+    - ?mode=smart (por defecto): ordenado por relevancia multi-criterio (recency, relationship, engagement, content).
+    - ?mode=chronological: orden cronológico estricto (-created_at).
     """
     from .serializers import ActivitySerializer
 
     serializer_class = ActivitySerializer
     permission_classes = (permissions.IsAuthenticated,)
     pagination_class = FeedPagination
+    filter_backends = []
 
     def get_queryset(self):
         from .models import Activity
@@ -458,10 +597,33 @@ class FeedView(generics.ListAPIView):
         )
         allowed_user_ids = [uid for uid in feed_user_ids if uid not in blocked_ids]
 
-        return (
+        qs = (
             Activity.objects.filter(user_id__in=allowed_user_ids)
             .select_related('user', 'book', 'book__author', 'review', 'target_user')
-            .order_by('-created_at')
+            .prefetch_related('book__categories', 'review__likes', 'review__comments')
         )
+
+        activity_type = self.request.query_params.get('type')
+        if activity_type:
+            qs = qs.filter(type=activity_type)
+
+        mode = self.request.query_params.get('mode', 'smart').lower()
+        if mode == 'chronological':
+            return qs.order_by('-created_at')
+
+        # Modo 'smart': ranking multi-factor
+        from .smart_feed_service import get_smart_feed
+        candidates = list(qs.order_by('-created_at')[:200])
+        return get_smart_feed(user=user, activities_queryset=candidates, mode='smart')
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
 
 

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { StarRating } from '../../../components/ui';
+import { ReportModal } from '../../moderation';
 import { reviewSchema, ReviewFormData } from '../schemas/reviewSchemas';
 
 interface ReviewItem {
@@ -62,6 +63,7 @@ export function BookReviewsSection({
   const [newCommentText, setNewCommentText] = useState<Record<number, string>>({});
   const [submittingComment, setSubmittingComment] = useState<Record<number, boolean>>({});
   const [likePending, setLikePending] = useState<Record<number, boolean>>({});
+  const [reportingTarget, setReportingTarget] = useState<{ type: 'review' | 'comment'; id: number; title?: string } | null>(null);
 
   // Formulario de reseña con React Hook Form y Zod
   const [myExistingReview, setMyExistingReview] = useState<ReviewItem | null>(null);
@@ -529,6 +531,18 @@ export function BookReviewsSection({
                       {rev.comments_count || 0} {rev.comments_count === 1 ? 'comentario' : 'comentarios'}
                     </span>
                   </button>
+
+                  {token && (
+                    <button
+                      type="button"
+                      onClick={() => setReportingTarget({ type: 'review', id: rev.id, title: rev.title || `Reseña de ${authorName}` })}
+                      className="inline-flex items-center gap-1 px-2 py-1 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-all font-medium ml-auto"
+                      title="Denunciar reseña"
+                    >
+                      <span>🚩</span>
+                      <span className="hidden sm:inline">Denunciar</span>
+                    </button>
+                  )}
                 </div>
 
                 {/* Hilo de comentarios expandible */}
@@ -590,16 +604,28 @@ export function BookReviewsSection({
                                 </div>
                               </div>
 
-                              {c.is_owner && (
-                                <button
-                                  type="button"
-                                  onClick={() => handleDeleteComment(rev.id, c.id)}
-                                  className="text-slate-400 hover:text-rose-500 p-1 text-[11px] transition-colors"
-                                  title="Eliminar comentario"
-                                >
-                                  🗑️
-                                </button>
-                              )}
+                              <div className="flex items-center gap-1 shrink-0">
+                                {token && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setReportingTarget({ type: 'comment', id: c.id, title: `Comentario de @${c.user?.username}` })}
+                                    className="text-slate-400 hover:text-rose-500 p-1 text-[11px] transition-colors"
+                                    title="Denunciar comentario"
+                                  >
+                                    🚩
+                                  </button>
+                                )}
+                                {c.is_owner && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteComment(rev.id, c.id)}
+                                    className="text-slate-400 hover:text-rose-500 p-1 text-[11px] transition-colors"
+                                    title="Eliminar comentario"
+                                  >
+                                    🗑️
+                                  </button>
+                                )}
+                              </div>
                             </div>
                           );
                         })}
@@ -643,6 +669,15 @@ export function BookReviewsSection({
           })}
         </div>
       )}
+
+      {/* Modal universal de denuncia de contenido */}
+      <ReportModal
+        isOpen={!!reportingTarget}
+        onClose={() => setReportingTarget(null)}
+        targetType={reportingTarget?.type || 'review'}
+        targetId={reportingTarget?.id || 0}
+        targetTitle={reportingTarget?.title}
+      />
     </section>
   );
 }

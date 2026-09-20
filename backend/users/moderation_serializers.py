@@ -188,7 +188,7 @@ class ReportResolveSerializer(serializers.ModelSerializer):
     """Serializador para resolución y aplicación de medidas disciplinarias."""
     status = serializers.ChoiceField(choices=[ReportStatus.UNDER_REVIEW, ReportStatus.RESOLVED, ReportStatus.REJECTED])
     action_taken = serializers.ChoiceField(
-        choices=['HIDE_CONTENT', 'BAN_USER', 'DISMISS', 'WARNING', ''],
+        choices=['HIDE_CONTENT', 'RESTORE_CONTENT', 'BAN_USER', 'MUTE_USER_24H', 'MUTE_USER_7D', 'DISMISS', 'WARNING', ''],
         required=False,
         allow_blank=True,
     )

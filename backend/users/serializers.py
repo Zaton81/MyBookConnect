@@ -4,6 +4,8 @@ from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 from rest_framework.validators import UniqueValidator
 
+from mybookconnect.html_sanitizer import sanitize_html, sanitize_plain_text
+
 User = get_user_model()
 
 class UserBasicSerializer(serializers.ModelSerializer):
@@ -32,6 +34,8 @@ class UserSerializer(serializers.ModelSerializer):
     is_following = serializers.SerializerMethodField()
     is_blocked = serializers.SerializerMethodField()
     am_i_blocked = serializers.SerializerMethodField()
+    is_muted = serializers.SerializerMethodField()
+    is_disciplinary_muted = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -41,9 +45,9 @@ class UserSerializer(serializers.ModelSerializer):
             'show_email', 'show_birth_date', 'show_location', 'show_bio',
             'following', 'followers', 'is_editor', 'is_staff', 'is_superuser', 'role',
             'reviews_count', 'books_read_count', 'following_count', 'followers_count',
-            'is_following', 'is_blocked', 'am_i_blocked'
+            'is_following', 'is_blocked', 'am_i_blocked', 'is_muted', 'is_disciplinary_muted', 'muted_until'
         )
-        read_only_fields = ('id', 'followers', 'is_editor', 'is_staff', 'is_superuser', 'role', 'is_email_verified')
+        read_only_fields = ('id', 'followers', 'is_editor', 'is_staff', 'is_superuser', 'role', 'is_email_verified', 'muted_until')
 
     def validate_avatar(self, value):
         """
@@ -54,14 +58,30 @@ class UserSerializer(serializers.ModelSerializer):
             return value
         from django.core.exceptions import ValidationError as DjangoValidationError
 
-        from mybookconnect.media_security import sanitize_image, validate_avatar_image
+        from mybookconnect.media_security import AVATAR_PRESET, sanitize_image, validate_avatar_image
 
         try:
             validate_avatar_image(value)
-            return sanitize_image(value)
+            return sanitize_image(value, max_dimensions=AVATAR_PRESET)
         except DjangoValidationError as err:
             msg = err.messages if hasattr(err, 'messages') else str(err)
             raise serializers.ValidationError(msg) from err
+
+    def validate_bio(self, value):
+        from mybookconnect.html_sanitizer import sanitize_html
+        return sanitize_html(value)
+
+    def validate_location(self, value):
+        from mybookconnect.html_sanitizer import sanitize_plain_text
+        return sanitize_plain_text(value)
+
+    def validate_first_name(self, value):
+        from mybookconnect.html_sanitizer import sanitize_plain_text
+        return sanitize_plain_text(value)
+
+    def validate_last_name(self, value):
+        from mybookconnect.html_sanitizer import sanitize_plain_text
+        return sanitize_plain_text(value)
 
     def to_representation(self, instance):
         """Normaliza la URL pública del avatar."""
@@ -117,6 +137,19 @@ class UserSerializer(serializers.ModelSerializer):
             return obj.blocked_users.filter(id=request.user.id).exists()
         return False
 
+    @extend_schema_field(serializers.BooleanField)
+    def get_is_muted(self, obj):
+        if hasattr(obj, 'is_muted_val'):
+            return obj.is_muted_val
+        request = self.context.get('request')
+        if request and request.user.is_authenticated and hasattr(request.user, 'muted_users'):
+            return request.user.muted_users.filter(id=obj.id).exists()
+        return False
+
+    @extend_schema_field(serializers.BooleanField)
+    def get_is_disciplinary_muted(self, obj):
+        return getattr(obj, 'is_disciplinary_muted', False)
+
 class UserCreateSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=True, validators=[validate_password])
     password2 = serializers.CharField(write_only=True, required=True)
@@ -140,7 +173,12 @@ class UserCreateSerializer(serializers.ModelSerializer):
         try:
             validate_password(attrs['password'], user=temp_user)
         except DjangoValidationError as err:
-            raise serializers.ValidationError({"password": list(err.messages)})
+            raise serializers.ValidationError({"password": list(err.messages)}) from err
+        attrs['bio'] = sanitize_html(attrs.get('bio', ''))
+        if attrs.get('first_name'):
+            attrs['first_name'] = sanitize_plain_text(attrs['first_name'])
+        if attrs.get('last_name'):
+            attrs['last_name'] = sanitize_plain_text(attrs['last_name'])
         return attrs
 
     def create(self, validated_data):
@@ -157,6 +195,50 @@ class NotificationSerializer(serializers.ModelSerializer):
         model = Notification
         fields = ('id', 'type', 'title', 'message', 'link', 'read', 'created_at', 'actor')
         read_only_fields = ('id', 'type', 'title', 'message', 'link', 'created_at', 'actor')
+
+
+class NotificationCreateSerializer(serializers.ModelSerializer):
+    recipient_id = serializers.IntegerField(required=False, allow_null=True)
+    type = serializers.CharField(required=False, default='SYSTEM')
+
+    class Meta:
+        from .models import Notification
+        model = Notification
+        fields = ('id', 'recipient_id', 'type', 'title', 'message', 'link')
+
+    def validate_type(self, value):
+        from .models import NotificationType
+
+        if not value:
+            return NotificationType.SYSTEM
+        val_upper = str(value).upper().strip()
+        if val_upper in NotificationType.values:
+            return val_upper
+        raise serializers.ValidationError(f"'{value}' no es un tipo de notificación válido.")
+
+    def create(self, validated_data):
+        from .models import Notification, NotificationType, User
+        recipient_id = validated_data.pop('recipient_id', None)
+        request = self.context.get('request')
+        actor = request.user if request and request.user.is_authenticated else None
+
+        if recipient_id:
+            recipient = User.objects.filter(id=recipient_id).first()
+            if not recipient:
+                raise serializers.ValidationError({'recipient_id': 'El usuario destinatario no existe.'})
+        else:
+            recipient = actor
+
+        notif_type = validated_data.get('type', NotificationType.SYSTEM)
+        return Notification.objects.create(
+            recipient=recipient,
+            actor=actor,
+            type=notif_type,
+            title=validated_data.get('title', ''),
+            message=validated_data.get('message', ''),
+            link=validated_data.get('link', ''),
+        )
+
 
 
 class ActivityBookSerializer(serializers.Serializer):
@@ -180,6 +262,9 @@ class ActivitySerializer(serializers.ModelSerializer):
     book = ActivityBookSerializer(read_only=True)
     review = ActivityReviewSerializer(read_only=True)
     type_display = serializers.CharField(source='get_type_display', read_only=True)
+    score = serializers.SerializerMethodField()
+    feed_signal = serializers.SerializerMethodField()
+    timestamp = serializers.DateTimeField(source='created_at', read_only=True)
 
     class Meta:
         from .models import Activity
@@ -193,8 +278,17 @@ class ActivitySerializer(serializers.ModelSerializer):
             'review',
             'target_user',
             'metadata',
+            'score',
+            'feed_signal',
             'created_at',
+            'timestamp',
         )
+
+    def get_score(self, obj):
+        return getattr(obj, 'score', None)
+
+    def get_feed_signal(self, obj):
+        return getattr(obj, 'feed_signal', None)
 
 
 class PasswordChangeSerializer(serializers.Serializer):
@@ -220,7 +314,7 @@ class PasswordChangeSerializer(serializers.Serializer):
         try:
             validate_password(attrs['new_password'], user=user)
         except DjangoValidationError as err:
-            raise serializers.ValidationError({"new_password": list(err.messages)})
+            raise serializers.ValidationError({"new_password": list(err.messages)}) from err
         return attrs
 
 

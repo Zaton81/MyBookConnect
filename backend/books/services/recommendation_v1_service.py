@@ -27,7 +27,7 @@ from django.db.models import Count, QuerySet
 
 from books.cache_utils import TTL_RECOMMENDATIONS, user_recommendations_key
 from books.media_utils import build_media_url
-from books.models import Book, Category, ReadingList, ReadingListItem, ReadingStatus, UserBook
+from books.models import Book, ReadingList, ReadingListItem, ReadingStatus, UserBook
 
 logger = logging.getLogger(__name__)
 
@@ -68,6 +68,7 @@ class RecommendationV1Item:
     reason: str
     algorithm_version: str = ALGORITHM_VERSION
     breakdown: ScoreBreakdownV1 = field(default_factory=ScoreBreakdownV1)
+    explanation: dict[str, Any] | None = None
 
     def to_dict(self, request=None) -> dict[str, Any]:
         b = self.book
@@ -83,6 +84,8 @@ class RecommendationV1Item:
             'breakdown': self.breakdown.to_dict(),
             'scores': self.breakdown.to_dict(),  # Alias para compatibilidad
             'reason': self.reason,
+            'explanation': self.explanation,
+            'categories': [{'id': c.id, 'name': c.name} for c in b.categories.all()],
         }
 
 
@@ -231,7 +234,6 @@ class RecommendationEngineV1:
 
         # 1. Variable GÉNERO (S_genre)
         s_genre = 0.0
-        matched_cat_name = None
         for cid in book_cat_ids:
             if cid in profile.category_affinity:
                 val = profile.category_affinity[cid]
@@ -386,6 +388,18 @@ class RecommendationEngineV1:
                     ),
                 )
                 scored_items.append(fb_item)
+        from books.services.recommendation_explanation_service import explain_recommendation
+        for item in scored_items[:limit]:
+            expl = explain_recommendation(
+                user=user,
+                book=item.book,
+                breakdown=item.breakdown.to_dict(),
+                algorithm_version=ALGORITHM_VERSION,
+                existing_reason=item.reason,
+            )
+            item.explanation = expl
+            if expl.get('primary_reason'):
+                item.reason = expl['primary_reason']
 
         results = [item.to_dict(request=request) for item in scored_items[:limit]]
 

@@ -47,11 +47,15 @@ class AuthorBasicSerializer(serializers.ModelSerializer):
             return value
         from django.core.exceptions import ValidationError as DjangoValidationError
 
-        from mybookconnect.media_security import sanitize_image, validate_author_photo
+        from mybookconnect.media_security import (
+            AUTHOR_PHOTO_PRESET,
+            sanitize_image,
+            validate_author_photo,
+        )
 
         try:
             validate_author_photo(value)
-            return sanitize_image(value)
+            return sanitize_image(value, max_dimensions=AUTHOR_PHOTO_PRESET)
         except DjangoValidationError as err:
             msg = err.messages if hasattr(err, 'messages') else str(err)
             raise serializers.ValidationError(msg) from err
@@ -81,11 +85,15 @@ class AuthorSerializer(serializers.ModelSerializer):
             return value
         from django.core.exceptions import ValidationError as DjangoValidationError
 
-        from mybookconnect.media_security import sanitize_image, validate_author_photo
+        from mybookconnect.media_security import (
+            AUTHOR_PHOTO_PRESET,
+            sanitize_image,
+            validate_author_photo,
+        )
 
         try:
             validate_author_photo(value)
-            return sanitize_image(value)
+            return sanitize_image(value, max_dimensions=AUTHOR_PHOTO_PRESET)
         except DjangoValidationError as err:
             msg = err.messages if hasattr(err, 'messages') else str(err)
             raise serializers.ValidationError(msg) from err
@@ -111,6 +119,9 @@ class BookSerializer(serializers.ModelSerializer):
         queryset=Author.objects.all(), source='author', write_only=True, required=False, allow_null=True
     )
     categories = CategorySerializer(many=True, read_only=True)
+    category_ids = serializers.PrimaryKeyRelatedField(
+        queryset=Category.objects.all(), many=True, source='categories', write_only=True, required=False
+    )
     rating_distribution = serializers.SerializerMethodField()
     reviews_count = serializers.SerializerMethodField()
 
@@ -120,7 +131,7 @@ class BookSerializer(serializers.ModelSerializer):
             'id', 'title', 'author', 'author_id', 'isbn',
             'google_volume_id', 'openlibrary_work_id', 'openlibrary_edition_id',
             'cover', 'description', 'published_date', 'average_rating', 'created_at',
-            'categories', 'rating_distribution', 'reviews_count'
+            'categories', 'category_ids', 'rating_distribution', 'reviews_count'
         )
 
     @extend_schema_field(serializers.DictField)
@@ -151,11 +162,15 @@ class BookSerializer(serializers.ModelSerializer):
             return value
         from django.core.exceptions import ValidationError as DjangoValidationError
 
-        from mybookconnect.media_security import sanitize_image, validate_cover_image
+        from mybookconnect.media_security import (
+            COVER_PRESET,
+            sanitize_image,
+            validate_cover_image,
+        )
 
         try:
             validate_cover_image(value)
-            return sanitize_image(value)
+            return sanitize_image(value, max_dimensions=COVER_PRESET)
         except DjangoValidationError as err:
             msg = err.messages if hasattr(err, 'messages') else str(err)
             raise serializers.ValidationError(msg) from err
@@ -220,6 +235,10 @@ class ReviewCommentSerializer(serializers.ModelSerializer):
             return obj.user_id == request.user.id or request.user.is_staff or request.user.is_superuser
         return False
 
+    def validate_content(self, value):
+        from mybookconnect.html_sanitizer import sanitize_plain_text
+        return sanitize_plain_text(value)
+
 
 class ReviewSerializer(serializers.ModelSerializer):
     user = serializers.SlugRelatedField(slug_field='username', read_only=True)
@@ -280,7 +299,13 @@ class ReviewSerializer(serializers.ModelSerializer):
             return obj.comments_count
         return obj.comments.filter(deleted_at__isnull=True).count()
 
+    def validate_title(self, value):
+        from mybookconnect.html_sanitizer import sanitize_plain_text
+        return sanitize_plain_text(value)
 
+    def validate_text(self, value):
+        from mybookconnect.html_sanitizer import sanitize_html
+        return sanitize_html(value)
 
 
 class ErrataSerializer(serializers.ModelSerializer):

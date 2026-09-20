@@ -3,6 +3,7 @@ import { useAuthStore } from '../../../store/auth';
 import { useNavigate, Link } from 'react-router-dom';
 import { Spinner } from 'flowbite-react';
 import { resolveMediaUrl } from '../../../utils/media';
+import { ImportBooksModal } from '../components/ImportBooksModal';
 
 const DEFAULT_PAGE_SIZE = 12;
 
@@ -18,6 +19,7 @@ interface UserBookItem {
     };
     average_rating?: number;
     description?: string;
+    categories?: Array<{ id: number; name: string; slug?: string }>;
   };
   status?: 'want_to_read' | 'reading' | 'read' | 'abandoned';
   status_display?: string;
@@ -54,6 +56,7 @@ export function Library() {
   const [totalCount, setTotalCount] = useState<number>(0);
   const [selectedBooks, setSelectedBooks] = useState<Set<number>>(new Set());
   const [refreshKey, setRefreshKey] = useState(0);
+  const [showImportModal, setShowImportModal] = useState(false);
 
   const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
@@ -186,6 +189,15 @@ export function Library() {
               <span className="text-slate-500 text-[10px]">Por leer</span>
             </div>
           </div>
+
+          <button
+            onClick={() => setShowImportModal(true)}
+            className="bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-bold px-3.5 py-2.5 rounded-xl text-sm transition-all border border-slate-300 dark:border-slate-600 flex items-center gap-1.5 shadow-sm"
+            title="Importar libros desde Goodreads, Calibre o CSV"
+          >
+            <span>📥</span>
+            <span className="hidden sm:inline">Importar</span>
+          </button>
 
           <button
             onClick={() => navigate('/books/add')}
@@ -416,6 +428,21 @@ export function Library() {
                       )}
                     </p>
 
+                    {/* Categorías del Libro */}
+                    {b.categories && b.categories.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-1.5">
+                        {b.categories.slice(0, 2).map((cat) => (
+                          <span
+                            key={cat.id}
+                            className="inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold bg-teal-50 text-teal-800 dark:bg-teal-900/40 dark:text-teal-300 border border-teal-200/60 dark:border-teal-800/40 truncate max-w-[120px]"
+                            title={cat.name}
+                          >
+                            {cat.name}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
                     {/* Barra de Progreso si está Leyendo */}
                     {ub.status === 'reading' && (
                       <div className="space-y-1 bg-indigo-50/60 dark:bg-indigo-900/20 p-2 rounded-xl border border-indigo-100 dark:border-indigo-900/40 mt-1">
@@ -513,6 +540,13 @@ export function Library() {
           </button>
         </div>
       )}
+
+      {/* ── Modal de Importación Avanzada de Biblioteca ── */}
+      <ImportBooksModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        onSuccess={() => setRefreshKey((k) => k + 1)}
+      />
     </div>
   );
 }

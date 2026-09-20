@@ -22,9 +22,8 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Any
 
-from django.contrib.auth import get_user_model
 from django.core.cache import cache
-from django.db.models import Count, Q
+from django.db.models import Count
 
 from books.cache_utils import TTL_RECOMMENDATIONS, user_recommendations_key
 from books.media_utils import build_media_url
@@ -84,6 +83,7 @@ class RecommendationV2Item:
     reason: str
     algorithm_version: str = ALGORITHM_VERSION_V2
     breakdown: ScoreBreakdownV2 = field(default_factory=ScoreBreakdownV2)
+    explanation: dict[str, Any] | None = None
 
     def to_dict(self, request=None) -> dict[str, Any]:
         b = self.book
@@ -99,6 +99,8 @@ class RecommendationV2Item:
             'breakdown': self.breakdown.to_dict(),
             'scores': self.breakdown.to_dict(),
             'reason': self.reason,
+            'explanation': self.explanation,
+            'categories': [{'id': c.id, 'name': c.name} for c in b.categories.all()],
         }
 
 
@@ -171,7 +173,6 @@ class RecommendationEngineV2:
         my_book_ids = set(my_books_map.keys())
 
         # 2. Usuarios con al menos un libro en común
-        User = get_user_model()
         blocked_ids: set[int] = set()
         if hasattr(user, 'blocked_users'):
             blocked_ids.update(user.blocked_users.values_list('id', flat=True))
@@ -399,6 +400,19 @@ class RecommendationEngineV2:
                     ),
                 )
                 v2_items.append(fb_item)
+
+        from books.services.recommendation_explanation_service import explain_recommendation
+        for item in v2_items[:limit]:
+            expl = explain_recommendation(
+                user=user,
+                book=item.book,
+                breakdown=item.breakdown.to_dict(),
+                algorithm_version=ALGORITHM_VERSION_V2,
+                existing_reason=item.reason,
+            )
+            item.explanation = expl
+            if expl.get('primary_reason'):
+                item.reason = expl['primary_reason']
 
         results = [item.to_dict(request=request) for item in v2_items[:limit]]
         cache.set(cache_key, results, timeout=TTL_RECOMMENDATIONS)

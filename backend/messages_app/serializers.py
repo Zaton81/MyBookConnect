@@ -31,6 +31,10 @@ class MessageSerializer(serializers.ModelSerializer):
         fields = ['id', 'conversation', 'sender', 'sender_details', 'text', 'image', 'created_at', 'read']
         read_only_fields = ['id', 'sender', 'created_at', 'read']
 
+    def validate_text(self, value):
+        from mybookconnect.html_sanitizer import sanitize_plain_text
+        return sanitize_plain_text(value)
+
     def validate_image(self, value):
         """
         Valida y sanitiza la imagen adjunta en el mensaje de chat.
@@ -40,11 +44,15 @@ class MessageSerializer(serializers.ModelSerializer):
             return value
         from django.core.exceptions import ValidationError as DjangoValidationError
 
-        from mybookconnect.media_security import sanitize_image, validate_chat_image
+        from mybookconnect.media_security import (
+            CHAT_IMAGE_PRESET,
+            sanitize_image,
+            validate_chat_image,
+        )
 
         try:
             validate_chat_image(value)
-            return sanitize_image(value)
+            return sanitize_image(value, max_dimensions=CHAT_IMAGE_PRESET)
         except DjangoValidationError as err:
             msg = err.messages if hasattr(err, 'messages') else str(err)
             raise serializers.ValidationError(msg) from err

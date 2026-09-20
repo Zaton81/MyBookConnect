@@ -82,22 +82,25 @@ def refresh_author_task(self, author_id: int) -> bool:
 def recalculate_book_rating_task(self, book_id: int) -> float | None:
     """Recalcula el promedio de calificaciones del libro de forma asíncrona."""
     try:
-        book = Book.objects.filter(id=book_id).first()
-        if not book:
-            return None
+        from django.db import transaction
 
-        review_avg = Review.objects.filter(
-            book=book, rating__isnull=False, deleted_at__isnull=True, is_moderated=False
-        ).aggregate(Avg('rating'))['rating__avg']
-        if review_avg is not None:
-            book.average_rating = round(review_avg, 2)
-        else:
-            ub_avg = UserBook.objects.filter(book=book, rating__isnull=False).aggregate(Avg('rating'))['rating__avg']
-            book.average_rating = round(ub_avg, 2) if ub_avg else None
+        with transaction.atomic():
+            book = Book.objects.select_for_update().filter(id=book_id).first()
+            if not book:
+                return None
 
-        book.save(update_fields=['average_rating'])
-        logger.info(f"recalculate_book_rating_task: Libro {book_id} recalculado: {book.average_rating}")
-        return book.average_rating
+            review_avg = Review.objects.filter(
+                book=book, rating__isnull=False, deleted_at__isnull=True, is_moderated=False
+            ).aggregate(Avg('rating'))['rating__avg']
+            if review_avg is not None:
+                book.average_rating = round(review_avg, 2)
+            else:
+                ub_avg = UserBook.objects.filter(book=book, rating__isnull=False).aggregate(Avg('rating'))['rating__avg']
+                book.average_rating = round(ub_avg, 2) if ub_avg else None
+
+            book.save(update_fields=['average_rating'])
+            logger.info(f"recalculate_book_rating_task: Libro {book_id} recalculado: {book.average_rating}")
+            return book.average_rating
     except Exception as exc:
         logger.warning(f"recalculate_book_rating_task error para libro {book_id}: {exc}")
         raise self.retry(exc=exc) from exc
