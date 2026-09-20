@@ -3054,36 +3054,73 @@ Se ha implementado un sistema estandarizado e integral de versionado semántico 
 
 ------------------------------------------------------------------------
 
-# 72. Fase 69 --- Estrategia de ramas
+# 72. Fase 69 --- Estrategia de ramas [COMPLETADA]
 
-Recomendación:
+**Prioridad:** P1 - COMPLETADA
 
-``` text
-main
-develop
-feature/*
-fix/*
-refactor/*
-hotfix/*
-```
+Se ha formalizado la estrategia oficial de ramas de Git basada en un flujo GitFlow adaptado a CI/CD, acompañada de una guía integral y exhaustiva de resolución de problemas (*Troubleshooting & Incident Runbooks*) y herramientas automatizadas de diagnóstico:
 
-Flujo:
+1. **Modelo Oficial de Ramas (`docs/development/branching_strategy.md`)**:
+   - **Ramas permanentes**:
+     - `main`: Producción, máxima estabilidad, sincronizada con tags SemVer `vX.Y.Z`.
+     - `develop`: Rama base activa para consolidación e integración de funcionalidades.
+   - **Ramas de soporte temporales**:
+     - `feature/*`: Nuevas funcionalidades (ej. `feature/recommendation-engine`, `feature/reading-goals`). Nacen y se integran en `develop`.
+     - `fix/*`: Corrección de errores en staging/desarrollo.
+     - `refactor/*`: Limpieza de arquitectura y deuda técnica sin impacto funcional.
+     - `hotfix/*`: Parches críticos de emergencia. Nacen de `main`, se integran en `main` (con tag SemVer) y se sincronizan inmediatamente de vuelta a `develop`.
+     - `release/*`: Congelación de versión, preparación de `CHANGELOG.md` y pruebas de humo.
+   - **Políticas de integración**:
+     - Rebase en ramas locales para mantener un historial limpio y lineal antes de abrir PR.
+     - Fusión con `--no-ff` hacia `develop` y `main` para preservar la trazabilidad de los commits.
+     - Diagrama Mermaid interactivo del ciclo de vida del repositorio.
+     - Checklist estandarizado para Pull Requests.
 
-``` text
-feature
-   ↓
-develop
-   ↓
-CI
-   ↓
-main
-```
+2. **Guía Integral de Resolución de Problemas y Runbooks (`docs/development/troubleshooting_and_runbooks.md`)**:
+   - **Git y Control de Versiones**:
+     - Conflictos de merge y rebase paso a paso (resolución, abortar, continuar).
+     - Ramas desincronizadas y rechazo de push (`non-fast-forward`).
+     - Salida segura del estado *Detached HEAD* con ramas de rescate.
+     - Deshacer cambios sin romper el historial (`git restore`, `git reset --soft`, `git revert`, advertencia de `reset --hard`).
+     - Recuperación de commits o ramas borradas mediante `git reflog`.
+     - Gestión segura de trabajo en curso con `git stash` (pop, list, apply).
+     - Mover commits creados accidentalmente en la rama equivocada.
+     - Manejo de finales de línea Windows / Linux (CRLF vs LF).
+   - **Docker y Contenedores**:
+     - Puertos en conflicto (8000, 5432, 6379, 5173) en Windows y Linux.
+     - Contenedores en bucle de reinicio (*CrashLoopBackOff*) y análisis de logs.
+     - Comandos de acceso interactivo (`docker compose exec -it backend/db/redis`).
+     - Procedimiento de limpieza total y reconstrucción limpia de volúmenes.
+   - **Base de Datos PostgreSQL y Migraciones**:
+     - Conflictos de migraciones inconsistentes (`InconsistentMigrationHistory`).
+     - Fusión de cabeceras de migración (`makemigrations --merge`).
+     - Reversión de migraciones problemáticas a checkpoints previos.
+     - Desbloqueo de consultas colgadas (*deadlocks*) con `pg_stat_activity` y `pg_terminate_backend`.
+     - Restauración inmediata desde el último backup con `python manage.py restore_db`.
+   - **Redis y Celery**:
+     - Desincronización de caché: purgado seguro y reconstrucción con `python manage.py rebuild_cache`.
+     - Desatasco de colas de Celery congeladas con `celery -A mybookconnect purge -f`.
+     - Depuración de WebSockets / Django Channels.
+   - **Frontend (React / Vite / TypeScript)**:
+     - Limpieza de caché corrupta de Vite (`node_modules/.vite`).
+     - Resolución de dependencias inconsistentes.
+     - Diagnóstico y regeneración de tipos con `npm run typecheck` y `openapi-typescript`.
 
-Para cambios grandes:
+3. **Herramienta de Diagnóstico Automatizado (`scripts/doctor.sh`)**:
+   - Diagnóstico en menos de 10 segundos que evalúa:
+     - Rama actual de Git y estado del working tree.
+     - Sincronización de versiones SemVer (backend, frontend, CHANGELOG).
+     - Estado de los contenedores Docker (`backend`, `db`, `redis`).
+     - Conectividad a PostgreSQL y chequeo de migraciones pendientes.
+     - Conectividad de lectura/escritura en caché Redis.
 
-``` text
-feature/recommendation-engine
-```
+4. **Pruebas Automatizadas y Verificación de Calidad**:
+   - Suite dedicada: `backend/tests/test_phase69_branching_and_docs.py` (**3/3 tests PASSED**).
+   - Suite de versionado: `backend/tests/test_phase68_versioning.py` (**7/7 tests PASSED**).
+   - Suite de regresión (Fases 65, 66 y 67): (**19/19 tests PASSED**).
+   - Linters Python: `ruff check` (**All checks passed!**).
+   - Verificación de tipos TypeScript: `tsc --noEmit` (**0 errores**).
+   - Verificación del script: `scripts/doctor.sh` (**Ejecutado con 9/10 verificaciones superadas**).
 
 ------------------------------------------------------------------------
 
