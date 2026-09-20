@@ -16,6 +16,7 @@ services:
         condition: service_healthy
     volumes:
       - backend_media:/app/media
+      - backups_data:/app/backups
 
   celery_worker:
     build:
@@ -77,3 +78,4 @@ services:
 volumes:
   db_prod_data:
   backend_media:
+  backups_data:

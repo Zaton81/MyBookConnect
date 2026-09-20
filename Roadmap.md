@@ -2934,25 +2934,54 @@ Se ha implementado una política explícita y automatizada de invalidación de c
 
 ------------------------------------------------------------------------
 
-# 69. Fase 66 --- Backups
+# 69. Fase 66 --- Backups [COMPLETADA]
 
-Producción:
+**Prioridad:** P1 - COMPLETADA
 
-``` text
-PostgreSQL
-daily backup
-retention
-```
+Se ha diseñado e implementado una arquitectura integral de copias de seguridad (backups), retención automatizada y simulacros de restauración validados para PostgreSQL y almacenamiento multimedia (Media), cumpliendo la premisa fundamental: *"Un backup que nunca se ha restaurado no se considera validado"*:
 
-Media:
+1. **Servicios de Backup y Restauración (`backend/books/services/backup_service.py`)**:
+   - `DatabaseBackupService`:
+     - Generación de volcados diarios con compresión (`.sql.gz` vía `pg_dump` con fallback a `.json.gz` mediante serialización Django).
+     - Generación de manifest JSON criptográfico con metadatos: fecha UTC, nombre de DB, número de registros, formato y firma SHA-256.
+     - Política de retención automática (`BACKUP_RETENTION_DAYS`, por defecto 7 días), eliminando copias expiradas pero preservando siempre al menos la más reciente.
+     - Restauración atómica (`restore_database`) con validación obligatoria contra la firma SHA-256 del manifest (rechazo automático de copias corruptas o manipuladas).
+   - `MediaBackupService`:
+     - Empaquetado completo de `/app/media` en tarball comprimido `.tar.gz`.
+     - Generación de manifest detallado con SHA-256 global y hashes individuales archivo por archivo.
+     - Política de retención configurable (`MEDIA_BACKUP_RETENTION_DAYS`, por defecto 30 días).
+     - Soporte para sincronización con Object Storage / S3 / MinIO.
+     - Restauración segura con protección contra Directory Traversal (CWE-22) y verificación de integridad hash por archivo restaurado.
 
-``` text
-backup / object storage
-```
+2. **Comandos de Gestión Django (`backend/books/management/commands/`)**:
+   - `python manage.py backup_db`: volcado programable de base de datos con opciones `--output-dir`, `--retention-days` y `--force-django-dump`.
+   - `python manage.py restore_db <archivo>`: restauración con verificación SHA-256 y opción de emergencia `--no-verify`.
+   - `python manage.py backup_media`: empaquetado de media con opciones `--output-dir`, `--media-root`, `--retention-days` y `--s3-sync`.
+   - `python manage.py restore_media <archivo>`: extracción y validación de integridad con `--target-dir` y `--no-verify`.
 
-Probar restauración.
+3. **Scripts de Producción y Docker Compose (`scripts/backup/`, `docker-compose.prod.yml`)**:
+   - `scripts/backup/backup_db.sh` y `restore_db.sh`: scripts shell para cron de servidor y ejecución en entornos de producción con comprobación SHA-256.
+   - `scripts/backup/backup_media.sh` y `restore_media.sh`: empaquetado y restauración de medios con soporte de sincronización AWS CLI / S3.
+   - `docker-compose.prod.yml`: volumen persistente aislado `backups_data` montado en `/app/backups`.
+   - `backend/Dockerfile`: instalación de `postgresql-client` para disponer de herramientas nativas `pg_dump` y `psql`.
 
-Un backup que nunca se ha restaurado no se considera validado.
+4. **Documentación Operativa (`docs/deployment/backup_and_recovery.md`)**:
+   - Guía exhaustiva de frecuencias de respaldo, retención, programación cron en producción, configuración de buckets S3/R2/MinIO y paso a paso para simulacros periódicos de restauración (*restoration drills*).
+
+5. **Verificación y Pruebas Automatizadas**:
+   - Suite dedicada: `backend/tests/test_phase66_backups.py` (**8/8 tests PASSED**), validando:
+     - Generación de volcado y manifest con hash SHA-256 exacto.
+     - Política de retención de base de datos (purgado de copias antiguas >7 días preservando recientes).
+     - Empaquetado de media con hashes individuales por archivo.
+     - Política de retención de archivos multimedia (>30 días).
+     - **Drill completo de BD**: inserción de datos → backup → pérdida/corrupción intencionada → restauración → aserción del 100% de datos recuperados.
+     - **Drill completo de Media**: creación de archivos → backup → eliminación física total → restauración → verificación de integridad byte a byte y coincidencia de SHA-256.
+     - Detección y rechazo inmediato de backups manipulados o corruptos (tampered files).
+     - Ejecución limpia de los 4 comandos de gestión Django (`backup_db`, `restore_db`, `backup_media`, `restore_media`).
+   - Suites de regresión: `test_phase65_cache_invalidation.py`, `test_phase64_concurrency.py`, `test_phase63_transactions.py`, `test_phase62_idempotency.py` (**45/45 tests PASSED**).
+   - Linters Python: `ruff check` (**All checks passed!**).
+   - Verificación de tipos TypeScript: `tsc --noEmit` (**0 errores**).
+   - Suite frontend Vitest: `npx vitest run` (**21/21 tests PASSED**).
 
 ------------------------------------------------------------------------
 
