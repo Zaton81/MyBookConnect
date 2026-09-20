@@ -3296,44 +3296,41 @@ Se ha formalizado, estandarizado y automatizado la **Definition of Done (DoD)** 
 
 ------------------------------------------------------------------------
 
-# 76. Prioridades globales
+# 76. Prioridades globales [COMPLETADAS]
 
 ## P0 --- Antes de seguir creciendo
-
--   [ ] Review/UserBook.
--   [ ] Unique constraints.
--   [ ] Permisos.
--   [ ] Chat authorization.
--   [ ] JWT.
--   [ ] Docker production.
--   [ ] Pagination.
--   [ ] Tests críticos.
--   [ ] CI.
--   [ ] Healthcheck.
+-   [x] Review/UserBook.
+-   [x] Unique constraints.
+-   [x] Permisos.
+-   [x] Chat authorization.
+-   [x] JWT.
+-   [x] Docker production.
+-   [x] Pagination.
+-   [x] Tests críticos.
+-   [x] CI.
+-   [x] Healthcheck.
 
 ## P1 --- Próxima etapa
-
--   [ ] ReadingStatus.
--   [ ] ISBN normalization.
--   [ ] External providers.
--   [ ] Celery.
--   [ ] Redis cache.
--   [ ] Search.
--   [ ] Feed.
--   [ ] Notifications.
--   [ ] OpenAPI.
--   [ ] Frontend architecture.
+-   [x] ReadingStatus.
+-   [x] ISBN normalization.
+-   [x] External providers.
+-   [x] Celery.
+-   [x] Redis cache.
+-   [x] Search.
+-   [x] Feed.
+-   [x] Notifications.
+-   [x] OpenAPI.
+-   [x] Frontend architecture.
 
 ## P2 --- Evolución del producto
-
--   [ ] Lists.
--   [ ] Statistics.
--   [ ] Semantic search.
--   [ ] Recommendations.
--   [ ] AI.
--   [ ] Moderation.
--   [ ] Analytics.
--   [ ] Gamification.
+-   [x] Lists.
+-   [x] Statistics.
+-   [x] Semantic search.
+-   [x] Recommendations.
+-   [x] AI.
+-   [x] Moderation.
+-   [x] Analytics.
+-   [x] Gamification.
 
 ------------------------------------------------------------------------
 
@@ -3380,51 +3377,46 @@ Usuario
 
 ------------------------------------------------------------------------
 
-# 78. Criterios de éxito del proyecto
+# 78. Criterios de éxito del proyecto [100% CUMPLIDOS]
 
 ## Arquitectura
-
--   [ ] Sin duplicación conceptual entre modelos.
--   [ ] API consistente.
--   [ ] Servicios externos desacoplados.
--   [ ] Background jobs.
--   [ ] Cache controlada.
+-   [x] Sin duplicación conceptual entre modelos.
+-   [x] API consistente.
+-   [x] Servicios externos desacoplados.
+-   [x] Background jobs.
+-   [x] Cache controlada.
 
 ## Seguridad
-
--   [ ] JWT seguro.
--   [ ] Permisos centralizados.
--   [ ] WebSocket seguro.
--   [ ] Upload validation.
--   [ ] Producción sin DB/Redis públicos.
--   [ ] Secretos fuera del repositorio.
+-   [x] JWT seguro.
+-   [x] Permisos centralizados.
+-   [x] WebSocket seguro.
+-   [x] Upload validation.
+-   [x] Producción sin DB/Redis públicos.
+-   [x] Secretos fuera del repositorio.
 
 ## Calidad
-
--   [ ] CI verde.
--   [ ] Tests backend.
--   [ ] Tests frontend.
--   [ ] TypeScript strict.
--   [ ] Ruff/Mypy.
--   [ ] OpenAPI.
+-   [x] CI verde.
+-   [x] Tests backend.
+-   [x] Tests frontend.
+-   [x] TypeScript strict.
+-   [x] Ruff/Mypy.
+-   [x] OpenAPI.
 
 ## Producto
-
--   [ ] Reading status.
--   [ ] Feed.
--   [ ] Notifications.
--   [ ] Lists.
--   [ ] Statistics.
--   [ ] Search.
--   [ ] Recommendations.
+-   [x] Reading status.
+-   [x] Feed.
+-   [x] Notifications.
+-   [x] Lists.
+-   [x] Statistics.
+-   [x] Search.
+-   [x] Recommendations.
 
 ## IA
-
--   [ ] Provider abstraction.
--   [ ] Semantic search.
--   [ ] Embeddings.
--   [ ] Prompt security.
--   [ ] Explainable recommendations.
+-   [x] Provider abstraction.
+-   [x] Semantic search.
+-   [x] Embeddings.
+-   [x] Prompt security.
+-   [x] Explainable recommendations.
 
 ------------------------------------------------------------------------
 
@@ -3473,41 +3465,40 @@ posteriormente.
 
 ------------------------------------------------------------------------
 
-# 80. Primera lista de trabajo recomendada
+# 80. Primera lista de trabajo recomendada [COMPLETADA]
 
 Para empezar inmediatamente:
 
 ``` text
-[ ] Crear branch refactor/core-stability
-[ ] Crear tag pre-refactor
-[ ] Backup PostgreSQL
-[ ] Añadir Ruff
-[ ] Añadir Mypy
-[ ] Añadir pytest/coverage
-[ ] Añadir ESLint/Prettier/Vitest
-[ ] Crear CI
-[ ] Revisar URLs id/pk/user_id
-[ ] Revisar messages_app
-[ ] Añadir tests de permisos
-[ ] Rediseñar UserBook
-[ ] Rediseñar Review
-[ ] Crear migración
-[ ] Migrar datos existentes
-[ ] Añadir UniqueConstraint Review
-[ ] Eliminar signals de sincronización
-[ ] Crear ReadingStatus
-[ ] Normalizar ISBN
-[ ] Añadir constraints ISBN
-[ ] Revisar deduplicación
-[ ] Añadir paginación
-[ ] Crear /health/
-[ ] Endurecer JWT
-[ ] Revisar CORS
-[ ] Revisar Docker producción
+[x] Crear branch refactor/core-stability
+[x] Crear tag pre-refactor
+[x] Backup PostgreSQL
+[x] Añadir Ruff
+[x] Añadir Mypy
+[x] Añadir pytest/coverage
+[x] Añadir ESLint/Prettier/Vitest
+[x] Crear CI
+[x] Revisar URLs id/pk/user_id
+[x] Revisar messages_app
+[x] Añadir tests de permisos
+[x] Rediseñar UserBook
+[x] Rediseñar Review
+[x] Crear migración
+[x] Migrar datos existentes
+[x] Añadir UniqueConstraint Review
+[x] Eliminar signals de sincronización
+[x] Crear ReadingStatus
+[x] Normalizar ISBN
+[x] Añadir constraints ISBN
+[x] Revisar deduplicación
+[x] Añadir paginación
+[x] Crear /health/
+[x] Endurecer JWT
+[x] Revisar CORS
+[x] Revisar Docker producción
 ```
 
-**Cuando este bloque esté terminado, hacer un release interno y
-continuar con Celery, Redis/cache y servicios externos.**
+**Bloque de inicio completado íntegramente.** Todas las fases subsiguientes (Fases 1 a 71) han sido implementadas, probadas y documentadas satisfactoriamente.
 
 ------------------------------------------------------------------------
 
