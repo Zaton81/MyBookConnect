@@ -1,4 +1,5 @@
 from django.contrib.auth import get_user_model
+from django.db import transaction
 from django.db.models import Count, Exists, OuterRef, Q
 from django.shortcuts import get_object_or_404
 from drf_spectacular.utils import OpenApiResponse, extend_schema, inline_serializer
@@ -116,25 +117,26 @@ class FollowUserView(APIView):
         if user_to_follow in request.user.following.all():
             return Response({"detail": "Ya sigues a este usuario."}, status=status.HTTP_400_BAD_REQUEST)
 
-        request.user.following.add(user_to_follow)
+        with transaction.atomic():
+            request.user.following.add(user_to_follow)
 
-        from .activity_service import record_activity
-        from .models import ActivityType, Notification, NotificationType
+            from .activity_service import record_activity
+            from .models import ActivityType, Notification, NotificationType
 
-        Notification.objects.create(
-            recipient=user_to_follow,
-            actor=request.user,
-            type=NotificationType.FOLLOW,
-            title='Nuevo seguidor',
-            message=f'{request.user.username} ha comenzado a seguirte.',
-            link=f'/users/{request.user.id}',
-        )
+            Notification.objects.create(
+                recipient=user_to_follow,
+                actor=request.user,
+                type=NotificationType.FOLLOW,
+                title='Nuevo seguidor',
+                message=f'{request.user.username} ha comenzado a seguirte.',
+                link=f'/users/{request.user.id}',
+            )
 
-        record_activity(
-            user=request.user,
-            activity_type=ActivityType.USER_FOLLOWED,
-            target_user=user_to_follow,
-        )
+            record_activity(
+                user=request.user,
+                activity_type=ActivityType.USER_FOLLOWED,
+                target_user=user_to_follow,
+            )
 
         return Response({"detail": f"Ahora sigues a {user_to_follow.username}"}, status=status.HTTP_200_OK)
 
@@ -154,7 +156,8 @@ class UnfollowUserView(APIView):
     )
     def post(self, request, user_id):
         user_to_unfollow = get_object_or_404(User, id=user_id)
-        request.user.following.remove(user_to_unfollow)
+        with transaction.atomic():
+            request.user.following.remove(user_to_unfollow)
         return Response({"detail": f"Dejaste de seguir a {user_to_unfollow.username}"}, status=status.HTTP_200_OK)
 
 
@@ -180,18 +183,19 @@ class BlockUserView(APIView):
         if request.user == user_to_block:
             return Response({"detail": "No puedes bloquearte a ti mismo."}, status=status.HTTP_400_BAD_REQUEST)
 
-        request.user.blocked_users.add(user_to_block)
-        # Ruptura bidireccional inmediata del seguimiento
-        request.user.following.remove(user_to_block)
-        user_to_block.following.remove(request.user)
+        with transaction.atomic():
+            request.user.blocked_users.add(user_to_block)
+            # Ruptura bidireccional inmediata del seguimiento
+            request.user.following.remove(user_to_block)
+            user_to_block.following.remove(request.user)
 
-        log_audit(
-            action=AuditAction.USER_BLOCK,
-            actor=request.user,
-            target=user_to_block,
-            request=request,
-            metadata={"target_username": user_to_block.username},
-        )
+            log_audit(
+                action=AuditAction.USER_BLOCK,
+                actor=request.user,
+                target=user_to_block,
+                request=request,
+                metadata={"target_username": user_to_block.username},
+            )
         return Response({"detail": f"Has bloqueado a {user_to_block.username}"}, status=status.HTTP_200_OK)
 
 
@@ -213,15 +217,16 @@ class UnblockUserView(APIView):
         from .models import AuditAction
 
         user_to_unblock = get_object_or_404(User, id=user_id)
-        request.user.blocked_users.remove(user_to_unblock)
+        with transaction.atomic():
+            request.user.blocked_users.remove(user_to_unblock)
 
-        log_audit(
-            action=AuditAction.USER_UNBLOCK,
-            actor=request.user,
-            target=user_to_unblock,
-            request=request,
-            metadata={"target_username": user_to_unblock.username},
-        )
+            log_audit(
+                action=AuditAction.USER_UNBLOCK,
+                actor=request.user,
+                target=user_to_unblock,
+                request=request,
+                metadata={"target_username": user_to_unblock.username},
+            )
         return Response({"detail": f"Has desbloqueado a {user_to_unblock.username}"}, status=status.HTTP_200_OK)
 
 
@@ -248,14 +253,15 @@ class MuteUserView(APIView):
         if request.user == user_to_mute:
             return Response({"detail": "No puedes silenciarte a ti mismo."}, status=status.HTTP_400_BAD_REQUEST)
 
-        request.user.muted_users.add(user_to_mute)
-        log_audit(
-            action=AuditAction.USER_MUTE,
-            actor=request.user,
-            target=user_to_mute,
-            request=request,
-            metadata={"target_username": user_to_mute.username},
-        )
+        with transaction.atomic():
+            request.user.muted_users.add(user_to_mute)
+            log_audit(
+                action=AuditAction.USER_MUTE,
+                actor=request.user,
+                target=user_to_mute,
+                request=request,
+                metadata={"target_username": user_to_mute.username},
+            )
         return Response(
             {"detail": f"Has silenciado a {user_to_mute.username}", "is_muted": True},
             status=status.HTTP_200_OK,
@@ -281,14 +287,15 @@ class UnmuteUserView(APIView):
         from .models import AuditAction
 
         user_to_unmute = get_object_or_404(User, id=user_id)
-        request.user.muted_users.remove(user_to_unmute)
-        log_audit(
-            action=AuditAction.USER_UNMUTE,
-            actor=request.user,
-            target=user_to_unmute,
-            request=request,
-            metadata={"target_username": user_to_unmute.username},
-        )
+        with transaction.atomic():
+            request.user.muted_users.remove(user_to_unmute)
+            log_audit(
+                action=AuditAction.USER_UNMUTE,
+                actor=request.user,
+                target=user_to_unmute,
+                request=request,
+                metadata={"target_username": user_to_unmute.username},
+            )
         return Response(
             {"detail": f"Has reactivado a {user_to_unmute.username}", "is_muted": False},
             status=status.HTTP_200_OK,
@@ -377,8 +384,9 @@ class CheckFollowStatusView(APIView):
 @permission_classes([permissions.IsAdminUser])
 def toggle_editor(request, user_id):
     user = get_object_or_404(User, id=user_id)
-    user.is_editor = not getattr(user, 'is_editor', False)
-    user.save(update_fields=['is_editor'])
+    with transaction.atomic():
+        user.is_editor = not getattr(user, 'is_editor', False)
+        user.save(update_fields=['is_editor'])
     return Response({'id': user.id, 'is_editor': user.is_editor})
 
 
@@ -443,7 +451,8 @@ class NotificationListView(generics.ListCreateAPIView):
 
     @idempotent(required=False)
     def post(self, request, *args, **kwargs):
-        return super().post(request, *args, **kwargs)
+        with transaction.atomic():
+            return super().post(request, *args, **kwargs)
 
 
 NotificationCreateView = NotificationListView
@@ -467,8 +476,9 @@ class NotificationMarkReadView(APIView):
     def post(self, request, notification_id):
         from .models import Notification
         notif = get_object_or_404(Notification, id=notification_id, recipient=request.user)
-        notif.read = True
-        notif.save(update_fields=['read'])
+        with transaction.atomic():
+            notif.read = True
+            notif.save(update_fields=['read'])
         return Response({'status': 'marked_read', 'id': notif.id}, status=status.HTTP_200_OK)
 
 
@@ -488,7 +498,8 @@ class NotificationMarkAllReadView(APIView):
     )
     def post(self, request):
         from .models import Notification
-        updated_count = Notification.objects.filter(recipient=request.user, read=False).update(read=True)
+        with transaction.atomic():
+            updated_count = Notification.objects.filter(recipient=request.user, read=False).update(read=True)
         return Response({'status': 'all_marked_read', 'updated_count': updated_count}, status=status.HTTP_200_OK)
 
 

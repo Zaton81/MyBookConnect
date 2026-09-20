@@ -2,6 +2,7 @@ import logging
 import re
 from datetime import datetime
 
+from django.db import transaction
 from django.utils.text import slugify
 
 from books.models import Author, Book
@@ -55,81 +56,82 @@ def _create_or_get_from_volume(volume: dict, fallback_isbn: str | None = None) -
                 attach_best_cover(book=existing, info=info, isbn=isbn)
             return existing
 
-    author_obj = None
-    authors_list = info.get('authors') or []
-    if authors_list:
-        author_name = authors_list[0]
-        author_obj, _ = Author.objects.get_or_create(name=author_name)
+    with transaction.atomic():
+        author_obj = None
+        authors_list = info.get('authors') or []
+        if authors_list:
+            author_name = authors_list[0]
+            author_obj, _ = Author.objects.get_or_create(name=author_name)
 
-    title = info.get('title') or 'Desconocido'
+        title = info.get('title') or 'Desconocido'
 
-    # Comprobar si ya existe con este título y autor
-    existing = Book.objects.filter(title__iexact=title)
-    if author_obj:
-        existing = existing.filter(author=author_obj)
-    found = existing.first()
-    if found:
-        updated_fields = []
-        if isbn and not found.isbn:
-            found.isbn = isbn
-            updated_fields.append('isbn')
-        if google_vol_id and not found.google_volume_id:
-            found.google_volume_id = google_vol_id
-            updated_fields.append('google_volume_id')
-        if not found.description and info.get('description'):
-            found.description = info.get('description')
-            updated_fields.append('description')
-        if updated_fields:
-            found.save(update_fields=updated_fields)
-        if not found.cover:
-            attach_best_cover(book=found, info=info, isbn=isbn)
+        # Comprobar si ya existe con este título y autor
+        existing = Book.objects.filter(title__iexact=title)
+        if author_obj:
+            existing = existing.filter(author=author_obj)
+        found = existing.first()
+        if found:
+            updated_fields = []
+            if isbn and not found.isbn:
+                found.isbn = isbn
+                updated_fields.append('isbn')
+            if google_vol_id and not found.google_volume_id:
+                found.google_volume_id = google_vol_id
+                updated_fields.append('google_volume_id')
+            if not found.description and info.get('description'):
+                found.description = info.get('description')
+                updated_fields.append('description')
+            if updated_fields:
+                found.save(update_fields=updated_fields)
+            if not found.cover:
+                attach_best_cover(book=found, info=info, isbn=isbn)
 
-        if not found.categories.exists():
-            raw_cats = info.get('categories') or []
-            extracted_cats = []
-            for cat in raw_cats:
-                if isinstance(cat, str):
-                    for part in cat.split('/'):
-                        p = part.strip()
-                        if p and p not in extracted_cats:
-                            extracted_cats.append(p)
-            if extracted_cats:
-                attach_categories_to_book(found, extracted_cats)
+            if not found.categories.exists():
+                raw_cats = info.get('categories') or []
+                extracted_cats = []
+                for cat in raw_cats:
+                    if isinstance(cat, str):
+                        for part in cat.split('/'):
+                            p = part.strip()
+                            if p and p not in extracted_cats:
+                                extracted_cats.append(p)
+                if extracted_cats:
+                    attach_categories_to_book(found, extracted_cats)
 
-        return found
+            return found
 
-    book = Book(
-        title=title,
-        author=author_obj,
-        isbn=isbn,
-        google_volume_id=google_vol_id,
-        description=info.get('description'),
-    )
-    published = info.get('publishedDate')
-    if published:
-        for fmt in ('%Y-%m-%d', '%Y-%m', '%Y'):
-            try:
-                dt = datetime.strptime(published, fmt)
-                book.published_date = dt.date()
-                break
-            except ValueError:
-                continue
-    book.save()
-    attach_best_cover(book=book, info=info, isbn=isbn)
+        book = Book(
+            title=title,
+            author=author_obj,
+            isbn=isbn,
+            google_volume_id=google_vol_id,
+            description=info.get('description'),
+        )
+        published = info.get('publishedDate')
+        if published:
+            for fmt in ('%Y-%m-%d', '%Y-%m', '%Y'):
+                try:
+                    dt = datetime.strptime(published, fmt)
+                    book.published_date = dt.date()
+                    break
+                except ValueError:
+                    continue
+        book.save()
+        attach_best_cover(book=book, info=info, isbn=isbn)
 
-    # Hidratar categorías para libro recién creado
-    raw_cats = info.get('categories') or []
-    extracted_cats = []
-    for cat in raw_cats:
-        if isinstance(cat, str):
-            for part in cat.split('/'):
-                p = part.strip()
-                if p and p not in extracted_cats:
-                    extracted_cats.append(p)
-    if extracted_cats:
-        attach_categories_to_book(book, extracted_cats)
+        # Hidratar categorías para libro recién creado
+        raw_cats = info.get('categories') or []
+        extracted_cats = []
+        for cat in raw_cats:
+            if isinstance(cat, str):
+                for part in cat.split('/'):
+                    p = part.strip()
+                    if p and p not in extracted_cats:
+                        extracted_cats.append(p)
+        if extracted_cats:
+            attach_categories_to_book(book, extracted_cats)
 
-    return book
+        return book
 
 
 def import_single_by_query(query_isbn: str) -> Book | None:
@@ -155,21 +157,22 @@ def import_single_by_query(query_isbn: str) -> Book | None:
         ol_provider = OpenLibraryProvider()
         ol_data = ol_provider.get_by_isbn(clean_isbn)
         if ol_data:
-            author_obj = None
-            if ol_data.author_name:
-                author_obj, _ = Author.objects.get_or_create(name=ol_data.author_name)
+            with transaction.atomic():
+                author_obj = None
+                if ol_data.author_name:
+                    author_obj, _ = Author.objects.get_or_create(name=ol_data.author_name)
 
-            book = Book.objects.create(
-                title=ol_data.title,
-                author=author_obj,
-                isbn=clean_isbn,
-                description=ol_data.description,
-            )
-            if ol_data.categories:
-                attach_categories_to_book(book, ol_data.categories)
-            if ol_data.cover_url:
-                download_and_attach_image(book, 'cover', ol_data.cover_url, f"{slugify(book.title)}-{book.id}.jpg")
-            return book
+                book = Book.objects.create(
+                    title=ol_data.title,
+                    author=author_obj,
+                    isbn=clean_isbn,
+                    description=ol_data.description,
+                )
+                if ol_data.categories:
+                    attach_categories_to_book(book, ol_data.categories)
+                if ol_data.cover_url:
+                    download_and_attach_image(book, 'cover', ol_data.cover_url, f"{slugify(book.title)}-{book.id}.jpg")
+                return book
     except Exception as e:
         logger.warning(f"Error consultando OpenLibrary para isbn {clean_isbn}: {e}")
 
@@ -185,52 +188,53 @@ def _import_from_wikipedia_by_title(title: str) -> list[Book]:
     items = wiki_provider.search_by_title(title, limit=5)
 
     for item in items:
-        author_obj = None
-        if item.author_name:
-            author_obj, _ = Author.objects.get_or_create(name=item.author_name)
+        with transaction.atomic():
+            author_obj = None
+            if item.author_name:
+                author_obj, _ = Author.objects.get_or_create(name=item.author_name)
 
-        chosen_title = item.title
-        raw_desc = item.description or ''
-        # Si el término buscado en español está en la sinopsis de Wikipedia (ej. El guardián entre el centeno para The Catcher in the Rye),
-        # incorporar el título en español para permitir búsqueda bilingüe perfecta
-        clean_search = title.strip()
-        if clean_search.lower() != item.title.lower() and clean_search.lower() in raw_desc.lower():
-            chosen_title = f"{clean_search.title()} ({item.title})"
-        elif clean_search.lower() not in item.title.lower() and len(clean_search) > 4:
-            raw_desc = f"Título de búsqueda: {clean_search}. {raw_desc}"
+            chosen_title = item.title
+            raw_desc = item.description or ''
+            # Si el término buscado en español está en la sinopsis de Wikipedia (ej. El guardián entre el centeno para The Catcher in the Rye),
+            # incorporar el título en español para permitir búsqueda bilingüe perfecta
+            clean_search = title.strip()
+            if clean_search.lower() != item.title.lower() and clean_search.lower() in raw_desc.lower():
+                chosen_title = f"{clean_search.title()} ({item.title})"
+            elif clean_search.lower() not in item.title.lower() and len(clean_search) > 4:
+                raw_desc = f"Título de búsqueda: {clean_search}. {raw_desc}"
 
-        existing = Book.objects.filter(title__iexact=chosen_title)
-        if not existing.exists():
-            existing = Book.objects.filter(title__iexact=item.title)
-        if author_obj:
-            existing = existing.filter(author=author_obj)
-        existing_book = existing.first()
-        if existing_book:
-            books.append(existing_book)
-            continue
+            existing = Book.objects.filter(title__iexact=chosen_title)
+            if not existing.exists():
+                existing = Book.objects.filter(title__iexact=item.title)
+            if author_obj:
+                existing = existing.filter(author=author_obj)
+            existing_book = existing.first()
+            if existing_book:
+                books.append(existing_book)
+                continue
 
-        new_book = Book.objects.create(
-            title=chosen_title,
-            author=author_obj,
-            description=raw_desc,
-        )
-
-        if item.cover_url:
-            download_and_attach_image(
-                instance=new_book,
-                field_name='cover',
-                url=item.cover_url,
-                filename_hint=f"{slugify(new_book.title)}-{new_book.id}.jpg",
+            new_book = Book.objects.create(
+                title=chosen_title,
+                author=author_obj,
+                description=raw_desc,
             )
 
-        # Enriquecer libro con categorías y metadatos adicionales de forma proactiva
-        try:
-            from .enrichment_service import enrich_book_metadata
-            enrich_book_metadata(new_book)
-        except Exception as ee:
-            logger.debug(f"Error enriqueciendo libro importado {new_book.id}: {ee}")
+            if item.cover_url:
+                download_and_attach_image(
+                    instance=new_book,
+                    field_name='cover',
+                    url=item.cover_url,
+                    filename_hint=f"{slugify(new_book.title)}-{new_book.id}.jpg",
+                )
 
-        books.append(new_book)
+            # Enriquecer libro con categorías y metadatos adicionales de forma proactiva
+            try:
+                from .enrichment_service import enrich_book_metadata
+                enrich_book_metadata(new_book)
+            except Exception as ee:
+                logger.debug(f"Error enriqueciendo libro importado {new_book.id}: {ee}")
+
+            books.append(new_book)
 
     return books
 
@@ -244,58 +248,59 @@ def _import_from_openlibrary_by_title(title: str, offset: int = 0) -> list[Book]
     results = []
 
     for item in items:
-        book = None
-        if item.openlibrary_work_id:
-            book = Book.objects.filter(openlibrary_work_id=item.openlibrary_work_id).first()
-        if not book and item.openlibrary_edition_id:
-            book = Book.objects.filter(openlibrary_edition_id=item.openlibrary_edition_id).first()
+        with transaction.atomic():
+            book = None
+            if item.openlibrary_work_id:
+                book = Book.objects.filter(openlibrary_work_id=item.openlibrary_work_id).first()
+            if not book and item.openlibrary_edition_id:
+                book = Book.objects.filter(openlibrary_edition_id=item.openlibrary_edition_id).first()
 
-        author_obj = None
-        if item.author_name:
-            author_obj, _ = Author.objects.get_or_create(name=item.author_name)
+            author_obj = None
+            if item.author_name:
+                author_obj, _ = Author.objects.get_or_create(name=item.author_name)
 
-        if not book:
-            existing = Book.objects.filter(title__iexact=item.title)
-            if author_obj:
-                existing = existing.filter(author=author_obj)
-            book = existing.first()
+            if not book:
+                existing = Book.objects.filter(title__iexact=item.title)
+                if author_obj:
+                    existing = existing.filter(author=author_obj)
+                book = existing.first()
 
-        if not book:
-            book = Book(
-                title=item.title,
-                author=author_obj,
-                isbn=None,
-                description=None,
-                openlibrary_work_id=item.openlibrary_work_id,
-                openlibrary_edition_id=item.openlibrary_edition_id,
-            )
-            if item.published_date_raw:
-                try:
-                    book.published_date = datetime.strptime(item.published_date_raw, '%Y').date()
-                except ValueError:
-                    pass
-            book.save()
-        else:
-            updated_fields = []
-            if item.openlibrary_work_id and not book.openlibrary_work_id:
-                book.openlibrary_work_id = item.openlibrary_work_id
-                updated_fields.append('openlibrary_work_id')
-            if item.openlibrary_edition_id and not book.openlibrary_edition_id:
-                book.openlibrary_edition_id = item.openlibrary_edition_id
-                updated_fields.append('openlibrary_edition_id')
-            if updated_fields:
-                book.save(update_fields=updated_fields)
+            if not book:
+                book = Book(
+                    title=item.title,
+                    author=author_obj,
+                    isbn=None,
+                    description=None,
+                    openlibrary_work_id=item.openlibrary_work_id,
+                    openlibrary_edition_id=item.openlibrary_edition_id,
+                )
+                if item.published_date_raw:
+                    try:
+                        book.published_date = datetime.strptime(item.published_date_raw, '%Y').date()
+                    except ValueError:
+                        pass
+                book.save()
+            else:
+                updated_fields = []
+                if item.openlibrary_work_id and not book.openlibrary_work_id:
+                    book.openlibrary_work_id = item.openlibrary_work_id
+                    updated_fields.append('openlibrary_work_id')
+                if item.openlibrary_edition_id and not book.openlibrary_edition_id:
+                    book.openlibrary_edition_id = item.openlibrary_edition_id
+                    updated_fields.append('openlibrary_edition_id')
+                if updated_fields:
+                    book.save(update_fields=updated_fields)
 
-        if item.cover_url and not book.cover:
-            download_and_attach_image(
-                instance=book,
-                field_name='cover',
-                url=item.cover_url,
-                filename_hint=f"{slugify(book.title)}-{book.id}.jpg",
-            )
-        if item.categories and not book.categories.exists():
-            attach_categories_to_book(book, item.categories)
-        results.append(book)
+            if item.cover_url and not book.cover:
+                download_and_attach_image(
+                    instance=book,
+                    field_name='cover',
+                    url=item.cover_url,
+                    filename_hint=f"{slugify(book.title)}-{book.id}.jpg",
+                )
+            if item.categories and not book.categories.exists():
+                attach_categories_to_book(book, item.categories)
+            results.append(book)
 
     return results
 
@@ -348,24 +353,25 @@ def _import_books_by_author_from_wikipedia(author: Author) -> int:
     count = 0
 
     for item in items:
-        existing = Book.objects.filter(title__iexact=item.title, author=author).first()
-        if existing:
-            continue
+        with transaction.atomic():
+            existing = Book.objects.filter(title__iexact=item.title, author=author).first()
+            if existing:
+                continue
 
-        new_book = Book.objects.create(
-            title=item.title,
-            author=author,
-            description=item.description,
-        )
-        count += 1
-
-        if item.cover_url:
-            download_and_attach_image(
-                instance=new_book,
-                field_name='cover',
-                url=item.cover_url,
-                filename_hint=f"{slugify(item.title)}-{new_book.id}.jpg",
+            new_book = Book.objects.create(
+                title=item.title,
+                author=author,
+                description=item.description,
             )
+            count += 1
+
+            if item.cover_url:
+                download_and_attach_image(
+                    instance=new_book,
+                    field_name='cover',
+                    url=item.cover_url,
+                    filename_hint=f"{slugify(item.title)}-{new_book.id}.jpg",
+                )
 
     return count
 

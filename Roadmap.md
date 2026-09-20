@@ -2816,24 +2816,46 @@ Se ha implementado una arquitectura de idempotencia robusta para operaciones sen
 
 ------------------------------------------------------------------------
 
-# 66. Fase 63 --- Transacciones
+# 66. Fase 63 --- Transacciones [COMPLETADA]
 
-Usar:
+**Prioridad:** P1 - COMPLETADA
 
-``` python
-transaction.atomic()
-```
+Se ha blindado la consistencia transaccional ACID en todas las operaciones que actualizan múltiples entidades relacionadas, garantizando rollback completo ante cualquier fallo imprevisto:
 
-en operaciones que actualizan varias entidades.
+1. **Creación/Edición de Reseñas y Gamificación (`backend/books/views.py`)**:
+   - `ReviewListCreateView.create`: encapsulado en `transaction.atomic()` para asegurar que la persistencia de `Review` y la evaluación de insignias y rachas (`GamificationService.evaluate_user_badges`) sean atómicas.
+   - `ReviewDetailView`: métodos `perform_update` y `perform_destroy` blindados con `transaction.atomic()`.
+   - `ReviewLikeToggleView.post`: creación/borrado de `ReviewLike` y emisión de `Notification` bajo `transaction.atomic()`.
+   - `ReviewCommentListCreateView.post`: creación de `ReviewComment` y notificación al autor bajo `transaction.atomic()`.
+   - `ReviewCommentDeleteView.delete`: borrado de comentario encapsulado en `transaction.atomic()`.
 
-Ejemplos:
+2. **Relaciones Sociales y Auditoría (`backend/users/views.py`)**:
+   - `FollowUserView.post`: adición de relación de seguimiento (`user.following.add`), notificación para el usuario seguido (`Notification.objects.create`) y registro de actividad social (`record_activity`) protegidos bajo `transaction.atomic()`.
+   - `UnfollowUserView.post`: eliminación de seguimiento bajo `transaction.atomic()`.
+   - `BlockUserView.post`: bloqueo (`user.blocked_users.add`), ruptura bidireccional inmediata del seguimiento (`userA.following.remove(userB)` y `userB.following.remove(userA)`) y registro de auditoría (`AuditLog`) atómicos.
+   - `UnblockUserView.post`, `MuteUserView.post`, `UnmuteUserView.post`: mutación de estado y auditoría bajo `transaction.atomic()`.
+   - `toggle_editor`, `NotificationMarkReadView`, `NotificationMarkAllReadView`: estados actualizados bajo `transaction.atomic()`.
 
-``` text
-crear review + actualizar estadísticas
-follow + activity
-block + limpieza de relación
-import book + author + categories
-```
+3. **Catálogo, Estanterías y Listas de Lectura (`backend/books/views.py`)**:
+   - `UserBookListCreateView.perform_create`, `UserBookDetailView.perform_update` y `perform_destroy`: protegidos bajo `transaction.atomic()`.
+   - `ReadingListViewSet`: acciones `perform_create`, `perform_update`, `perform_destroy`, `add_book`, `remove_book`, `reorder`, `follow` y `unfollow` encapsuladas en `transaction.atomic()`.
+
+4. **Importación Multi-Proveedor (`backend/books/services/import_service.py`)**:
+   - `_create_or_get_from_volume`: creación del autor, guardado de libro y vinculación M2M de categorías atómicos (evita libros huérfanos sin autor o categorías ante caídas).
+   - `import_single_by_query`: fallback de OpenLibrary con autor + libro + categorías + portada bajo `transaction.atomic()`.
+   - `_import_from_wikipedia_by_title` y `_import_from_openlibrary_by_title`: importación atómica por cada volumen procesado.
+   - `_import_books_by_author_from_wikipedia`: creación y asociación de portada atómica.
+
+5. **Moderación Disciplinaria y Administrativa (`backend/users/moderation_views.py`)**:
+   - `AdminReportDetailView.update`: resolución/rechazo de reportes, aplicación de sanciones (ocultación de reseñas/comentarios/mensajes, baneo, silenciamiento temporal) y registro de auditoría (`AuditLog`) blindados en bloque `transaction.atomic()`.
+   - `AdminContentHideView`, `AdminContentRestoreView`, `AdminUserMuteView`, `AdminUserUnmuteView`, `AdminUserBanView`, `AdminUserUnbanView`: mutación directa y auditoría completamente atómicas.
+
+6. **Verificación y Pruebas**:
+   - Suite dedicada: `backend/tests/test_phase63_transactions.py` (**15/15 tests PASSED**), verificando tanto rollbacks atómicos ante fallos simulados como commits nominales completos.
+   - Suites de regresión: `test_phase62_idempotency.py`, `test_phase61_error_contract.py`, `test_phase55_advanced_import.py`, `test_social_feed.py` (**42/42 tests PASSED**).
+   - Linters Python: `ruff check` (**All checks passed!**).
+   - Verificación de tipos TypeScript: `tsc --noEmit` (**0 errores**).
+   - Suite frontend Vitest: `npx vitest run` (**21/21 tests PASSED**).
 
 ------------------------------------------------------------------------
 
