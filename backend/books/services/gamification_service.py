@@ -1,7 +1,7 @@
 import calendar
 from datetime import date, timedelta
 
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.utils import timezone
 
 from books.gamification_models import (
@@ -136,11 +136,19 @@ class GamificationService:
             target_date = date.fromisoformat(target_date)
 
         with transaction.atomic():
-            log, _ = DailyReadingLog.objects.get_or_create(
-                user=user,
-                date=target_date,
-                defaults={'pages_read': 0, 'minutes_read': 0},
-            )
+            log = DailyReadingLog.objects.select_for_update().filter(user=user, date=target_date).first()
+            if not log:
+                try:
+                    with transaction.atomic():
+                        log = DailyReadingLog.objects.create(
+                            user=user,
+                            date=target_date,
+                            pages_read=0,
+                            minutes_read=0,
+                        )
+                except IntegrityError:
+                    log = DailyReadingLog.objects.select_for_update().get(user=user, date=target_date)
+
             if pages > 0:
                 log.pages_read += pages
             if minutes > 0:
@@ -149,11 +157,19 @@ class GamificationService:
                 log.books.add(book)
             log.save()
 
-            # Gestión y recalculo de racha
-            streak, _ = ReadingStreak.objects.get_or_create(
-                user=user,
-                defaults={'current_streak': 0, 'longest_streak': 0, 'last_reading_date': None},
-            )
+            # Gestión y recalculo de racha bajo bloqueo exclusivo
+            streak = ReadingStreak.objects.select_for_update().filter(user=user).first()
+            if not streak:
+                try:
+                    with transaction.atomic():
+                        streak = ReadingStreak.objects.create(
+                            user=user,
+                            current_streak=0,
+                            longest_streak=0,
+                            last_reading_date=None,
+                        )
+                except IntegrityError:
+                    streak = ReadingStreak.objects.select_for_update().get(user=user)
 
             last_date = streak.last_reading_date
 

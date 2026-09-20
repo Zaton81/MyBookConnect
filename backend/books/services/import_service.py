@@ -2,7 +2,7 @@ import logging
 import re
 from datetime import datetime
 
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.utils.text import slugify
 
 from books.models import Author, Book
@@ -35,38 +35,43 @@ def _create_or_get_from_volume(volume: dict, fallback_isbn: str | None = None) -
             break
 
     google_vol_id = volume.get('id')
-    if google_vol_id:
-        existing_vol = Book.objects.filter(google_volume_id=google_vol_id).first()
-        if existing_vol:
-            if not existing_vol.cover:
-                attach_best_cover(book=existing_vol, info=info, isbn=isbn)
-            return existing_vol
-
-    if isbn:
-        clean_isbn = re.sub(r'[^\dX]', '', isbn.upper().strip())
-        existing = Book.objects.filter(isbn=clean_isbn).first()
-        if existing:
-            updated_fields = []
-            if google_vol_id and not existing.google_volume_id:
-                existing.google_volume_id = google_vol_id
-                updated_fields.append('google_volume_id')
-            if updated_fields:
-                existing.save(update_fields=updated_fields)
-            if not existing.cover:
-                attach_best_cover(book=existing, info=info, isbn=isbn)
-            return existing
+    clean_isbn = re.sub(r'[^\dX]', '', isbn.upper().strip()) if isbn else None
 
     with transaction.atomic():
+        if google_vol_id:
+            existing_vol = Book.objects.select_for_update().filter(google_volume_id=google_vol_id).first()
+            if existing_vol:
+                if not existing_vol.cover:
+                    attach_best_cover(book=existing_vol, info=info, isbn=isbn)
+                return existing_vol
+
+        if clean_isbn:
+            existing = Book.objects.select_for_update().filter(isbn=clean_isbn).first()
+            if existing:
+                updated_fields = []
+                if google_vol_id and not existing.google_volume_id:
+                    existing.google_volume_id = google_vol_id
+                    updated_fields.append('google_volume_id')
+                if updated_fields:
+                    existing.save(update_fields=updated_fields)
+                if not existing.cover:
+                    attach_best_cover(book=existing, info=info, isbn=isbn)
+                return existing
+
         author_obj = None
         authors_list = info.get('authors') or []
         if authors_list:
             author_name = authors_list[0]
-            author_obj, _ = Author.objects.get_or_create(name=author_name)
+            try:
+                with transaction.atomic():
+                    author_obj, _ = Author.objects.get_or_create(name=author_name)
+            except IntegrityError:
+                author_obj = Author.objects.filter(name=author_name).first()
 
         title = info.get('title') or 'Desconocido'
 
         # Comprobar si ya existe con este título y autor
-        existing = Book.objects.filter(title__iexact=title)
+        existing = Book.objects.select_for_update().filter(title__iexact=title)
         if author_obj:
             existing = existing.filter(author=author_obj)
         found = existing.first()
@@ -116,7 +121,23 @@ def _create_or_get_from_volume(volume: dict, fallback_isbn: str | None = None) -
                     break
                 except ValueError:
                     continue
-        book.save()
+
+        try:
+            with transaction.atomic():
+                book.save()
+        except IntegrityError:
+            # Recuperar limpiamente ante colisión concurrente de inserción
+            recovered = None
+            if google_vol_id:
+                recovered = Book.objects.select_for_update().filter(google_volume_id=google_vol_id).first()
+            if not recovered and clean_isbn:
+                recovered = Book.objects.select_for_update().filter(isbn=clean_isbn).first()
+            if not recovered and author_obj:
+                recovered = Book.objects.select_for_update().filter(title__iexact=title, author=author_obj).first()
+            if recovered:
+                return recovered
+            raise
+
         attach_best_cover(book=book, info=info, isbn=isbn)
 
         # Hidratar categorías para libro recién creado
@@ -136,12 +157,13 @@ def _create_or_get_from_volume(volume: dict, fallback_isbn: str | None = None) -
 
 def import_single_by_query(query_isbn: str) -> Book | None:
     """
-    Importa un libro específico mediante su ISBN consultando Google Books u OpenLibrary.
+    Importa un libro específico mediante su ISBN consultando Google Books u OpenLibrary con protección de concurrencia.
     """
     clean_isbn = re.sub(r'[^\dX]', '', query_isbn.upper().strip())
-    existing = Book.objects.filter(isbn=clean_isbn).first()
-    if existing:
-        return existing
+    with transaction.atomic():
+        existing = Book.objects.select_for_update().filter(isbn=clean_isbn).first()
+        if existing:
+            return existing
 
     # 1. Google Books Provider
     try:
@@ -158,16 +180,29 @@ def import_single_by_query(query_isbn: str) -> Book | None:
         ol_data = ol_provider.get_by_isbn(clean_isbn)
         if ol_data:
             with transaction.atomic():
+                existing = Book.objects.select_for_update().filter(isbn=clean_isbn).first()
+                if existing:
+                    return existing
+
                 author_obj = None
                 if ol_data.author_name:
-                    author_obj, _ = Author.objects.get_or_create(name=ol_data.author_name)
+                    try:
+                        with transaction.atomic():
+                            author_obj, _ = Author.objects.get_or_create(name=ol_data.author_name)
+                    except IntegrityError:
+                        author_obj = Author.objects.filter(name=ol_data.author_name).first()
 
-                book = Book.objects.create(
-                    title=ol_data.title,
-                    author=author_obj,
-                    isbn=clean_isbn,
-                    description=ol_data.description,
-                )
+                try:
+                    with transaction.atomic():
+                        book = Book.objects.create(
+                            title=ol_data.title,
+                            author=author_obj,
+                            isbn=clean_isbn,
+                            description=ol_data.description,
+                        )
+                except IntegrityError:
+                    return Book.objects.select_for_update().filter(isbn=clean_isbn).first()
+
                 if ol_data.categories:
                     attach_categories_to_book(book, ol_data.categories)
                 if ol_data.cover_url:
@@ -203,9 +238,9 @@ def _import_from_wikipedia_by_title(title: str) -> list[Book]:
             elif clean_search.lower() not in item.title.lower() and len(clean_search) > 4:
                 raw_desc = f"Título de búsqueda: {clean_search}. {raw_desc}"
 
-            existing = Book.objects.filter(title__iexact=chosen_title)
+            existing = Book.objects.select_for_update().filter(title__iexact=chosen_title)
             if not existing.exists():
-                existing = Book.objects.filter(title__iexact=item.title)
+                existing = Book.objects.select_for_update().filter(title__iexact=item.title)
             if author_obj:
                 existing = existing.filter(author=author_obj)
             existing_book = existing.first()
@@ -251,16 +286,20 @@ def _import_from_openlibrary_by_title(title: str, offset: int = 0) -> list[Book]
         with transaction.atomic():
             book = None
             if item.openlibrary_work_id:
-                book = Book.objects.filter(openlibrary_work_id=item.openlibrary_work_id).first()
+                book = Book.objects.select_for_update().filter(openlibrary_work_id=item.openlibrary_work_id).first()
             if not book and item.openlibrary_edition_id:
-                book = Book.objects.filter(openlibrary_edition_id=item.openlibrary_edition_id).first()
+                book = Book.objects.select_for_update().filter(openlibrary_edition_id=item.openlibrary_edition_id).first()
 
             author_obj = None
             if item.author_name:
-                author_obj, _ = Author.objects.get_or_create(name=item.author_name)
+                try:
+                    with transaction.atomic():
+                        author_obj, _ = Author.objects.get_or_create(name=item.author_name)
+                except IntegrityError:
+                    author_obj = Author.objects.filter(name=item.author_name).first()
 
             if not book:
-                existing = Book.objects.filter(title__iexact=item.title)
+                existing = Book.objects.select_for_update().filter(title__iexact=item.title)
                 if author_obj:
                     existing = existing.filter(author=author_obj)
                 book = existing.first()

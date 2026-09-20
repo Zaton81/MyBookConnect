@@ -2859,26 +2859,39 @@ Se ha blindado la consistencia transaccional ACID en todas las operaciones que a
 
 ------------------------------------------------------------------------
 
-# 67. Fase 64 --- Concurrencia
+# 67. Fase 64 --- Concurrencia [COMPLETADA]
 
-Proteger operaciones sensibles con:
+**Prioridad:** P1 - COMPLETADA
 
-``` text
-select_for_update()
-constraints
-transactions
-```
+Se ha blindado la consistencia y resiliencia de la plataforma ante condiciones de carrera y peticiones simultáneas utilizando bloqueos de fila (`select_for_update()`), restricciones de base de datos (`UniqueConstraint`) y savepoints anidados (`transaction.atomic()`):
 
-cuando sea necesario.
+1. **Duplicación de Reseñas Concurrentes (`backend/books/views.py`)**:
+   - `ReviewListCreateView.create`: implementado bloqueo exclusivo con `select_for_update()` sobre reseñas activas existentes `(user, book)` y creación encapsulada en savepoint. Ante colisión concurrente con la restricción `unique_active_review_user_book` (`IntegrityError`), el savepoint recupera limpiamente el registro ganador, actualiza sus campos y retorna HTTP 200 OK en lugar de fallar con un 500 no controlado.
+   - `ReviewLikeToggleView.post`: protegido con `select_for_update()` y savepoint para gestionar clics rápidos o dobles concurrentes sin colisiones de clave única ni notificaciones duplicadas.
+   - `UserBookListCreateView.create`: protegido con `select_for_update()` y recuperación de savepoint ante colisiones con `unique_together = ('user', 'book')`.
 
-Ejemplos:
+2. **Importación Simultánea Multi-Proveedor (`backend/books/services/import_service.py`)**:
+   - `_create_or_get_from_volume`: encapsulado completamente bajo `transaction.atomic()` con `select_for_update()` en búsquedas por `google_volume_id`, `isbn` y `(title, author)`. Creación de libro y autor protegida con savepoint y recuperación atómica.
+   - `import_single_by_query`: bloqueo con `select_for_update()` en búsquedas y fallback de OpenLibrary protegido contra colisiones concurrentes de ISBN.
+   - `_import_from_wikipedia_by_title` y `_import_from_openlibrary_by_title`: búsquedas y actualizaciones protegidas con `select_for_update()`.
 
-``` text
-duplicación de reviews
-importación simultánea
-contadores
-listas
-```
+3. **Contadores y Métricas Concurrentes (`backend/books/services/gamification_service.py`, `backend/books/tasks.py`)**:
+   - `GamificationService.record_daily_reading`: bloqueo exclusivo con `select_for_update()` sobre `DailyReadingLog` y `ReadingStreak`. Previene pérdida de actualizaciones acumuladas de páginas y minutos (*lost updates*) y colisiones `unique_together = ('user', 'date')`.
+   - `recalculate_book_rating_task`: recálculo asíncrono atómico con `select_for_update()` sobre la fila del `Book`, serializando recálculos de promedios ante reseñas simultáneas.
+
+4. **Listas de Lectura Concurrentes (`backend/books/views.py:ReadingListViewSet`)**:
+   - `add_book`: bloquea la fila padre `ReadingList` con `select_for_update()` para serializar el cómputo de posiciones (`max_pos + 1`) y atrapa colisiones concurrentes con `unique_reading_list_book` devolviendo HTTP 400 limpio.
+   - `reorder`: reordenación serializada bajo bloqueo exclusivo de la lista padre con `select_for_update()`.
+
+5. **Acciones Sociales Concurrentes (`backend/users/views.py:FollowUserView`)**:
+   - `FollowUserView.post`: verificación atómica de seguimiento previo dentro de la transacción para evitar notificaciones y registros de actividad duplicados por solicitudes simultáneas.
+
+6. **Verificación y Pruebas**:
+   - Suite dedicada: `backend/tests/test_phase64_concurrency.py` (**11/11 tests PASSED**), evaluando condiciones de carrera simuladas en reviews, importación, lectura diaria, listas de lectura, likes y seguimiento.
+   - Suites de regresión: `test_phase63_transactions.py`, `test_phase62_idempotency.py`, `test_phase61_error_contract.py`, `test_phase21_reading_lists.py` (**48/48 tests PASSED**).
+   - Linters Python: `ruff check` (**All checks passed!**).
+   - Verificación de tipos TypeScript: `tsc --noEmit` (**0 errores**).
+   - Suite frontend Vitest: `npx vitest run` (**21/21 tests PASSED**).
 
 ------------------------------------------------------------------------
 

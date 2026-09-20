@@ -1,7 +1,7 @@
 import logging
 
 from django.core.cache import cache
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema, inline_serializer
@@ -319,9 +319,34 @@ class UserBookListCreateView(generics.ListCreateAPIView):
 
         return queryset
 
-    def perform_create(self, serializer):
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        book = serializer.validated_data.get('book')
+
         with transaction.atomic():
-            serializer.save(user=self.request.user)
+            user_book = UserBook.objects.select_for_update().filter(user=request.user, book=book).first()
+            if user_book:
+                for attr, val in serializer.validated_data.items():
+                    if attr != 'book':
+                        setattr(user_book, attr, val)
+                user_book.save()
+                return Response(self.get_serializer(user_book).data, status=status.HTTP_200_OK)
+
+            try:
+                with transaction.atomic():
+                    user_book = serializer.save(user=request.user)
+                return Response(self.get_serializer(user_book).data, status=status.HTTP_201_CREATED)
+            except IntegrityError:
+                # Recuperar limpiamente ante colisión concurrente de inserción
+                user_book = UserBook.objects.select_for_update().filter(user=request.user, book=book).first()
+                if user_book:
+                    for attr, val in serializer.validated_data.items():
+                        if attr != 'book':
+                            setattr(user_book, attr, val)
+                    user_book.save()
+                    return Response(self.get_serializer(user_book).data, status=status.HTTP_200_OK)
+                raise
 
 
 class UserBookDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -423,7 +448,10 @@ class ReviewListCreateView(generics.ListCreateAPIView):
         text = sanitize_html(request.data.get('text', ''))
 
         with transaction.atomic():
-            active_review = Review.objects.filter(user=request.user, book_id=book_id, deleted_at__isnull=True).first()
+            active_review = Review.objects.select_for_update().filter(
+                user=request.user, book_id=book_id, deleted_at__isnull=True
+            ).first()
+
             if active_review:
                 active_review.rating = rating_val
                 active_review.title = title
@@ -432,14 +460,30 @@ class ReviewListCreateView(generics.ListCreateAPIView):
                 review = active_review
                 created = False
             else:
-                review = Review.objects.create(
-                    user=request.user,
-                    book_id=book_id,
-                    rating=rating_val,
-                    title=title,
-                    text=text,
-                )
-                created = True
+                try:
+                    with transaction.atomic():
+                        review = Review.objects.create(
+                            user=request.user,
+                            book_id=book_id,
+                            rating=rating_val,
+                            title=title,
+                            text=text,
+                        )
+                    created = True
+                except IntegrityError:
+                    # Colisión concurrente: otro worker/hilo creó la reseña simultáneamente
+                    active_review = Review.objects.select_for_update().filter(
+                        user=request.user, book_id=book_id, deleted_at__isnull=True
+                    ).first()
+                    if active_review:
+                        active_review.rating = rating_val
+                        active_review.title = title
+                        active_review.text = text
+                        active_review.save()
+                        review = active_review
+                        created = False
+                    else:
+                        raise
 
             if created:
                 try:
@@ -523,22 +567,36 @@ class ReviewLikeToggleView(APIView):
             raise PermissionDenied('No tienes permiso para ver esta reseña.')
 
         with transaction.atomic():
-            like = ReviewLike.objects.filter(user=request.user, review=review).first()
+            like = ReviewLike.objects.select_for_update().filter(user=request.user, review=review).first()
             if like:
                 like.delete()
                 liked = False
             else:
-                ReviewLike.objects.create(user=request.user, review=review)
-                liked = True
-                if review.user_id != request.user.id:
-                    Notification.objects.create(
+                try:
+                    with transaction.atomic():
+                        ReviewLike.objects.create(user=request.user, review=review)
+                        liked = True
+                except IntegrityError:
+                    # Concurrencia: otro request simultáneo ya creó el like
+                    liked = True
+
+                if liked and review.user_id != request.user.id:
+                    from users.models import Notification, NotificationType
+                    notif_exists = Notification.objects.filter(
                         recipient=review.user,
                         actor=request.user,
                         type=NotificationType.LIKE,
-                        title=f"{request.user.username} le dio me gusta a tu reseña",
-                        message=f"A {request.user.username} le gustó tu reseña de '{review.book.title}'",
                         link=f"/books/{review.book_id}?review={review.id}",
-                    )
+                    ).exists()
+                    if not notif_exists:
+                        Notification.objects.create(
+                            recipient=review.user,
+                            actor=request.user,
+                            type=NotificationType.LIKE,
+                            title=f"{request.user.username} le dio me gusta a tu reseña",
+                            message=f"A {request.user.username} le gustó tu reseña de '{review.book.title}'",
+                            link=f"/books/{review.book_id}?review={review.id}",
+                        )
 
         return Response({
             'liked': liked,
@@ -1430,7 +1488,7 @@ class ReadingListViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'], url_path='add-book', permission_classes=[permissions.IsAuthenticated])
     def add_book(self, request, pk=None):
-        """Añade un libro a la lista en una posición específica o al final."""
+        """Añade un libro a la lista en una posición específica o al final bajo bloqueo exclusivo de fila."""
         reading_list = self.get_object()
         if reading_list.user != request.user and not request.user.is_staff:
             return Response({'detail': 'No tienes permiso para modificar esta lista.'}, status=status.HTTP_403_FORBIDDEN)
@@ -1440,24 +1498,36 @@ class ReadingListViewSet(viewsets.ModelViewSet):
             return Response({'detail': 'El campo book_id es obligatorio.'}, status=status.HTTP_400_BAD_REQUEST)
 
         book = get_object_or_404(Book, id=book_id)
-
-        if ReadingListItem.objects.filter(reading_list=reading_list, book=book).exists():
-            return Response({'detail': 'Este libro ya se encuentra en la lista.'}, status=status.HTTP_400_BAD_REQUEST)
-
-        position = request.data.get('position')
-        if position is None:
-            max_pos = reading_list.items.count()
-            position = max_pos + 1
-
+        position_req = request.data.get('position')
         notes = request.data.get('notes', '')
 
         with transaction.atomic():
-            item = ReadingListItem.objects.create(
-                reading_list=reading_list,
-                book=book,
-                position=position,
-                notes=notes,
-            )
+            # Bloquear la lista padre para serializar adiciones concurrentes y cómputo de posiciones
+            locked_list = ReadingList.objects.select_for_update().get(pk=reading_list.pk)
+
+            if ReadingListItem.objects.filter(reading_list=locked_list, book=book).exists():
+                return Response({'detail': 'Este libro ya se encuentra en la lista.'}, status=status.HTTP_400_BAD_REQUEST)
+
+            if position_req is None:
+                from django.db.models import Max
+                max_pos = ReadingListItem.objects.filter(reading_list=locked_list).aggregate(m=Max('position'))['m'] or 0
+                position = max_pos + 1
+            else:
+                try:
+                    position = int(position_req)
+                except (ValueError, TypeError):
+                    position = 1
+
+            try:
+                with transaction.atomic():
+                    item = ReadingListItem.objects.create(
+                        reading_list=locked_list,
+                        book=book,
+                        position=position,
+                        notes=notes,
+                    )
+            except IntegrityError:
+                return Response({'detail': 'Este libro ya se encuentra en la lista.'}, status=status.HTTP_400_BAD_REQUEST)
 
         return Response(ReadingListItemSerializer(item, context={'request': request}).data, status=status.HTTP_201_CREATED)
 
@@ -1482,7 +1552,7 @@ class ReadingListViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['put', 'post'], url_path='reorder', permission_classes=[permissions.IsAuthenticated])
     def reorder(self, request, pk=None):
         """
-        Reordena los libros de la lista. Acepta:
+        Reordena los libros de la lista bajo bloqueo exclusivo de fila. Acepta:
         [ {"book_id": 1, "position": 1}, {"book_id": 2, "position": 2} ] o [1, 2, 3] (lista ordenada de IDs).
         """
         reading_list = self.get_object()
@@ -1494,6 +1564,7 @@ class ReadingListViewSet(viewsets.ModelViewSet):
             return Response({'detail': 'Se espera una lista de elementos para reordenar.'}, status=status.HTTP_400_BAD_REQUEST)
 
         with transaction.atomic():
+            locked_list = ReadingList.objects.select_for_update().get(pk=reading_list.pk)
             for idx, entry in enumerate(orders, start=1):
                 if isinstance(entry, dict):
                     b_id = entry.get('book_id') or entry.get('id')
@@ -1502,7 +1573,7 @@ class ReadingListViewSet(viewsets.ModelViewSet):
                     b_id = entry
                     pos = idx
 
-                ReadingListItem.objects.filter(reading_list=reading_list, book_id=b_id).update(position=pos)
+                ReadingListItem.objects.filter(reading_list=locked_list, book_id=b_id).update(position=pos)
 
         updated_list = ReadingList.objects.prefetch_related('items__book', 'items__book__author').get(pk=reading_list.pk)
         return Response(ReadingListSerializer(updated_list, context={'request': request}).data)

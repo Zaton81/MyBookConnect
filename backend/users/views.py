@@ -114,10 +114,10 @@ class FollowUserView(APIView):
         ):
             return Response({"detail": "No puedes seguir a este usuario."}, status=status.HTTP_403_FORBIDDEN)
 
-        if user_to_follow in request.user.following.all():
-            return Response({"detail": "Ya sigues a este usuario."}, status=status.HTTP_400_BAD_REQUEST)
-
         with transaction.atomic():
+            if request.user.following.filter(id=user_to_follow.id).exists():
+                return Response({"detail": "Ya sigues a este usuario."}, status=status.HTTP_400_BAD_REQUEST)
+
             request.user.following.add(user_to_follow)
 
             from .activity_service import record_activity
