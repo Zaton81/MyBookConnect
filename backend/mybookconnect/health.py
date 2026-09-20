@@ -7,6 +7,8 @@ from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from .version import get_version, get_version_info
+
 logger = logging.getLogger(__name__)
 
 
@@ -31,9 +33,28 @@ class HealthCheckView(APIView):
             {
                 "status": "healthy",
                 "process": "alive",
+                "version": get_version(),
             },
             status=status.HTTP_200_OK,
         )
+
+
+class VersionView(APIView):
+    """
+    Endpoint informativo con la versión actual de la API y metadatos SemVer.
+    """
+    permission_classes = [permissions.AllowAny]
+    throttle_classes = []
+
+    @extend_schema(
+        summary="Información de versión de la API",
+        description="Devuelve la versión SemVer actual de MyBookConnect y metadatos de versión.",
+        responses={
+            200: OpenApiResponse(description="Metadatos de versión obtenidos con éxito."),
+        },
+    )
+    def get(self, request):
+        return Response(get_version_info(), status=status.HTTP_200_OK)
 
 
 class ReadinessCheckView(APIView):

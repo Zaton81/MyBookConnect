@@ -3018,27 +3018,39 @@ Se ha formalizado e implementado la estrategia integral de Recuperación ante De
 
 ------------------------------------------------------------------------
 
-# 71. Fase 68 --- Versionado y releases
+# 71. Fase 68 --- Versionado y releases [COMPLETADA]
 
-Adoptar:
+**Prioridad:** P1 - COMPLETADA
 
-``` text
-SemVer
-```
+Se ha implementado un sistema estandarizado e integral de versionado semántico y releases, asegurando consistencia entre backend, frontend, documentación y herramientas de despliegue:
 
-Ejemplo:
+1. **Adopción Estricta de SemVer 2.0.0 y Sincronización Global**:
+   - Backend (`backend/mybookconnect/version.py`):
+     - `VERSION = (1, 0, 0)`
+     - `API_VERSION = "v1"`
+     - Funciones `get_version()` y `get_version_info()` con metadatos (`major`, `minor`, `patch`, `prerelease`, `semver`, `api_version`).
+     - Exportado en la raíz del paquete `backend/mybookconnect/__init__.py` como `__version__` y `get_version`.
+     - Definido en `backend/pyproject.toml` bajo `[project] version = "1.0.0"`.
+   - Frontend (`frontend/package.json`):
+     - Versión sincronizada unificada a `"version": "1.0.0"`.
 
-``` text
-v1.0.0
-v1.1.0
-v1.1.1
-```
+2. **Endpoints de API Versionados**:
+   - `GET /api/v1/version/`: endpoint informativo DRF (`VersionView`) accesible sin autenticación que devuelve la versión y metadatos SemVer.
+   - `GET /api/v1/health/`: liveness check actualizado para incluir el campo `"version": "1.0.0"`.
 
-Mantener:
+3. **CHANGELOG.md y Documentación de Releases**:
+   - `CHANGELOG.md` creado en la raíz del repositorio siguiendo el estándar [Keep a Changelog 1.1.0](https://keepachangelog.com/es-ES/1.1.0/) y SemVer 2.0.0, detallando todas las funcionalidades de la release `[1.0.0]` y sección `[Unreleased]`.
+   - `docs/deployment/versioning_and_releases.md`: guía exhaustiva con el esquema SemVer, puntos únicos de verdad, flujo de trabajo con ramas (`release/vX.Y.Z`), tags de Git y checklist de publicación.
 
-``` text
-CHANGELOG.md
-```
+4. **Herramienta de Verificación Automatizada**:
+   - `scripts/verify_release.sh`: script ejecutable que valida la coherencia entre `version.py`, `pyproject.toml`, `package.json` y la entrada correspondiente en `CHANGELOG.md`.
+
+5. **Pruebas Automatizadas y Verificación de Calidad**:
+   - Suite dedicada: `backend/tests/test_phase68_versioning.py` (**7/7 tests PASSED**), validando constantes SemVer, exports, endpoints `/api/v1/version/` y `/api/v1/health/`, consistencia de `pyproject.toml`, `package.json` y `CHANGELOG.md`.
+   - Suites de regresión: `test_phase67_disaster_recovery.py`, `test_phase66_backups.py` y `test_phase65_cache_invalidation.py` (**19/19 tests PASSED**).
+   - Linters Python: `ruff check` (**All checks passed!**).
+   - Verificación de tipos TypeScript: `tsc --noEmit` (**0 errores**).
+   - Validación de script: `scripts/verify_release.sh` (**Ejecutado con éxito**).
 
 ------------------------------------------------------------------------
 

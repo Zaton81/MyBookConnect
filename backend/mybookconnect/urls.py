@@ -12,7 +12,7 @@ from rest_framework_simplejwt.views import TokenRefreshView
 from users.auth_views import CustomTokenObtainPairView
 from users.moderation_views import ReportCreateView, UserReportsListView
 
-from .health import HealthCheckView, ReadinessCheckView
+from .health import HealthCheckView, ReadinessCheckView, VersionView
 from .observability import ObservabilityMetricsView
 
 urlpatterns = [
@@ -22,7 +22,9 @@ urlpatterns = [
     path('api/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
     path('api/v1/health/', HealthCheckView.as_view(), name='health_check'),
     path('api/v1/ready/', ReadinessCheckView.as_view(), name='readiness_check'),
+    path('api/v1/version/', VersionView.as_view(), name='api-version'),
     path('api/v1/', include([
+        path('version/', VersionView.as_view(), name='api-version-nested'),
         path('auth/', include([
             path('token/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
             path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
