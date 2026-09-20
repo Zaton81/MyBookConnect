@@ -1,11 +1,16 @@
 import logging
 from dataclasses import dataclass
-from typing import Any
 
-from django.contrib.postgres.search import SearchQuery, SearchRank, SearchVector, TrigramSimilarity, TrigramWordSimilarity
+from django.contrib.postgres.search import (
+    SearchQuery,
+    SearchRank,
+    SearchVector,
+    TrigramSimilarity,
+    TrigramWordSimilarity,
+)
 from django.core.cache import cache
 from django.db import connection
-from django.db.models import Case, F, FloatField, IntegerField, Q, QuerySet, When
+from django.db.models import Case, FloatField, IntegerField, Q, QuerySet, When
 from django.db.models.functions import Coalesce, Greatest
 
 from ai.embeddings import cosine_similarity, get_embedding_for_text

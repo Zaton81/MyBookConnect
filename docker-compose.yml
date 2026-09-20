@@ -16,6 +16,9 @@ services:
         condition: service_healthy
     volumes:
       - ./backend:/app
+      - ./docs:/app/docs:ro
+      - ./scripts:/app/scripts:ro
+      - ./.github:/app/.github:ro
 
   celery_worker:
     build:

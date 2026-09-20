@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# ==============================================================================
+# .githooks/commit-msg - Hook de Git para validar Conventional Commits
+# ==============================================================================
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+COMMIT_MSG_FILE="$1"
+
+python3 "${SCRIPT_DIR}/scripts/validate_commit_msg.py" "${COMMIT_MSG_FILE}" || \
+python "${SCRIPT_DIR}/scripts/validate_commit_msg.py" "${COMMIT_MSG_FILE}"

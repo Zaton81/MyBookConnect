@@ -5,7 +5,7 @@ uso de búferes de memoria y verificación de uso de índices frente a escaneos 
 """
 import json
 import logging
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Union
 
 from django.db import connection
 from django.db.models import QuerySet
