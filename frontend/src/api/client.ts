@@ -86,13 +86,14 @@ export class ApiError extends Error {
 
 export interface RequestOptions extends RequestInit {
   requireAuth?: boolean;
+  idempotencyKey?: string;
 }
 
 export async function apiClient<T = any>(
   endpoint: string,
   options: RequestOptions = {}
 ): Promise<T> {
-  const { requireAuth = true, headers: customHeaders, ...restOptions } = options;
+  const { requireAuth = true, idempotencyKey, headers: customHeaders, ...restOptions } = options;
 
   const url = endpoint.startsWith('http')
     ? endpoint
@@ -105,6 +106,10 @@ export async function apiClient<T = any>(
   // No sobrescribir Content-Type si el body es FormData
   if (!(restOptions.body instanceof FormData) && !headers['Content-Type']) {
     headers['Content-Type'] = 'application/json';
+  }
+
+  if (idempotencyKey) {
+    headers['Idempotency-Key'] = idempotencyKey;
   }
 
   if (requireAuth) {

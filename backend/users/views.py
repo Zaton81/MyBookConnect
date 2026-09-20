@@ -8,6 +8,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from books.pagination import StandardResultsSetPagination
+from mybookconnect.idempotency import idempotent
 
 from . import policies
 from .serializers import UserBasicSerializer, UserCreateSerializer, UserSerializer
@@ -416,11 +417,17 @@ class LogoutView(APIView):
             return Response({'detail': 'Token inválido o ya revocado.'}, status=status.HTTP_400_BAD_REQUEST)
 
 
-class NotificationListView(generics.ListAPIView):
-    """Lista las notificaciones del usuario autenticado."""
+class NotificationListView(generics.ListCreateAPIView):
+    """
+    Lista y emite notificaciones para usuarios autenticados (Fase 62).
+    La creación está protegida con @idempotent para prevenir duplicados.
+    """
     permission_classes = (permissions.IsAuthenticated,)
 
     def get_serializer_class(self):
+        if self.request.method == 'POST':
+            from .serializers import NotificationCreateSerializer
+            return NotificationCreateSerializer
         from .serializers import NotificationSerializer
         return NotificationSerializer
 
@@ -433,6 +440,13 @@ class NotificationListView(generics.ListAPIView):
         if unread_only:
             queryset = queryset.filter(read=False)
         return queryset
+
+    @idempotent(required=False)
+    def post(self, request, *args, **kwargs):
+        return super().post(request, *args, **kwargs)
+
+
+NotificationCreateView = NotificationListView
 
 
 class NotificationMarkReadView(APIView):

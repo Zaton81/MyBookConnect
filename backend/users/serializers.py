@@ -197,6 +197,50 @@ class NotificationSerializer(serializers.ModelSerializer):
         read_only_fields = ('id', 'type', 'title', 'message', 'link', 'created_at', 'actor')
 
 
+class NotificationCreateSerializer(serializers.ModelSerializer):
+    recipient_id = serializers.IntegerField(required=False, allow_null=True)
+    type = serializers.CharField(required=False, default='SYSTEM')
+
+    class Meta:
+        from .models import Notification
+        model = Notification
+        fields = ('id', 'recipient_id', 'type', 'title', 'message', 'link')
+
+    def validate_type(self, value):
+        from .models import NotificationType
+
+        if not value:
+            return NotificationType.SYSTEM
+        val_upper = str(value).upper().strip()
+        if val_upper in NotificationType.values:
+            return val_upper
+        raise serializers.ValidationError(f"'{value}' no es un tipo de notificación válido.")
+
+    def create(self, validated_data):
+        from .models import Notification, NotificationType, User
+        recipient_id = validated_data.pop('recipient_id', None)
+        request = self.context.get('request')
+        actor = request.user if request and request.user.is_authenticated else None
+
+        if recipient_id:
+            recipient = User.objects.filter(id=recipient_id).first()
+            if not recipient:
+                raise serializers.ValidationError({'recipient_id': 'El usuario destinatario no existe.'})
+        else:
+            recipient = actor
+
+        notif_type = validated_data.get('type', NotificationType.SYSTEM)
+        return Notification.objects.create(
+            recipient=recipient,
+            actor=actor,
+            type=notif_type,
+            title=validated_data.get('title', ''),
+            message=validated_data.get('message', ''),
+            link=validated_data.get('link', ''),
+        )
+
+
+
 class ActivityBookSerializer(serializers.Serializer):
     id = serializers.IntegerField(read_only=True)
     title = serializers.CharField(read_only=True)

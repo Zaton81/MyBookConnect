@@ -9,6 +9,8 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from mybookconnect.idempotency import idempotent
+
 from . import services
 from .cache_utils import TTL_BOOK_DETAIL, book_detail_key
 from .media_utils import build_media_url
@@ -660,6 +662,7 @@ class ImportBookView(APIView):
         },
         tags=['Books'],
     )
+    @idempotent(required=False)
     def post(self, request):
         query_isbn = (request.data.get('isbn') or '').strip()
         query_title = (request.data.get('title') or request.data.get('q') or '').strip()
@@ -1072,6 +1075,7 @@ class AuthorBookRefreshView(APIView):
         },
         tags=['Authors'],
     )
+    @idempotent(required=False)
     def post(self, request, pk):
         try:
             author = Author.objects.get(pk=pk)
@@ -1082,6 +1086,67 @@ class AuthorBookRefreshView(APIView):
         except Exception as e:
             logging.exception(e)
             return Response({'detail': 'Error al actualizar libros'}, status=500)
+
+
+class ExternalSyncView(APIView):
+    """
+    Endpoint para sincronización externa bajo demanda de catálogo o libros (Fase 62).
+    Soporta sincronización por ISBN, título o autor consultando Google Books / OpenLibrary.
+    Protegido con @idempotent para prevenir duplicación o llamadas externas redundantes.
+    """
+    permission_classes = (permissions.IsAuthenticated,)
+
+    @extend_schema(
+        summary="Sincronización externa de libros bajo demanda",
+        description="Sincroniza metadatos y libros externos de forma idempotente.",
+        request=inline_serializer(
+            name='ExternalSyncRequest',
+            fields={
+                'isbn': serializers.CharField(required=False),
+                'title': serializers.CharField(required=False),
+                'author': serializers.CharField(required=False),
+            },
+        ),
+        responses={
+            200: inline_serializer(
+                name='ExternalSyncResponse',
+                fields={'synced': serializers.BooleanField(), 'detail': serializers.CharField(), 'count': serializers.IntegerField(required=False)},
+            ),
+            400: OpenApiResponse(description="Parámetros insuficientes"),
+        },
+        tags=['Books'],
+    )
+    @idempotent(required=False)
+    def post(self, request):
+        query_isbn = (request.data.get('isbn') or '').strip()
+        query_title = (request.data.get('title') or '').strip()
+        author_name = (request.data.get('author') or '').strip()
+
+        if not query_isbn and not query_title and not author_name:
+            return Response({'detail': 'Debe indicar al menos isbn, title o author para sincronizar.'}, status=400)
+
+        if query_isbn:
+            book = services.import_single_by_query(query_isbn=query_isbn)
+            return Response({
+                'synced': book is not None,
+                'detail': f"Sincronización de ISBN {query_isbn} completada." if book else "No se encontraron datos externos para este ISBN.",
+                'book_id': book.id if book else None,
+            }, status=200)
+
+        if author_name:
+            count = services.import_books_by_author(author_name)
+            return Response({
+                'synced': True,
+                'count': count,
+                'detail': f"Se sincronizaron {count} libros para el autor {author_name}.",
+            }, status=200)
+
+        books = services.import_multiple_by_title(query_title, offset=0)
+        return Response({
+            'synced': bool(books),
+            'count': len(books),
+            'detail': f"Se encontraron y sincronizaron {len(books)} libros para el título {query_title}.",
+        }, status=200)
 
 
 class ErrataListCreateView(generics.ListCreateAPIView):

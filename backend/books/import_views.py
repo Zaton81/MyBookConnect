@@ -5,6 +5,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from books.services.csv_import_service import CSVImportService
+from mybookconnect.idempotency import idempotent
 
 
 class CSVImportPreviewView(APIView):
@@ -86,6 +87,7 @@ class CSVImportConfirmView(APIView):
         },
         tags=['Books Import'],
     )
+    @idempotent(required=False)
     def post(self, request, *args, **kwargs):
         items = request.data.get('items')
         if not items or not isinstance(items, list):

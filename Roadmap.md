@@ -2780,18 +2780,39 @@ Se ha implementado un contrato unificado, predecible y estandarizado de respuest
 
 ------------------------------------------------------------------------
 
-# 65. Fase 62 --- Idempotencia
+# 65. Fase 62 --- Idempotencia [COMPLETADA]
 
-Añadir idempotency keys a operaciones sensibles/costosas cuando sea
-necesario:
+**Prioridad:** P1 - COMPLETADA
 
-``` text
-POST /books/import
-POST /notifications
-POST /external sync
-```
+Se ha implementado una arquitectura de idempotencia robusta para operaciones sensibles, costosas y tolerantes a reintentos automáticos de red:
 
-Especialmente cuando haya retries automáticos.
+1. **Gestor Central de Idempotencia (`IdempotencyManager` en `backend/mybookconnect/idempotency.py`)**:
+   - Soporte para cabeceras HTTP estándar `Idempotency-Key` y alias `X-Idempotency-Key` (hasta 128 caracteres).
+   - Cálculo determinista de hash SHA-256 sobre el cuerpo (`request.data` / `request.body`) y query parameters, garantizando consistencia independientemente del orden de claves en JSON.
+   - Prevención de condiciones de carrera e in-flight duplication mediante bloqueos atómicos en Redis (`cache.add("lock:...")` con TTL de 60s). Peticiones concurrentes idénticas reciben **409 Conflict**.
+   - Detección de discrepancia de payload: si se reutiliza una misma clave con un payload distinto, se rechaza de inmediato con **400 Bad Request** (`VALIDATION_ERROR`).
+   - Retransmisión transparente de respuestas completadas desde caché con cabecera `Idempotent-Replayed: true` (TTL por defecto: 24 horas).
+2. **Decorador `@idempotent(required=False, timeout=86400)`**:
+   - Anotación declarativa y modular para métodos de vistas DRF (`APIView`, `generics`, `viewsets`).
+   - Marca `request._idempotency_handled = True` para evitar doble procesamiento por middlewares.
+3. **Middleware Global (`IdempotencyMiddleware` en `backend/mybookconnect/middleware.py`)**:
+   - Intercepta cualquier petición mutante (`POST`, `PUT`, `PATCH`, `DELETE`) bajo `/api/` que incluya `Idempotency-Key` y no haya sido consumida por un decorador, garantizando soporte transversal en toda la API.
+   - Preserva el atributo `.data` en respuestas intermedias `JsonResponse` para compatibilidad completa con el cliente de pruebas de DRF y consumidores API.
+4. **Endpoints Blindados con Idempotencia**:
+   - `POST /api/v1/books/import/` (`ImportBookView`): importación de libros por ISBN o título desde proveedores externos (Google Books, OpenLibrary).
+   - `POST /api/v1/books/import/csv/confirm/` (`CSVImportConfirmView`): confirmación e importación masiva atómica de bibliotecas CSV.
+   - `POST /api/v1/books/authors/<pk>/refresh-books/` (`AuthorBookRefreshView`): refresco y sincronización de catálogo de un autor.
+   - `POST /api/v1/books/sync/external/` (`ExternalSyncView`): nuevo endpoint unificado para sincronización externa bajo demanda por ISBN, autor o título.
+   - `POST /api/v1/users/notifications/` y `/api/v1/notifications/` (`NotificationListView` / `NotificationCreateView`): emisión y registro de notificaciones de sistema y usuario con `NotificationCreateSerializer`, previniendo notificaciones duplicadas ante reintentos.
+5. **Soporte Frontend (`frontend/src/api/client.ts`)**:
+   - `RequestOptions` extendido con `idempotencyKey?: string`.
+   - Inyección automática de `Idempotency-Key` en las cabeceras HTTP de peticiones cliente.
+6. **Verificación y Pruebas**:
+   - Suite de la fase: `backend/tests/test_phase62_idempotency.py` (**12/12 tests PASSED**).
+   - Suites de regresión: `test_phase61_error_contract.py` y `test_phase55_advanced_import.py` (**23/23 tests PASSED**).
+   - Linter Python `ruff check` (**0 errores, All checks passed!**).
+   - Verificación estricta de tipos TypeScript `tsc --noEmit` (**0 errores**).
+   - Suite de pruebas frontend Vitest `npx vitest run` (**21/21 tests PASSED**).
 
 ------------------------------------------------------------------------
 

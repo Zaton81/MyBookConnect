@@ -23,6 +23,7 @@ from .views import (
     BookRecommendationExplainView,
     ErrataDetailUpdateView,
     ErrataListCreateView,
+    ExternalSyncView,
     ImportBookView,
     ReadingListViewSet,
     ReadingMatchView,
@@ -62,6 +63,7 @@ urlpatterns = [
     path('import/', ImportBookView.as_view(), name='books-import-root'),
     path('import/csv/preview/', CSVImportPreviewView.as_view(), name='books-import-csv-preview'),
     path('import/csv/confirm/', CSVImportConfirmView.as_view(), name='books-import-csv-confirm'),
+    path('sync/external/', ExternalSyncView.as_view(), name='books-external-sync'),
 
     # Rutas de Inteligencia Artificial (OpenAI-compatible)
     path('ai/status/', AIStatusView.as_view(), name='book-ai-status'),
