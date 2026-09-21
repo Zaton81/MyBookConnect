@@ -4,6 +4,7 @@ import { useAuthStore } from '../../../store/auth';
 import { Spinner } from 'flowbite-react';
 import DOMPurify from 'dompurify';
 import { AuditLog } from '../../../types/auth';
+import { resolveMediaUrl } from '../../../utils/media';
 
 export function AdminDashboard() {
   const navigate = useNavigate();
@@ -68,6 +69,16 @@ export function AdminDashboard() {
     category_ids: [] as number[],
     cover: '',
   });
+  const [bookCoverFile, setBookCoverFile] = useState<File | null>(null);
+  const [bookCoverPreview, setBookCoverPreview] = useState<string | null>(null);
+  const [categorySearch, setCategorySearch] = useState('');
+  const [showCreateCategory, setShowCreateCategory] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [creatingCategory, setCreatingCategory] = useState(false);
+  const [authorSearch, setAuthorSearch] = useState('');
+  const [showCreateAuthorInline, setShowCreateAuthorInline] = useState(false);
+  const [inlineAuthorName, setInlineAuthorName] = useState('');
+  const [creatingInlineAuthor, setCreatingInlineAuthor] = useState(false);
   const [savingBook, setSavingBook] = useState(false);
 
   // Modales de Autor
@@ -77,6 +88,8 @@ export function AdminDashboard() {
     biography: '',
     photo: '',
   });
+  const [authorPhotoFile, setAuthorPhotoFile] = useState<File | null>(null);
+  const [authorPhotoPreview, setAuthorPhotoPreview] = useState<string | null>(null);
   const [savingAuthor, setSavingAuthor] = useState(false);
 
   // Estado de Erratas
@@ -315,8 +328,8 @@ export function AdminDashboard() {
     if (!token) return;
     try {
       const [catsRes, authorsRes] = await Promise.all([
-        fetch(`${apiUrl}/api/v1/admin/categories/`, { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`${apiUrl}/api/v1/admin/authors/?ordering=name`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${apiUrl}/api/v1/admin/categories/?all=true`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${apiUrl}/api/v1/admin/authors/?all=true&ordering=name`, { headers: { Authorization: `Bearer ${token}` } }),
       ]);
       if (catsRes.ok) {
         const catsData = await catsRes.json();
@@ -478,6 +491,12 @@ export function AdminDashboard() {
       category_ids: [],
       cover: '',
     });
+    setBookCoverFile(null);
+    setBookCoverPreview(null);
+    setCategorySearch('');
+    setShowCreateCategory(false);
+    setAuthorSearch('');
+    setShowCreateAuthorInline(false);
     setEditingBook({ isNew: true });
   };
 
@@ -491,7 +510,85 @@ export function AdminDashboard() {
       category_ids: book.categories ? book.categories.map((c: any) => c.id) : [],
       cover: book.cover || '',
     });
+    setBookCoverFile(null);
+    setBookCoverPreview(book.cover ? resolveMediaUrl(book.cover) : null);
+    setCategorySearch('');
+    setShowCreateCategory(false);
+    setAuthorSearch('');
+    setShowCreateAuthorInline(false);
     setEditingBook(book);
+  };
+
+  const handleCreateCategory = async () => {
+    if (!newCategoryName.trim() || !token) return;
+    setCreatingCategory(true);
+    try {
+      const res = await fetch(`${apiUrl}/api/v1/admin/categories/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ name: newCategoryName.trim() }),
+      });
+      if (res.ok) {
+        const newCat = await res.json();
+        setCategoriesList((prev) => {
+          const exists = prev.some((c) => c.id === newCat.id);
+          const updated = exists ? prev : [...prev, newCat];
+          return updated.sort((a, b) => a.name.localeCompare(b.name));
+        });
+        setBookForm((prev) => ({
+          ...prev,
+          category_ids: prev.category_ids.includes(newCat.id) ? prev.category_ids : [...prev.category_ids, newCat.id],
+        }));
+        setNewCategoryName('');
+        setShowCreateCategory(false);
+      } else {
+        const err = await res.json();
+        alert(err.name?.[0] || err.detail || 'Error al crear la categoría.');
+      }
+    } catch (e: any) {
+      alert(e.message || 'Error de conexión al crear categoría.');
+    } finally {
+      setCreatingCategory(false);
+    }
+  };
+
+  const handleCreateInlineAuthor = async () => {
+    if (!inlineAuthorName.trim() || !token) return;
+    setCreatingInlineAuthor(true);
+    try {
+      const res = await fetch(`${apiUrl}/api/v1/admin/authors/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ name: inlineAuthorName.trim() }),
+      });
+      if (res.ok) {
+        const newAuthor = await res.json();
+        setAuthorsList((prev) => {
+          const exists = prev.some((a) => a.id === newAuthor.id);
+          const updated = exists ? prev : [...prev, newAuthor];
+          return updated.sort((a, b) => a.name.localeCompare(b.name));
+        });
+        setBookForm((prev) => ({
+          ...prev,
+          author_id: String(newAuthor.id),
+        }));
+        setInlineAuthorName('');
+        setShowCreateAuthorInline(false);
+      } else {
+        const err = await res.json();
+        alert(err.name?.[0] || err.detail || 'Error al crear el autor.');
+      }
+    } catch (e: any) {
+      alert(e.message || 'Error de conexión al crear autor.');
+    } finally {
+      setCreatingInlineAuthor(false);
+    }
   };
 
   const handleSaveBook = async (e: React.FormEvent) => {
@@ -504,14 +601,26 @@ export function AdminDashboard() {
 
     setSavingBook(true);
     try {
-      const payload: any = {
-        title: bookForm.title.trim(),
-        author_id: bookForm.author_id ? Number(bookForm.author_id) : null,
-        isbn: bookForm.isbn.trim() || null,
-        description: bookForm.description.trim() || null,
-        published_date: bookForm.published_date || null,
-        category_ids: bookForm.category_ids,
-      };
+      const formData = new FormData();
+      formData.append('title', bookForm.title.trim());
+      if (bookForm.author_id) {
+        formData.append('author_id', String(bookForm.author_id));
+      }
+      if (bookForm.isbn.trim()) {
+        formData.append('isbn', bookForm.isbn.trim());
+      }
+      if (bookForm.description.trim()) {
+        formData.append('description', bookForm.description.trim());
+      }
+      if (bookForm.published_date) {
+        formData.append('published_date', bookForm.published_date);
+      }
+      bookForm.category_ids.forEach((id) => {
+        formData.append('category_ids', String(id));
+      });
+      if (bookCoverFile) {
+        formData.append('cover', bookCoverFile);
+      }
 
       const isNew = editingBook.isNew;
       const url = isNew ? `${apiUrl}/api/v1/admin/books/` : `${apiUrl}/api/v1/admin/books/${editingBook.id}/`;
@@ -520,10 +629,9 @@ export function AdminDashboard() {
       const res = await fetch(url, {
         method,
         headers: {
-          'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(payload),
+        body: formData,
       });
 
       if (res.ok) {
@@ -550,6 +658,8 @@ export function AdminDashboard() {
       biography: '',
       photo: '',
     });
+    setAuthorPhotoFile(null);
+    setAuthorPhotoPreview(null);
     setEditingAuthor({ isNew: true });
   };
 
@@ -559,6 +669,8 @@ export function AdminDashboard() {
       biography: author.biography || '',
       photo: author.photo || '',
     });
+    setAuthorPhotoFile(null);
+    setAuthorPhotoPreview(author.photo ? resolveMediaUrl(author.photo) : null);
     setEditingAuthor(author);
   };
 
@@ -572,10 +684,14 @@ export function AdminDashboard() {
 
     setSavingAuthor(true);
     try {
-      const payload: any = {
-        name: authorForm.name.trim(),
-        biography: authorForm.biography.trim() || null,
-      };
+      const formData = new FormData();
+      formData.append('name', authorForm.name.trim());
+      if (authorForm.biography.trim()) {
+        formData.append('biography', authorForm.biography.trim());
+      }
+      if (authorPhotoFile) {
+        formData.append('photo', authorPhotoFile);
+      }
 
       const isNew = editingAuthor.isNew;
       const url = isNew ? `${apiUrl}/api/v1/admin/authors/` : `${apiUrl}/api/v1/admin/authors/${editingAuthor.id}/`;
@@ -584,10 +700,9 @@ export function AdminDashboard() {
       const res = await fetch(url, {
         method,
         headers: {
-          'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(payload),
+        body: formData,
       });
 
       if (res.ok) {
@@ -1436,6 +1551,7 @@ export function AdminDashboard() {
                 </div>
 
                 <form onSubmit={handleSaveBook} className="space-y-4">
+                  {/* Título */}
                   <div>
                     <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                       Título de la obra *
@@ -1450,23 +1566,116 @@ export function AdminDashboard() {
                     />
                   </div>
 
+                  {/* Portada del libro */}
+                  <div className="p-3 bg-slate-50 dark:bg-slate-700/40 rounded-2xl border border-slate-200 dark:border-slate-700">
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                      🖼️ Portada del libro
+                    </label>
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                      {bookCoverPreview ? (
+                        <div className="relative group">
+                          <img
+                            src={bookCoverPreview}
+                            alt="Portada"
+                            className="w-16 h-24 object-cover rounded-xl border border-slate-300 dark:border-slate-600 shadow-md"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setBookCoverFile(null);
+                              setBookCoverPreview(null);
+                            }}
+                            className="absolute -top-1.5 -right-1.5 bg-rose-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold hover:bg-rose-700 shadow"
+                            title="Quitar portada"
+                          >
+                            &times;
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="w-16 h-24 rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-600 flex flex-col items-center justify-center text-slate-400 text-[10px] text-center p-1">
+                          <span>Sin foto</span>
+                        </div>
+                      )}
+                      <div className="flex-1 space-y-1">
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp"
+                          onChange={(e) => {
+                            const f = e.target.files?.[0];
+                            if (f) {
+                              setBookCoverFile(f);
+                              setBookCoverPreview(URL.createObjectURL(f));
+                            }
+                          }}
+                          className="w-full text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-teal-50 file:text-teal-700 hover:file:bg-teal-100 dark:file:bg-teal-900/40 dark:file:text-teal-300 cursor-pointer"
+                        />
+                        <p className="text-[10px] text-slate-400">
+                          Formatos aceptados: JPEG, PNG, WebP (máx. 10MB). Se optimizará y sanitizará automáticamente.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Autor e ISBN */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                        Autor asignado
-                      </label>
-                      <select
-                        value={bookForm.author_id}
-                        onChange={(e) => setBookForm({ ...bookForm, author_id: e.target.value })}
-                        className="w-full text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700 p-2.5"
-                      >
-                        <option value="">-- Sin autor o anónimo --</option>
-                        {authorsList.map((a) => (
-                          <option key={a.id} value={a.id}>
-                            {a.name}
-                          </option>
-                        ))}
-                      </select>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                          Autor asignado
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => setShowCreateAuthorInline(!showCreateAuthorInline)}
+                          className="text-[10px] text-teal-600 dark:text-teal-400 font-bold hover:underline"
+                        >
+                          {showCreateAuthorInline ? 'Cancelar' : '+ Crear autor'}
+                        </button>
+                      </div>
+
+                      {showCreateAuthorInline ? (
+                        <div className="p-2.5 bg-teal-50 dark:bg-teal-900/20 rounded-xl border border-teal-200 dark:border-teal-800 space-y-2">
+                          <input
+                            type="text"
+                            placeholder="Nombre del nuevo autor..."
+                            value={inlineAuthorName}
+                            onChange={(e) => setInlineAuthorName(e.target.value)}
+                            className="w-full text-xs rounded-lg border border-teal-300 dark:border-teal-700 bg-white dark:bg-slate-800 p-2"
+                          />
+                          <button
+                            type="button"
+                            onClick={handleCreateInlineAuthor}
+                            disabled={creatingInlineAuthor || !inlineAuthorName.trim()}
+                            className="w-full bg-teal-600 text-white text-xs font-bold py-1.5 rounded-lg hover:bg-teal-700 disabled:opacity-50"
+                          >
+                            {creatingInlineAuthor ? 'Creando...' : 'Crear y Asignar'}
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="space-y-1.5">
+                          <input
+                            type="text"
+                            placeholder="Filtrar autor..."
+                            value={authorSearch}
+                            onChange={(e) => setAuthorSearch(e.target.value)}
+                            className="w-full text-[11px] rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700 p-1.5"
+                          />
+                          <select
+                            value={bookForm.author_id}
+                            onChange={(e) => setBookForm({ ...bookForm, author_id: e.target.value })}
+                            className="w-full text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700 p-2.5"
+                          >
+                            <option value="">-- Sin autor o anónimo --</option>
+                            {authorsList
+                              .filter((a) => !authorSearch.trim() || a.name.toLowerCase().includes(authorSearch.toLowerCase()))
+                              .slice(0, 100)
+                              .map((a) => (
+                                <option key={a.id} value={a.id}>
+                                  {a.name}
+                                </option>
+                              ))}
+                          </select>
+                        </div>
+                      )}
                     </div>
 
                     <div>
@@ -1483,6 +1692,7 @@ export function AdminDashboard() {
                     </div>
                   </div>
 
+                  {/* Fecha de publicación */}
                   <div>
                     <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                       Fecha de publicación
@@ -1495,35 +1705,110 @@ export function AdminDashboard() {
                     />
                   </div>
 
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                      Categorías / Géneros
-                    </label>
-                    <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto p-2 bg-slate-50 dark:bg-slate-700/50 rounded-xl border border-slate-200 dark:border-slate-700">
-                      {categoriesList.map((cat) => {
-                        const isCatSelected = bookForm.category_ids.includes(cat.id);
-                        return (
-                          <button
-                            type="button"
-                            key={cat.id}
-                            onClick={() => {
-                              setBookForm({
-                                ...bookForm,
-                                category_ids: isCatSelected
-                                  ? bookForm.category_ids.filter((id) => id !== cat.id)
-                                  : [...bookForm.category_ids, cat.id],
-                              });
-                            }}
-                            className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-all ${
-                              isCatSelected
-                                ? 'bg-teal-600 text-white shadow-sm'
-                                : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700'
-                            }`}
-                          >
-                            {cat.name}
-                          </button>
-                        );
-                      })}
+                  {/* Categorías / Géneros */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                        Categorías / Géneros ({bookForm.category_ids.length} seleccionadas de {categoriesList.length})
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setShowCreateCategory(!showCreateCategory)}
+                        className="text-[10px] text-teal-600 dark:text-teal-400 font-bold hover:underline"
+                      >
+                        {showCreateCategory ? 'Cancelar' : '+ Crear nuevo género'}
+                      </button>
+                    </div>
+
+                    {showCreateCategory && (
+                      <div className="p-2.5 bg-teal-50 dark:bg-teal-900/20 rounded-xl border border-teal-200 dark:border-teal-800 flex gap-2 items-center">
+                        <input
+                          type="text"
+                          placeholder="Nombre del nuevo género (ej. Cyberpunk, Novela Histórica)..."
+                          value={newCategoryName}
+                          onChange={(e) => setNewCategoryName(e.target.value)}
+                          className="flex-1 text-xs rounded-lg border border-teal-300 dark:border-teal-700 bg-white dark:bg-slate-800 p-2"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleCreateCategory}
+                          disabled={creatingCategory || !newCategoryName.trim()}
+                          className="bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold px-3 py-2 rounded-lg disabled:opacity-50"
+                        >
+                          {creatingCategory ? 'Creando...' : 'Crear y Añadir'}
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Buscador de categorías */}
+                    <input
+                      type="text"
+                      placeholder="🔍 Filtrar entre todos los géneros disponibles..."
+                      value={categorySearch}
+                      onChange={(e) => setCategorySearch(e.target.value)}
+                      className="w-full text-[11px] rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700 p-2"
+                    />
+
+                    {/* Chips de categorías seleccionadas */}
+                    {bookForm.category_ids.length > 0 && (
+                      <div className="flex flex-wrap gap-1 p-2 bg-teal-50/50 dark:bg-teal-950/20 rounded-xl border border-teal-200/50 dark:border-teal-900/50">
+                        {bookForm.category_ids.map((id) => {
+                          const cat = categoriesList.find((c) => c.id === id);
+                          if (!cat) return null;
+                          return (
+                            <span
+                              key={cat.id}
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold bg-teal-600 text-white shadow-xs"
+                            >
+                              <span>{cat.name}</span>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setBookForm({
+                                    ...bookForm,
+                                    category_ids: bookForm.category_ids.filter((cId) => cId !== cat.id),
+                                  })
+                                }
+                                className="hover:text-rose-200 text-xs font-bold"
+                              >
+                                &times;
+                              </button>
+                            </span>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* Lista scrollable de géneros filtrados */}
+                    <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto p-2.5 bg-slate-50 dark:bg-slate-700/50 rounded-xl border border-slate-200 dark:border-slate-700">
+                      {categoriesList
+                        .filter((cat) => !categorySearch.trim() || cat.name.toLowerCase().includes(categorySearch.toLowerCase()))
+                        .slice(0, 80)
+                        .map((cat) => {
+                          const isCatSelected = bookForm.category_ids.includes(cat.id);
+                          return (
+                            <button
+                              type="button"
+                              key={cat.id}
+                              onClick={() => {
+                                setBookForm({
+                                  ...bookForm,
+                                  category_ids: isCatSelected
+                                    ? bookForm.category_ids.filter((id) => id !== cat.id)
+                                    : [...bookForm.category_ids, cat.id],
+                                });
+                              }}
+                              className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-all ${
+                                isCatSelected
+                                  ? 'bg-teal-600 text-white shadow-sm'
+                                  : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'
+                              }`}
+                            >
+                              {isCatSelected ? '✓ ' : '+ '}
+                              {cat.name}
+                            </button>
+                          );
+                        })}
                     </div>
                   </div>
 
@@ -1597,6 +1882,56 @@ export function AdminDashboard() {
                       placeholder="Ej: Gabriel García Márquez"
                       className="w-full text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700 p-2.5"
                     />
+                  </div>
+
+                  {/* Foto del autor */}
+                  <div className="p-3 bg-slate-50 dark:bg-slate-700/40 rounded-2xl border border-slate-200 dark:border-slate-700">
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                      📷 Fotografía del autor
+                    </label>
+                    <div className="flex items-center gap-3">
+                      {authorPhotoPreview ? (
+                        <div className="relative group">
+                          <img
+                            src={authorPhotoPreview}
+                            alt="Foto"
+                            className="w-16 h-16 object-cover rounded-full border border-slate-300 dark:border-slate-600 shadow-md"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setAuthorPhotoFile(null);
+                              setAuthorPhotoPreview(null);
+                            }}
+                            className="absolute -top-1 -right-1 bg-rose-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold hover:bg-rose-700 shadow"
+                            title="Quitar foto"
+                          >
+                            &times;
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="w-16 h-16 rounded-full border-2 border-dashed border-slate-300 dark:border-slate-600 flex items-center justify-center text-slate-400 text-xs text-center">
+                          <span>Sin foto</span>
+                        </div>
+                      )}
+                      <div className="flex-1 space-y-1">
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp"
+                          onChange={(e) => {
+                            const f = e.target.files?.[0];
+                            if (f) {
+                              setAuthorPhotoFile(f);
+                              setAuthorPhotoPreview(URL.createObjectURL(f));
+                            }
+                          }}
+                          className="w-full text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-teal-50 file:text-teal-700 hover:file:bg-teal-100 dark:file:bg-teal-900/40 dark:file:text-teal-300 cursor-pointer"
+                        />
+                        <p className="text-[10px] text-slate-400">
+                          Formatos aceptados: JPEG, PNG, WebP (máx. 5MB).
+                        </p>
+                      </div>
+                    </div>
                   </div>
 
                   <div>

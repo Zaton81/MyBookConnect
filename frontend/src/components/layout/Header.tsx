@@ -237,7 +237,7 @@ export function Header() {
 
             {isStaff && (
               <Link
-                to="/admin"
+                to={(import.meta as any).env?.VITE_ADMIN_PATH || '/panel-control-mbc'}
                 className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs shadow-md shadow-purple-900/20 transition-all transform hover:scale-105"
                 title="Panel de Administración"
               >

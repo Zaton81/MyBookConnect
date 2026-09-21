@@ -144,3 +144,70 @@ class TestPhase72AdminAndSecurity:
         author_fieldsets = dict(AuthorAdmin.fieldsets)
         assert "Datos del Autor" in author_fieldsets
         assert "Fotografía del Autor" in author_fieldsets
+
+    def test_admin_category_api_all_and_create(self, superuser):
+        """Verifica que el endpoint de categorías permita crear categorías sin slug y listarlas todas con ?all=true."""
+        from rest_framework.test import APIClient
+        api_client = APIClient()
+        api_client.force_authenticate(user=superuser)
+
+        # Crear categoría sin slug
+        res = api_client.post(
+            '/api/v1/admin/categories/',
+            data={'name': 'Afrofuturismo Literario'},
+            format='json',
+        )
+        assert res.status_code == 201
+        data = res.json()
+        assert data['name'] == 'Afrofuturismo Literario'
+        assert data['slug'] == 'afrofuturismo-literario'
+
+        # Listar todas las categorías sin paginación con ?all=true
+        res_list = api_client.get('/api/v1/admin/categories/?all=true')
+        assert res_list.status_code == 200
+        cats = res_list.json()
+        assert isinstance(cats, list), "Con ?all=true debe retornar una lista sin formato paginado {results: [...]}."
+        assert any(c['name'] == 'Afrofuturismo Literario' for c in cats)
+
+    def test_admin_author_api_all(self, superuser):
+        """Verifica que el endpoint de autores soporte ?all=true."""
+        from rest_framework.test import APIClient
+        api_client = APIClient()
+        api_client.force_authenticate(user=superuser)
+
+        Author.objects.create(name="Octavia E. Butler")
+        res = api_client.get('/api/v1/admin/authors/?all=true')
+        assert res.status_code == 200
+        authors = res.json()
+        assert isinstance(authors, list)
+        assert any(a['name'] == 'Octavia E. Butler' for a in authors)
+
+    def test_admin_book_create_api_with_cover(self, superuser, sample_image):
+        """Verifica la creación de un libro a través del endpoint admin con portada multipart y géneros."""
+        from rest_framework.test import APIClient
+        api_client = APIClient()
+        api_client.force_authenticate(user=superuser)
+
+        author = Author.objects.create(name="Ursula K. Le Guin")
+        res = api_client.post(
+            '/api/v1/admin/categories/',
+            data={'name': 'Fantasía Filosófica'},
+            format='json',
+        )
+        cat_id = res.json()['id']
+
+        # Enviar POST multipart/form-data
+        post_data = {
+            'title': 'Un mago de Terramar',
+            'author_id': author.id,
+            'category_ids': [cat_id],
+            'cover': sample_image,
+        }
+        res_book = api_client.post('/api/v1/admin/books/', data=post_data, format='multipart')
+        assert res_book.status_code == 201
+        book_data = res_book.json()
+        assert book_data['title'] == 'Un mago de Terramar'
+        assert book_data['author']['id'] == author.id
+        assert any(c['id'] == cat_id for c in book_data['categories'])
+        assert book_data['cover'] is not None
+

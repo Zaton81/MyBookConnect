@@ -108,6 +108,8 @@ class AuthorSerializer(serializers.ModelSerializer):
 
 
 class CategorySerializer(serializers.ModelSerializer):
+    slug = serializers.SlugField(required=False)
+
     class Meta:
         model = Category
         fields = ('id', 'name', 'slug')

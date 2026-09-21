@@ -2,7 +2,7 @@ import logging
 
 from django.contrib.auth import get_user_model
 from django.db.models import Q
-from rest_framework import generics, permissions, status
+from rest_framework import filters, generics, permissions, status
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -357,6 +357,8 @@ class AdminAuthorListView(generics.ListCreateAPIView):
     serializer_class = AuthorSerializer
 
     def get_queryset(self):
+        if self.request.query_params.get('all') in ('true', '1'):
+            self.pagination_class = None
         qs = Author.objects.all()
         search = self.request.query_params.get('search')
         if search:
@@ -481,7 +483,14 @@ class AdminAuthorBulkActionView(APIView):
 class AdminCategoryListView(generics.ListCreateAPIView):
     permission_classes = [IsAdminOrEditor]
     serializer_class = CategorySerializer
-    queryset = Category.objects.all().order_by('name')
+    filter_backends = [filters.SearchFilter]
+    search_fields = ['name', 'slug']
+
+    def get_queryset(self):
+        qs = Category.objects.all().order_by('name')
+        if self.request.query_params.get('all') in ('true', '1'):
+            self.pagination_class = None
+        return qs
 
 
 class AdminErrataListView(generics.ListAPIView):
