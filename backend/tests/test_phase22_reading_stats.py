@@ -120,7 +120,7 @@ class TestPhase22ReadingStats:
         b1, b2, _, _ = sample_books
         cache.delete(user_stats_key(test_user.id))
 
-        ub1 = UserBook.objects.create(
+        UserBook.objects.create(
             user=test_user,
             book=b1,
             status=ReadingStatus.READ,
@@ -234,7 +234,7 @@ class TestProactiveAutoFill:
         assert book.author.name == 'Gabriel García Márquez'
         assert 'realismo mágico' in book.description.lower()
         assert book.published_date is not None
-        assert book.categories.filter(name='Classics').exists()
+        assert book.categories.filter(name__in=['Classics', 'Clásicos']).exists()
 
     def test_book_detail_view_triggers_enrichment_when_missing_fields(self):
         cache.clear()

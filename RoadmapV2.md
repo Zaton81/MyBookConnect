@@ -324,27 +324,27 @@ No hacer commits gigantes que mezclen:
 
 ---
 
-# 5. FASE 0 — Baseline técnico y auditoría reproducible
+# 5. FASE 0 — Baseline técnico y auditoría reproducible [COMPLETADA]
 
-**Prioridad: P0**
+**Prioridad: P0 — COMPLETADA**
 
 Objetivo: tener una fotografía reproducible del estado real antes de seguir modificando.
 
 ## 5.1. Inventario
 
-- [ ] Registrar commit SHA exacto.
-- [ ] Registrar versiones Python/Django/Node/TypeScript.
-- [ ] Registrar versiones Docker.
-- [ ] Registrar dependencias backend.
-- [ ] Registrar dependencias frontend.
-- [ ] Registrar servicios Docker.
-- [ ] Registrar variables de entorno.
-- [ ] Registrar endpoints.
-- [ ] Registrar WebSockets.
-- [ ] Registrar tareas Celery.
-- [ ] Registrar modelos principales.
-- [ ] Registrar índices.
-- [ ] Registrar extensiones PostgreSQL.
+- [x] Registrar commit SHA exacto.
+- [x] Registrar versiones Python/Django/Node/TypeScript.
+- [x] Registrar versiones Docker.
+- [x] Registrar dependencias backend.
+- [x] Registrar dependencias frontend.
+- [x] Registrar servicios Docker.
+- [x] Registrar variables de entorno.
+- [x] Registrar endpoints.
+- [x] Registrar WebSockets.
+- [x] Registrar tareas Celery.
+- [x] Registrar modelos principales.
+- [x] Registrar índices.
+- [x] Registrar extensiones PostgreSQL.
 
 ## 5.2. Comprobaciones
 
@@ -387,7 +387,7 @@ Eliminar contradicciones.
 
 ### Entregable
 
-`docs/project-baseline.md`
+`docs/project-baseline.md` [COMPLETADO]
 
 ---
 
