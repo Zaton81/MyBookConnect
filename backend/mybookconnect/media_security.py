@@ -31,14 +31,21 @@ ALLOWED_IMAGE_EXTENSIONS: Tuple[str, ...] = ('.jpg', '.jpeg', '.png', '.webp')
 # Formatos binarios reconocidos por Pillow permitidos
 ALLOWED_IMAGE_FORMATS: Tuple[str, ...] = ('JPEG', 'PNG', 'WEBP')
 
-# Tipos MIME permitidos
-ALLOWED_MIME_TYPES: Tuple[str, ...] = ('image/jpeg', 'image/png', 'image/webp')
+# Tipos MIME permitidos (incluyendo variantes históricas de navegadores)
+ALLOWED_MIME_TYPES: Tuple[str, ...] = (
+    'image/jpeg',
+    'image/pjpeg',
+    'image/png',
+    'image/x-png',
+    'image/webp',
+)
 
 # Mapeo MIME a Formato Pillow
 MIME_TO_FORMAT_MAP = {
     'image/jpeg': 'JPEG',
     'image/pjpeg': 'JPEG',
     'image/png': 'PNG',
+    'image/x-png': 'PNG',
     'image/webp': 'WEBP',
 }
 
@@ -132,7 +139,10 @@ def validate_image_file(
     declared_mime = getattr(file_obj, 'content_type', None)
     if declared_mime:
         declared_mime = declared_mime.lower().strip()
-        if declared_mime not in ALLOWED_MIME_TYPES:
+        # Si el cliente envía application/octet-stream genérico, no rechazar de inmediato:
+        # la comprobación obligatoria de firmas binarias (magic bytes) y Pillow subsiguiente
+        # determinará con certeza matemática si el payload es una imagen válida.
+        if declared_mime not in ALLOWED_MIME_TYPES and declared_mime != 'application/octet-stream':
             raise ValidationError(
                 f"Tipo MIME '{declared_mime}' no permitido. Formatos aceptados: {', '.join(ALLOWED_MIME_TYPES)}."
             )
@@ -169,7 +179,7 @@ def validate_image_file(
             )
 
         # Comprobar concordancia entre MIME declarado y formato binario real
-        if declared_mime:
+        if declared_mime and declared_mime in MIME_TO_FORMAT_MAP:
             expected_format = MIME_TO_FORMAT_MAP.get(declared_mime)
             if expected_format and expected_format != detected_format.upper():
                 raise ValidationError(

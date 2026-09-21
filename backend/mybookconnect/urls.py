@@ -1,6 +1,10 @@
+import logging
+
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
+from django.contrib.staticfiles.urls import staticfiles_urlpatterns
+from django.http import HttpResponseNotFound
 from django.urls import include, path
 from drf_spectacular.views import (
     SpectacularAPIView,
@@ -15,8 +19,24 @@ from users.moderation_views import ReportCreateView, UserReportsListView
 from .health import HealthCheckView, ReadinessCheckView, VersionView
 from .observability import ObservabilityMetricsView
 
+logger = logging.getLogger('mybookconnect.security')
+
+
+def admin_probe_trap_view(request):
+    """
+    Señuelo y trampa de seguridad para peticiones dirigidas a la ruta predecible /admin/.
+    Registra la dirección IP atacante y devuelve 404 para no revelar la existencia del panel.
+    """
+    client_ip = request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR', 'desconocida'))
+    logger.warning("Intento de acceso o escaneo a ruta de administración deshabilitada /admin/ desde IP %s", client_ip)
+    return HttpResponseNotFound("Página no encontrada.")
+
+
+admin_path = getattr(settings, 'ADMIN_URL', 'admin/').strip('/') + '/'
+
 urlpatterns = [
-    path('admin/', admin.site.urls),
+    # Panel de administración seguro con ruta ofuscada
+    path(admin_path, admin.site.urls),
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
     path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
     path('api/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
@@ -44,4 +64,13 @@ urlpatterns = [
             path('my/', UserReportsListView.as_view(), name='user-reports-list'),
         ])),
     ])),
-] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+]
+
+# Si la ruta del admin está ofuscada, proteger /admin/ registrando la anomalía
+if admin_path != 'admin/':
+    urlpatterns.append(path('admin/', admin_probe_trap_view, name='admin_probe_trap'))
+
+# Archivos estáticos y multimedia
+urlpatterns += staticfiles_urlpatterns()
+urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+

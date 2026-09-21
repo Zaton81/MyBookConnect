@@ -18,6 +18,10 @@ def _env_bool(name: str, default: str = '0') -> bool:
 
 DEBUG = _env_bool('DEBUG', '0')
 
+# ─── Configuración de Ruta de Administración Segura ─────────────────────────
+# Permite ofuscar la ruta del panel de administración para mitigar ataques automatizados
+ADMIN_URL = os.getenv('DJANGO_ADMIN_URL', 'panel-gestion-mbc-segura/').strip('/') + '/'
+
 ALLOWED_HOSTS = os.getenv(
     'DJANGO_ALLOWED_HOSTS',
     os.getenv('ALLOWED_HOSTS', '127.0.0.1 localhost backend testserver'),

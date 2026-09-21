@@ -1,6 +1,7 @@
 from django.contrib import admin
 from django.db.models import Q
 from django.utils import timezone
+from django.utils.html import format_html
 
 from .models import (
     Author,
@@ -75,10 +76,38 @@ class RatingRangeFilter(admin.SimpleListFilter):
 
 @admin.register(Author)
 class AuthorAdmin(admin.ModelAdmin):
-    list_display = ('id', 'name', 'enrichment_attempted')
+    list_display = ('id', 'photo_preview', 'name', 'enrichment_attempted')
+    list_display_links = ('id', 'name')
     search_fields = ('name', 'biography')
     list_filter = ('enrichment_attempted',)
+    ordering = ('name',)
+    readonly_fields = ('photo_preview',)
+    fieldsets = (
+        ('Datos del Autor', {
+            'fields': ('name', 'biography'),
+        }),
+        ('Fotografía del Autor', {
+            'fields': ('photo', 'photo_preview'),
+            'description': 'Formatos permitidos: JPEG, PNG, WebP (máx. 5 MB, mín. 50x50 px).',
+        }),
+        ('Estado de Enriquecimiento', {
+            'fields': ('enrichment_attempted',),
+            'classes': ('collapse',),
+        }),
+    )
     actions = ('re_enrich_authors',)
+
+    @admin.display(description="Fotografía")
+    def photo_preview(self, obj):
+        if obj.photo:
+            return format_html(
+                '<a href="{0}" target="_blank">'
+                '<img src="{0}" style="max-height: 70px; max-width: 70px; object-fit: cover; border-radius: 6px; border: 1px solid #ddd;" alt="{1}" />'
+                '</a>',
+                obj.photo.url,
+                obj.name,
+            )
+        return format_html('<span style="color: #999; font-style: italic;">Sin foto</span>')
 
     @admin.action(description="⚡ Re-enriquecer autores seleccionados (Wikipedia/APIs)")
     def re_enrich_authors(self, request, queryset):
@@ -95,6 +124,7 @@ class AuthorAdmin(admin.ModelAdmin):
 class CategoryAdmin(admin.ModelAdmin):
     list_display = ('id', 'name', 'slug')
     search_fields = ('name', 'slug')
+    ordering = ('name',)
     prepopulated_fields = {'slug': ('name',)}
 
 
@@ -102,14 +132,15 @@ class CategoryAdmin(admin.ModelAdmin):
 class BookAdmin(admin.ModelAdmin):
     list_display = (
         'id',
+        'cover_preview',
         'title',
         'author',
         'isbn',
         'average_rating',
         'published_date',
-        'enrichment_attempted',
         'created_at',
     )
+    list_display_links = ('id', 'title')
     list_filter = (
         ProviderListFilter,
         RatingRangeFilter,
@@ -118,9 +149,38 @@ class BookAdmin(admin.ModelAdmin):
         'created_at',
     )
     search_fields = ('title', 'isbn', 'author__name', 'description')
-    autocomplete_fields = ('author',)
-    filter_horizontal = ('categories',)
+    autocomplete_fields = ('author', 'categories')
+    readonly_fields = ('cover_preview', 'average_rating', 'created_at')
+    fieldsets = (
+        ('Información Principal', {
+            'fields': ('title', 'author', 'categories', 'description', 'published_date', 'isbn'),
+        }),
+        ('Portada del Libro', {
+            'fields': ('cover', 'cover_preview'),
+            'description': 'Formatos permitidos: JPEG, PNG, WebP (máx. 10 MB, mín. 50x50 px).',
+        }),
+        ('Identificadores Externos', {
+            'fields': ('google_volume_id', 'openlibrary_work_id', 'openlibrary_edition_id'),
+            'classes': ('collapse',),
+        }),
+        ('Metadatos y Calificación', {
+            'fields': ('average_rating', 'enrichment_attempted', 'embedding', 'created_at'),
+            'classes': ('collapse',),
+        }),
+    )
     actions = ('re_enrich_books', 'rebuild_embeddings')
+
+    @admin.display(description="Portada")
+    def cover_preview(self, obj):
+        if obj.cover:
+            return format_html(
+                '<a href="{0}" target="_blank">'
+                '<img src="{0}" style="max-height: 80px; max-width: 60px; object-fit: cover; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.25);" alt="{1}" />'
+                '</a>',
+                obj.cover.url,
+                obj.title,
+            )
+        return format_html('<span style="color: #999; font-style: italic;">Sin portada</span>')
 
     @admin.action(description="⚡ Re-enriquecer libros seleccionados (Google Books/OpenLibrary)")
     def re_enrich_books(self, request, queryset):
