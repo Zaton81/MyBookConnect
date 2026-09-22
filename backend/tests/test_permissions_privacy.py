@@ -95,9 +95,9 @@ class TestCentralizedPolicies:
         bob = privacy_users['bob']
         charlie = privacy_users['charlie']
 
-        r_alice = Review.objects.create(book=sample_book, user=alice, rating=9, title='Alice Review')
-        r_bob = Review.objects.create(book=sample_book, user=bob, rating=8, title='Bob Review')
-        r_charlie = Review.objects.create(book=sample_book, user=charlie, rating=7, title='Charlie Review')
+        r_alice = Review.objects.create(book=sample_book, user=alice, rating=5, title='Alice Review')
+        r_bob = Review.objects.create(book=sample_book, user=bob, rating=4, title='Bob Review')
+        r_charlie = Review.objects.create(book=sample_book, user=charlie, rating=3, title='Charlie Review')
 
         # can_view_review unit tests
         assert can_view_review(None, r_alice) is True
@@ -130,7 +130,7 @@ class TestCentralizedPolicies:
         bob = privacy_users['bob']
         staff = privacy_users['staff']
 
-        r_alice = Review.objects.create(book=sample_book, user=alice, rating=9, title='Alice Review')
+        r_alice = Review.objects.create(book=sample_book, user=alice, rating=5, title='Alice Review')
 
         assert can_edit_review(alice, r_alice) is True
         assert can_edit_review(bob, r_alice) is False
@@ -231,7 +231,7 @@ class TestPermissionsAndPrivacyIntegration:
         alice = privacy_users['alice']
         david = privacy_users['david']
 
-        Review.objects.create(book=sample_book, user=david, rating=9, title='David Review')
+        Review.objects.create(book=sample_book, user=david, rating=5, title='David Review')
 
         api_client.force_authenticate(user=alice)
         res_before = api_client.get(f'/api/v1/books/reviews/?book={sample_book.id}')

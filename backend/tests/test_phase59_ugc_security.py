@@ -132,7 +132,7 @@ class TestUgcSurfacesSecurity:
         """Surface 2: Reviews - Title stripped to plain text, text sanitizes rich HTML."""
         review_data = {
             "book_id": book.id,
-            "rating": 9,
+            "rating": 5,
             "title": "<h3>Magnífica novela</h3><script>alert(1)</script>",
             "text": "<p>Una utopía ambigua inolvidable.</p><script>stealToken()</script><img src=x onerror=alert(2)>",
         }
@@ -151,7 +151,7 @@ class TestUgcSurfacesSecurity:
         review = Review.objects.create(
             user=user,
             book=book,
-            rating=10,
+            rating=5,
             title="Excelente",
             text="Un clásico absoluto.",
         )

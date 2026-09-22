@@ -74,8 +74,8 @@ def get_user_reading_stats(user_id: int) -> dict[str, Any]:
         if ub_avg is not None:
             avg_rating = round(float(ub_avg), 2)
 
-    # Distribución de calificaciones (1 a 10)
-    ratings_distribution = dict.fromkeys(range(1, 11), 0)
+    # Distribución de calificaciones (1 a 5)
+    ratings_distribution = dict.fromkeys(range(1, 6), 0)
     review_ratings = (
         Review.objects.filter(user_id=user_id, rating__isnull=False)
         .values('rating')
@@ -84,7 +84,7 @@ def get_user_reading_stats(user_id: int) -> dict[str, Any]:
     if review_ratings:
         for item in review_ratings:
             r = item['rating']
-            if 1 <= r <= 10:
+            if 1 <= r <= 5:
                 ratings_distribution[r] = item['count']
     else:
         ub_ratings = (
@@ -94,7 +94,7 @@ def get_user_reading_stats(user_id: int) -> dict[str, Any]:
         )
         for item in ub_ratings:
             r = item['rating']
-            if 1 <= r <= 10:
+            if 1 <= r <= 5:
                 ratings_distribution[r] = item['count']
 
     # Top géneros (basados en libros leídos o en todos los libros guardados)

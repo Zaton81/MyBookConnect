@@ -391,9 +391,9 @@ Eliminar contradicciones.
 
 ---
 
-# 6. FASE 1 — Modelo de dominio e integridad de datos
+# 6. FASE 1 — Modelo de dominio e integridad de datos [COMPLETADA]
 
-**Prioridad: P0**
+**Prioridad: P0 — COMPLETADA**
 
 Objetivo: eliminar ambigüedades del dominio antes de introducir más funcionalidades.
 
@@ -523,15 +523,15 @@ Definir política única:
 
 ## 6.6. Entregable
 
-`docs/domain/data-integrity.md`
+`docs/domain/data-integrity.md` [COMPLETADO]
 
 ### Criterio de salida
 
-- [ ] Un único origen de rating.
-- [ ] Constraints verificadas.
-- [ ] Migraciones limpias.
-- [ ] Tests de integridad.
-- [ ] Ningún endpoint depende de comportamiento ambiguo.
+- [x] Un único origen de rating.
+- [x] Constraints verificadas.
+- [x] Migraciones limpias.
+- [x] Tests de integridad.
+- [x] Ningún endpoint depende de comportamiento ambiguo.
 
 ---
 

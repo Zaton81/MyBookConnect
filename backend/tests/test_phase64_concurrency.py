@@ -65,13 +65,13 @@ class TestReviewConcurrency:
 
         resp = client.post(
             "/api/v1/reviews/",
-            {"book_id": sample_book.id, "rating": 9, "title": "Obra maestra", "text": "Increíble lectura."},
+            {"book_id": sample_book.id, "rating": 5, "title": "Obra maestra", "text": "Increíble lectura."},
             format="json",
         )
         assert resp.status_code == status.HTTP_201_CREATED
         assert Review.objects.filter(user=user_alice, book=sample_book).count() == 1
         review = Review.objects.get(user=user_alice, book=sample_book)
-        assert review.rating == 9
+        assert review.rating == 5
         assert review.title == "Obra maestra"
 
     def test_review_create_concurrent_collision_recovery(self, user_alice, sample_book):
@@ -87,7 +87,7 @@ class TestReviewConcurrency:
         pre_existing = Review.objects.create(
             user=user_alice,
             book=sample_book,
-            rating=5,
+            rating=3,
             title="Primer borrador",
             text="Texto inicial",
         )
@@ -99,14 +99,14 @@ class TestReviewConcurrency:
         with patch("books.models.Review.objects.create", side_effect=mock_create):
             resp = client.post(
                 "/api/v1/reviews/",
-                {"book_id": sample_book.id, "rating": 10, "title": "Actualizado concurrente", "text": "Texto definitivo"},
+                {"book_id": sample_book.id, "rating": 5, "title": "Actualizado concurrente", "text": "Texto definitivo"},
                 format="json",
             )
 
         # Debe recuperarse con 200 OK y actualizar la reseña preexistente
         assert resp.status_code == status.HTTP_200_OK
         pre_existing.refresh_from_db()
-        assert pre_existing.rating == 10
+        assert pre_existing.rating == 5
         assert pre_existing.title == "Actualizado concurrente"
         assert pre_existing.text == "Texto definitivo"
 
@@ -250,14 +250,14 @@ class TestGamificationConcurrency:
         assert DailyReadingLog.objects.filter(user=user_alice).count() == 1
 
     def test_recalculate_book_rating_task_locking(self, user_alice, user_bob, sample_book):
-        Review.objects.create(user=user_alice, book=sample_book, rating=8)
-        Review.objects.create(user=user_bob, book=sample_book, rating=10)
+        Review.objects.create(user=user_alice, book=sample_book, rating=4)
+        Review.objects.create(user=user_bob, book=sample_book, rating=5)
 
         # Ejecutar recálculo bajo select_for_update
         avg = recalculate_book_rating_task(sample_book.id)
-        assert avg == 9.0
+        assert avg == 4.5
         sample_book.refresh_from_db()
-        assert sample_book.average_rating == 9.0
+        assert sample_book.average_rating == 4.5
 
 
 @pytest.mark.django_db(transaction=True)
@@ -288,7 +288,7 @@ class TestUserBookAndSocialConcurrency:
         assert UserBook.objects.filter(user=user_alice, book=sample_book).count() == 1
 
     def test_review_like_toggle_double_click_safety(self, user_alice, user_bob, sample_book):
-        review = Review.objects.create(user=user_alice, book=sample_book, rating=10, text="Genial")
+        review = Review.objects.create(user=user_alice, book=sample_book, rating=5, text="Genial")
         client = APIClient()
         client.force_authenticate(user=user_bob)
 

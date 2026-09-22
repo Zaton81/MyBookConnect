@@ -91,7 +91,7 @@ class TestGenreHydrationAndMediaUrl:
         user = User.objects.create_user(username='lectora', password='password123')
         author = Author.objects.create(name='Isabel Allende')
         book = Book.objects.create(title='La casa de los espíritus', author=author, cover='covers/espiritus.jpg')
-        Review.objects.create(user=user, book=book, rating=9, text='Excelente novela')
+        Review.objects.create(user=user, book=book, rating=5, text='Excelente novela')
         UserBook.objects.create(user=user, book=book, is_read=True)
 
         client = APIClient()

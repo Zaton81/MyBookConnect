@@ -97,7 +97,7 @@ class TestCoherentReviewsEndpoints:
         # 1. Crear reseña: POST /api/v1/reviews/
         res_create = client.post('/api/v1/reviews/', {
             'book_id': book.id,
-            'rating': 9,
+            'rating': 5,
             'title': 'Maravilla',
             'text': 'Una obra experimental fascinante',
         })
@@ -194,7 +194,7 @@ class TestBackwardCompatibilityLegacyRoutes:
     """Asegura que los endpoints históricos sigan funcionando de forma transparente."""
 
     def test_legacy_reviews_and_chat_routes(self, client_for, user1, book):
-        review = Review.objects.create(user=user1, book=book, rating=8, title='Original')
+        review = Review.objects.create(user=user1, book=book, rating=4, title='Original')
 
         client = client_for(user1)
 

@@ -437,10 +437,10 @@ class ReviewListCreateView(generics.ListCreateAPIView):
         rating = request.data.get('rating')
         try:
             rating_val = int(rating)
-            if not (1 <= rating_val <= 10):
+            if not (1 <= rating_val <= 5):
                 raise ValueError()
         except (ValueError, TypeError):
-            return Response({'detail': 'La puntuación debe ser un valor entre 1 y 10'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'detail': 'La puntuación debe ser un valor entre 1 y 5'}, status=status.HTTP_400_BAD_REQUEST)
 
         from mybookconnect.html_sanitizer import sanitize_html, sanitize_plain_text
 

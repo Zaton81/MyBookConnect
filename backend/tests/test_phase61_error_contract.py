@@ -207,7 +207,7 @@ class TestApiErrorContractIntegration:
         review = Review.objects.create(
             user=author_user,
             book=book,
-            rating=10,
+            rating=5,
             title="Buena lectura",
             text="Texto de la reseña",
         )

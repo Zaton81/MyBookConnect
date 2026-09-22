@@ -30,7 +30,7 @@ def users_fixture():
     review = Review.objects.create(
         user=author_user,
         book=book,
-        rating=10,
+        rating=5,
         title="Obra maestra",
         text="Realismo mágico en su máxima expresión.",
     )

@@ -59,7 +59,7 @@ class TestPhase40Security:
             book=sample_book,
             status=ReadingStatus.READING,
             progress=40,
-            rating=8
+            rating=4
         )
 
         # Bob intenta modificar el UserBook de Alice
@@ -87,7 +87,7 @@ class TestPhase40Security:
         review = Review.objects.create(
             user=alice,
             book=sample_book,
-            rating=9,
+            rating=5,
             title='Gran obra',
             text='Magnífica lectura.'
         )
@@ -116,7 +116,7 @@ class TestPhase40Security:
         alice.blocked_users.add(bob)
 
         # Crear reseña de Alice
-        review = Review.objects.create(user=alice, book=sample_book, rating=10, title='Review de Alice')
+        review = Review.objects.create(user=alice, book=sample_book, rating=5, title='Review de Alice')
 
         api_client.force_authenticate(user=bob)
 
@@ -193,7 +193,7 @@ class TestPhase40Integrity:
         # Primera review creada
         res1 = api_client.post(
             '/api/v1/books/reviews/',
-            {'book_id': sample_book.id, 'rating': 7, 'title': 'Primera', 'text': 'Texto 1'},
+            {'book_id': sample_book.id, 'rating': 4, 'title': 'Primera', 'text': 'Texto 1'},
             format='json'
         )
         assert res1.status_code in [200, 201]
@@ -201,7 +201,7 @@ class TestPhase40Integrity:
         # Segunda review para el mismo libro: el endpoint actualiza la existente
         res2 = api_client.post(
             '/api/v1/books/reviews/',
-            {'book_id': sample_book.id, 'rating': 9, 'title': 'Actualizada', 'text': 'Texto 2'},
+            {'book_id': sample_book.id, 'rating': 5, 'title': 'Actualizada', 'text': 'Texto 2'},
             format='json'
         )
         assert res2.status_code in [200, 201]
@@ -209,7 +209,7 @@ class TestPhase40Integrity:
         # Debe existir exactamente una review activa para Alice en este libro
         active_reviews = Review.objects.filter(user=alice, book=sample_book, deleted_at__isnull=True)
         assert active_reviews.count() == 1
-        assert active_reviews.first().rating == 9
+        assert active_reviews.first().rating == 5
 
     def test_isbn_normalization_and_deduplication(self, sample_book):
         # Verificar que el ISBN guardado se normalizó sin guiones

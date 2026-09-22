@@ -126,7 +126,7 @@ class Phase63TransactionsTestCase(TestCase):
         self.client.force_authenticate(user=self.user_a)
         payload = {
             'book': self.book.id,
-            'rating': 9,
+            'rating': 5,
             'title': 'Obra maestra de la literatura',
             'text': 'Un viaje inolvidable por Macondo.',
         }
@@ -152,7 +152,7 @@ class Phase63TransactionsTestCase(TestCase):
         self.client.force_authenticate(user=self.user_a)
         payload = {
             'book': self.book.id,
-            'rating': 8,
+            'rating': 4,
             'title': 'Excelente',
             'text': 'Muy recomendable.',
         }
@@ -168,7 +168,7 @@ class Phase63TransactionsTestCase(TestCase):
         review = Review.objects.create(
             user=self.user_b,
             book=self.book,
-            rating=10,
+            rating=5,
             title='Genial',
             text='Magnífica obra.',
         )
@@ -185,7 +185,7 @@ class Phase63TransactionsTestCase(TestCase):
         review = Review.objects.create(
             user=self.user_b,
             book=self.book,
-            rating=10,
+            rating=5,
             title='Genial',
             text='Magnífica obra.',
         )
@@ -201,7 +201,7 @@ class Phase63TransactionsTestCase(TestCase):
         review = Review.objects.create(
             user=self.user_b,
             book=self.book,
-            rating=10,
+            rating=5,
             title='Genial',
             text='Magnífica obra.',
         )
@@ -218,7 +218,7 @@ class Phase63TransactionsTestCase(TestCase):
         review = Review.objects.create(
             user=self.user_b,
             book=self.book,
-            rating=10,
+            rating=5,
             title='Genial',
             text='Magnífica obra.',
         )

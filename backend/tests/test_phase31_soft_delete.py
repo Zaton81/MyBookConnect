@@ -46,7 +46,7 @@ class TestSoftDeleteModelBasics:
     """Verifica el comportamiento de SoftDeleteModel, SoftDeleteQuerySet y SoftDeleteManager."""
 
     def test_review_soft_delete_and_restore(self, test_user, book):
-        review = Review.objects.create(user=test_user, book=book, rating=8, title='Excelente', text='Muy bueno')
+        review = Review.objects.create(user=test_user, book=book, rating=4, title='Excelente', text='Muy bueno')
         assert not review.is_deleted
         assert review.deleted_at is None
 
@@ -68,13 +68,13 @@ class TestSoftDeleteModelBasics:
         assert Review.objects.active().filter(id=review.id).count() == 1
 
     def test_review_hard_delete(self, test_user, book):
-        review = Review.objects.create(user=test_user, book=book, rating=9, title='Obra maestra')
+        review = Review.objects.create(user=test_user, book=book, rating=5, title='Obra maestra')
         review_id = review.id
         review.delete(hard=True)
         assert Review.all_objects.filter(id=review_id).count() == 0
 
     def test_review_comment_soft_delete(self, test_user, book):
-        review = Review.objects.create(user=test_user, book=book, rating=7)
+        review = Review.objects.create(user=test_user, book=book, rating=4)
         comment = ReviewComment.objects.create(user=test_user, review=review, content='Totalmente de acuerdo')
         assert not comment.is_deleted
 
@@ -104,10 +104,10 @@ class TestSoftDeleteModelBasics:
         assert not msg.is_deleted
 
     def test_queryset_bulk_soft_delete_and_restore(self, test_user, other_user, book):
-        r1 = Review.objects.create(user=test_user, book=book, rating=8)
+        r1 = Review.objects.create(user=test_user, book=book, rating=4)
         author2 = Author.objects.create(name='Jorge Luis Borges')
         book2 = Book.objects.create(title='Ficciones', author=author2, isbn='9780140186932')
-        r2 = Review.objects.create(user=other_user, book=book2, rating=9)
+        r2 = Review.objects.create(user=other_user, book=book2, rating=5)
 
         # Bulk soft delete
         Review.objects.filter(id__in=[r1.id, r2.id]).soft_delete()
@@ -129,15 +129,15 @@ class TestPartialUniqueConstraint:
         assert r1.is_deleted
 
         # Debe permitir crear una segunda reseña activa sin error de integridad
-        r2 = Review.objects.create(user=test_user, book=book, rating=9, text='Segunda reseña tras releer')
+        r2 = Review.objects.create(user=test_user, book=book, rating=5, text='Segunda reseña tras releer')
         assert not r2.is_deleted
         assert Review.all_objects.filter(user=test_user, book=book).count() == 2
         assert Review.objects.active().filter(user=test_user, book=book).count() == 1
 
     def test_active_duplicate_review_raises_integrity_error(self, test_user, book):
-        Review.objects.create(user=test_user, book=book, rating=6)
+        Review.objects.create(user=test_user, book=book, rating=4)
         with pytest.raises(IntegrityError):
-            Review.objects.create(user=test_user, book=book, rating=8)
+            Review.objects.create(user=test_user, book=book, rating=5)
 
 
 @pytest.mark.django_db
@@ -145,23 +145,23 @@ class TestRatingRecalculationWithSoftDelete:
     """Verifica que el promedio de calificación del libro excluya reseñas eliminadas lógicamente."""
 
     def test_rating_excludes_soft_deleted_reviews(self, test_user, other_user, book):
-        r1 = Review.objects.create(user=test_user, book=book, rating=10)
-        r2 = Review.objects.create(user=other_user, book=book, rating=4)
+        r1 = Review.objects.create(user=test_user, book=book, rating=4)
+        r2 = Review.objects.create(user=other_user, book=book, rating=2)
 
         book.refresh_from_db()
-        assert book.average_rating == 7.0
+        assert book.average_rating == 3.0
 
-        # Eliminar r2 (rating 4) lógicamente
+        # Eliminar r2 (rating 2) lógicamente
         r2.delete()
         book.refresh_from_db()
-        assert book.average_rating == 10.0
+        assert book.average_rating == 4.0
 
         # Restaurar r2
         r2.restore()
         # Disparar actualización de rating
         r2.save()
         book.refresh_from_db()
-        assert book.average_rating == 7.0
+        assert book.average_rating == 3.0
 
 
 @pytest.mark.django_db
@@ -169,8 +169,8 @@ class TestSoftDeleteAPIEndpoints:
     """Verifica los endpoints REST con respecto al borrado lógico."""
 
     def test_list_reviews_excludes_soft_deleted(self, client_for, test_user, other_user, book):
-        r1 = Review.objects.create(user=test_user, book=book, rating=8, title='Visible')
-        r2 = Review.objects.create(user=other_user, book=book, rating=6, title='Eliminada')
+        r1 = Review.objects.create(user=test_user, book=book, rating=4, title='Visible')
+        r2 = Review.objects.create(user=other_user, book=book, rating=3, title='Eliminada')
         r2.delete()
 
         client = client_for(test_user)
@@ -183,7 +183,7 @@ class TestSoftDeleteAPIEndpoints:
         assert r2.id not in ids
 
     def test_retrieve_soft_deleted_review_returns_404_for_regular_user(self, client_for, test_user, staff_user, book):
-        r = Review.objects.create(user=test_user, book=book, rating=8)
+        r = Review.objects.create(user=test_user, book=book, rating=4)
         r.delete()
 
         client = client_for(test_user)
@@ -196,7 +196,7 @@ class TestSoftDeleteAPIEndpoints:
         assert res_staff.status_code == status.HTTP_200_OK
 
     def test_delete_review_api_performs_soft_delete(self, client_for, test_user, book):
-        r = Review.objects.create(user=test_user, book=book, rating=9, title='Para borrar')
+        r = Review.objects.create(user=test_user, book=book, rating=5, title='Para borrar')
         client = client_for(test_user)
 
         res = client.delete(f'/api/v1/books/reviews/{r.id}/')
@@ -207,16 +207,16 @@ class TestSoftDeleteAPIEndpoints:
         assert r.deleted_at is not None
 
     def test_book_detail_and_reviews_count_exclude_soft_deleted(self, client_for, test_user, other_user, book):
-        r1 = Review.objects.create(user=test_user, book=book, rating=9)
-        r2 = Review.objects.create(user=other_user, book=book, rating=7)
+        r1 = Review.objects.create(user=test_user, book=book, rating=5)
+        r2 = Review.objects.create(user=other_user, book=book, rating=4)
         r2.delete()
 
         client = client_for(test_user)
         res = client.get(f'/api/v1/books/{book.id}/')
         assert res.status_code == status.HTTP_200_OK
         assert res.data['reviews_count'] == 1
-        assert res.data['rating_distribution'][9] == 1
-        assert res.data['rating_distribution'][7] == 0
+        assert res.data['rating_distribution'][5] == 1
+        assert res.data['rating_distribution'][4] == 0
 
     def test_message_api_soft_delete(self, client_for, test_user, other_user):
         conv, _ = Conversation.get_or_create_direct(test_user, other_user)

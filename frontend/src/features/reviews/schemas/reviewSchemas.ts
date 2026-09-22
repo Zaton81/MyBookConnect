@@ -5,7 +5,7 @@ export const reviewSchema = z.object({
     .number()
     .int('La calificación debe ser un número entero')
     .min(1, 'Por favor califica el libro con al menos 1 punto')
-    .max(10, 'La calificación máxima es 10 puntos'),
+    .max(5, 'La calificación máxima es 5 puntos'),
   title: z
     .string()
     .max(200, 'El título no puede superar 200 caracteres')

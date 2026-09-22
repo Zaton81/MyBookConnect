@@ -72,7 +72,7 @@ class TestPhase58Moderation:
         self.review_charlie = Review.objects.create(
             user=self.user_charlie,
             book=self.book,
-            rating=9,
+            rating=5,
             title='Obra maestra',
             text='Análisis detallado de Ficciones',
         )

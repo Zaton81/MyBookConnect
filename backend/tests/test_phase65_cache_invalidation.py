@@ -87,7 +87,7 @@ class TestCacheInvalidationCascade:
         client.force_authenticate(user=user_alice)
         resp = client.post(
             "/api/v1/reviews/",
-            {"book_id": sample_book.id, "rating": 10, "title": "Impactante", "text": "Una obra imprescindible."},
+            {"book_id": sample_book.id, "rating": 5, "title": "Impactante", "text": "Una obra imprescindible."},
             format="json",
         )
         assert resp.status_code in (status.HTTP_200_OK, status.HTTP_201_CREATED)
@@ -107,7 +107,7 @@ class TestCacheInvalidationCascade:
 
     def test_review_update_and_delete_invalidation(self, user_alice, sample_book):
         """Editar o eliminar una reseña debe invalidar book cache, trending y perfil."""
-        review = Review.objects.create(user=user_alice, book=sample_book, rating=7, text="Buena")
+        review = Review.objects.create(user=user_alice, book=sample_book, rating=4, text="Buena")
 
         # Calentar cachés
         cache.set(book_detail_key(sample_book.id), {"title": sample_book.title}, timeout=600)
@@ -115,7 +115,7 @@ class TestCacheInvalidationCascade:
         cache.set(user_profile_key(user_alice.id), {"user": "data"}, timeout=600)
 
         # Modificar reseña
-        review.rating = 9
+        review.rating = 5
         review.save(update_fields=["rating"])
 
         assert cache.get(book_detail_key(sample_book.id)) is None

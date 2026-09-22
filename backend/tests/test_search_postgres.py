@@ -70,7 +70,7 @@ class TestReviewCreationBugfix:
 
         response = api_client.post('/api/v1/books/reviews/', {
             'book': book.id,
-            'rating': 9,
+            'rating': 5,
             'title': 'Obra maestra',
             'text': 'Un libro imprescindible.'
         }, format='json')
@@ -78,7 +78,7 @@ class TestReviewCreationBugfix:
         assert response.status_code in (200, 201)
         assert Review.objects.filter(user=auth_user, book=book).exists()
         review = Review.objects.get(user=auth_user, book=book)
-        assert review.rating == 9
+        assert review.rating == 5
         assert review.title == 'Obra maestra'
 
     def test_review_creation_with_book_id_field(self, api_client, auth_user, sample_data):
@@ -88,7 +88,7 @@ class TestReviewCreationBugfix:
 
         response = api_client.post('/api/v1/books/reviews/', {
             'book_id': book.id,
-            'rating': 8,
+            'rating': 4,
             'title': 'Excelente',
             'text': 'Lectura no lineal fantástica.'
         }, format='json')
@@ -96,7 +96,7 @@ class TestReviewCreationBugfix:
         assert response.status_code in (200, 201)
         assert Review.objects.filter(user=auth_user, book=book).exists()
         review = Review.objects.get(user=auth_user, book=book)
-        assert review.rating == 8
+        assert review.rating == 4
 
     def test_review_creation_missing_book_returns_400(self, api_client, auth_user):
         """Verifica que si no se proporciona ni 'book' ni 'book_id', devuelve 400 Bad Request."""
