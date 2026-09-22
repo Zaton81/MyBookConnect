@@ -28,7 +28,7 @@ export function PrivacyPolicy() {
             1. Responsable del Tratamiento
           </h2>
           <p className="text-sm">
-            El responsable del tratamiento de los datos recabados a través de <strong>MyBookConnect</strong> es el equipo administrador de la plataforma. Para cualquier consulta, ejercicio de derechos o sugerencia relativa a la protección de datos personales, puedes contactar con nosotros a través del correo de soporte habilitado en el servicio.
+            El responsable del tratamiento de los datos recabados a través de <strong>My Book Social</strong> es el equipo administrador de la plataforma. Para cualquier consulta, ejercicio de derechos o sugerencia relativa a la protección de datos personales, puedes contactar con nosotros a través del correo de soporte habilitado en el servicio.
           </p>
         </section>
 
@@ -77,14 +77,14 @@ export function PrivacyPolicy() {
             4. Servicios de Terceros, Publicidad y Afiliación (Amazon)
           </h2>
           <p className="text-sm mb-2">
-            MyBookConnect participa o prevé participar en programas de afiliados y publicidad digital, principalmente en el <strong>Programa de Afiliados de Amazon EU</strong>. Esto significa que:
+            My Book Social participa o prevé participar en programas de afiliados y publicidad digital, principalmente en el <strong>Programa de Afiliados de Amazon EU</strong>. Esto significa que:
           </p>
           <ul className="list-disc pl-5 space-y-2 text-sm">
             <li>
               Cuando haces clic en un enlace a libros o productos de Amazon en nuestra web, Amazon puede instalar cookies o utilizar identificadores para rastrear la referencia y procesar la comisión por venta.
             </li>
             <li>
-              Dichas compras no tienen ningún sobrecoste para ti y ayudan al mantenimiento técnico del servidor de MyBookConnect.
+              Dichas compras no tienen ningún sobrecoste para ti y ayudan al mantenimiento técnico del servidor de My Book Social.
             </li>
             <li>
               Puedes revocar el consentimiento de estas cookies en cualquier momento a través de nuestro <Link to="/cookies" className="text-teal-600 dark:text-teal-400 font-medium underline">Panel de Preferencias de Cookies</Link>.

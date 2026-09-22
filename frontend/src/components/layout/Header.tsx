@@ -143,7 +143,7 @@ export function Header() {
                 />
               </div>
               <span className="self-center whitespace-nowrap text-xl font-extrabold text-white tracking-tight">
-                MyBook<span className="text-teal-200">Connect</span>
+                MyBook<span className="text-teal-200">Social</span>
               </span>
             </Link>
           </div>

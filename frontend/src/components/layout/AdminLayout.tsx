@@ -50,7 +50,7 @@ export function AdminLayout() {
               🛡️ {roleLabel}
             </span>
             <span className="text-slate-400 font-medium">
-              Panel de Administración y Moderación de MyBookConnect
+              Panel de Administración y Moderación de My Book Social
             </span>
           </div>
           <div className="flex items-center gap-3">

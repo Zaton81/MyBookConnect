@@ -894,7 +894,7 @@ export function AdminDashboard() {
         <span className="text-5xl">⛔</span>
         <h2 className="text-xl font-bold text-slate-900 dark:text-white">Acceso Restringido</h2>
         <p className="text-xs text-slate-500 dark:text-slate-400">
-          Esta sección está protegida y reservada exclusivamente para el equipo de administración de MyBookConnect.
+          Esta sección está protegida y reservada exclusivamente para el equipo de administración de My Book Social.
         </p>
       </div>
     );

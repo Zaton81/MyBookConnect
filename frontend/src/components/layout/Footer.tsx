@@ -15,11 +15,11 @@ export function FooterSection() {
             <Link to="/" className="inline-flex items-center gap-2 group">
               <img
                 src={logoLibro}
-                alt="MyBookConnect Logo"
+                alt="MyBookSocial Logo"
                 className="w-8 h-8 object-contain transition-transform group-hover:scale-105"
               />
               <span className="text-xl font-black tracking-tight text-slate-900 dark:text-white">
-                MyBook<span className="text-teal-600 dark:text-teal-400">Connect</span>
+                MyBook<span className="text-teal-600 dark:text-teal-400">Social</span>
               </span>
             </Link>
             <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed max-w-sm">
@@ -29,7 +29,7 @@ export function FooterSection() {
             {/* Amazon Affiliate Legal Notice */}
             <div className="p-3 rounded-xl bg-slate-100 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-800 text-[11px] leading-relaxed text-slate-500 dark:text-slate-400 max-w-md">
               <p>
-                <strong className="text-slate-700 dark:text-slate-300">Aviso de Afiliación:</strong> En calidad de Afiliado de Amazon, MyBookConnect podría obtener ingresos por las compras adscritas que cumplan los requisitos aplicables. Apoyas el proyecto sin ningún coste adicional para ti.
+                <strong className="text-slate-700 dark:text-slate-300">Aviso de Afiliación:</strong> En calidad de Afiliado de Amazon, My Book Social podría obtener ingresos por las compras adscritas que cumplan los requisitos aplicables. Apoyas el proyecto sin ningún coste adicional para ti.
               </p>
             </div>
           </div>
@@ -164,7 +164,7 @@ export function FooterSection() {
 
         {/* Bottom Bar: Copyright and status */}
         <div className="mt-12 pt-6 border-t border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500 dark:text-slate-400">
-          <p>© {currentYear} MyBookConnect. Todos los derechos reservados.</p>
+          <p>© {currentYear} My Book Social. Todos los derechos reservados.</p>
           <p className="flex items-center gap-1">
             <span>Hecho con</span>
             <span className="text-rose-500">❤️</span>
