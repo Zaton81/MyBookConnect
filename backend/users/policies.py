@@ -1,77 +1,63 @@
 from typing import Any, Optional
 
 from django.contrib.auth import get_user_model
-from django.db.models import Q, QuerySet
+from django.db.models import QuerySet
 
-from users.models import PrivacyChoices
+from users.privacy_service import PrivacyService
 
 User = get_user_model()
 
 
+def are_mutually_blocked(user_a: Optional[Any], user_b: Optional[Any]) -> bool:
+    return PrivacyService.are_mutually_blocked(user_a, user_b)
+
+
 def can_view_profile(viewer: Optional[Any], target: Any) -> bool:
-    """
-    Determina si `viewer` tiene permiso para ver el perfil de `target`.
-    Reglas:
-    - Mismo usuario: siempre True.
-    - Staff/Superuser: siempre True.
-    - Si target bloqueó a viewer: False.
-    - Si viewer bloqueó a target: True (permite ver cabecera mínima y botón de desbloqueo).
-    - Si viewer es anónimo: solo si target.privacy_level == PrivacyChoices.PUBLIC.
-    - Privacidad target:
-      - 'private': False.
-      - 'friends': True solo si viewer sigue a target.
-      - 'public': True.
-    """
-    if not target:
-        return False
-    if viewer and viewer.is_authenticated:
-        if viewer.id == target.id or getattr(viewer, "is_staff", False) or getattr(viewer, "is_superuser", False):
-            return True
-        # Si target ha bloqueado a viewer -> Denegado
-        if target.blocked_users.filter(id=viewer.id).exists():
-            return False
-        # Si viewer ha bloqueado a target -> Permitir ver para opción de desbloqueo
-        if viewer.blocked_users.filter(id=target.id).exists():
-            return True
-        if target.privacy_level == PrivacyChoices.PRIVATE:
-            return False
-        if target.privacy_level == PrivacyChoices.FRIENDS:
-            return viewer.following.filter(id=target.id).exists()
-        return True
-    else:
-        return target.privacy_level == PrivacyChoices.PUBLIC
+    return PrivacyService.can_view_profile(viewer, target)
+
+
+def can_view_reading_activity(viewer: Optional[Any], target: Any) -> bool:
+    return PrivacyService.can_view_reading_activity(viewer, target)
+
+
+def can_view_activity(viewer: Optional[Any], target: Any) -> bool:
+    return PrivacyService.can_view_activity(viewer, target)
+
+
+def apply_profile_field_visibility(viewer: Optional[Any], target: Any, data_dict: dict) -> dict:
+    return PrivacyService.apply_profile_field_visibility(viewer, target, data_dict)
 
 
 def can_view_review(viewer: Optional[Any], review: Any) -> bool:
-    """
-    Determina si `viewer` puede ver la reseña dada.
-    Reglas:
-    - Si review.user es el mismo que viewer: True.
-    - Staff / Superuser: True.
-    - Si viewer o review.user tienen un bloqueo mutuo o unidireccional: False.
-    - Si review.user tiene perfil privado y viewer != review.user: False.
-    - Si review.user tiene privacidad 'friends': True solo si viewer sigue a review.user.
-    - Si review.user es 'public': True.
-    """
-    if not review or not getattr(review, "user", None):
-        return False
-    if getattr(review, "is_deleted", False):
-        if not (viewer and viewer.is_authenticated and (getattr(viewer, "is_staff", False) or getattr(viewer, "is_superuser", False))):
-            return False
-    author = review.user
-    if viewer and viewer.is_authenticated:
-        if viewer.id == author.id or getattr(viewer, "is_staff", False) or getattr(viewer, "is_superuser", False):
-            return True
-        # Bloqueo mutuo o unidireccional oculta la reseña
-        if author.blocked_users.filter(id=viewer.id).exists() or viewer.blocked_users.filter(id=author.id).exists():
-            return False
-        if author.privacy_level == PrivacyChoices.PRIVATE:
-            return False
-        if author.privacy_level == PrivacyChoices.FRIENDS:
-            return viewer.following.filter(id=author.id).exists()
-        return True
-    else:
-        return author.privacy_level == PrivacyChoices.PUBLIC
+    return PrivacyService.can_view_review(viewer, review)
+
+
+def can_view_list(viewer: Optional[Any], reading_list: Any) -> bool:
+    return PrivacyService.can_view_list(viewer, reading_list)
+
+
+def can_view_followers(viewer: Optional[Any], target: Any) -> bool:
+    return PrivacyService.can_view_followers(viewer, target)
+
+
+def can_view_following(viewer: Optional[Any], target: Any) -> bool:
+    return PrivacyService.can_view_following(viewer, target)
+
+
+def can_view_statistics(viewer: Optional[Any], target: Any) -> bool:
+    return PrivacyService.can_view_statistics(viewer, target)
+
+
+def can_match(viewer: Optional[Any], target: Any) -> bool:
+    return PrivacyService.can_match(viewer, target)
+
+
+def can_recommend(viewer: Optional[Any], target: Any) -> bool:
+    return PrivacyService.can_recommend(viewer, target)
+
+
+def can_interact(viewer: Optional[Any], target: Any) -> bool:
+    return PrivacyService.can_interact(viewer, target)
 
 
 def can_edit_review(user: Optional[Any], review: Any) -> bool:
@@ -99,39 +85,11 @@ def can_access_conversation(user: Optional[Any], conversation: Any) -> bool:
 
 
 def can_message(user: Optional[Any], target: Any) -> bool:
-    """
-    Determina si `user` puede enviar un mensaje a `target`.
-    Reglas:
-    - Ambos deben existir y user != target.
-    - Ninguno de los dos debe tener bloqueado al otro.
-    - Relación de seguimiento (user sigue a target o target sigue a user) o permisos de administración.
-    """
-    if not user or not user.is_authenticated or not target:
-        return False
-    if user.id == target.id:
-        return False
-    # Verificación de bloqueo bidireccional
-    if user.blocked_users.filter(id=target.id).exists() or target.blocked_users.filter(id=user.id).exists():
-        return False
-    # Verificación de seguimiento: user sigue a target o target sigue a user
-    is_following = user.following.filter(id=target.id).exists() or target.following.filter(id=user.id).exists()
-    return is_following or getattr(user, "is_staff", False) or getattr(user, "is_superuser", False)
+    return PrivacyService.can_message(user, target)
 
 
 def can_moderate(user: Optional[Any]) -> bool:
-    """
-    Determina si un usuario tiene permisos de moderación o administración (Fase 29).
-    Aplica a usuarios con rol MODERATOR o ADMIN, y usuarios staff o superusuario.
-    """
-    if not user or not user.is_authenticated:
-        return False
-    from users.models import UserRole
-    user_role = getattr(user, 'role', UserRole.USER)
-    return (
-        user_role in (UserRole.MODERATOR, UserRole.ADMIN)
-        or getattr(user, 'is_staff', False)
-        or getattr(user, 'is_superuser', False)
-    )
+    return PrivacyService.can_moderate(user)
 
 
 def can_edit_catalog(user: Optional[Any]) -> bool:
@@ -142,83 +100,34 @@ def can_edit_catalog(user: Optional[Any]) -> bool:
     if not user or not user.is_authenticated:
         return False
     from users.models import UserRole
-    user_role = getattr(user, 'role', UserRole.USER)
+    user_role = getattr(user, "role", UserRole.USER)
     return (
         user_role in (UserRole.EDITOR, UserRole.MODERATOR, UserRole.ADMIN)
-        or getattr(user, 'is_editor', False)
-        or getattr(user, 'is_staff', False)
-        or getattr(user, 'is_superuser', False)
+        or getattr(user, "is_editor", False)
+        or getattr(user, "is_staff", False)
+        or getattr(user, "is_superuser", False)
     )
-
-
-def filter_visible_reviews(viewer: Optional[Any], queryset: QuerySet) -> QuerySet:
-    """
-    Filtra un queryset de Review para excluir reseñas según las políticas de privacidad y moderación:
-    - Excluye reseñas marcadas como is_moderated=True (salvo para moderadores o administradores).
-    - Si el viewer es anónimo: solo reseñas de usuarios con perfil público.
-    - Si el viewer está autenticado:
-      - Excluye autores que el viewer haya bloqueado o que hayan bloqueado al viewer.
-      - Excluye autores con perfil privado (salvo las propias reseñas del viewer).
-      - Autores con perfil 'friends': solo si el viewer sigue al autor (o es el propio viewer).
-    """
-    # Excluir reseñas eliminadas lógicamente
-    queryset = queryset.filter(deleted_at__isnull=True)
-
-    # Excluir reseñas ocultadas por moderación a menos que el usuario sea moderador
-    if not can_moderate(viewer):
-        queryset = queryset.filter(is_moderated=False)
-
-    if not viewer or not viewer.is_authenticated:
-        return queryset.filter(user__privacy_level=PrivacyChoices.PUBLIC)
-
-    blocked_by_viewer = viewer.blocked_users.values_list("id", flat=True)
-    blocking_viewer = viewer.blocked_by.values_list("id", flat=True)
-    muted_by_viewer = viewer.muted_users.values_list("id", flat=True) if hasattr(viewer, 'muted_users') else []
-    excluded_user_ids = set(blocked_by_viewer).union(set(blocking_viewer)).union(set(muted_by_viewer))
-
-    if excluded_user_ids:
-        queryset = queryset.exclude(user_id__in=excluded_user_ids)
-
-    following_ids = viewer.following.values_list("id", flat=True)
-
-    privacy_condition = (
-        Q(user=viewer)
-        | Q(user__privacy_level=PrivacyChoices.PUBLIC)
-        | (Q(user__privacy_level=PrivacyChoices.FRIENDS) & Q(user_id__in=following_ids))
-    )
-
-    return queryset.filter(privacy_condition)
 
 
 def is_user_muted_by_moderation(user: Optional[Any]) -> bool:
-    """
-    Determina si un usuario se encuentra bajo una sanción activa de silenciamiento disciplinario (Fase 58).
-    Un usuario silenciado no puede crear ni editar reseñas, comentarios ni enviar mensajes directos.
-    """
-    if not user or not user.is_authenticated:
-        return False
-    muted_until = getattr(user, 'muted_until', None)
-    if not muted_until:
-        return False
-    from django.utils import timezone
-    return muted_until > timezone.now()
+    return PrivacyService.is_user_muted_by_moderation(user)
+
+
+def filter_visible_reviews(viewer: Optional[Any], queryset: QuerySet) -> QuerySet:
+    return PrivacyService.filter_visible_reviews(viewer, queryset)
 
 
 def filter_visible_users(viewer: Optional[Any], queryset: QuerySet) -> QuerySet:
-    """
-    Filtra un queryset de User para listados y búsquedas:
-    - Excluye usuarios inactivos si el viewer no es staff.
-    - Si el viewer está autenticado:
-      - Excluye a los usuarios que el viewer haya bloqueado y a los que hayan bloqueado al viewer.
-    """
-    if not viewer or not getattr(viewer, "is_staff", False):
-        queryset = queryset.filter(is_active=True)
+    return PrivacyService.filter_visible_users(viewer, queryset)
 
-    if viewer and viewer.is_authenticated:
-        blocked_by_viewer = viewer.blocked_users.values_list("id", flat=True)
-        blocking_viewer = viewer.blocked_by.values_list("id", flat=True)
-        excluded_ids = set(blocked_by_viewer).union(set(blocking_viewer))
-        if excluded_ids:
-            queryset = queryset.exclude(id__in=excluded_ids)
 
-    return queryset
+def filter_visible_activities(viewer: Optional[Any], queryset: QuerySet) -> QuerySet:
+    return PrivacyService.filter_visible_activities(viewer, queryset)
+
+
+def filter_visible_reading_lists(viewer: Optional[Any], queryset: QuerySet) -> QuerySet:
+    return PrivacyService.filter_visible_reading_lists(viewer, queryset)
+
+
+def filter_visible_user_books(viewer: Optional[Any], queryset: QuerySet) -> QuerySet:
+    return PrivacyService.filter_visible_user_books(viewer, queryset)

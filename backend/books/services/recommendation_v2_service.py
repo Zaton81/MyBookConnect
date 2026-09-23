@@ -172,15 +172,14 @@ class RecommendationEngineV2:
 
         my_book_ids = set(my_books_map.keys())
 
-        # 2. Usuarios con al menos un libro en común
-        blocked_ids: set[int] = set()
-        if hasattr(user, 'blocked_users'):
-            blocked_ids.update(user.blocked_users.values_list('id', flat=True))
-
+        # 2. Usuarios con al menos un libro en común filtrados por privacidad y bloqueo bidireccional
+        from users.policies import filter_visible_user_books
+        candidate_user_books = filter_visible_user_books(
+            user,
+            UserBook.objects.filter(book_id__in=my_book_ids).exclude(user=user)
+        )
         candidate_user_ids = (
-            UserBook.objects.filter(book_id__in=my_book_ids)
-            .exclude(user=user)
-            .exclude(user_id__in=blocked_ids)
+            candidate_user_books
             .values_list('user_id', flat=True)
             .distinct()[:200]
         )
@@ -188,9 +187,12 @@ class RecommendationEngineV2:
         if not candidate_user_ids:
             return []
 
-        # Obtener entradas de los candidatos agrupadas
+        # Obtener entradas de los candidatos agrupadas asegurando visibilidad
         candidate_entries = (
-            UserBook.objects.filter(user_id__in=candidate_user_ids)
+            filter_visible_user_books(
+                user,
+                UserBook.objects.filter(user_id__in=candidate_user_ids)
+            )
             .select_related('user')
             .values('user_id', 'user__username', 'book_id', 'rating', 'status')
         )

@@ -23,7 +23,6 @@ from .models import (
     ReadingList,
     ReadingListFollow,
     ReadingListItem,
-    ReadingListPrivacy,
     Review,
     ReviewComment,
     ReviewLike,
@@ -263,8 +262,24 @@ class UserBookListCreateView(generics.ListCreateAPIView):
     def get_queryset(self):
         if getattr(self, 'swagger_fake_view', False) or not self.request.user.is_authenticated:
             return UserBook.objects.none()
-        queryset = UserBook.objects.filter(user=self.request.user).select_related('book', 'book__author').prefetch_related('book__categories')
         params = self.request.query_params
+        user_id = params.get('user_id')
+        if user_id and str(user_id) != str(self.request.user.id):
+            from django.contrib.auth import get_user_model
+            from rest_framework.exceptions import NotFound, PermissionDenied
+
+            from users.policies import are_mutually_blocked, can_view_reading_activity
+            UserModel = get_user_model()
+            target_user = get_object_or_404(UserModel, id=user_id)
+            if are_mutually_blocked(self.request.user, target_user):
+                raise NotFound("Usuario no encontrado.")
+            if not can_view_reading_activity(self.request.user, target_user):
+                raise PermissionDenied("La biblioteca de este usuario es privada.")
+            queryset = UserBook.objects.filter(user=target_user)
+        else:
+            queryset = UserBook.objects.filter(user=self.request.user)
+
+        queryset = queryset.select_related('book', 'book__author').prefetch_related('book__categories')
 
         def parse_bool(value):
             if value is None or value == '':
@@ -391,7 +406,7 @@ class ReviewListCreateView(generics.ListCreateAPIView):
     permission_classes = (permissions.IsAuthenticatedOrReadOnly,)
 
     def get_queryset(self):
-        from django.db.models import Count, Exists, OuterRef, Q
+        from django.db.models import Count, Exists, OuterRef
 
         from users.policies import filter_visible_reviews
 
@@ -1389,11 +1404,19 @@ class ReadingMatchView(APIView):
     )
     def get(self, request, user_id):
         from django.contrib.auth import get_user_model
+        from rest_framework.exceptions import NotFound, PermissionDenied
+
+        from users.policies import are_mutually_blocked, can_match
         UserModel = get_user_model()
         target_user = get_object_or_404(UserModel, id=user_id)
 
         if target_user == request.user:
             return Response({'match_percentage': 100, 'is_self': True, 'common_books': []})
+
+        if are_mutually_blocked(request.user, target_user):
+            raise NotFound("Usuario no encontrado.")
+        if not can_match(request.user, target_user):
+            raise PermissionDenied("La biblioteca de este usuario es privada.")
 
         my_books = set(UserBook.objects.filter(user=request.user, is_read=True).values_list('book_id', flat=True))
         their_books = set(UserBook.objects.filter(user=target_user, is_read=True).values_list('book_id', flat=True))
@@ -1452,15 +1475,8 @@ class ReadingListViewSet(viewsets.ModelViewSet):
         if self.request.query_params.get('followed') == 'true' and user.is_authenticated:
             return queryset.filter(followers__user=user)
 
-        if not user.is_authenticated:
-            return queryset.filter(privacy=ReadingListPrivacy.PUBLIC)
-
-        following_ids = user.following.values_list('id', flat=True)
-        return queryset.filter(
-            Q(user=user) |
-            Q(privacy=ReadingListPrivacy.PUBLIC) |
-            Q(privacy=ReadingListPrivacy.FOLLOWERS, user_id__in=following_ids)
-        ).distinct()
+        from users.policies import filter_visible_reading_lists
+        return filter_visible_reading_lists(user, queryset)
 
     def get_serializer_class(self):
         if self.action in ('create', 'update', 'partial_update'):

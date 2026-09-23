@@ -535,9 +535,9 @@ Definir política única:
 
 ---
 
-# 7. FASE 2 — Privacy Core
+# 7. FASE 2 — Privacy Core [COMPLETADA]
 
-**Prioridad: P0 — BLOQUEANTE PARA BETA**
+**Prioridad: P0 — COMPLETADA**
 
 Objetivo: convertir la privacidad en una política central reutilizable.
 
@@ -551,6 +551,7 @@ Diseñar algo equivalente a:
 PrivacyService
 ├── can_view_profile()
 ├── can_view_reading_activity()
+├── can_view_activity()
 ├── can_view_review()
 ├── can_view_list()
 ├── can_view_followers()
@@ -672,9 +673,16 @@ follower
 non-follower
 ```
 
+### Entregable
+`docs/security/privacy_core.md` [COMPLETADO]
+
 ### Criterio de salida
 
-**Cero endpoints sociales sin política explícita de visibilidad.**
+- [x] Cero endpoints sociales sin política explícita de visibilidad.
+- [x] PrivacyService centralizado y delegación en policies.
+- [x] Configuración granular de visibilidad en User (reading, activity, messages) y UI en frontend.
+- [x] Prevención de fuga de datos en serializadores y anti-enumeración 404 ante bloqueo mutuo.
+- [x] Suite completa de pruebas en `backend/tests/test_phase02_privacy_core.py` (7/7 tests passed).
 
 ---
 

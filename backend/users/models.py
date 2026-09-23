@@ -16,6 +16,12 @@ class PrivacyChoices(models.TextChoices):
     PRIVATE = 'private', 'Privado'
 
 
+class MessagePrivacyChoices(models.TextChoices):
+    EVERYONE = 'everyone', 'Todos los usuarios'
+    FOLLOWED = 'followed', 'Solo personas que sigo / amigos'
+    NOBODY = 'nobody', 'Nadie'
+
+
 class UserRole(models.TextChoices):
     """Jerarquía de roles del sistema (Fase 29)."""
     USER = 'USER', 'Usuario'
@@ -63,6 +69,28 @@ class User(AbstractUser):
         max_length=10,
         choices=PrivacyChoices.choices,
         default=PrivacyChoices.PUBLIC
+    )
+    # Privacidad granular por dominio (Fase 2 / Privacy Core)
+    reading_privacy_level = models.CharField(
+        max_length=10,
+        choices=PrivacyChoices.choices,
+        default=PrivacyChoices.PUBLIC,
+        db_index=True,
+        help_text="Nivel de privacidad específico para la biblioteca y lecturas.",
+    )
+    activity_privacy_level = models.CharField(
+        max_length=10,
+        choices=PrivacyChoices.choices,
+        default=PrivacyChoices.PUBLIC,
+        db_index=True,
+        help_text="Nivel de privacidad específico para el feed de actividad y eventos sociales.",
+    )
+    allow_messages_from = models.CharField(
+        max_length=10,
+        choices=MessagePrivacyChoices.choices,
+        default=MessagePrivacyChoices.EVERYONE,
+        db_index=True,
+        help_text="Control de recepción de mensajes directos.",
     )
     # Preferencias de visibilidad por campo (solo aplican cuando el perfil es público)
     show_email = models.BooleanField(default=False)
