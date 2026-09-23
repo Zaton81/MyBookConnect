@@ -88,7 +88,7 @@ class User(AbstractUser):
     allow_messages_from = models.CharField(
         max_length=10,
         choices=MessagePrivacyChoices.choices,
-        default=MessagePrivacyChoices.EVERYONE,
+        default=MessagePrivacyChoices.FOLLOWED,
         db_index=True,
         help_text="Control de recepción de mensajes directos.",
     )

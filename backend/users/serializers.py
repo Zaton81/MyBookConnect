@@ -91,7 +91,16 @@ class UserSerializer(serializers.ModelSerializer):
         from books.media_utils import build_media_url
         if instance.avatar:
             ret['avatar'] = build_media_url(instance.avatar, request=request)
-        viewer = request.user if request else None
+        viewer = request.user if request and request.user.is_authenticated else None
+        if self.context.get('is_self') or (
+            request
+            and (
+                '/auth/' in getattr(request, 'path', '')
+                or '/register/' in getattr(request, 'path', '')
+            )
+            and not viewer
+        ):
+            viewer = instance
         from users.privacy_service import PrivacyService
         ret = PrivacyService.apply_profile_field_visibility(viewer, instance, ret)
         return ret
