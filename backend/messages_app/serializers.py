@@ -28,7 +28,7 @@ class MessageSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Message
-        fields = ['id', 'conversation', 'sender', 'sender_details', 'text', 'image', 'created_at', 'read']
+        fields = ['id', 'conversation', 'sender', 'sender_details', 'client_message_id', 'text', 'image', 'created_at', 'read']
         read_only_fields = ['id', 'sender', 'created_at', 'read']
 
     def validate_text(self, value):

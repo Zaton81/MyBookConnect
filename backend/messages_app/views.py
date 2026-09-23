@@ -1,5 +1,5 @@
 from django.contrib.auth import get_user_model
-from rest_framework import mixins, permissions, serializers, viewsets
+from rest_framework import mixins, permissions, serializers, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
@@ -78,6 +78,21 @@ class MessageViewSet(
             qs = qs.filter(is_moderated=False)
         return qs
 
+    def create(self, request, *args, **kwargs):
+        client_message_id = request.data.get('client_message_id')
+        conv_id = request.data.get('conversation')
+        if client_message_id and conv_id:
+            existing = Message.objects.filter(
+                conversation_id=conv_id,
+                sender=request.user,
+                client_message_id=client_message_id,
+                deleted_at__isnull=True,
+            ).first()
+            if existing:
+                serializer = self.get_serializer(existing)
+                return Response(serializer.data, status=status.HTTP_200_OK)
+        return super().create(request, *args, **kwargs)
+
     def perform_create(self, serializer):
         from rest_framework.exceptions import PermissionDenied
 
@@ -96,7 +111,8 @@ class MessageViewSet(
             if not can_message(self.request.user, participant):
                 raise serializers.ValidationError('No puedes enviar mensajes a esta conversación debido a una restricción de privacidad o bloqueo.')
 
-        msg = serializer.save(sender=self.request.user, conversation=conv)
+        client_message_id = self.request.data.get('client_message_id')
+        msg = serializer.save(sender=self.request.user, conversation=conv, client_message_id=client_message_id)
 
         # Generar notificación para los demás participantes que no hayan silenciado al remitente
         for participant in conv.participants.exclude(id=self.request.user.id):
