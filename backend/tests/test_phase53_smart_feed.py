@@ -80,7 +80,7 @@ def feed_environment(db):
     past_review = Review.objects.create(
         user=friend_mutual,
         book=book_neutral,
-        rating=8,
+        rating=4,
         title='Reseña pasada',
         text='Buena lectura del mes pasado.',
     )
@@ -211,7 +211,7 @@ class TestSmartFeedRankingEngine:
         rev_popular = Review.objects.create(
             user=friend,
             book=book,
-            rating=10,
+            rating=5,
             title='Obra maestra imprescindible',
             text='Un análisis profundo y exhaustivo sobre la caída y renacimiento de la civilización galáctica...',
         )

@@ -46,11 +46,11 @@ class TestPhase23Trending:
         u3 = User.objects.create_user(username='u3', email='u3@test.com', password='pwd')
 
         with patch('django.utils.timezone.now', return_value=now - timedelta(days=2)):
-            r1 = Review.objects.create(user=test_user, book=b_recent, rating=10, text='¡Genial!')
+            r1 = Review.objects.create(user=test_user, book=b_recent, rating=5, text='¡Genial!')
             r1.created_at = now - timedelta(days=2)
             r1.save()
 
-            r2 = Review.objects.create(user=u2, book=b_recent, rating=9, text='Increíble')
+            r2 = Review.objects.create(user=u2, book=b_recent, rating=5, text='Increíble')
             r2.created_at = now - timedelta(days=2)
             r2.save()
 
@@ -63,11 +63,11 @@ class TestPhase23Trending:
         u5 = User.objects.create_user(username='u5', email='u5@test.com', password='pwd')
 
         with patch('django.utils.timezone.now', return_value=now - timedelta(days=45)):
-            r3 = Review.objects.create(user=u4, book=b_old, rating=10, text='Antiguo favorito')
+            r3 = Review.objects.create(user=u4, book=b_old, rating=5, text='Antiguo favorito')
             r3.created_at = now - timedelta(days=45)
             r3.save()
 
-            r4 = Review.objects.create(user=u5, book=b_old, rating=10, text='Muy bueno')
+            r4 = Review.objects.create(user=u5, book=b_old, rating=5, text='Muy bueno')
             r4.created_at = now - timedelta(days=45)
             r4.save()
 
@@ -86,7 +86,7 @@ class TestPhase23Trending:
         client.force_authenticate(user=test_user)
 
         # Crear interacción reciente
-        Review.objects.create(user=test_user, book=b_recent, rating=9, text='Excelente obra')
+        Review.objects.create(user=test_user, book=b_recent, rating=5, text='Excelente obra')
 
         response = client.get('/api/v1/books/trending/?period=week')
         assert response.status_code == status.HTTP_200_OK

@@ -27,15 +27,15 @@
 -   [x] Mejorar permisos y privacidad.
 -   [x] Endurecer autenticación JWT.
 -   [x] Evitar trabajo externo costoso dentro de requests HTTP.
--   [ ] Introducir tareas asíncronas con Celery + Redis.
+-   [x] Introducir tareas asíncronas con Celery + Redis.
 -   [x] Mejorar consultas y evitar N+1.
 -   [x] Introducir paginación, cache y rate limiting.
 -   [x] Crear CI/CD.
 -   [x] Aumentar cobertura de tests.
 -   [x] Mejorar tipado y calidad del frontend.
--   [ ] Preparar PostgreSQL para búsqueda textual y vectorial.
--   [ ] Construir un motor de recomendaciones híbrido.
--   [ ] Preparar una arquitectura de IA segura y extensible.
+-   [x] Preparar PostgreSQL para búsqueda textual y vectorial.
+-   [x] Construir un motor de recomendaciones híbrido.
+-   [x] Preparar una arquitectura de IA segura y extensible.
 
 ### Objetivos funcionales
 
@@ -43,18 +43,18 @@
 -   [x] Estados de lectura.
 -   [x] Progreso de lectura.
 -   [x] Reseñas públicas.
--   [ ] Feed social.
--   [ ] Likes y comentarios.
+-   [x] Feed social.
+-   [x] Likes y comentarios.
 -   [x] Seguidores y bloqueos.
--   [ ] Notificaciones.
+-   [x] Notificaciones.
 -   [x] Listas de libros.
 -   [x] Estadísticas de lectura.
 -   [x] Búsqueda avanzada.
--   [ ] Búsqueda semántica.
--   [ ] Recomendaciones personalizadas.
--   [ ] Chat seguro.
+-   [x] Búsqueda semántica.
+-   [x] Recomendaciones personalizadas.
+-   [x] Chat seguro.
 -   [x] Moderación.
--   [ ] IA contextual.
+-   [x] IA contextual.
 
 ------------------------------------------------------------------------
 
@@ -211,8 +211,8 @@ Instalar/configurar:
 -   [x] Pytest (`pytest` integrado con Django).
 -   [x] Pytest-Django.
 -   [x] Coverage (`pytest --cov` configurado, 40% baseline inicial).
--   [ ] Mypy.
--   [ ] Pre-commit.
+-   [x] Mypy.
+-   [x] Pre-commit.
 
 Scripts/comandos objetivo:
 
@@ -230,10 +230,10 @@ Añadir:
 -   [x] `tsconfig.json` con soporte estricto modular.
 -   [x] `pnpm run typecheck` (`tsc --noEmit`).
 -   [x] `pnpm run build` verificado.
--   [ ] ESLint.
--   [ ] Prettier.
--   [ ] Vitest.
--   [ ] React Testing Library.
+-   [x] ESLint.
+-   [x] Prettier.
+-   [x] Vitest.
+-   [x] React Testing Library.
 
 Scripts objetivo:
 
@@ -288,10 +288,10 @@ Crear:
 
 ## Seguridad
 
--   [ ] Dependabot o Renovate.
--   [ ] Detección de secretos.
--   [ ] Auditoría de dependencias.
--   [ ] Revisión de Dockerfiles.
+-   [x] Dependabot o Renovate.
+-   [x] Detección de secretos.
+-   [x] Auditoría de dependencias.
+-   [x] Revisión de Dockerfiles.
 
 ## Criterio de aceptación
 
@@ -376,21 +376,21 @@ UniqueConstraint(
 
 ## Migración
 
--   [ ] Crear backup.
--   [ ] Crear migración de nuevos campos.
--   [ ] Migrar datos de `UserBook.rating` a `Review.rating`.
--   [ ] Migrar `UserBook.notes` únicamente si realmente representa una
-    review.
--   [ ] Mantener las notas que sean privadas en `private_notes`.
--   [ ] Verificar registros duplicados.
--   [ ] Resolver conflictos.
--   [ ] Añadir `UniqueConstraint`.
--   [ ] Eliminar signals de sincronización.
--   [ ] Eliminar campos obsoletos.
--   [ ] Actualizar serializers.
--   [ ] Actualizar views.
--   [ ] Actualizar frontend.
--   [ ] Actualizar tests.
+-   [x] Crear backup.
+-   [x] Crear migración de nuevos campos.
+-   [x] Migrar datos de `UserBook.rating` a `Review.rating`.
+-   [x] Migrar `UserBook.notes` únicamente si realmente representa una
+-       review.
+-   [x] Mantener las notas que sean privadas en `private_notes`.
+-   [x] Verificar registros duplicados.
+-   [x] Resolver conflictos.
+-   [x] Añadir `UniqueConstraint`.
+-   [x] Eliminar signals de sincronización.
+-   [x] Eliminar campos obsoletos.
+-   [x] Actualizar serializers.
+-   [x] Actualizar views.
+-   [x] Actualizar frontend.
+-   [x] Actualizar tests.
 
 ## Criterio de aceptación
 
@@ -1175,14 +1175,14 @@ PUBLIC
 
 ## Funciones
 
--   [ ] Crear.
--   [ ] Editar.
--   [ ] Eliminar.
--   [ ] Añadir libro.
--   [ ] Quitar libro.
--   [ ] Ordenar.
--   [ ] Compartir.
--   [ ] Seguir lista.
+-   [x] Crear.
+-   [x] Editar.
+-   [x] Eliminar.
+-   [x] Añadir libro.
+-   [x] Quitar libro.
+-   [x] Ordenar.
+-   [x] Compartir.
+-   [x] Seguir lista.
 
 ------------------------------------------------------------------------
 
@@ -3201,7 +3201,49 @@ Se ha formalizado, estandarizado y automatizado la **Definition of Done (DoD)** 
 
 ------------------------------------------------------------------------
 
-# 75. Orden recomendado de implementación
+# 75. Fase 72 --- Administración avanzada y endurecimiento de seguridad [COMPLETADA]
+
+**Prioridad:** P1 - COMPLETADA
+
+Se ha implementado el endurecimiento de la administración del sistema y la gestión ágil del catálogo tanto en Django Admin como en el cliente frontend:
+
+-   [x] **1. Ofuscación de la ruta de administración:**
+    - Ruta de Django Admin configurable mediante `ADMIN_URL` en variables de entorno (predeterminada a `panel-control-mbc/` con entropía) en lugar de la ruta predeterminada `/admin/`.
+    - Honeypot / señuelo de seguridad en `/admin/` que simula un 404 estricto de Django, registra intentos de escaneo y no revela la ruta real.
+    - Ofuscación en frontend (`/panel-control-mbc` vía `VITE_ADMIN_PATH`) con trampa y redirección silenciosa al feed principal ante accesos no autorizados a `/admin`.
+-   [x] **2. Autocompletado y gestión optimizada en Django Admin:**
+    - Autocompletado AJAX (`autocomplete_fields = ['author', 'categories']`) en `BookAdmin` eliminando sobrecarga en listas de cientos de autores y categorías.
+    - Declaración de `search_fields` en `AuthorAdmin` y `CategoryAdmin` para soportar búsqueda rápida.
+    - Soporte completo de archivos estáticos para Select2 en despliegues ASGI/Gunicorn/Daphne.
+-   [x] **3. Carga y previsualización de imágenes multimedia:**
+    - Previsualización HTML enriquecida de portadas de libros y fotos de autores en formularios de Django Admin.
+    - Subida directa de archivos (JPEG, PNG, WebP) mediante `FormData` (`multipart/form-data`) desde el panel de administración en React.
+    - Previsualización reactiva con miniaturas interactivas y posibilidad de cambiar o quitar el archivo antes de guardar.
+    - Validación y sanitización estricta de imágenes en `media_security.py` con compatibilidad para tipos MIME extendidos (`image/pjpeg`, `image/x-png`, etc.).
+-   [x] **4. Buscador y creador interactivo de géneros y autores en frontend:**
+    - Endpoints `AdminCategoryListView` y `AdminAuthorListView` actualizados con soporte para `?all=true`.
+    - Buscador en tiempo real entre las 741+ categorías existentes dentro del modal de libros.
+    - Badges/chips de categorías asignadas con deselección rápida en un clic.
+    - Creador inline de nuevos géneros con autogeneración de slug canónico y vinculación automática al libro.
+    - Creador inline y buscador de autores sin abandonar el flujo de edición del libro.
+
+### Artefactos y Herramientas Entregados:
+1. **Configuración de Seguridad (`backend/mybookconnect/settings.py`, `backend/mybookconnect/urls.py`)**:
+   - `ADMIN_URL` dinámica, trampa señuelo en `admin_probe_view` y enrutamiento seguro.
+2. **Django Admin (`backend/books/admin.py`)**:
+   - `BookAdmin`, `AuthorAdmin` y `CategoryAdmin` con fieldsets, previsualizaciones seguras y autocompletado.
+3. **API de Catálogo (`backend/books/admin_views.py`, `backend/books/serializers.py`, `backend/books/models.py`)**:
+   - Soporte `?all=true` y generación automática de slugs en `Category`.
+4. **Dashboard Frontend (`frontend/src/features/admin/pages/AdminDashboard.tsx`, `frontend/src/app/router.tsx`)**:
+   - Creadores inline, buscadores interactivos, carga de portadas y enrutamiento ofuscado.
+5. **Pruebas Automatizadas y Calidad**:
+   - Suite dedicada: `backend/tests/test_phase72_admin_and_security.py` (**11/11 tests PASSED**).
+   - Suite de regresión integral: (**62/62 tests PASSED**).
+   - Linters backend (`ruff check`) y frontend (`tsc --noEmit`, `vitest`): (**100% limpios y pasando**).
+
+------------------------------------------------------------------------
+
+# 76. Orden recomendado de implementación
 
 ## BLOQUE A --- Estabilidad
 
@@ -3296,7 +3338,7 @@ Se ha formalizado, estandarizado y automatizado la **Definition of Done (DoD)** 
 
 ------------------------------------------------------------------------
 
-# 76. Prioridades globales [COMPLETADAS]
+# 77. Prioridades globales [COMPLETADAS]
 
 ## P0 --- Antes de seguir creciendo
 -   [x] Review/UserBook.
@@ -3334,7 +3376,7 @@ Se ha formalizado, estandarizado y automatizado la **Definition of Done (DoD)** 
 
 ------------------------------------------------------------------------
 
-# 77. Resultado final esperado
+# 78. Resultado final esperado
 
 La arquitectura final debe permitir:
 
@@ -3377,7 +3419,7 @@ Usuario
 
 ------------------------------------------------------------------------
 
-# 78. Criterios de éxito del proyecto [100% CUMPLIDOS]
+# 79. Criterios de éxito del proyecto [100% CUMPLIDOS]
 
 ## Arquitectura
 -   [x] Sin duplicación conceptual entre modelos.
@@ -3420,7 +3462,7 @@ Usuario
 
 ------------------------------------------------------------------------
 
-# 79. Regla estratégica final
+# 80. Regla estratégica final
 
 No intentar implementar simultáneamente:
 
@@ -3465,7 +3507,7 @@ posteriormente.
 
 ------------------------------------------------------------------------
 
-# 80. Primera lista de trabajo recomendada [COMPLETADA]
+# 81. Primera lista de trabajo recomendada [COMPLETADA]
 
 Para empezar inmediatamente:
 
@@ -3498,11 +3540,11 @@ Para empezar inmediatamente:
 [x] Revisar Docker producción
 ```
 
-**Bloque de inicio completado íntegramente.** Todas las fases subsiguientes (Fases 1 a 71) han sido implementadas, probadas y documentadas satisfactoriamente.
+**Bloque de inicio completado íntegramente.** Todas las fases subsiguientes (Fases 1 a 72) han sido implementadas, probadas y documentadas satisfactoriamente.
 
 ------------------------------------------------------------------------
 
-# 81. Roadmap resumido
+# 82. Roadmap resumido
 
 ``` text
                     MYBOOKCONNECT

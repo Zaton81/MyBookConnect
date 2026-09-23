@@ -47,6 +47,11 @@ class Category(models.Model):
     name = models.CharField(max_length=100, unique=True)
     slug = models.SlugField(max_length=100, unique=True)
 
+    def save(self, *args, **kwargs):
+        if not self.slug and self.name:
+            self.slug = slugify(self.name)
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return self.name
 
@@ -120,7 +125,12 @@ class UserBook(models.Model):
     started_at = models.DateField(null=True, blank=True)
     finished_at = models.DateField(null=True, blank=True)
     is_read = models.BooleanField(default=False)
-    rating = models.PositiveSmallIntegerField(null=True, blank=True)
+    rating = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(1), MaxValueValidator(5)],
+        help_text="Calificación personal privada de 1 a 5 estrellas.",
+    )
     is_digital = models.BooleanField(default=False)
     owned = models.BooleanField(default=False)
     wishlist = models.BooleanField(default=False)
@@ -128,7 +138,13 @@ class UserBook(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        unique_together = ('user', 'book')
+        constraints = [
+            models.UniqueConstraint(fields=['user', 'book'], name='unique_user_book'),
+            models.CheckConstraint(
+                check=models.Q(rating__gte=1, rating__lte=5) | models.Q(rating__isnull=True),
+                name='check_userbook_rating_range_1_to_5',
+            ),
+        ]
         indexes = [
             models.Index(fields=['user', '-updated_at']),
             models.Index(fields=['user', 'book']),
@@ -166,7 +182,10 @@ class UserBook(models.Model):
 class Review(SoftDeleteModel):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='reviews')
     book = models.ForeignKey(Book, on_delete=models.CASCADE, related_name='reviews')
-    rating = models.PositiveSmallIntegerField()
+    rating = models.PositiveSmallIntegerField(
+        validators=[MinValueValidator(1), MaxValueValidator(5)],
+        help_text="Calificación pública de 1 a 5 estrellas.",
+    )
     title = models.CharField(max_length=200, blank=True, null=True)
     text = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -184,6 +203,10 @@ class Review(SoftDeleteModel):
                 fields=['user', 'book'],
                 condition=models.Q(deleted_at__isnull=True),
                 name='unique_active_review_user_book',
+            ),
+            models.CheckConstraint(
+                check=models.Q(rating__gte=1, rating__lte=5),
+                name='check_review_rating_range_1_to_5',
             ),
         ]
         indexes = [

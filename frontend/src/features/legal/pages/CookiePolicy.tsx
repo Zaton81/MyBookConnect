@@ -54,7 +54,7 @@ export function CookiePolicy() {
 
         <section>
           <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-3">
-            2. ¿Qué tipos de cookies utilizamos en MyBookConnect?
+            2. ¿Qué tipos de cookies utilizamos en My Book Social?
           </h2>
 
           <div className="space-y-4 mt-3">
@@ -93,7 +93,7 @@ export function CookiePolicy() {
                 </span>
               </h3>
               <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
-                MyBookConnect incluye enlaces de compra a libros y servicios de lectura en tiendas asociadas, principalmente a través del <strong>Programa de Afiliados de Amazon</strong>. Cuando pulsas en un enlace de afiliado o interactúas con un módulo publicitario de libros, Amazon instala una cookie en tu navegador con una validez determinada (habitualmente 24 horas) para registrar la referencia y acreditar la comisión de venta correspondiente al soporte de nuestro proyecto, sin ningún incremento de precio en tu compra.
+                My Book Social incluye enlaces de compra a libros y servicios de lectura en tiendas asociadas, principalmente a través del <strong>Programa de Afiliados de Amazon</strong>. Cuando pulsas en un enlace de afiliado o interactúas con un módulo publicitario de libros, Amazon instala una cookie en tu navegador con una validez determinada (habitualmente 24 horas) para registrar la referencia y acreditar la comisión de venta correspondiente al soporte de nuestro proyecto, sin ningún incremento de precio en tu compra.
               </p>
             </div>
           </div>
@@ -116,13 +116,13 @@ export function CookiePolicy() {
               <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
                 <tr>
                   <td className="p-3 font-mono font-semibold">mbc_cookie_consent</td>
-                  <td className="p-3">MyBookConnect</td>
+                  <td className="p-3">My Book Social</td>
                   <td className="p-3">Guarda tus elecciones de aceptación/rechazo de cookies.</td>
                   <td className="p-3">1 año</td>
                 </tr>
                 <tr>
                   <td className="p-3 font-mono font-semibold">auth_token / refresh</td>
-                  <td className="p-3">MyBookConnect</td>
+                  <td className="p-3">My Book Social</td>
                   <td className="p-3">Mantiene la sesión de usuario activa y segura.</td>
                   <td className="p-3">Sesión / 7 días</td>
                 </tr>

@@ -29,6 +29,9 @@ export function EditProfileForm() {
       birth_date: user?.birth_date || '',
       location: user?.location || '',
       privacy_level: (user?.privacy_level as 'public' | 'friends' | 'private') || 'public',
+      reading_privacy_level: (user?.reading_privacy_level as 'public' | 'friends' | 'private') || 'public',
+      activity_privacy_level: (user?.activity_privacy_level as 'public' | 'friends' | 'private') || 'public',
+      allow_messages_from: (user?.allow_messages_from as 'everyone' | 'followed' | 'nobody') || 'everyone',
       bio: user?.bio || '',
       show_email: user?.show_email ?? false,
       show_birth_date: user?.show_birth_date ?? false,
@@ -151,6 +154,42 @@ export function EditProfileForm() {
           <option value="public">Público</option>
           <option value="friends">Solo amigos</option>
           <option value="private">Privado</option>
+        </Select>
+      </div>
+
+      <div className="mb-4">
+        <Label htmlFor="reading_privacy_level" value="Privacidad de biblioteca y lecturas" />
+        <Select
+          id="reading_privacy_level"
+          {...register('reading_privacy_level')}
+        >
+          <option value="public">Pública (visible para toda la comunidad)</option>
+          <option value="friends">Solo amigos (personas a las que sigues)</option>
+          <option value="private">Privada (solo visible para ti)</option>
+        </Select>
+      </div>
+
+      <div className="mb-4">
+        <Label htmlFor="activity_privacy_level" value="Privacidad de actividad social (feed)" />
+        <Select
+          id="activity_privacy_level"
+          {...register('activity_privacy_level')}
+        >
+          <option value="public">Pública</option>
+          <option value="friends">Solo amigos</option>
+          <option value="private">Privada</option>
+        </Select>
+      </div>
+
+      <div className="mb-4">
+        <Label htmlFor="allow_messages_from" value="Recepción de mensajes directos" />
+        <Select
+          id="allow_messages_from"
+          {...register('allow_messages_from')}
+        >
+          <option value="everyone">Todos los usuarios</option>
+          <option value="followed">Solo personas que sigo / amigos</option>
+          <option value="nobody">Nadie (desactivar mensajes entrantes)</option>
         </Select>
       </div>
 

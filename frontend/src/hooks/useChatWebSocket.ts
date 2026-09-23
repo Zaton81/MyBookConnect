@@ -33,7 +33,7 @@ export function useChatWebSocket({
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<any>(null);
 
-  const connect = useCallback(() => {
+  const connect = useCallback(async () => {
     if (!conversationId || !token) return;
 
     if (wsRef.current) {
@@ -43,7 +43,28 @@ export function useChatWebSocket({
     const apiUrl = (import.meta as any).env.VITE_API_URL || 'http://localhost:8000';
     const wsProtocol = apiUrl.startsWith('https') ? 'wss' : 'ws';
     const wsHost = apiUrl.replace(/^https?:\/\//, '');
-    const wsUrl = `${wsProtocol}://${wsHost}/ws/chat/${conversationId}/?token=${encodeURIComponent(token)}`;
+
+    // Intentar obtener un ticket efímero de un solo uso (RFC 6455 / OWASP)
+    let authQuery = `token=${encodeURIComponent(token)}`;
+    try {
+      const ticketRes = await fetch(`${apiUrl}/api/v1/auth/ws-ticket/`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      if (ticketRes.ok) {
+        const ticketData = await ticketRes.json();
+        if (ticketData?.ticket) {
+          authQuery = `ticket=${encodeURIComponent(ticketData.ticket)}`;
+        }
+      }
+    } catch {
+      // Fallback a token directo si no se puede obtener el ticket
+    }
+
+    const wsUrl = `${wsProtocol}://${wsHost}/ws/chat/${conversationId}/?${authQuery}`;
 
     try {
       const socket = new WebSocket(wsUrl);

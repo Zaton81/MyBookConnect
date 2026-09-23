@@ -75,7 +75,7 @@ class TestPostgreSQLConstraints:
         rev1 = Review.objects.create(
             user=test_user,
             book=sample_book,
-            rating=10,
+            rating=5,
             title='Primera',
             text='Excelente'
         )
@@ -86,7 +86,7 @@ class TestPostgreSQLConstraints:
                 Review.objects.create(
                     user=test_user,
                     book=sample_book,
-                    rating=8,
+                    rating=4,
                     title='Segunda duplicada',
                     text='Debe fallar a nivel de base de datos'
                 )
@@ -99,7 +99,7 @@ class TestPostgreSQLConstraints:
         rev2 = Review.objects.create(
             user=test_user,
             book=sample_book,
-            rating=9,
+            rating=5,
             title='Nueva reseña tras soft delete',
             text='Permitida al estar la anterior soft-deleted'
         )
@@ -117,7 +117,7 @@ class TestPostgreSQLConstraints:
     def test_foreign_key_cascade_deletion(self, test_user, sample_book):
         """Verifica la integridad referencial y eliminación en cascada en PostgreSQL."""
         ub = UserBook.objects.create(user=test_user, book=sample_book)
-        rev = Review.objects.create(user=test_user, book=sample_book, rating=9)
+        rev = Review.objects.create(user=test_user, book=sample_book, rating=5)
 
         # Eliminar el libro debe eliminar en cascada sus dependencias
         sample_book.delete()

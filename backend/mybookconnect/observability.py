@@ -22,6 +22,16 @@ from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from mybookconnect.logging_formatters import StructuredJsonFormatter, sanitize_sensitive_data
+
+__all__ = [
+    'ObservabilityMetricsService',
+    'ObservabilityMetricsView',
+    'StructuredLoggingMiddleware',
+    'StructuredJsonFormatter',
+    'sanitize_sensitive_data',
+]
+
 logger = logging.getLogger('mybookconnect.structured')
 
 

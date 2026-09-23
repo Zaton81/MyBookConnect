@@ -9,6 +9,9 @@ export interface User {
   birth_date?: string;
   location?: string;
   privacy_level: 'public' | 'friends' | 'private';
+  reading_privacy_level?: 'public' | 'friends' | 'private';
+  activity_privacy_level?: 'public' | 'friends' | 'private';
+  allow_messages_from?: 'everyone' | 'followed' | 'nobody';
   show_email?: boolean;
   show_birth_date?: boolean;
   show_location?: boolean;

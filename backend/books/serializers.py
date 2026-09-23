@@ -108,6 +108,8 @@ class AuthorSerializer(serializers.ModelSerializer):
 
 
 class CategorySerializer(serializers.ModelSerializer):
+    slug = serializers.SlugField(required=False)
+
     class Meta:
         model = Category
         fields = ('id', 'name', 'slug')
@@ -137,13 +139,13 @@ class BookSerializer(serializers.ModelSerializer):
     @extend_schema_field(serializers.DictField)
     def get_rating_distribution(self, obj):
         from django.db.models import Count
-        distribution = dict.fromkeys(range(1, 11), 0)
+        distribution = dict.fromkeys(range(1, 6), 0)
         reviews = Review.objects.filter(
             book=obj, rating__isnull=False, deleted_at__isnull=True, is_moderated=False
         ).values('rating').annotate(count=Count('id'))
         for r in reviews:
             val = r['rating']
-            if 1 <= val <= 10:
+            if 1 <= val <= 5:
                 distribution[val] = r['count']
         return distribution
 
@@ -198,8 +200,8 @@ class UserBookSerializer(serializers.ModelSerializer):
         )
 
     def validate_rating(self, value):
-        if value is not None and not (1 <= value <= 10):
-            raise serializers.ValidationError("La puntuación debe estar comprendida entre 1 y 10.")
+        if value is not None and not (1 <= value <= 5):
+            raise serializers.ValidationError("La puntuación debe estar comprendida entre 1 y 5.")
         return value
 
     def validate_progress(self, value):
@@ -250,6 +252,11 @@ class ReviewSerializer(serializers.ModelSerializer):
     is_friend = serializers.SerializerMethodField()
     book = BookSerializer(read_only=True)
     book_id = serializers.PrimaryKeyRelatedField(queryset=Book.objects.all(), source='book', write_only=True)
+    rating = serializers.IntegerField(
+        min_value=1,
+        max_value=5,
+        help_text="Calificación pública de 1 a 5 estrellas.",
+    )
     likes_count = serializers.SerializerMethodField()
     user_has_liked = serializers.SerializerMethodField()
     comments_count = serializers.SerializerMethodField()

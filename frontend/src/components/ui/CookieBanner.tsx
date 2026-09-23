@@ -99,7 +99,7 @@ export function CookieBanner() {
               <div className="text-2xl select-none" aria-hidden="true">🍪</div>
               <div className="flex-1 text-sm leading-relaxed">
                 <h3 className="font-semibold text-slate-900 dark:text-white mb-1">
-                  Tu privacidad en MyBookConnect
+                  Tu privacidad en My Book Social
                 </h3>
                 <p className="text-xs text-slate-600 dark:text-slate-400">
                   Utilizamos cookies técnicas para el funcionamiento seguro de la plataforma, y cookies opcionales para análisis y gestión de publicidad/enlaces de afiliación (como el Programa de Afiliados de Amazon). Puedes aceptarlas, rechazarlas o personalizarlas en cualquier momento.
@@ -203,7 +203,7 @@ export function CookieBanner() {
                       Cookies de Análisis y Rendimiento
                     </h3>
                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                      Nos ayudan a entender de forma agregada cómo los usuarios navegan y usan MyBookConnect para optimizar tiempos de carga y descubrir errores.
+                      Nos ayudan a entender de forma agregada cómo los usuarios navegan y usan My Book Social para optimizar tiempos de carga y descubrir errores.
                     </p>
                   </div>
                   <input

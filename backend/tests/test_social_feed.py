@@ -98,7 +98,7 @@ class TestSocialFeedPhase18:
         review = Review.objects.create(
             user=user_alice,
             book=sample_book,
-            rating=10,
+            rating=5,
             title='Una utopía ambigua',
             text='Extraordinaria novela de ciencia ficción social.'
         )
@@ -130,7 +130,7 @@ class TestSocialFeedPhase18:
         Review.objects.create(
             user=user_bob,
             book=sample_book,
-            rating=9,
+            rating=5,
             title='Gran libro de Bob',
         )
 
@@ -138,7 +138,7 @@ class TestSocialFeedPhase18:
         Review.objects.create(
             user=user_charlie,
             book=sample_book,
-            rating=7,
+            rating=4,
             title='Reseña de Charlie',
         )
 
@@ -156,7 +156,7 @@ class TestSocialFeedPhase18:
         Review.objects.create(
             user=user_bob,
             book=sample_book,
-            rating=8,
+            rating=4,
             title='Reseña pre-bloqueo',
         )
 

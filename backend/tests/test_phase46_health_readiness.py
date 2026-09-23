@@ -16,10 +16,9 @@ class TestPhase46HealthAndReadiness:
         response = self.client.get('/api/v1/health/')
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
-        assert data == {
-            "status": "healthy",
-            "process": "alive",
-        }
+        assert data.get("status") == "healthy"
+        assert data.get("process") == "alive"
+        assert "version" in data
 
     def test_liveness_remains_healthy_even_if_db_fails(self):
         """

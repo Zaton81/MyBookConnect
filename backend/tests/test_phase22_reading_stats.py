@@ -64,9 +64,9 @@ class TestPhase22ReadingStats:
             progress=100,
             finished_at=date(2026, 3, 15),
         )
-        Review.objects.create(user=test_user, book=b1, rating=10, text='Excelente!')
+        Review.objects.create(user=test_user, book=b1, rating=5, text='Excelente!')
 
-        # b2: leído, 1200 páginas, valorado con 8
+        # b2: leído, 1200 páginas, valorado con 4
         UserBook.objects.create(
             user=test_user,
             book=b2,
@@ -76,7 +76,7 @@ class TestPhase22ReadingStats:
             progress=100,
             finished_at=date(2026, 4, 20),
         )
-        Review.objects.create(user=test_user, book=b2, rating=8, text='Muy bueno!')
+        Review.objects.create(user=test_user, book=b2, rating=4, text='Muy bueno!')
 
         # b3: leyendo, página 150
         UserBook.objects.create(
@@ -103,10 +103,10 @@ class TestPhase22ReadingStats:
         assert stats['want_to_read'] == 1
         assert stats['abandoned'] == 0
         assert stats['total_pages_read'] == 2350
-        assert stats['average_rating'] == 9.0  # (10 + 8) / 2
-        assert stats['ratings_distribution'][10] == 1
-        assert stats['ratings_distribution'][8] == 1
-        assert stats['ratings_distribution'][5] == 0
+        assert stats['average_rating'] == 4.5  # (5 + 4) / 2
+        assert stats['ratings_distribution'][5] == 1
+        assert stats['ratings_distribution'][4] == 1
+        assert stats['ratings_distribution'][1] == 0
 
         # Verificar top géneros
         top_genre_names = [g['name'] for g in stats['top_genres']]
@@ -120,7 +120,7 @@ class TestPhase22ReadingStats:
         b1, b2, _, _ = sample_books
         cache.delete(user_stats_key(test_user.id))
 
-        ub1 = UserBook.objects.create(
+        UserBook.objects.create(
             user=test_user,
             book=b1,
             status=ReadingStatus.READ,
@@ -234,7 +234,7 @@ class TestProactiveAutoFill:
         assert book.author.name == 'Gabriel García Márquez'
         assert 'realismo mágico' in book.description.lower()
         assert book.published_date is not None
-        assert book.categories.filter(name='Classics').exists()
+        assert book.categories.filter(name__in=['Classics', 'Clásicos']).exists()
 
     def test_book_detail_view_triggers_enrichment_when_missing_fields(self):
         cache.clear()

@@ -47,6 +47,8 @@ function LandingPage() {
   );
 }
 
+export const ADMIN_ROUTE = (import.meta as any).env?.VITE_ADMIN_PATH || '/panel-control-mbc';
+
 export function AppRouter() {
   return (
     <BrowserRouter>
@@ -78,10 +80,13 @@ export function AppRouter() {
           <Route path="/friends" element={<Friends />} />
         </Route>
 
-        {/* Rutas de Administración y Moderación */}
+        {/* Rutas de Administración y Moderación Seguras */}
         <Route element={<AdminLayout />}>
-          <Route path="/admin" element={<AdminDashboard />} />
+          <Route path={ADMIN_ROUTE} element={<AdminDashboard />} />
         </Route>
+
+        {/* Trampa de seguridad: /admin redirige a home */}
+        <Route path="/admin" element={<Navigate to="/" replace />} />
 
         {/* Ruta Fallback (404) */}
         <Route path="*" element={<Navigate to="/" replace />} />

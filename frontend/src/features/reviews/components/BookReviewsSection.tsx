@@ -78,7 +78,7 @@ export function BookReviewsSection({
   } = useForm<ReviewFormData>({
     resolver: zodResolver(reviewSchema),
     defaultValues: {
-      rating: 10,
+      rating: 5,
       title: '',
       text: '',
     },
@@ -277,7 +277,7 @@ export function BookReviewsSection({
 
       setShowForm(false);
       resetReview({
-        rating: 10,
+        rating: 5,
         title: '',
         text: '',
       });
@@ -346,13 +346,13 @@ export function BookReviewsSection({
             <div className="flex items-center gap-3">
               <StarRating
                 rating={currentRating}
-                maxRating={10}
+                maxRating={5}
                 size="lg"
                 interactive={true}
                 onRatingChange={(newVal) => setReviewValue('rating', newVal, { shouldValidate: true })}
               />
               <span className="text-xs font-bold text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-900/40 px-2 py-1 rounded-lg">
-                {(currentRating / 2).toFixed(1)} / 5 ({currentRating}/10)
+                {currentRating} / 5
               </span>
             </div>
             {reviewErrors.rating && (
@@ -484,7 +484,7 @@ export function BookReviewsSection({
                   <div className="flex items-center">
                     <StarRating
                       rating={rev.rating}
-                      maxRating={10}
+                      maxRating={5}
                       size="sm"
                       interactive={false}
                       showBreakdownOnHover={false}

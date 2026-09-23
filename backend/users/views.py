@@ -97,8 +97,8 @@ class UserDetailView(generics.RetrieveAPIView):
         user = request.user
 
         if not policies.can_view_profile(user, instance):
-            if instance.blocked_users.filter(id=user.id).exists():
-                return Response({"detail": "No puedes ver este perfil."}, status=status.HTTP_403_FORBIDDEN)
+            if policies.are_mutually_blocked(user, instance):
+                return Response({"detail": "Usuario no encontrado."}, status=status.HTTP_404_NOT_FOUND)
             if instance.privacy_level == 'private':
                 return Response({"detail": "Este perfil es privado."}, status=status.HTTP_403_FORBIDDEN)
             return Response(
@@ -367,7 +367,15 @@ class UserFollowingListView(generics.ListAPIView):
     def get_queryset(self):
         if getattr(self, 'swagger_fake_view', False) or not self.request.user.is_authenticated:
             return User.objects.none()
-        return self.request.user.following.all()
+        user_id = self.request.query_params.get('user_id')
+        if user_id:
+            target = get_object_or_404(User, id=user_id)
+            if not policies.can_view_following(self.request.user, target):
+                return User.objects.none()
+            qs = target.following.all()
+        else:
+            qs = self.request.user.following.all()
+        return policies.filter_visible_users(self.request.user, qs)
 
 
 class UserFollowersListView(generics.ListAPIView):
@@ -377,7 +385,15 @@ class UserFollowersListView(generics.ListAPIView):
     def get_queryset(self):
         if getattr(self, 'swagger_fake_view', False) or not self.request.user.is_authenticated:
             return User.objects.none()
-        return self.request.user.followers.all()
+        user_id = self.request.query_params.get('user_id')
+        if user_id:
+            target = get_object_or_404(User, id=user_id)
+            if not policies.can_view_followers(self.request.user, target):
+                return User.objects.none()
+            qs = target.followers.all()
+        else:
+            qs = self.request.user.followers.all()
+        return policies.filter_visible_users(self.request.user, qs)
 
 
 class CheckFollowStatusView(APIView):

@@ -50,7 +50,7 @@ export function TermsOfService() {
             1. Aceptación de los Términos
           </h2>
           <p className="text-sm">
-            Al acceder, navegar o registrarte en <strong>MyBookConnect</strong>, aceptas expresamente cumplir con los presentes Términos y Condiciones de Servicio, así como con nuestra Política de Privacidad y Política de Cookies. Si no estás de acuerdo con alguna parte de estas condiciones, debes abstenerte de utilizar la plataforma.
+            Al acceder, navegar o registrarte en <strong>My Book Social</strong>, aceptas expresamente cumplir con los presentes Términos y Condiciones de Servicio, así como con nuestra Política de Privacidad y Política de Cookies. Si no estás de acuerdo con alguna parte de estas condiciones, debes abstenerte de utilizar la plataforma.
           </p>
         </section>
 
@@ -73,10 +73,10 @@ export function TermsOfService() {
             3. Normas de Contenido y Comunidad
           </h2>
           <p className="text-sm mb-2">
-            MyBookConnect es un espacio seguro para el debate literario y el amor por los libros. Al publicar contenido (reseñas, sinopsis, comentarios, mensajes):
+            My Book Social es un espacio seguro para el debate literario y el amor por los libros. Al publicar contenido (reseñas, sinopsis, comentarios, mensajes):
           </p>
           <ul className="list-disc pl-5 space-y-2 text-sm">
-            <li>Conservas los derechos de autor de tus opiniones y textos. No obstante, concedes a MyBookConnect una licencia no exclusiva para mostrar dicho contenido dentro de la plataforma.</li>
+            <li>Conservas los derechos de autor de tus opiniones y textos. No obstante, concedes a My Book Social una licencia no exclusiva para mostrar dicho contenido dentro de la plataforma.</li>
             <li>No se tolera el acoso, la incitación al odio, el spam comercial no autorizado, ni la difusión deliberada de spoilers sin la debida advertencia.</li>
             <li>El catálogo de libros e información bibliográfica proviene de fuentes abiertas (OpenLibrary, Wikipedia) y de aportaciones comunitarias. Si detectas información errónea o que vulnere derechos de autor, puedes notificarlo mediante la función de reporte de erratas.</li>
           </ul>
@@ -89,7 +89,7 @@ export function TermsOfService() {
           <div className="p-4 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-200 text-sm leading-relaxed">
             <p className="font-semibold mb-1">Aviso legal sobre Afiliados de Amazon:</p>
             <p>
-              MyBookConnect participa en el <strong>Programa de Afiliados de Amazon EU</strong> y otros programas de afiliación similares. Esto nos permite obtener una pequeña comisión cuando realizas una compra a través de nuestros enlaces recomendados de libros, eBooks o Kindle, <em>sin ningún coste adicional para ti</em>.
+              My Book Social participa en el <strong>Programa de Afiliados de Amazon EU</strong> y otros programas de afiliación similares. Esto nos permite obtener una pequeña comisión cuando realizas una compra a través de nuestros enlaces recomendados de libros, eBooks o Kindle, <em>sin ningún coste adicional para ti</em>.
             </p>
             <p className="mt-2 text-xs">
               No nos responsabilizamos de la disponibilidad, precios, envíos o transacciones comerciales efectuadas directamente en plataformas de terceros como Amazon.
@@ -102,7 +102,7 @@ export function TermsOfService() {
             5. Limitación de Responsabilidad
           </h2>
           <p className="text-sm">
-            MyBookConnect se proporciona "tal cual" y "según disponibilidad". Aunque trabajamos continuamente para garantizar la máxima estabilidad, rapidez y seguridad, no garantizamos que el servicio esté libre de interrupciones puntuales por labores de mantenimiento o factores ajenos a nuestra infraestructura.
+            My Book Social se proporciona "tal cual" y "según disponibilidad". Aunque trabajamos continuamente para garantizar la máxima estabilidad, rapidez y seguridad, no garantizamos que el servicio esté libre de interrupciones puntuales por labores de mantenimiento o factores ajenos a nuestra infraestructura.
           </p>
         </section>
 

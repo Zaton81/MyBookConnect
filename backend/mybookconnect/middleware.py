@@ -19,7 +19,18 @@ def get_user_from_token(token_str: str):
         user_id = token.get("user_id")
         if not user_id:
             return AnonymousUser()
-        return User.objects.get(id=user_id)
+        user = User.objects.get(id=user_id)
+        if not user.is_active:
+            return AnonymousUser()
+        # Verificar si la sesión fue revocada antes del timestamp de emisión del token
+        from django.core.cache import cache
+        token_iat = token.get("iat")
+        if token_iat is not None:
+            revocation_timestamp = cache.get(f"user_jwt_revoked_at_{user.id}")
+            if revocation_timestamp is not None and float(token_iat) < float(revocation_timestamp):
+                logger.info("Token de WebSocket rechazado por revocación de sesión para usuario %s", user.id)
+                return AnonymousUser()
+        return user
     except (InvalidToken, TokenError, User.DoesNotExist) as e:
         logger.debug("Error validando JWT en WebSocket: %s", e)
         return AnonymousUser()
@@ -28,20 +39,52 @@ def get_user_from_token(token_str: str):
         return AnonymousUser()
 
 
+@database_sync_to_async
+def get_user_from_ticket(ticket_str: str):
+    """Valida y consume un ticket efímero de uso único para conexión WebSocket."""
+    from django.core.cache import cache
+
+    key = f"ws_ticket_{ticket_str}"
+    user_id = cache.get(key)
+    if not user_id:
+        logger.debug("Ticket de WebSocket inválido o expirado: %s", ticket_str)
+        return AnonymousUser()
+
+    # Consumir inmediatamente (single-use)
+    cache.delete(key)
+
+    try:
+        user = User.objects.get(id=user_id)
+        if not user.is_active:
+            return AnonymousUser()
+        return user
+    except User.DoesNotExist:
+        return AnonymousUser()
+
+
 class JwtAuthMiddleware:
     """
-    Middleware ASGI para Channels que autentica usuarios mediante token JWT
-    pasado preferentemente en cookies seguras o headers de autorización,
-    manteniendo query string (?token=...) como compatibilidad retroactiva.
+    Middleware ASGI para Channels que autentica usuarios mediante ticket efímero
+    (método recomendado / seguro), token JWT pasado en cookies seguras o headers,
+    o query string (?token=...) como compatibilidad retroactiva.
     """
     def __init__(self, app):
         self.app = app
 
     async def __call__(self, scope, receive, send):
         token_str = None
+        ticket_str = None
         headers = dict(scope.get("headers", []))
+        query_string = scope.get("query_string", b"").decode("utf-8")
+        query_params = parse_qs(query_string)
 
-        # 1. Intentar obtener el token desde cookies (HttpOnly / Secure)
+        # 1. Prioridad: Ticket efímero de un solo uso (?ticket=...)
+        if "ticket" in query_params:
+            ticket_str = query_params["ticket"][0]
+            scope["user"] = await get_user_from_ticket(ticket_str)
+            return await self.app(scope, receive, send)
+
+        # 2. Intentar obtener el token desde cookies (HttpOnly / Secure)
         if "cookies" in scope and isinstance(scope["cookies"], dict):
             token_str = (
                 scope["cookies"].get("jwt_access_token")
@@ -61,20 +104,17 @@ class JwtAuthMiddleware:
             except Exception as e:
                 logger.debug("Error analizando cookies en WebSocket: %s", e)
 
-        # 2. Si no viene en cookies, buscar en los headers (Authorization: Bearer ...)
+        # 3. Headers (Authorization: Bearer ...)
         if not token_str and b"authorization" in headers:
             auth_header = headers[b"authorization"].decode("utf-8")
             if auth_header.startswith("Bearer "):
                 token_str = auth_header[7:].strip()
 
-        # 3. Fallback: query string (?token=<token>)
-        if not token_str:
-            query_string = scope.get("query_string", b"").decode("utf-8")
-            query_params = parse_qs(query_string)
-            if "token" in query_params:
-                token_str = query_params["token"][0]
+        # 4. Fallback retroactivo: query string (?token=<token>)
+        if not token_str and "token" in query_params:
+            token_str = query_params["token"][0]
 
-        # 4. Validar token y asignar usuario al scope
+        # 5. Validar token y asignar usuario al scope
         if token_str:
             scope["user"] = await get_user_from_token(token_str)
         else:

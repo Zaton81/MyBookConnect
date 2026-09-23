@@ -42,6 +42,7 @@ class UserSerializer(serializers.ModelSerializer):
         fields = (
             'id', 'username', 'first_name', 'last_name', 'email', 'is_email_verified', 'bio', 'avatar',
             'birth_date', 'location', 'privacy_level',
+            'reading_privacy_level', 'activity_privacy_level', 'allow_messages_from',
             'show_email', 'show_birth_date', 'show_location', 'show_bio',
             'following', 'followers', 'is_editor', 'is_staff', 'is_superuser', 'role',
             'reviews_count', 'books_read_count', 'following_count', 'followers_count',
@@ -84,12 +85,24 @@ class UserSerializer(serializers.ModelSerializer):
         return sanitize_plain_text(value)
 
     def to_representation(self, instance):
-        """Normaliza la URL pública del avatar."""
+        """Normaliza la URL pública del avatar y aplica redacción de privacidad según el visor."""
         ret = super().to_representation(instance)
         request = self.context.get('request') if hasattr(self, 'context') else None
         from books.media_utils import build_media_url
         if instance.avatar:
             ret['avatar'] = build_media_url(instance.avatar, request=request)
+        viewer = request.user if request and request.user.is_authenticated else None
+        if self.context.get('is_self') or (
+            request
+            and (
+                '/auth/' in getattr(request, 'path', '')
+                or '/register/' in getattr(request, 'path', '')
+            )
+            and not viewer
+        ):
+            viewer = instance
+        from users.privacy_service import PrivacyService
+        ret = PrivacyService.apply_profile_field_visibility(viewer, instance, ret)
         return ret
 
     @extend_schema_field(serializers.IntegerField)
