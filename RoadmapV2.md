@@ -686,9 +686,9 @@ non-follower
 
 ---
 
-# 8. FASE 3 — Seguridad de autenticación y autorización
+# 8. FASE 3 — Seguridad de autenticación y autorización [COMPLETADA]
 
-**Prioridad: P0/P1**
+**Prioridad: P0/P1 — COMPLETADA**
 
 ## 8.1. JWT
 
@@ -788,6 +788,18 @@ error responses
 ```
 
 Nunca enviar secretos al frontend.
+
+### Entregable
+`docs/security/auth_security.md` [COMPLETADO]
+
+### Criterio de salida
+- [x] Revocación instantánea de Access Tokens en vuelo mediante marca temporal en Redis (`RevocationCheckingJWTAuthentication`).
+- [x] WebSocket handshake seguro mediante tickets efímeros de uso único (`POST /api/v1/auth/ws-ticket/`).
+- [x] Flujo de verificación de correo con remitente `noreply@mybooksocial.com` configurable por entorno.
+- [x] Google OAuth 2.0 integrado en backend y frontend (Login y Register con `GoogleLoginButton`).
+- [x] Auditoría IDOR y anti-enumeración 404 aplicada en perfiles, listas y lecturas.
+- [x] Cabeceras de seguridad HTTP configuradas (`SECURE_REFERRER_POLICY`, `nosniff`, `DENY`).
+- [x] Suite de pruebas automatizadas en `tests/test_phase03_auth_security.py` (8/8 tests passed).
 
 ---
 

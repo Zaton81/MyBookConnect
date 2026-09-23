@@ -11,6 +11,7 @@ from .auth_views import (
     PasswordResetConfirmView,
     PasswordResetRequestView,
     RevokeAllSessionsView,
+    WebSocketTicketView,
 )
 from .views import (
     BlockUserView,
@@ -62,6 +63,7 @@ urlpatterns = [
     path('email/verify-request/', EmailVerifyRequestView.as_view(), name='email-verify-request'),
     path('email/verify/', EmailVerifyConfirmView.as_view(), name='email-verify-confirm'),
     path('sessions/revoke-all/', RevokeAllSessionsView.as_view(), name='sessions-revoke-all'),
+    path('ws-ticket/', WebSocketTicketView.as_view(), name='ws-ticket'),
     path('google/', GoogleOAuthLoginView.as_view(), name='google-oauth-login'),
     path('profile/', UserProfileView.as_view(), name='profile'),
     path('profile/update/', UserUpdateView.as_view(), name='profile-update'),

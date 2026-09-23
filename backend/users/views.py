@@ -97,8 +97,8 @@ class UserDetailView(generics.RetrieveAPIView):
         user = request.user
 
         if not policies.can_view_profile(user, instance):
-            if instance.blocked_users.filter(id=user.id).exists():
-                return Response({"detail": "No puedes ver este perfil."}, status=status.HTTP_403_FORBIDDEN)
+            if policies.are_mutually_blocked(user, instance):
+                return Response({"detail": "Usuario no encontrado."}, status=status.HTTP_404_NOT_FOUND)
             if instance.privacy_level == 'private':
                 return Response({"detail": "Este perfil es privado."}, status=status.HTTP_403_FORBIDDEN)
             return Response(

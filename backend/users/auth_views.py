@@ -1,12 +1,15 @@
 import json
 import logging
+import secrets
 import urllib.request
 from urllib.error import URLError
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import default_token_generator
+from django.core.cache import cache
 from django.core.mail import send_mail
+from django.utils import timezone
 from drf_spectacular.utils import OpenApiResponse, extend_schema, inline_serializer
 from rest_framework import permissions, serializers, status
 from rest_framework.response import Response
@@ -31,13 +34,15 @@ User = get_user_model()
 
 
 def revoke_user_sessions(user) -> int:
-    """Revoca todas las sesiones activas del usuario añadiendo sus refresh tokens a la lista negra."""
+    """Revoca todas las sesiones activas del usuario añadiendo sus refresh tokens a la lista negra e invalidando access tokens en vuelo."""
     revoked_count = 0
     outstanding = OutstandingToken.objects.filter(user=user)
     for token in outstanding:
         _, created = BlacklistedToken.objects.get_or_create(token=token)
         if created:
             revoked_count += 1
+    # Invalidar inmediatamente access tokens emitidos antes de este timestamp (TTL 7 días)
+    cache.set(f"user_jwt_revoked_at_{user.id}", timezone.now().timestamp(), timeout=7 * 86400)
     return revoked_count
 
 
@@ -45,8 +50,28 @@ class CustomTokenObtainPairView(TokenObtainPairView):
     """
     Inicio de sesión protegido contra ataques de fuerza bruta y credential stuffing.
     Aplica limitación de tasa por IP y combinación IP+usuario mediante LoginRateThrottle.
+    Valida además verificación de correo electrónico si REQUIRE_EMAIL_VERIFICATION está activo.
     """
     throttle_classes = [LoginRateThrottle]
+
+    def post(self, request, *args, **kwargs):
+        response = super().post(request, *args, **kwargs)
+        if response.status_code == 200 and getattr(settings, 'REQUIRE_EMAIL_VERIFICATION', False):
+            username = request.data.get('username')
+            user = (
+                User.objects.filter(username=username).first()
+                or User.objects.filter(email__iexact=username).first()
+            )
+            if user and not user.is_email_verified:
+                return Response(
+                    {
+                        "detail": "Debes verificar tu dirección de correo electrónico antes de iniciar sesión.",
+                        "code": "email_not_verified",
+                        "email": user.email,
+                    },
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+        return response
 
 
 class PasswordChangeView(APIView):
@@ -146,7 +171,7 @@ class PasswordResetRequestView(APIView):
                         f"Haz clic en el siguiente enlace para continuar:\n{reset_link}\n\n"
                         f"Si no has solicitado este cambio, puedes ignorar este mensaje de forma segura."
                     ),
-                    from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@mybookconnect.com'),
+                    from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@mybooksocial.com'),
                     recipient_list=[user.email],
                     fail_silently=True,
                 )
@@ -256,7 +281,7 @@ class EmailVerifyRequestView(APIView):
                     f"Por favor confirma tu dirección de correo haciendo clic en el siguiente enlace:\n{verify_link}\n\n"
                     f"¡Gracias por formar parte de MyBookConnect!"
                 ),
-                from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@mybookconnect.com'),
+                from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@mybooksocial.com'),
                 recipient_list=[user.email],
                 fail_silently=True,
             )
@@ -464,3 +489,34 @@ class GoogleOAuthLoginView(APIView):
             logger.warning("Excepción inesperada validando token de Google: %s", exc)
 
         return None
+
+
+class WebSocketTicketView(APIView):
+    """
+    Genera un ticket efímero de un solo uso para conectar a WebSockets sin exponer el JWT
+    de larga duración en el query string de la URL (RFC 6455 / OWASP WebSocket Security).
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    @extend_schema(
+        summary="Generar ticket efímero para WebSocket",
+        description="Genera un ticket de un solo uso con 60 segundos de validez para conectar a WebSockets sin exponer el JWT en query string.",
+        responses={
+            200: inline_serializer(
+                name="WebSocketTicketResponse",
+                fields={
+                    "ticket": serializers.CharField(),
+                    "expires_in": serializers.IntegerField(),
+                },
+            ),
+        },
+        tags=["Auth"],
+    )
+    def post(self, request):
+        ticket = secrets.token_urlsafe(32)
+        ttl_seconds = 60
+        cache.set(f"ws_ticket_{ticket}", request.user.id, timeout=ttl_seconds)
+        return Response({
+            "ticket": ticket,
+            "expires_in": ttl_seconds,
+        }, status=status.HTTP_200_OK)
