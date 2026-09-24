@@ -254,15 +254,27 @@ class RecommendationExplanationEngine:
         Calcula la similitud semántica coseno contra los libros leídos o favoritos del lector.
         Ejemplo: "Tiene similitud semántica alta con Fundación (88%)"
         """
-        cand_emb = book.embedding
+        def _get_emb(b):
+            try:
+                e = getattr(b, 'embedding', None)
+                if e is not None:
+                    if hasattr(e, 'vector') and isinstance(e.vector, list):
+                        return e.vector
+                    if isinstance(e, list):
+                        return e
+                rec = getattr(b, 'embedding_record', None)
+                if rec is not None and hasattr(rec, 'vector') and isinstance(rec.vector, list):
+                    return rec.vector
+                return None
+            except Exception:
+                return None
+
+        cand_emb = _get_emb(book)
         if not cand_emb or not isinstance(cand_emb, list) or len(cand_emb) == 0:
             return None
 
         user_books = list(
-            UserBook.objects.filter(
-                user=user,
-                book__embedding__isnull=False,
-            )
+            UserBook.objects.filter(user=user)
             .filter(Q(status=ReadingStatus.READ) | Q(rating__gte=4))
             .select_related('book')
         )
@@ -271,7 +283,7 @@ class RecommendationExplanationEngine:
         best_book = None
 
         for entry in user_books:
-            b_emb = entry.book.embedding
+            b_emb = _get_emb(entry.book)
             if b_emb and isinstance(b_emb, list) and len(b_emb) == len(cand_emb):
                 sim = float(cosine_similarity(cand_emb, b_emb))
                 if sim > best_sim:
@@ -310,32 +322,41 @@ class RecommendationExplanationEngine:
 
     def _extract_social_evidence(self, user, book: Book) -> ExplanationBullet | None:
         """
-        Consulta usuarios a los que sigue el lector que hayan leído o calificado este libro.
+        Consulta usuarios a los que sigue el lector que hayan leído o calificado este libro,
+        filtrando estrictamente usuarios bloqueados o con perfiles/bibliotecas privadas.
         Ejemplo: "3 usuarios que sigues lo han leído (@amigo1, @amigo2)"
         """
         followed_users = list(user.following.all()[:50])
         if not followed_users:
             return None
 
-        readers = list(
-            User.objects.filter(
-                id__in=[u.id for u in followed_users],
-                user_books__book=book,
-                user_books__status=ReadingStatus.READ,
+        from users.policies import filter_visible_user_books
+        followed_ids = [u.id for u in followed_users]
+
+        # Primero probar con libros completados (READ)
+        visible_ubs_read = filter_visible_user_books(
+            user,
+            UserBook.objects.filter(
+                user_id__in=followed_ids,
+                book=book,
+                status=ReadingStatus.READ,
             )
-            .distinct()[:5]
         )
+        read_user_ids = list(visible_ubs_read.values_list('user_id', flat=True).distinct()[:5])
+        readers = list(User.objects.filter(id__in=read_user_ids))
 
         count = len(readers)
         if count == 0:
-            # Probar si lo tienen en cualquier estado de lectura
-            readers = list(
-                User.objects.filter(
-                    id__in=[u.id for u in followed_users],
-                    user_books__book=book,
+            # Probar si lo tienen en cualquier estado de lectura visible
+            visible_ubs_any = filter_visible_user_books(
+                user,
+                UserBook.objects.filter(
+                    user_id__in=followed_ids,
+                    book=book,
                 )
-                .distinct()[:5]
             )
+            any_user_ids = list(visible_ubs_any.values_list('user_id', flat=True).distinct()[:5])
+            readers = list(User.objects.filter(id__in=any_user_ids))
             count = len(readers)
 
         if count > 0:

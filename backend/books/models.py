@@ -556,6 +556,7 @@ class RecommendationFeedbackAction(models.TextChoices):
     READING_STARTED = 'reading_started', 'Lectura iniciada'
     READING_FINISHED = 'reading_finished', 'Lectura finalizada'
     RATED = 'rated', 'Valorado'
+    DISMISSED = 'dismissed', 'Descartado'
 
 
 class RecommendationFeedback(models.Model):

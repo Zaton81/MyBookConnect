@@ -119,13 +119,16 @@ def get_recommendation_metrics(
     started = action_counts.get(RecommendationFeedbackAction.READING_STARTED, 0)
     finished = action_counts.get(RecommendationFeedbackAction.READING_FINISHED, 0)
     rated = action_counts.get(RecommendationFeedbackAction.RATED, 0)
+    dismissed = action_counts.get(RecommendationFeedbackAction.DISMISSED, 0)
 
     # Ratios (en porcentaje redondeado a 2 decimales)
     ctr = round((clicked / shown) * 100.0, 2) if shown > 0 else 0.0
+    open_rate = round((opened / shown) * 100.0, 2) if shown > 0 else 0.0
     wishlist_rate = round((wishlist / shown) * 100.0, 2) if shown > 0 else 0.0
     start_rate = round((started / shown) * 100.0, 2) if shown > 0 else 0.0
     completion_rate = round((finished / started) * 100.0, 2) if started > 0 else 0.0
     rating_rate = round((rated / shown) * 100.0, 2) if shown > 0 else 0.0
+    dismiss_rate = round((dismissed / shown) * 100.0, 2) if shown > 0 else 0.0
 
     # Desglose por estrategia
     strategy_groups = (
@@ -133,9 +136,11 @@ def get_recommendation_metrics(
         .annotate(
             shown_count=Count('id', filter=Q(action=RecommendationFeedbackAction.RECOMMENDATION_SHOWN)),
             clicked_count=Count('id', filter=Q(action=RecommendationFeedbackAction.RECOMMENDATION_CLICKED)),
+            opened_count=Count('id', filter=Q(action=RecommendationFeedbackAction.BOOK_OPENED)),
             wishlist_count=Count('id', filter=Q(action=RecommendationFeedbackAction.WISHLIST_ADDED)),
             started_count=Count('id', filter=Q(action=RecommendationFeedbackAction.READING_STARTED)),
             finished_count=Count('id', filter=Q(action=RecommendationFeedbackAction.READING_FINISHED)),
+            dismissed_count=Count('id', filter=Q(action=RecommendationFeedbackAction.DISMISSED)),
         )
         .order_by('-shown_count')
     )
@@ -145,12 +150,16 @@ def get_recommendation_metrics(
         s_name = item['strategy'] or 'unknown'
         s_shown = item['shown_count']
         s_clicked = item['clicked_count']
+        s_dismissed = item['dismissed_count']
         s_ctr = round((s_clicked / s_shown) * 100.0, 2) if s_shown > 0 else 0.0
+        s_dismiss_rate = round((s_dismissed / s_shown) * 100.0, 2) if s_shown > 0 else 0.0
         by_strategy.append({
             'strategy': s_name,
             'shown': s_shown,
             'clicked': s_clicked,
             'ctr': s_ctr,
+            'dismissed': s_dismissed,
+            'dismiss_rate': s_dismiss_rate,
             'wishlist_added': item['wishlist_count'],
             'reading_started': item['started_count'],
             'reading_finished': item['finished_count'],
@@ -162,6 +171,7 @@ def get_recommendation_metrics(
         .annotate(
             shown_count=Count('id', filter=Q(action=RecommendationFeedbackAction.RECOMMENDATION_SHOWN)),
             clicked_count=Count('id', filter=Q(action=RecommendationFeedbackAction.RECOMMENDATION_CLICKED)),
+            dismissed_count=Count('id', filter=Q(action=RecommendationFeedbackAction.DISMISSED)),
         )
         .order_by('-shown_count')
     )
@@ -171,12 +181,16 @@ def get_recommendation_metrics(
         v_name = item['algorithm_version'] or 'unknown'
         v_shown = item['shown_count']
         v_clicked = item['clicked_count']
+        v_dismissed = item['dismissed_count']
         v_ctr = round((v_clicked / v_shown) * 100.0, 2) if v_shown > 0 else 0.0
+        v_dismiss_rate = round((v_dismissed / v_shown) * 100.0, 2) if v_shown > 0 else 0.0
         by_version.append({
             'version': v_name,
             'shown': v_shown,
             'clicked': v_clicked,
             'ctr': v_ctr,
+            'dismissed': v_dismissed,
+            'dismiss_rate': v_dismiss_rate,
         })
 
     # Libros con mayor interacción positiva (clicks + conversiones)
@@ -211,15 +225,21 @@ def get_recommendation_metrics(
             'reading_started': started,
             'reading_finished': finished,
             'rated': rated,
+            'dismissed': dismissed,
         },
         'kpis': {
             'ctr': ctr,
+            'open_rate': open_rate,
             'wishlist_rate': wishlist_rate,
             'start_rate': start_rate,
             'completion_rate': completion_rate,
             'rating_rate': rating_rate,
+            'dismiss_rate': dismiss_rate,
         },
         'by_strategy': by_strategy,
         'by_version': by_version,
         'top_books': top_books,
     }
+
+
+get_feedback_metrics = get_recommendation_metrics
