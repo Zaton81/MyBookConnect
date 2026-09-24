@@ -14,7 +14,11 @@ from rest_framework import permissions, serializers, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from ai.policies import AIPolicyViolationError, AIRateLimitExceededError
+from ai.policies import (
+    AIPolicyViolationError,
+    AIRateLimitExceededError,
+    validate_forbidden_client_parameters,
+)
 from ai.services import (
     execute_assistant_tool,
     get_ai_status,
@@ -102,21 +106,35 @@ class AIAssistantView(APIView):
         :param request: Objeto HttpRequest con messages y contextBookId opcional en el cuerpo.
         :return: Response con el mensaje del asistente, modelo y metadatos de disponibilidad.
         """
-        messages = request.data.get('messages', [])
-        book_id = request.data.get('book_id')
-
         try:
+            # Validación estricta contra inyección de parámetros de control del modelo (Sección 10.2)
+            validate_forbidden_client_parameters(request.data)
+
+            messages = request.data.get('messages', [])
+            book_id = request.data.get('book_id')
+            req_id = request.headers.get('X-Request-ID')
+
             reply_data = get_assistant_reply(
                 user=request.user,
                 raw_messages=messages,
                 book_id=book_id,
+                request_id=req_id,
             )
-            return Response(reply_data, status=status.HTTP_200_OK)
+            response = Response(reply_data, status=status.HTTP_200_OK)
+            if 'request_id' in reply_data:
+                response['X-Request-ID'] = reply_data['request_id']
+            return response
         except AIRateLimitExceededError as rate_err:
-            return Response(
-                {'detail': str(rate_err)},
+            response = Response(
+                {
+                    'detail': str(rate_err),
+                    'window': getattr(rate_err, 'window', 'minute'),
+                    'retry_after': getattr(rate_err, 'retry_after', 60),
+                },
                 status=status.HTTP_429_TOO_MANY_REQUESTS,
             )
+            response['Retry-After'] = str(getattr(rate_err, 'retry_after', 60))
+            return response
         except AIPolicyViolationError as policy_err:
             return Response(
                 {'detail': str(policy_err)},

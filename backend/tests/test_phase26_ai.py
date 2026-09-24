@@ -75,7 +75,7 @@ class TestPhase26AIArchitecture:
         assert isinstance(fallback_p, OllamaProvider)
 
     # ─── 2. Clientes y Llamadas Mockeadas ───
-    @patch('requests.post')
+    @patch('requests.Session.post')
     def test_ollama_provider_chat_success(self, mock_post):
         """Verifica una respuesta exitosa de chat en OllamaProvider."""
         mock_response = MagicMock()
@@ -93,7 +93,7 @@ class TestPhase26AIArchitecture:
         assert 'laberinto' in result['content']
         assert result['provider'] == 'ollama'
 
-    @patch('requests.post')
+    @patch('requests.Session.post')
     def test_openai_provider_headers(self, mock_post):
         """Verifica que OpenAIProvider incluya la cabecera Bearer con la API Key."""
         mock_response = MagicMock()

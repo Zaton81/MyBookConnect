@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     'users.apps.UsersConfig',
     'books',
     'messages_app.apps.MessagesConfig',
+    'ai.apps.AIConfig',
 ]
 
 AUTH_USER_MODEL = 'users.User'
@@ -336,4 +337,18 @@ LOGGING = {
         },
     },
 }
+
+# ─── Configuración del Subsistema de Inteligencia Artificial (Fase 5 - RoadmapV2) ───
+AI_ENABLED = os.environ.get('AI_ENABLED', 'true').lower() in ('true', '1', 'yes')
+AI_PROVIDER = os.environ.get('AI_PROVIDER', 'ollama')
+AI_API_BASE_URL = os.environ.get('AI_API_BASE_URL', 'http://localhost:11434/v1')
+AI_API_KEY = os.environ.get('AI_API_KEY', 'ollama')
+AI_MODEL_CHAT = os.environ.get('AI_MODEL_CHAT', 'llama3.2')
+AI_MODEL_EMBEDDINGS = os.environ.get('AI_MODEL_EMBEDDINGS', 'nomic-embed-text')
+AI_TIMEOUT = int(os.environ.get('AI_TIMEOUT', '15'))
+
+# Rate limiting multinivel en Redis (Fase 5 - Sección 10.4)
+AI_RATE_LIMIT_PER_MINUTE = int(os.environ.get('AI_RATE_LIMIT_PER_MINUTE', '20'))
+AI_RATE_LIMIT_PER_HOUR = int(os.environ.get('AI_RATE_LIMIT_PER_HOUR', '100'))
+AI_RATE_LIMIT_PER_DAY = int(os.environ.get('AI_RATE_LIMIT_PER_DAY', '500'))
 

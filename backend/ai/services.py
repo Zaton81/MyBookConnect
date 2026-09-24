@@ -1,17 +1,22 @@
 """
 Servicios de alto nivel para interacción conversacional, análisis y búsqueda semántica con IA.
+Incluye persistencia de presupuesto y observabilidad (AIUsageLog) y blindaje contra inyección.
 """
 
 import logging
+import uuid
 from typing import Any
 
 from django.db.models import Q
 
 from ai.clients.factory import get_ai_provider
+from ai.models import AIUsageLog
 from ai.policies import (
     AIRateLimitExceededError,
     check_ai_rate_limit,
+    check_ai_rate_limit_detailed,
     detect_prompt_injection,
+    sanitize_book_context,
     validate_and_sanitize_chat_messages,
 )
 from ai.prompts import build_assistant_system_prompt, build_book_summary_prompt
@@ -43,23 +48,32 @@ def get_assistant_reply(
     user: Any,
     raw_messages: list[dict[str, Any]],
     book_id: int | None = None,
+    request_id: str | None = None,
 ) -> dict[str, Any]:
     """
     Orquesta la conversación con el asistente literario BookAI, aplicando validación
-    de políticas, contextualización de lecturas del usuario y fallback en caso de desconexión.
+    de políticas, contextualización de lecturas del usuario, auditoría de consumo y fallback.
 
     :param user: Instancia del usuario autenticado.
     :param raw_messages: Lista de mensajes recibida desde el frontend.
     :param book_id: ID opcional de libro sobre el que se formula la consulta.
+    :param request_id: Identificador correlativo de la petición.
     :return: Diccionario con la respuesta del asistente, metadatos y estado de disponibilidad.
     """
-    # 0. Verificación de Rate Limiting
+    req_id = request_id or str(uuid.uuid4())
+
+    # 0. Verificación de Rate Limiting multinivel (Sección 10.4)
     if not check_ai_rate_limit(user):
+        _, window_name, retry_after = check_ai_rate_limit_detailed(user)
+        win = window_name or 'minute'
+        ttl = retry_after or 60
         raise AIRateLimitExceededError(
-            "Has superado el límite de consultas por minuto. Por favor, espera un momento antes de volver a consultar."
+            f"Has superado el límite de consultas permitidas ({win}). Por favor, espera antes de reintentar.",
+            window=win,
+            retry_after=ttl,
         )
 
-    # 1. Validación y sanitización estricta
+    # 1. Validación y sanitización estricta del historial
     sanitized_messages = validate_and_sanitize_chat_messages(raw_messages)
 
     # 1.1 Detección defensiva de inyección en el último mensaje de usuario
@@ -74,12 +88,14 @@ def get_assistant_reply(
             break
 
     # 2. Recopilación de contexto de biblioteca del usuario
-    recent_read = (
-        UserBook.objects.filter(user=user, is_read=True)
-        .select_related('book')
-        .order_by('-updated_at')[:5]
-    )
-    read_titles = [ub.book.title for ub in recent_read if ub.book]
+    read_titles: list[str] = []
+    if user and getattr(user, 'is_authenticated', False):
+        recent_read = (
+            UserBook.objects.filter(user=user, is_read=True)
+            .select_related('book')
+            .order_by('-updated_at')[:5]
+        )
+        read_titles = [ub.book.title for ub in recent_read if ub.book]
 
     current_book_info = None
     if book_id:
@@ -88,12 +104,13 @@ def get_assistant_reply(
             current_book_info = {
                 'title': book.title,
                 'author_name': book.author.name if book.author else 'desconocido',
-                'description': book.description or '',
+                'description': sanitize_book_context(book.description or ''),
             }
 
     # 3. Construcción del system prompt
+    username_str = user.username if (user and hasattr(user, 'username')) else 'lector'
     system_prompt = build_assistant_system_prompt(
-        username=user.username if hasattr(user, 'username') else 'lector',
+        username=username_str,
         recent_read_titles=read_titles,
         current_book_info=current_book_info,
     )
@@ -107,17 +124,38 @@ def get_assistant_reply(
         max_tokens=800,
     )
 
-    # 5. Fallback asistido en caso de que el proveedor esté offline
-    if not ai_response.get("success"):
+    # 5. Auditoría y registro de presupuesto (Sección 10.5)
+    p_tokens = ai_response.get("prompt_tokens", 0)
+    c_tokens = ai_response.get("completion_tokens", 0)
+    dur_ms = ai_response.get("duration_ms", 0)
+    success = ai_response.get("success", False)
+    err_msg = ai_response.get("error", "")
+
+    try:
+        AIUsageLog.log_usage(
+            user=user,
+            request_id=req_id,
+            provider=ai_response.get("provider", provider.name),
+            model=ai_response.get("model", provider.model_chat),
+            prompt_tokens=p_tokens,
+            completion_tokens=c_tokens,
+            duration_ms=dur_ms,
+            success=success,
+            error=err_msg,
+        )
+    except Exception as log_exc:
+        logger.error("Error al registrar auditoría de IA: %s", log_exc)
+
+    # 6. Fallback asistido en caso de que el proveedor esté offline o falle
+    if not success:
         suggested_books = Book.objects.all().order_by('-average_rating')[:3]
         fallback_titles = [
             f"**{b.title}** ({b.author.name if b.author else 'Varios'})"
             for b in suggested_books
         ]
 
-        uname = user.username if hasattr(user, 'username') else 'amigo lector'
         fallback_content = (
-            f"¡Hola {uname}! Actualmente el motor neuronal de IA ({provider.name}) no se encuentra activo.\n\n"
+            f"¡Hola {username_str}! Actualmente el motor neuronal de IA ({provider.name}) no se encuentra activo.\n\n"
             f"Mientras se restablece la conexión, te sugerimos estas obras destacadas de nuestra biblioteca:\n"
             + "\n".join([f"- {t}" for t in fallback_titles])
         )
@@ -129,6 +167,7 @@ def get_assistant_reply(
             "provider": f"{provider.name}-fallback",
             "model": "rule-based",
             "ai_online": False,
+            "request_id": req_id,
         }
 
     return {
@@ -139,21 +178,32 @@ def get_assistant_reply(
         "provider": ai_response.get("provider", provider.name),
         "model": ai_response.get("model", provider.model_chat),
         "ai_online": True,
+        "request_id": req_id,
+        "usage": {
+            "prompt_tokens": p_tokens,
+            "completion_tokens": c_tokens,
+            "total_tokens": ai_response.get("total_tokens", p_tokens + c_tokens),
+            "duration_ms": dur_ms,
+        },
     }
 
 
-def get_book_ai_summary(book: Book) -> dict[str, Any]:
+def get_book_ai_summary(book: Book, request_id: str | None = None) -> dict[str, Any]:
     """
-    Genera un análisis y síntesis temática del libro vía IA con fallback determinista.
+    Genera un análisis y síntesis temática del libro vía IA con fallback determinista y auditoría.
 
     :param book: Instancia del modelo Book a analizar.
-    :return: Diccionario con 'summary' y 'ai_online'.
+    :param request_id: Identificador correlativo de la petición.
+    :return: Diccionario con 'summary', 'ai_online' y metadatos.
     """
+    req_id = request_id or str(uuid.uuid4())
     author_name = book.author.name if book.author else 'Desconocido'
+    clean_desc = sanitize_book_context(book.description or '')
+
     prompt = build_book_summary_prompt(
         title=book.title,
         author_name=author_name,
-        description=book.description,
+        description=clean_desc,
     )
 
     provider = get_ai_provider()
@@ -164,11 +214,32 @@ def get_book_ai_summary(book: Book) -> dict[str, Any]:
         max_tokens=500,
     )
 
-    if response.get("success"):
+    p_tokens = response.get("prompt_tokens", 0)
+    c_tokens = response.get("completion_tokens", 0)
+    dur_ms = response.get("duration_ms", 0)
+    success = response.get("success", False)
+
+    try:
+        AIUsageLog.log_usage(
+            user=None,
+            request_id=req_id,
+            provider=response.get("provider", provider.name),
+            model=response.get("model", provider.model_chat),
+            prompt_tokens=p_tokens,
+            completion_tokens=c_tokens,
+            duration_ms=dur_ms,
+            success=success,
+            error=response.get("error", ""),
+        )
+    except Exception as log_exc:
+        logger.error("Error al registrar auditoría de resumen de IA: %s", log_exc)
+
+    if success:
         return {
             "summary": response["content"],
             "ai_online": True,
             "provider": provider.name,
+            "request_id": req_id,
         }
 
     # Fallback determinista
@@ -183,6 +254,7 @@ def get_book_ai_summary(book: Book) -> dict[str, Any]:
         "summary": fallback,
         "ai_online": False,
         "provider": "rule-based",
+        "request_id": req_id,
     }
 
 
@@ -244,7 +316,7 @@ def execute_assistant_tool(
 ) -> dict[str, Any]:
     """
     Despacha la ejecución segura de una herramienta solicitada por el asistente de IA
-    validando permisos en el backend.
+    validando permisos y límites en el backend.
 
     :param user: Instancia del usuario autenticado.
     :param tool_name: Nombre de la herramienta a invocar (ej: 'catalog_search').

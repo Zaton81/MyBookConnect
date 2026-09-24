@@ -1,12 +1,15 @@
 """
 Clase base para herramientas ejecutables del asistente de IA (AITool).
 
-Define el contrato para Function Calling seguro mediado exclusivamente por el backend.
+Define el contrato para Function Calling seguro mediado exclusivamente por el backend,
+con autorización estricta, timeout, rate limit por herramienta y auditoría (Sección 10.7).
 """
 
 import logging
 from abc import ABC, abstractmethod
 from typing import Any
+
+from django.core.cache import cache
 
 logger = logging.getLogger(__name__)
 
@@ -18,6 +21,11 @@ class ToolExecutionError(Exception):
 
 class ToolPermissionDeniedError(ToolExecutionError):
     """Excepción lanzada cuando el usuario carece de permisos para invocar la herramienta."""
+    pass
+
+
+class ToolRateLimitExceededError(ToolExecutionError):
+    """Excepción lanzada cuando una herramienta específica supera su límite de invocaciones."""
     pass
 
 
@@ -54,6 +62,16 @@ class AITool(ABC):
         """Rol requerido opcional ('staff', 'editor', None)."""
         return None
 
+    @property
+    def timeout(self) -> int:
+        """Tiempo límite de ejecución en segundos para esta herramienta."""
+        return 5
+
+    @property
+    def rate_limit_per_minute(self) -> int:
+        """Número máximo de ejecuciones permitidas por usuario en un minuto."""
+        return 30
+
     def validate_permissions(self, user: Any) -> None:
         """
         Comprueba que el usuario tenga los permisos necesarios antes de ejecutar la herramienta.
@@ -78,6 +96,58 @@ class AITool(ABC):
                 raise ToolPermissionDeniedError(
                     f"La herramienta '{self.name}' requiere rol de editor o staff."
                 )
+
+    def check_rate_limit(self, user: Any) -> None:
+        """
+        Verifica el límite de invocaciones por minuto específico para esta herramienta.
+
+        :param user: Usuario autenticado.
+        :raises ToolRateLimitExceededError: Si supera la cuota permitida.
+        """
+        user_id = getattr(user, 'id', None)
+        if not user_id:
+            return
+
+        cache_key = f"ai:tool:ratelimit:{self.name}:{user_id}"
+        try:
+            is_new = cache.add(cache_key, 1, timeout=60)
+            if not is_new:
+                count = cache.incr(cache_key)
+                if count > self.rate_limit_per_minute:
+                    raise ToolRateLimitExceededError(
+                        f"Límite de invocaciones excedido para la herramienta '{self.name}'. "
+                        f"Máximo {self.rate_limit_per_minute} por minuto."
+                    )
+        except ToolRateLimitExceededError:
+            raise
+        except Exception:
+            # Tolerancia ante fallos temporales de caché
+            pass
+
+    def audit(
+        self,
+        user: Any,
+        arguments: dict[str, Any],
+        result: dict[str, Any] | None,
+        duration_ms: int,
+        success: bool,
+        error: str = '',
+    ) -> None:
+        """
+        Registra la traza de auditoría de la ejecución de la herramienta.
+        """
+        user_name = getattr(user, 'username', 'anon')
+        status_str = "SUCCESS" if success else "FAILED"
+        logger.info(
+            "AI Tool Audit: [%s] tool=%s user=%s duration=%sms success=%s args=%s err=%s",
+            status_str,
+            self.name,
+            user_name,
+            duration_ms,
+            success,
+            list(arguments.keys()),
+            error,
+        )
 
     @abstractmethod
     def execute(self, user: Any, **kwargs: Any) -> dict[str, Any]:
