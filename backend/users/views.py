@@ -31,19 +31,17 @@ class UserProfileView(generics.RetrieveAPIView):
         return self.request.user
 
     def retrieve(self, request, *args, **kwargs):
-        from django.core.cache import cache
-
-        from books.cache_utils import TTL_USER_PROFILE, user_profile_key
+        from books.cache_utils import TTL_USER_PROFILE, safe_cache_get, safe_cache_set, user_profile_key
 
         cache_key = user_profile_key(request.user.id)
-        cached_data = cache.get(cache_key)
+        cached_data = safe_cache_get(cache_key)
         if cached_data is not None:
             return Response(cached_data)
 
         instance = self.get_object()
         serializer = self.get_serializer(instance)
         data = serializer.data
-        cache.set(cache_key, data, timeout=TTL_USER_PROFILE)
+        safe_cache_set(cache_key, data, timeout=TTL_USER_PROFILE)
         return Response(data)
 
 
@@ -57,8 +55,9 @@ class UserUpdateView(generics.UpdateAPIView):
     def perform_update(self, serializer):
         with transaction.atomic():
             instance = serializer.save()
-            from books.cache_utils import invalidate_user_profile_cache
+            from books.cache_utils import cascade_privacy_invalidation, invalidate_user_profile_cache
             invalidate_user_profile_cache(instance.id)
+            cascade_privacy_invalidation(instance.id)
 
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop('partial', False)
@@ -160,10 +159,8 @@ class FollowUserView(APIView):
                 target_user=user_to_follow,
             )
 
-            from books.cache_utils import invalidate_user_profile_cache, invalidate_user_recommendations_cache
-            invalidate_user_profile_cache(request.user.id)
-            invalidate_user_profile_cache(user_to_follow.id)
-            invalidate_user_recommendations_cache(request.user.id)
+            from books.cache_utils import cascade_follow_invalidation
+            cascade_follow_invalidation(request.user.id, user_to_follow.id)
 
         return Response({"detail": f"Ahora sigues a {user_to_follow.username}"}, status=status.HTTP_200_OK)
 
@@ -185,10 +182,8 @@ class UnfollowUserView(APIView):
         user_to_unfollow = get_object_or_404(User, id=user_id)
         with transaction.atomic():
             request.user.following.remove(user_to_unfollow)
-            from books.cache_utils import invalidate_user_profile_cache, invalidate_user_recommendations_cache
-            invalidate_user_profile_cache(request.user.id)
-            invalidate_user_profile_cache(user_to_unfollow.id)
-            invalidate_user_recommendations_cache(request.user.id)
+            from books.cache_utils import cascade_follow_invalidation
+            cascade_follow_invalidation(request.user.id, user_to_unfollow.id)
         return Response({"detail": f"Dejaste de seguir a {user_to_unfollow.username}"}, status=status.HTTP_200_OK)
 
 

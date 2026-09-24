@@ -49,19 +49,27 @@ class ObservabilityMetricsService:
         try:
             cache.incr(f"{cls.METRICS_PREFIX}:requests_total", 1)
         except Exception:
-            # Si no existe la clave para incr, inicializar
-            cache.set(f"{cls.METRICS_PREFIX}:requests_total", 1, timeout=86400)
+            try:
+                cache.set(f"{cls.METRICS_PREFIX}:requests_total", 1, timeout=86400)
+            except Exception:
+                pass
 
         if status_code >= 500:
             try:
                 cache.incr(f"{cls.METRICS_PREFIX}:requests_5xx", 1)
             except Exception:
-                cache.set(f"{cls.METRICS_PREFIX}:requests_5xx", 1, timeout=86400)
+                try:
+                    cache.set(f"{cls.METRICS_PREFIX}:requests_5xx", 1, timeout=86400)
+                except Exception:
+                    pass
         elif status_code >= 400:
             try:
                 cache.incr(f"{cls.METRICS_PREFIX}:requests_4xx", 1)
             except Exception:
-                cache.set(f"{cls.METRICS_PREFIX}:requests_4xx", 1, timeout=86400)
+                try:
+                    cache.set(f"{cls.METRICS_PREFIX}:requests_4xx", 1, timeout=86400)
+                except Exception:
+                    pass
 
         # Muestreo circular de latencias en caché
         try:
@@ -80,7 +88,10 @@ class ObservabilityMetricsService:
         try:
             cache.incr(f"{cls.METRICS_PREFIX}:db_queries_total", db_queries)
         except Exception:
-            cache.set(f"{cls.METRICS_PREFIX}:db_queries_total", db_queries, timeout=86400)
+            try:
+                cache.set(f"{cls.METRICS_PREFIX}:db_queries_total", db_queries, timeout=86400)
+            except Exception:
+                pass
 
     @classmethod
     def record_celery_failure(cls, task_name: str = 'unknown') -> None:

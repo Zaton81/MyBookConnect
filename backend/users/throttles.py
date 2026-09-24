@@ -1,7 +1,7 @@
-from rest_framework.throttling import AnonRateThrottle, SimpleRateThrottle
+from mybookconnect.throttling import ResilientAnonRateThrottle, ResilientSimpleRateThrottle
 
 
-class AuthAnonRateThrottle(AnonRateThrottle):
+class AuthAnonRateThrottle(ResilientAnonRateThrottle):
     """
     Limitador estricto para operaciones de autenticación anónimas (registro, solicitud de tokens).
     Previene abusos de scraping o creación masiva de cuentas.
@@ -9,7 +9,7 @@ class AuthAnonRateThrottle(AnonRateThrottle):
     scope = 'auth_anon'
 
 
-class LoginRateThrottle(SimpleRateThrottle):
+class LoginRateThrottle(ResilientSimpleRateThrottle):
     """
     Limitador de velocidad para intentos de inicio de sesión (/api/v1/auth/token/).
     Mitiga ataques de fuerza bruta, adivinación de contraseñas y credential stuffing.
@@ -32,7 +32,7 @@ class LoginRateThrottle(SimpleRateThrottle):
         }
 
 
-class PasswordResetRateThrottle(SimpleRateThrottle):
+class PasswordResetRateThrottle(ResilientSimpleRateThrottle):
     """
     Limitador de velocidad para solicitudes de restablecimiento de contraseña.
     Evita bombardeo de correos y saturación de la pasarela SMTP.

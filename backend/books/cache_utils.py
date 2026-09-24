@@ -1,18 +1,52 @@
+import hashlib
 import logging
 import re
+import time
+from typing import Any, Callable
 
 from django.core.cache import cache
 
 logger = logging.getLogger(__name__)
 
-# TTLs estandarizados en segundos
+# TTLs estandarizados en segundos (Fase 8 - 13.2)
 TTL_BOOK_DETAIL = 900          # 15 minutos
+TTL_USER_PROFILE = 900         # 15 minutos
+TTL_RECOMMENDATIONS = 900      # 15 minutos
+TTL_FEED = 300                 # 5 minutos
+TTL_SEARCH = 300               # 5 minutos
 TTL_TRENDING = 900             # 15 minutos
 TTL_STATS = 900                # 15 minutos
-TTL_RECOMMENDATIONS = 900      # 15 minutos
-TTL_USER_PROFILE = 900         # 15 minutos
 TTL_EXTERNAL_API = 86400       # 24 horas
 TTL_WIKIPEDIA_AUTHOR = 172800  # 48 horas
+
+
+def safe_cache_get(key: str, default: Any = None) -> Any:
+    """Acceso defensivo a caché; si Redis falla, no lanza excepción y retorna default (13.5)."""
+    try:
+        return cache.get(key, default)
+    except Exception as exc:
+        logger.warning(f"Fallo de Redis en safe_cache_get({key}): {exc}")
+        return default
+
+
+def safe_cache_set(key: str, value: Any, timeout: int | None = None) -> bool:
+    """Escritura defensiva en caché; si Redis falla, registra warning sin romper ejecución (13.5)."""
+    try:
+        cache.set(key, value, timeout=timeout)
+        return True
+    except Exception as exc:
+        logger.warning(f"Fallo de Redis en safe_cache_set({key}): {exc}")
+        return False
+
+
+def safe_cache_delete(key: str) -> bool:
+    """Borrado defensivo en caché; si Redis falla, continúa sin interrumpir el flujo (13.5)."""
+    try:
+        cache.delete(key)
+        return True
+    except Exception as exc:
+        logger.warning(f"Fallo de Redis en safe_cache_delete({key}): {exc}")
+        return False
 
 
 def _sanitize_key_part(value: str) -> str:
@@ -194,5 +228,150 @@ def cascade_review_invalidation(book_id: int | str, user_id: int | str) -> None:
         logger.debug(f"Cascada de invalidación completada para review (libro={book_id}, user={user_id})")
     except Exception as exc:
         logger.warning(f"Error en cascada de invalidación de reseña: {exc}")
+
+
+def feed_cache_key(user_id: int | str) -> str:
+    """Namespace de feed social de usuario (13.1): feed:{user_id}"""
+    return f"feed:{user_id}"
+
+
+def invalidate_feed_cache(user_id: int | str) -> None:
+    """Invalida la caché del feed social de un usuario."""
+    safe_cache_delete(feed_cache_key(user_id))
+
+
+def search_cache_key(query: str, mode: str = 'hybrid', page: int = 1) -> str:
+    """Namespace de búsqueda unificada (13.1): search:{query_hash}:{mode}:{page}"""
+    norm = query.strip().lower().encode('utf-8')
+    q_hash = hashlib.sha256(norm).hexdigest()[:16]
+    return f"search:{q_hash}:{_sanitize_key_part(mode)}:{page}"
+
+
+def invalidate_search_cache(query: str | None = None) -> None:
+    """
+    Invalida caché de búsqueda para una query específica o limpia versiones de búsqueda.
+    """
+    if query:
+        for m in ('hybrid', 'text', 'fuzzy', 'semantic'):
+            for p in range(1, 5):
+                safe_cache_delete(search_cache_key(query, mode=m, page=p))
+
+
+def cascade_follow_invalidation(follower_id: int | str, following_id: int | str) -> None:
+    """
+    Cascada reactiva ante creación o eliminación de relación de seguimiento (13.3):
+    - Invalida feed del seguidor
+    - Invalida perfil del seguidor y del seguido
+    - Invalida recomendaciones sociales del seguidor
+    """
+    try:
+        invalidate_feed_cache(follower_id)
+        invalidate_user_profile_cache(follower_id)
+        invalidate_user_profile_cache(following_id)
+        invalidate_user_recommendations_cache(follower_id)
+        logger.debug(f"Cascada de seguimiento completada (follower={follower_id}, following={following_id})")
+    except Exception as exc:
+        logger.warning(f"Error en cascada de invalidación de follow: {exc}")
+
+
+def cascade_privacy_invalidation(user_id: int | str) -> None:
+    """
+    Cascada reactiva ante cambio de privacidad de usuario (13.3):
+    - Invalida perfil y stats del usuario
+    - Invalida recomendaciones del usuario
+    - Invalida feed del usuario
+    """
+    try:
+        invalidate_user_profile_cache(user_id)
+        invalidate_user_recommendations_cache(user_id)
+        invalidate_feed_cache(user_id)
+        logger.debug(f"Cascada de privacidad completada para user={user_id}")
+    except Exception as exc:
+        logger.warning(f"Error en cascada de invalidación de privacidad: {exc}")
+
+
+def cascade_reading_status_invalidation(user_id: int | str, book_id: int | str) -> None:
+    """
+    Cascada reactiva ante mutación de estado de lectura en UserBook (13.3):
+    - Invalida perfil del usuario
+    - Invalida recomendaciones del usuario y vectores derivados
+    - Invalida estadísticas del usuario
+    - Invalida detalle del libro (contadores de lecturas)
+    - Invalida feed del usuario
+    """
+    try:
+        invalidate_user_profile_cache(user_id)
+        invalidate_user_recommendations_cache(user_id)
+        invalidate_user_stats_cache(user_id)
+        invalidate_book_cache(book_id)
+        invalidate_feed_cache(user_id)
+        logger.debug(f"Cascada de lectura completada (user={user_id}, book={book_id})")
+    except Exception as exc:
+        logger.warning(f"Error en cascada de invalidación de reading status: {exc}")
+
+
+def cascade_book_invalidation(book_id: int | str) -> None:
+    """
+    Cascada reactiva ante actualización de metadatos de un libro (13.3):
+    - Invalida caché de detalle de libro
+    - Invalida rankings de tendencias
+    - Invalida recomendaciones contextuales del libro
+    """
+    try:
+        invalidate_book_cache(book_id)
+        invalidate_book_recommendations_cache(book_id)
+        invalidate_trending_cache()
+        logger.debug(f"Cascada de libro completada para book={book_id}")
+    except Exception as exc:
+        logger.warning(f"Error en cascada de invalidación de libro: {exc}")
+
+
+def get_or_set_stampede_protected(
+    key: str,
+    fetch_fn: Callable[[], Any],
+    ttl: int = 900,
+    lock_timeout: int = 10,
+) -> Any:
+    """
+    Protección contra avalancha o estampida de caché (Cache Stampede Protection - 13.4).
+    Implementa el patrón Mutex distribuido con double-checked locking:
+    Si la clave no existe, un único hilo/proceso adquiere el lock para calcular el resultado,
+    mientras los demás esperan un breve intervalo para leer el valor recién cacheado.
+    """
+    val = safe_cache_get(key)
+    if val is not None:
+        return val
+
+    lock_key = f"lock:{key}"
+    acquired = False
+    try:
+        # cache.add() en Django/Redis actúa como SETNX atómico
+        acquired = bool(cache.add(lock_key, "1", timeout=lock_timeout))
+    except Exception as exc:
+        logger.warning(f"Error adquiriendo lock distribuido para {key}: {exc}")
+        return fetch_fn()
+
+    if acquired:
+        try:
+            # Double check tras adquisición de lock
+            val = safe_cache_get(key)
+            if val is not None:
+                return val
+            computed = fetch_fn()
+            safe_cache_set(key, computed, timeout=ttl)
+            return computed
+        finally:
+            safe_cache_delete(lock_key)
+    else:
+        # Espera activa controlada para que el worker que tiene el lock concluya
+        for _ in range(15):
+            time.sleep(0.08)
+            val = safe_cache_get(key)
+            if val is not None:
+                return val
+        # Si transcurrió el tiempo máximo sin que se poblase la caché, calcular directamente
+        computed = fetch_fn()
+        safe_cache_set(key, computed, timeout=ttl)
+        return computed
 
 

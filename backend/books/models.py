@@ -333,14 +333,8 @@ def update_book_rating(sender, instance, **kwargs):
 @receiver(post_delete, sender=Book)
 def invalidate_book_cache_signal(sender, instance, **kwargs):
     try:
-        from .cache_utils import (
-            invalidate_book_cache,
-            invalidate_book_recommendations_cache,
-            invalidate_trending_cache,
-        )
-        invalidate_book_cache(instance.id)
-        invalidate_book_recommendations_cache(instance.id)
-        invalidate_trending_cache()
+        from .cache_utils import cascade_book_invalidation
+        cascade_book_invalidation(instance.id)
     except Exception:
         pass
 
@@ -376,22 +370,10 @@ def handle_review_signals(sender, instance, **kwargs):
 @receiver(post_delete, sender=UserBook)
 def handle_userbook_signals(sender, instance, **kwargs):
     created = kwargs.get('created', False)
-    # Invalida caché de perfil, estadísticas, recomendaciones y tendencias
+    # Invalida caché de perfil, estadísticas, recomendaciones, feed y libro (Fase 8 - 13.3)
     try:
-        from .cache_utils import (
-            invalidate_book_cache,
-            invalidate_book_recommendations_cache,
-            invalidate_trending_cache,
-            invalidate_user_profile_cache,
-            invalidate_user_recommendations_cache,
-            invalidate_user_stats_cache,
-        )
-        invalidate_user_profile_cache(instance.user_id)
-        invalidate_user_stats_cache(instance.user_id)
-        invalidate_user_recommendations_cache(instance.user_id)
-        invalidate_book_recommendations_cache(instance.book_id)
-        invalidate_trending_cache()
-        invalidate_book_cache(instance.book_id)
+        from .cache_utils import cascade_reading_status_invalidation
+        cascade_reading_status_invalidation(instance.user_id, instance.book_id)
     except Exception:
         pass
 

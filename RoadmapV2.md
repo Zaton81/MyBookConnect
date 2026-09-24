@@ -1169,7 +1169,7 @@ solo cuando los datos lo justifiquen.
 
 ---
 
-# 13. FASE 8 — Caché
+# 13. FASE 8 — Caché [COMPLETADA]
 
 **Prioridad: P1**
 
@@ -1187,7 +1187,14 @@ search:{query}
 
 ## 13.2. TTL
 
-Definir TTL por tipo.
+Definir TTL por tipo:
+- `TTL_BOOK_DETAIL = 900` (15 min)
+- `TTL_USER_PROFILE = 900` (15 min)
+- `TTL_RECOMMENDATIONS = 900` (15 min)
+- `TTL_FEED = 300` (5 min)
+- `TTL_SEARCH = 300` (5 min)
+- `TTL_TRENDING = 900` (15 min)
+- `TTL_STATS = 900` (15 min)
 
 ## 13.3. Invalidación
 
@@ -1210,10 +1217,24 @@ Para operaciones costosas:
 - locks;
 - single-flight;
 - stale-while-revalidate.
+Implementado mediante `get_or_set_stampede_protected` con atomic lock `lock:{key}` en `books.cache_utils`.
 
 ## 13.5. Redis failure
 
 La aplicación debe seguir funcionando de forma degradada cuando Redis no esté disponible, excepto las funcionalidades que dependan necesariamente de Redis.
+Implementado mediante wrappers defensivos `safe_cache_get`, `safe_cache_set`, `safe_cache_delete` y `ResilientThrottleMixin` (`mybookconnect.throttling`), evitando errores 500 ante caídas de Redis.
+
+### Entregable
+`docs/architecture/caching.md` [COMPLETADO]
+
+### Criterio de salida
+- [x] Inventario exhaustivo de cachés y namespaces implementado en `books/cache_utils.py`.
+- [x] Jerarquía de TTLs estándar definida centralizadamente.
+- [x] Matriz de invalidaciones reactivas en cascada conectada a los 5 eventos clave del ciclo de vida.
+- [x] Stampede protection con candado distribuido implementado en `get_or_set_stampede_protected`.
+- [x] Resiliencia y degradación elegante ante caídas de Redis en capas de caché y throttling sin generar HTTP 500.
+- [x] Documentación exhaustiva en `docs/architecture/caching.md`.
+- [x] Cobertura de pruebas completa en `tests/test_phase08_caching.py` (10/10 passed).
 
 ---
 

@@ -181,8 +181,8 @@ REST_FRAMEWORK = {
         'rest_framework.filters.OrderingFilter',
     ],
     'DEFAULT_THROTTLE_CLASSES': [
-        'rest_framework.throttling.AnonRateThrottle',
-        'rest_framework.throttling.UserRateThrottle',
+        'mybookconnect.throttling.ResilientAnonRateThrottle',
+        'mybookconnect.throttling.ResilientUserRateThrottle',
     ],
     'DEFAULT_THROTTLE_RATES': {
         'anon': '120/minute',
