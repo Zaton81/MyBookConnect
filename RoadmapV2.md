@@ -987,7 +987,7 @@ No permitir herramientas arbitrarias.
 
 ---
 
-# 11. FASE 6 — Búsqueda
+# 11. FASE 6 — Búsqueda [COMPLETADA]
 
 **Prioridad: P1**
 

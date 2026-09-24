@@ -585,6 +585,66 @@ class RecommendationFeedback(models.Model):
         return f"{self.user.username} - {self.action} - {self.book.title} ({self.strategy})"
 
 
+class EmbeddingStatus(models.TextChoices):
+    PENDING = 'pending', 'Pendiente'
+    COMPLETED = 'completed', 'Completado'
+    FAILED = 'failed', 'Fallido'
+    STALE = 'stale', 'Desactualizado'
+
+
+class BookEmbedding(models.Model):
+    """
+    Modelo satélite para persistencia vectorial y metadatos de embeddings de libros (Fase 6 - 11.5).
+    Mantiene la tabla principal de libros liviana y registra el ciclo de vida de vectorización.
+    """
+    book = models.OneToOneField(
+        Book,
+        on_delete=models.CASCADE,
+        related_name='embedding_record',
+        verbose_name='Libro asociado',
+    )
+    vector = models.JSONField(default=list, blank=True, verbose_name='Vector de embedding')
+    dimension = models.PositiveIntegerField(default=768, verbose_name='Dimensión del vector')
+    embedding_model = models.CharField(
+        max_length=128,
+        default='nomic-embed-text',
+        verbose_name='Modelo generador',
+    )
+    embedding_version = models.CharField(
+        max_length=32,
+        default='v1.0',
+        verbose_name='Versión del pipeline',
+    )
+    embedded_at = models.DateTimeField(null=True, blank=True, verbose_name='Fecha de vectorización')
+    embedding_status = models.CharField(
+        max_length=20,
+        choices=EmbeddingStatus.choices,
+        default=EmbeddingStatus.PENDING,
+        db_index=True,
+        verbose_name='Estado del embedding',
+    )
+    content_hash = models.CharField(
+        max_length=64,
+        blank=True,
+        default='',
+        db_index=True,
+        verbose_name='Hash SHA256 del contenido fuente',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Embedding de Libro'
+        verbose_name_plural = 'Embeddings de Libros'
+        indexes = [
+            models.Index(fields=['embedding_status', 'embedded_at'], name='idx_emb_status_date'),
+            models.Index(fields=['embedding_model', 'embedding_version'], name='idx_emb_mod_ver'),
+        ]
+
+    def __str__(self) -> str:
+        return f"Embedding [{self.embedding_status}] - {self.book.title} ({self.dimension}d)"
+
+
 # Modelos de gamificación opcional (Fase 54)
 from .gamification_models import (  # noqa: E402, F401
     Badge,
@@ -597,5 +657,6 @@ from .gamification_models import (  # noqa: E402, F401
     UserBadge,
     UserChallenge,
 )
+
 
 

@@ -180,7 +180,12 @@ class AISemanticSearchView(APIView):
         if not query:
             return Response({'query': '', 'results': [], 'count': 0}, status=status.HTTP_200_OK)
 
-        books_qs = semantic_search_books(query=query, limit=10)
+        from books.services.unified_search_service import UnifiedSearchEngine
+        engine = UnifiedSearchEngine(mode='semantic')
+        books_qs = engine.search_queryset(query=query, limit=10, auto_import=False)
+        if not books_qs.exists():
+            books_qs = semantic_search_books(query=query, limit=10)
+
         serializer = BookSerializer(books_qs, many=True, context={'request': request})
         return Response({
             "query": query,
