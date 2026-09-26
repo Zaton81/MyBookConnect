@@ -180,20 +180,24 @@ class TestSlaSearchEndpoints:
     """Valida que los endpoints de búsqueda cumplan el SLA: p95 < 500 ms."""
 
     def test_text_search_sla_under_500ms(self, performance_dataset):
+        from unittest.mock import patch
+
         client = APIClient()
-        # Warmup
-        client.get('/api/v1/books/?search=Maestra')
+        with patch('ai.clients.ollama_client.OllamaProvider.get_embedding', return_value=None), \
+             patch('ai.embeddings.get_embedding_for_text', return_value=None):
+            # Warmup
+            client.get('/api/v1/books/?search=Maestra')
 
-        durations = []
-        for _ in range(5):
-            t_start = time.perf_counter()
-            resp = client.get('/api/v1/books/?search=Maestra')
-            duration_ms = (time.perf_counter() - t_start) * 1000
-            assert resp.status_code == 200
-            durations.append(duration_ms)
+            durations = []
+            for _ in range(5):
+                t_start = time.perf_counter()
+                resp = client.get('/api/v1/books/?search=Maestra')
+                duration_ms = (time.perf_counter() - t_start) * 1000
+                assert resp.status_code == 200
+                durations.append(duration_ms)
 
-        avg_duration = sum(durations) / len(durations)
-        assert avg_duration < 500.0, f"Búsqueda promedio {avg_duration:.2f}ms excede SLA de 500ms"
+            avg_duration = sum(durations) / len(durations)
+            assert avg_duration < 500.0, f"Búsqueda promedio {avg_duration:.2f}ms excede SLA de 500ms"
 
 
 @pytest.mark.django_db

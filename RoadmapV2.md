@@ -1530,71 +1530,77 @@ Configurado `.github/dependabot.yml` con escaneos programados para `pip`, `npm/p
 
 ---
 
-# 18. FASE 13 — Docker y producción
+# 18. FASE 13 — Docker y producción [COMPLETADA]
 
 **Prioridad: P1**
 
 ## 18.1. Separación
 
-Producción:
+Producción estructurada con aislamiento estricto por capas de red:
 
 ```text
 Internet
-   ↓
-Reverse proxy
-   ↓
-Backend
-   ↓
-PostgreSQL
-Redis
-Celery
+   ↓ (80/443)
+Reverse proxy (Nginx:1.27-alpine en 'frontend_net')
+   ↓ (8000 interno)
+Backend ASGI (Daphne en 'frontend_net' + 'backend_net')
+   ↓ (red interna 'backend_net' internal: true)
+PostgreSQL 16 (pgvector)
+Redis 7 (Alpine)
+Celery (Worker asíncrono)
 ```
 
-No publicar DB/Redis.
+- Bases de datos (PostgreSQL 16) y caché/broker (Redis 7) aisladas en `backend_net` privada sin puertos publicados al host (`ports` omitido).
+- Frontend Nginx aislado sin pertenencia a `backend_net`.
 
 ## 18.2. Backend
 
-No exponer directamente Django si existe reverse proxy.
+Django/Daphne no expone ningún puerto hacia el host exterior (`ports` eliminado, únicamente `expose: ["8000"]`). Todo el tráfico web y WebSocket es mediado y saneado por el reverse proxy Nginx.
 
 ## 18.3. Healthchecks
 
-Separar:
+Implementadas y verificadas las sondas canónicas desacopladas:
 
 ```text
-/health/live
-/health/ready
+/health/live   -> Sonda de Liveness (proceso ASGI vivo, sin dependencias)
+/health/ready  -> Sonda de Readiness (conectividad con PostgreSQL y Redis)
 ```
 
 ### Liveness
-
-Comprueba que el proceso está vivo.
+- Comprueba que el proceso de la aplicación está activo y responde peticiones HTTP sin interrupciones. Resiliente a indisponibilidad temporal de DB o caché para evitar ciclos de reinicio (*crash loops*).
 
 ### Readiness
-
-Comprueba:
-
-- PostgreSQL;
-- Redis si es requisito;
-- dependencias críticas.
+- Comprueba conectividad real mediante `SELECT 1;` en PostgreSQL y set/get en Redis. Si alguna dependencia crítica falla, retorna `503 SERVICE UNAVAILABLE`.
 
 ## 18.4. Graceful shutdown
 
-Configurar:
-
-- Gunicorn;
-- Daphne;
-- Celery;
-
-para finalizar correctamente.
+Configurado el manejo de señales de apagado y periodos de gracia en `docker-compose.prod.yml`:
+- **Nginx (`frontend`):** `stop_signal: SIGQUIT`, `stop_grace_period: 10s`.
+- **Daphne (`backend`):** `stop_signal: SIGTERM`, `stop_grace_period: 30s` (drena conexiones HTTP y WS activas).
+- **Celery (`celery_worker`):** `stop_signal: SIGTERM`, `stop_grace_period: 60s` (warm shutdown de tareas asíncronas en ejecución).
 
 ## 18.5. Volúmenes
 
-Documentar:
+Persistencia desacoplada del ciclo de vida de los contenedores mediante volúmenes nombrados:
+- `db_prod_data` (`/var/lib/postgresql/data`): Persistencia de esquemas y datos de PostgreSQL 16.
+- `backend_media` (`/app/media`): Archivos subidos por usuarios; montado en Nginx en modo solo lectura (`ro`).
+- `backend_static` (`/app/staticfiles`): Archivos estáticos de Django con caché inmutable; montado en Nginx en modo solo lectura (`ro`).
+- `backups_data` (`/app/backups`): Directorio persistente de copias de seguridad de bases de datos.
 
-- media;
-- static;
-- DB;
-- backups.
+### Entregables
+- `docker-compose.prod.yml` [COMPLETADO]
+- `frontend/nginx.conf` [COMPLETADO]
+- `backend/mybookconnect/urls.py` [COMPLETADO]
+- `backend/tests/test_phase13_docker_production.py` [COMPLETADO]
+- `docs/devops/production_docker.md` [COMPLETADO]
+
+### Criterio de salida
+- [x] Aislamiento de redes de producción verificado (`frontend_net` y `backend_net internal: true`).
+- [x] PostgreSQL, Redis y Django sin puertos expuestos al host en producción.
+- [x] Sondas canónicas `/health/live` y `/health/ready` implementadas y verificadas con suite de tests dedicada.
+- [x] Graceful shutdown implementado con señales y tiempos de gracia en Daphne, Celery y Nginx.
+- [x] Volúmenes persistentes nombrados y documentados.
+- [x] Suite de pruebas automatizadas de Fase 13 pasando al 100%.
 
 ---
 

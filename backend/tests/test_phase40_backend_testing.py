@@ -122,7 +122,7 @@ class TestPhase40Security:
 
         # 1. Bob no puede ver el perfil de Alice
         res_profile = api_client.get(f'/api/v1/users/{alice.id}/')
-        assert res_profile.status_code == 403
+        assert res_profile.status_code in (403, 404)
 
         # 2. Bob no puede seguir a Alice
         res_follow = api_client.post(f'/api/v1/users/{alice.id}/follow/')

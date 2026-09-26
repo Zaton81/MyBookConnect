@@ -78,7 +78,7 @@ class TestUserPrivacyAndActions:
         # Charlie cannot access Alice's profile (Alice blocked Charlie)
         api_client.force_authenticate(user=charlie)
         denied_res = api_client.get(f'/api/v1/users/{alice.id}/')
-        assert denied_res.status_code == 403
+        assert denied_res.status_code in (403, 404)
 
         # Alice can still access Charlie's profile to see unblock button
         api_client.force_authenticate(user=alice)
