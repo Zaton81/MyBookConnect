@@ -1462,7 +1462,7 @@ Suite de seguridad:
 
 ---
 
-# 17. FASE 12 — CI/CD
+# 17. FASE 12 — CI/CD [COMPLETADA]
 
 **Prioridad: P0/P1**
 
@@ -1473,57 +1473,60 @@ El objetivo es impedir que una regresión llegue a `develop`.
 ```text
 push / PR
    ↓
-backend lint
+backend lint (Ruff)
    ↓
-backend tests
+backend tests (Pytest + PostgreSQL real + Redis real)
    ↓
-migration check
+migration check (makemigrations --check --dry-run)
    ↓
-frontend lint
+frontend lint (ESLint)
    ↓
-frontend typecheck
+frontend format check (Prettier)
    ↓
-frontend tests
+frontend typecheck (TypeScript tsc --noEmit)
    ↓
-frontend build
+frontend tests (Vitest)
    ↓
-Docker build
+frontend build (Vite)
    ↓
-security checks
+Docker build (Backend + Frontend)
+   ↓
+security checks (Bandit SAST + pip-audit + pnpm audit)
    ↓
 PR status
 ```
 
 ## 17.1. GitHub Actions
 
-Crear workflows separados:
-
-```text
-ci-backend.yml
-ci-frontend.yml
-ci-docker.yml
-security.yml
-```
-
-o un pipeline unificado si resulta más mantenible.
+Implementados workflows modulares:
+- `.github/workflows/ci-backend.yml`: Linting con Ruff, verificación de migraciones y pruebas automatizadas sobre servicios en contenedor de PostgreSQL 16 (`pgvector`) y Redis 7 reales.
+- `.github/workflows/ci-frontend.yml`: Verificación de formato Prettier, análisis ESLint, chequeo estricto de tipos con TypeScript, suite de pruebas unitarias/componentes con Vitest y compilación de producción de Vite.
+- `.github/workflows/ci-docker.yml`: Construcción y verificación de imágenes Docker de backend y frontend multi-stage.
+- `.github/workflows/security.yml`: Análisis estático de código Python (Bandit SAST) y auditorías de vulnerabilidades en dependencias (`pip-audit` y `pnpm audit`).
 
 ## 17.2. PostgreSQL real
 
-Los tests de backend deben ejecutarse contra PostgreSQL, no solo SQLite.
+Los tests de backend se ejecutan contra PostgreSQL 16 real (`pgvector/pgvector:pg16`) con healthchecks automáticos en el servicio de CI.
 
 ## 17.3. Redis real
 
-Las pruebas de:
-
-- cache;
-- Channels;
-- Celery;
-
-deben poder ejecutarse contra Redis real.
+Las pruebas de caché, Channels y Celery se ejecutan contra Redis 7 real (`redis:7-alpine`) en el pipeline de GitHub Actions.
 
 ## 17.4. Dependency updates
 
-Configurar Dependabot/Renovate si resulta adecuado.
+Configurado `.github/dependabot.yml` con escaneos programados para `pip`, `npm/pnpm` y `github-actions`.
+
+### Entregable
+`docs/devops/ci_cd_pipeline.md` [COMPLETADO]
+
+### Criterio de salida
+- [x] Pipelines de CI para Backend y Frontend configurados y probados.
+- [x] Servicio PostgreSQL 16 (`pgvector`) y Redis 7 reales integrados en el runner.
+- [x] Verificación de migraciones y linters estáticos en cada PR.
+- [x] Pipeline de validación de compilación de imágenes Docker implementado.
+- [x] Escaneo de seguridad (Bandit SAST, pip-audit, pnpm audit) activo.
+- [x] Dependabot configurado para actualización automática de dependencias.
+- [x] Documentación exhaustiva en `docs/devops/ci_cd_pipeline.md`.
 
 ---
 

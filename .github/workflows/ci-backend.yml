@@ -5,21 +5,21 @@ on:
     branches: [ main, develop ]
     paths:
       - 'backend/**'
-      - '.github/workflows/backend.yml'
+      - '.github/workflows/ci-backend.yml'
   pull_request:
     branches: [ main, develop ]
     paths:
       - 'backend/**'
-      - '.github/workflows/backend.yml'
+      - '.github/workflows/ci-backend.yml'
 
 jobs:
   test:
-    name: Lint & Pytest
+    name: Lint, Migrations & Pytest (PostgreSQL + Redis)
     runs-on: ubuntu-latest
 
     services:
       postgres:
-        image: postgres:16-alpine
+        image: pgvector/pgvector:pg16
         env:
           POSTGRES_DB: booksocial
           POSTGRES_USER: booksocial
