@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { ChallengeItem } from './types';
+import { useAuthStore } from '../../../../store/auth';
 
 interface ActiveChallengesCardProps {
   challenges?: ChallengeItem[];
@@ -14,8 +15,8 @@ export const ActiveChallengesCard: React.FC<ActiveChallengesCardProps> = ({
 }) => {
   const [joiningSlug, setJoiningSlug] = useState<string | null>(null);
 
+  const { token } = useAuthStore();
   const apiUrl = (import.meta as any).env.VITE_API_URL || 'http://localhost:8000';
-  const token = localStorage.getItem('access_token');
 
   const handleJoinChallenge = async (slug: string) => {
     if (!token || joiningSlug) return;

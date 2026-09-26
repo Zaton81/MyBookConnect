@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ReadingGoalData } from './types';
+import { useAuthStore } from '../../../../store/auth';
 
 interface ReadingGoalCardProps {
   goal?: ReadingGoalData;
@@ -16,8 +17,14 @@ export const ReadingGoalCard: React.FC<ReadingGoalCardProps> = ({
   const [targetBooks, setTargetBooks] = useState(goal?.target_books || 12);
   const [saving, setSaving] = useState(false);
 
+  const { token } = useAuthStore();
   const apiUrl = (import.meta as any).env.VITE_API_URL || 'http://localhost:8000';
-  const token = localStorage.getItem('access_token');
+
+  useEffect(() => {
+    if (goal?.target_books) {
+      setTargetBooks(goal.target_books);
+    }
+  }, [goal?.target_books]);
 
   const handleSaveGoal = async (e: React.FormEvent) => {
     e.preventDefault();

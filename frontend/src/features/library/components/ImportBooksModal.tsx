@@ -135,7 +135,11 @@ export function ImportBooksModal({ isOpen, onClose, onSuccess }: ImportBooksModa
   };
 
   const handleConfirmImport = async () => {
-    if (!previewData || !previewData.raw_items_payload.length) return;
+    const itemsPayload = previewData?.raw_items_payload || previewData?.preview_items || [];
+    if (!previewData || !itemsPayload.length) {
+      setError('No hay libros válidos para importar en el archivo.');
+      return;
+    }
 
     setLoading(true);
     setError(null);
@@ -148,16 +152,24 @@ export function ImportBooksModal({ isOpen, onClose, onSuccess }: ImportBooksModa
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          items: previewData.raw_items_payload,
+          items: itemsPayload,
         }),
       });
 
       const data = await res.json();
       if (res.ok && data.success) {
-        setImportResult(data);
+        setImportResult({
+          success: true,
+          created_books: data.created_books ?? data.imported_books_count ?? 0,
+          created_user_books: data.created_user_books ?? data.added_to_library_count ?? 0,
+          updated_user_books: data.updated_user_books ?? data.updated_in_library_count ?? 0,
+          created_reviews: data.created_reviews ?? data.reviews_created_count ?? 0,
+          total_processed: data.total_processed ?? itemsPayload.length,
+          errors: data.errors || [],
+        });
         onSuccess();
       } else {
-        setError(data.error || 'Error durante la ejecución de la importación.');
+        setError(data.error || data.detail || 'Error durante la ejecución de la importación.');
       }
     } catch (err) {
       console.error('Error importing CSV:', err);

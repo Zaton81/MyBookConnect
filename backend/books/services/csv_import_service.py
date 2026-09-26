@@ -165,13 +165,21 @@ class CSVImportService:
             preview_items.append(item)
 
         return {
+            'format': detected_format,
             'format_detected': detected_format,
+            'format_label': 'Goodreads Export' if detected_format == CSVFormatDetector.GOODREADS else ('Calibre CSV' if detected_format == CSVFormatDetector.CALIBRE else 'CSV estándar'),
             'total_rows': row_idx,
+            'valid_rows': valid_count,
             'valid_count': valid_count,
             'existing_in_catalog_count': existing_in_catalog_count,
+            'in_catalog_count': existing_in_catalog_count,
             'existing_in_library_count': existing_in_library_count,
+            'in_library_count': existing_in_library_count,
+            'new_books_count': max(0, valid_count - existing_in_catalog_count - existing_in_library_count),
+            'invalid_rows': invalid_count,
             'invalid_count': invalid_count,
             'preview_items': preview_items,
+            'raw_items_payload': preview_items,
         }
 
     @classmethod
@@ -411,11 +419,27 @@ class CSVImportService:
                 except Exception as e:
                     logger.debug(f"Error evaluando gamificación tras importación: {e}")
 
+        # Invalidar cachés de estadísticas, perfil y feed del usuario
+        try:
+            from books.cache_utils import CacheHierarchy, safe_cache_delete
+            safe_cache_delete(CacheHierarchy.user_profile_key(user.id))
+            safe_cache_delete(f"stats:{user.id}")
+            safe_cache_delete(f"gamification:{user.id}")
+            safe_cache_delete(f"feed:{user.id}")
+        except Exception as e:
+            logger.debug(f"Error invalidando cachés tras importación: {e}")
+
         return {
             'success': True,
             'imported_books_count': imported_books_count,
+            'created_books': imported_books_count,
             'added_to_library_count': added_to_library_count,
+            'created_user_books': added_to_library_count,
             'updated_in_library_count': updated_in_library_count,
+            'updated_user_books': updated_in_library_count,
             'reviews_created_count': reviews_created_count,
+            'created_reviews': reviews_created_count,
+            'total_processed': len(items),
             'skipped_count': skipped_count,
+            'errors': [],
         }

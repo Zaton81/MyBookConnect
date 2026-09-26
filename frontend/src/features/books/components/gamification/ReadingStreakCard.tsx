@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ReadingStreakData } from './types';
+import { useAuthStore } from '../../../../store/auth';
 
 interface ReadingStreakCardProps {
   streak?: ReadingStreakData;
@@ -15,12 +16,18 @@ export const ReadingStreakCard: React.FC<ReadingStreakCardProps> = ({
   const [logging, setLogging] = useState(false);
   const [justLogged, setJustLogged] = useState(false);
 
+  const { token } = useAuthStore();
   const apiUrl = (import.meta as any).env.VITE_API_URL || 'http://localhost:8000';
-  const token = localStorage.getItem('access_token');
+
+  useEffect(() => {
+    if (streak?.read_today) {
+      setJustLogged(true);
+    }
+  }, [streak?.read_today]);
 
   const currentStreak = streak?.current_streak || 0;
   const longestStreak = streak?.longest_streak || 0;
-  const readToday = streak?.read_today || justLogged;
+  const readToday = Boolean(streak?.read_today || justLogged);
 
   const handleLogToday = async () => {
     if (!token || readToday || logging) return;
