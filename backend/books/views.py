@@ -650,7 +650,13 @@ class ReviewCommentListCreateView(APIView):
             if excluded:
                 comments = comments.exclude(user_id__in=excluded)
 
-        serializer = ReviewCommentSerializer(comments, many=True, context={'request': request})
+        if request.query_params.get('page') or request.query_params.get('paginate') == 'true':
+            paginator = StandardResultsSetPagination()
+            page = paginator.paginate_queryset(comments, request)
+            serializer = ReviewCommentSerializer(page, many=True, context={'request': request})
+            return paginator.get_paginated_response(serializer.data)
+
+        serializer = ReviewCommentSerializer(comments[:100], many=True, context={'request': request})
         return Response(serializer.data)
 
     @extend_schema(

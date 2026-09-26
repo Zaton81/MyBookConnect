@@ -28,7 +28,19 @@ class UserProfileView(generics.RetrieveAPIView):
     serializer_class = UserSerializer
 
     def get_object(self):
-        return self.request.user
+        user = self.request.user
+        if not user or not user.is_authenticated:
+            return user
+        return (
+            User.objects.annotate(
+                reviews_count=Count('reviews', filter=Q(reviews__deleted_at__isnull=True, reviews__is_moderated=False), distinct=True),
+                books_read_count=Count('user_books', filter=Q(user_books__is_read=True), distinct=True),
+                following_count=Count('following', distinct=True),
+                followers_count=Count('followers', distinct=True),
+            )
+            .prefetch_related('following', 'followers')
+            .get(pk=user.pk)
+        )
 
     def retrieve(self, request, *args, **kwargs):
         from books.cache_utils import TTL_USER_PROFILE, safe_cache_get, safe_cache_set, user_profile_key
@@ -410,9 +422,9 @@ class CheckFollowStatusView(APIView):
         tags=['Users'],
     )
     def get(self, request, user_id):
-        target_user = get_object_or_404(User, id=user_id)
-        is_following = target_user in request.user.following.all()
-        is_follower = request.user in target_user.following.all()
+        _ = get_object_or_404(User, id=user_id)
+        is_following = request.user.following.filter(id=user_id).exists()
+        is_follower = request.user.followers.filter(id=user_id).exists()
 
         return Response({
             "is_following": is_following,

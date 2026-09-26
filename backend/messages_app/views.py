@@ -1,4 +1,5 @@
 from django.contrib.auth import get_user_model
+from django.db.models import Count, Prefetch, Q
 from rest_framework import mixins, permissions, serializers, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
@@ -25,9 +26,29 @@ class ConversationViewSet(viewsets.ReadOnlyModelViewSet):
     def get_queryset(self):
         if getattr(self, 'swagger_fake_view', False) or not self.request.user.is_authenticated:
             return Conversation.objects.none()
-        return Conversation.objects.filter(
-            participants=self.request.user
-        ).prefetch_related('participants', 'messages').order_by('-updated_at')
+        user = self.request.user
+        return (
+            Conversation.objects.filter(participants=user)
+            .annotate(
+                annotated_unread_count=Count(
+                    'messages',
+                    filter=Q(messages__deleted_at__isnull=True, messages__is_moderated=False, messages__read=False)
+                    & ~Q(messages__sender=user),
+                    distinct=True,
+                )
+            )
+            .prefetch_related(
+                'participants',
+                Prefetch(
+                    'messages',
+                    queryset=Message.objects.filter(deleted_at__isnull=True, is_moderated=False)
+                    .select_related('sender')
+                    .order_by('-created_at'),
+                    to_attr='prefetched_messages',
+                ),
+            )
+            .order_by('-updated_at')
+        )
 
     @action(detail=False, methods=['post'], url_path='start')
     def start_conversation(self, request):

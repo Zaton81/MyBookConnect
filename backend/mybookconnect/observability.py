@@ -136,20 +136,27 @@ class ObservabilityMetricsService:
         external_errors = int(cache.get(f"{cls.METRICS_PREFIX}:external_errors_total") or 0)
         ws_connections = int(cache.get(f"{cls.METRICS_PREFIX}:ws_connections") or 0)
         total_db_queries = int(cache.get(f"{cls.METRICS_PREFIX}:db_queries_total") or 0)
-
         samples = cache.get(f"{cls.METRICS_PREFIX}:latency_samples") or []
         if samples and isinstance(samples, list):
             sorted_samples = sorted(samples)
             latency_avg = round(sum(samples) / len(samples), 2)
             p95_idx = int(len(sorted_samples) * 0.95)
             latency_p95 = round(sorted_samples[min(p95_idx, len(sorted_samples) - 1)], 2)
+            p99_idx = int(len(sorted_samples) * 0.99)
+            latency_p99 = round(sorted_samples[min(p99_idx, len(sorted_samples) - 1)], 2)
         else:
             latency_avg = 0.0
             latency_p95 = 0.0
+            latency_p99 = 0.0
 
         rate_5xx_pct = round((requests_5xx / total_requests) * 100, 2) if total_requests > 0 else 0.0
         rate_4xx_pct = round((requests_4xx / total_requests) * 100, 2) if total_requests > 0 else 0.0
         db_queries_avg = round(total_db_queries / total_requests, 2) if total_requests > 0 else 0.0
+
+        p95_budget_ms = 500.0
+        p99_budget_ms = 1500.0
+        critical_queries_budget_ms = 100.0
+        budgets_healthy = (latency_p95 <= p95_budget_ms) and (latency_p99 <= p99_budget_ms)
 
         return {
             'requests': {
@@ -162,7 +169,15 @@ class ObservabilityMetricsService:
             'latency_ms': {
                 'average': latency_avg,
                 'p95': latency_p95,
+                'p99': latency_p99,
                 'sample_size': len(samples) if isinstance(samples, list) else 0,
+            },
+            'performance_budgets': {
+                'api_p95_budget_ms': p95_budget_ms,
+                'api_p99_budget_ms': p99_budget_ms,
+                'critical_queries_budget_ms': critical_queries_budget_ms,
+                'is_within_budget': budgets_healthy,
+                'status': 'within_budget' if budgets_healthy else 'breached',
             },
             'database': {
                 'total_queries': total_db_queries,

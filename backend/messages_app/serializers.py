@@ -78,11 +78,16 @@ class ConversationSerializer(serializers.ModelSerializer):
 
     @extend_schema_field(MessageSerializer)
     def get_last_message(self, obj):
-        last = obj.messages.filter(deleted_at__isnull=True, is_moderated=False).order_by('-created_at').first()
-        return MessageSerializer(last).data if last else None
+        if hasattr(obj, 'prefetched_messages'):
+            last = obj.prefetched_messages[0] if obj.prefetched_messages else None
+        else:
+            last = obj.messages.filter(deleted_at__isnull=True, is_moderated=False).order_by('-created_at').first()
+        return MessageSerializer(last, context=self.context).data if last else None
 
     @extend_schema_field(serializers.IntegerField)
     def get_unread_count(self, obj):
+        if hasattr(obj, 'annotated_unread_count'):
+            return obj.annotated_unread_count
         request = self.context.get('request')
         if request and request.user.is_authenticated:
             return obj.messages.filter(deleted_at__isnull=True, is_moderated=False, read=False).exclude(sender=request.user).count()

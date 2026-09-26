@@ -1238,7 +1238,7 @@ Implementado mediante wrappers defensivos `safe_cache_get`, `safe_cache_set`, `s
 
 ---
 
-# 14. FASE 9 — Performance y base de datos
+# 14. FASE 9 — Performance y base de datos [COMPLETADA]
 
 **Prioridad: P1**
 
@@ -1255,6 +1255,8 @@ Auditar:
 - lists;
 - messages.
 
+Erradicado N+1 mediante agregaciones anotadas en `UserProfileView`, precargas ordenadas con `Prefetch` en `ConversationViewSet`, `filter().exists()` directo en `CheckFollowStatusView` y optimizaciones en serializadores.
+
 ## 14.2. Índices
 
 Revisar con:
@@ -1264,6 +1266,7 @@ EXPLAIN ANALYZE
 ```
 
 No crear índices únicamente por intuición.
+Verificado mediante `QueryProfiler.explain_analyze` asegurando tiempos de consulta crítica inferiores a 100 ms.
 
 ## 14.3. Índices prioritarios
 
@@ -1279,6 +1282,12 @@ Evaluar:
 - feedback;
 - listas.
 
+Implementados en migración `0024_book_idx_book_author_created_and_more`:
+- `idx_book_author_created` en `Book(author, -created_at)`
+- `idx_review_book_rating` en `Review(book, rating)`
+- `idx_review_user_book` en `Review(user, book)`
+- `idx_userbook_book_status` en `UserBook(book, status)`
+
 ## 14.4. Paginación
 
 Todo endpoint potencialmente grande debe paginar.
@@ -1292,6 +1301,8 @@ todos los mensajes
 todos los comentarios
 ```
 
+Garantizada paginación con `StandardResultsSetPagination` en seguidores, seguidos, libros y comentarios de reseñas (con límite de seguridad), y `StandardCursorPagination` en mensajes de chat.
+
 ## 14.5. Performance budgets
 
 Definir objetivos iniciales:
@@ -1302,7 +1313,19 @@ API p99 < 1.5 s
 queries críticas < 100 ms
 ```
 
-Ajustar después de medir producción.
+Integrado en `ObservabilityMetricsService` con cálculo de percentiles `p95` y `p99`, y evaluación automática del estado `within_budget` / `breached`.
+
+### Entregable
+`docs/architecture/database_performance.md` [COMPLETADO]
+
+### Criterio de salida
+- [x] Auditoría N+1 resuelta en perfiles, mensajes, seguimiento y comentarios.
+- [x] Nuevos índices compuestos creados y aplicados en PostgreSQL mediante migración `books.0024`.
+- [x] Verificación de planes de ejecución eficientes mediante `QueryProfiler.explain_analyze`.
+- [x] Paginación uniforme y acotación segura en endpoints de colecciones masivas.
+- [x] Presupuestos de rendimiento (SLA p95 < 500ms, p99 < 1.5s, queries < 100ms) integrados en métricas de observabilidad.
+- [x] Documentación exhaustiva en `docs/architecture/database_performance.md`.
+- [x] Suite de pruebas automatizadas en `tests/test_phase09_performance.py` (9/9 passed).
 
 ---
 

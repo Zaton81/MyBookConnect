@@ -84,6 +84,7 @@ class Book(models.Model):
             models.Index(fields=['title'], name='idx_book_title'),
             models.Index(fields=['title', 'author'], name='idx_book_title_author'),
             models.Index(fields=['-created_at'], name='idx_book_created_at'),
+            models.Index(fields=['author', '-created_at'], name='idx_book_author_created'),
             GinIndex(fields=['title'], name='idx_book_title_trgm', opclasses=['gin_trgm_ops']),
             GinIndex(fields=['description'], name='idx_book_desc_trgm', opclasses=['gin_trgm_ops']),
         ]
@@ -153,6 +154,7 @@ class UserBook(models.Model):
             models.Index(fields=['user', 'wishlist']),
             models.Index(fields=['is_read', '-updated_at'], name='idx_userbook_read_updated'),
             models.Index(fields=['status', '-updated_at'], name='idx_userbook_status_updated'),
+            models.Index(fields=['book', 'status'], name='idx_userbook_book_status'),
         ]
 
     def save(self, *args, **kwargs):
@@ -215,6 +217,8 @@ class Review(SoftDeleteModel):
             models.Index(fields=['-created_at'], name='idx_review_created_at'),
             models.Index(fields=['book', 'deleted_at'], name='idx_review_book_del'),
             models.Index(fields=['user', 'deleted_at'], name='idx_review_user_del'),
+            models.Index(fields=['book', 'rating'], name='idx_review_book_rating'),
+            models.Index(fields=['user', 'book'], name='idx_review_user_book'),
         ]
 
     def __str__(self):
