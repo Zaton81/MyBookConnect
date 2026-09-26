@@ -421,8 +421,8 @@ class CSVImportService:
 
         # Invalidar cachés de estadísticas, perfil y feed del usuario
         try:
-            from books.cache_utils import CacheHierarchy, safe_cache_delete
-            safe_cache_delete(CacheHierarchy.user_profile_key(user.id))
+            from books.cache_utils import safe_cache_delete
+            safe_cache_delete(f"user:{user.id}")
             safe_cache_delete(f"stats:{user.id}")
             safe_cache_delete(f"gamification:{user.id}")
             safe_cache_delete(f"feed:{user.id}")

@@ -1406,38 +1406,59 @@ Configurado Playwright en `playwright.config.ts` y suite inicial de flujos crít
 
 ---
 
-# 16. FASE 11 — Backend testing
+# 16. FASE 11 — Backend testing [COMPLETADA]
 
 **Prioridad: P1**
 
 ## 11.1. Unit
 
-Servicios puros.
+Servicios puros sin acoplamiento a base de datos:
+- `normalize_isbn`: normalización de códigos ISBN-10 y 13.
+- `_clean_goodreads_value`: limpieza de fórmulas Excel/Goodreads.
+- `_parse_date`: parseo multiformato de fechas.
+- `_map_goodreads_status`: mapeo semántico de estados de lectura.
+- `CSVFormatDetector`: detección automática de dialectos CSV.
 
 ## 11.2. Integration
 
-Django + PostgreSQL + Redis.
+Django + PostgreSQL + Redis:
+- Aislamiento transaccional y rollback atómico ante fallos en PostgreSQL.
+- Almacenamiento seguro, lectura defensiva e invalidación reactiva en Redis (`safe_cache_set`, `safe_cache_get`, `safe_cache_delete`).
 
 ## 11.3. API
 
-Cada endpoint crítico.
+Endpoints críticos validados:
+- Perfil autenticado (`/api/v1/auth/profile/`).
+- Biblioteca personal y estados de lectura (`/api/v1/books/user/books/`).
+- Estadísticas agregadas (`/api/v1/books/statistics/`).
+- Previsualización y confirmación de importación masiva (`/api/v1/books/import/csv/preview/` y `confirm/`).
 
 ## 11.4. Security tests
 
-Añadir tests de:
-
-- IDOR;
-- permisos;
-- privacidad;
-- bloqueos;
-- JWT;
-- rate limit;
-- upload;
-- prompt injection.
+Suite de seguridad:
+- IDOR: un usuario no puede modificar ni borrar registros de biblioteca o reviews de otro usuario.
+- Permisos y privacidad: restricción de acceso a perfiles privados y amigos mutuos.
+- Bloqueos: usuarios bloqueados no pueden consultar el perfil del bloqueador.
+- JWT: rechazo inmediato de peticiones no autenticadas (401).
+- Rate limit: control de flujo y degradación elegante.
+- Prompt injection: detección de patrones de jailbreak (`detect_prompt_injection`) y neutralización de tokens especiales (`sanitize_untrusted_input`).
 
 ## 11.5. Regression suite
 
-Cada bug corregido debe convertirse en test.
+- Resolución y blindaje de importaciones de Goodreads CSV con compatibilidad bidireccional de payloads (`raw_items_payload`, `valid_rows`).
+- Resolución y blindaje del registro de lectura diaria y retos de objetivos anuales (`useAuthStore().token`).
+- Suite de pruebas de regresión histórica permanente (79 tests pasando al 100%).
+
+### Entregable
+`docs/backend/testing_strategy.md` [COMPLETADO]
+
+### Criterio de salida
+- [x] Pruebas unitarias de servicios puros implementadas y pasando al 100%.
+- [x] Pruebas de integración Django + PostgreSQL + Redis verificadas.
+- [x] Pruebas de API sobre todos los endpoints centrales implementadas.
+- [x] Suite de seguridad completa (IDOR, permisos, bloqueos, auth, prompt injection).
+- [x] Suite de regresión histórica automatizada (`test_phase11_backend_testing.py`).
+- [x] Documentación exhaustiva en `docs/backend/testing_strategy.md`.
 
 ---
 
