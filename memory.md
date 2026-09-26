@@ -48,7 +48,8 @@ Cualquier agente de IA o desarrollador que se incorpore a la base de código **D
 | **11** | Backend Testing Suite | COMPLETADA | Tests Unit, Integration, API, Security (IDOR, auth 401, injection) y Regression. |
 | **12** | CI/CD Pipelines | COMPLETADA | GitHub Actions modulares (`ci-backend`, `ci-frontend`, `ci-docker`, `security`, `dependabot`). |
 | **13** | Docker y Producción | COMPLETADA | Nginx reverse proxy, aislamiento de redes, sondas `/health/live` y `/health/ready`, graceful shutdown. |
-| **14** | **Observabilidad (EN CURSO)** | **SIGUIENTE** | Formato JSON estructurado sin PII/tokens, métricas de backend y KPIs de producto (DAU/WAU/MAU). |
+| **14** | Observabilidad | COMPLETADA | Logs JSON estructurados sin secretos, métricas de backend, KPIs de producto y sistema de alertas. |
+| **15** | **Backups y Disaster Recovery** | **SIGUIENTE** | Frecuencia de backups PostgreSQL/Media, retención, cifrado, restore test automatizado y RPO/RTO. |
 
 ---
 

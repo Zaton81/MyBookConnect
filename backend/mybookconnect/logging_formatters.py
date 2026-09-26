@@ -1,7 +1,15 @@
 """
 Formateadores de logging estructurado y utilidades de sanitización para MyBookConnect.
-Este módulo no debe importar modelos de Django ni dependencias de DRF para permitir
-que Django configure el sistema de logging antes de cargar el registro de aplicaciones.
+Fase 14 — Observabilidad (RoadmapV2, Sección 19.1).
+Produce logs en formato JSON con campos canónicos:
+- timestamp
+- request_id
+- user_id
+- method
+- path
+- status
+- duration
+Y garantiza la no inclusión de passwords, JWTs, API keys o secretos.
 """
 import datetime
 import json
@@ -9,25 +17,34 @@ import logging
 import re
 from typing import Any
 
-# Claves sensibles a enmascarar en logs y parámetros
+# Claves sensibles a enmascarar en logs, query params y cuerpos de petición
 SENSITIVE_KEY_PATTERNS = re.compile(
-    r'(password|passwd|secret|token|access|refresh|api[_-]?key|auth|authorization|credit[_-]?card)',
+    r'(password|passwd|pwd|secret|token|access|refresh|api[_-]?key|auth|authorization|credit[_-]?card|cvv|private[_-]?key)',
     re.IGNORECASE,
 )
+
+# Patrón para identificar tokens JWT sueltos (tres segmentos en base64url separados por puntos)
+JWT_PATTERN = re.compile(
+    r'^eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}$'
+)
+
 REDACTED_PLACEHOLDER = '***REDACTED***'
 
 
 def sanitize_sensitive_data(data: Any) -> Any:
     """
     Sanitiza recursivamente diccionarios, listas o cadenas para enmascarar
-    credenciales, tokens de autenticación o claves de API.
+    credenciales, contraseñas, tokens JWT, tokens de autenticación o claves de API.
     """
     if isinstance(data, dict):
         sanitized = {}
         for key, value in data.items():
             str_key = str(key)
             if SENSITIVE_KEY_PATTERNS.search(str_key):
-                sanitized[key] = REDACTED_PLACEHOLDER
+                if isinstance(value, str) and value.strip().lower().startswith('bearer '):
+                    sanitized[key] = f'Bearer {REDACTED_PLACEHOLDER}'
+                else:
+                    sanitized[key] = REDACTED_PLACEHOLDER
             else:
                 sanitized[key] = sanitize_sensitive_data(value)
         return sanitized
@@ -36,9 +53,13 @@ def sanitize_sensitive_data(data: Any) -> Any:
     elif isinstance(data, tuple):
         return tuple(sanitize_sensitive_data(item) for item in data)
     elif isinstance(data, str):
-        # Si la cadena parece un Bearer token o similar
-        if data.strip().lower().startswith('bearer ') and len(data.strip()) > 10:
+        trimmed = data.strip()
+        # Si la cadena parece un Bearer token
+        if trimmed.lower().startswith('bearer ') and len(trimmed) > 7:
             return 'Bearer ***REDACTED***'
+        # Si la cadena es un token JWT directo
+        if JWT_PATTERN.match(trimmed):
+            return REDACTED_PLACEHOLDER
         return data
     return data
 
@@ -47,7 +68,7 @@ class StructuredJsonFormatter(logging.Formatter):
     """
     Formateador de logs que produce una salida estructurada en formato JSON
     para integración con sistemas de observabilidad (Datadog, Grafana Loki, CloudWatch, etc.).
-    Garantiza que ninguna credencial, token o contraseña sensible quede expuesta.
+    Cumple con el estándar de la Sección 19.1 de RoadmapV2.
     """
     def format(self, record: logging.LogRecord) -> str:
         # Obtenemos mensaje base formateado
@@ -56,10 +77,28 @@ class StructuredJsonFormatter(logging.Formatter):
         except Exception:
             message = str(record.msg)
 
+        timestamp_iso = datetime.datetime.fromtimestamp(
+            record.created, tz=datetime.timezone.utc
+        ).isoformat()
+
+        # Extraer atributos canónicos del registro (con fallback seguro)
+        request_id = getattr(record, 'request_id', None) or getattr(record, 'req_id', 'system')
+        user_id = getattr(record, 'user_id', None)
+        method = getattr(record, 'method', None)
+        path = getattr(record, 'path', None) or getattr(record, 'endpoint', None)
+        status_code = getattr(record, 'status_code', None) or getattr(record, 'status', None)
+        duration_ms = getattr(record, 'duration_ms', None) or getattr(record, 'duration', None)
+
         log_data = {
-            'timestamp': datetime.datetime.fromtimestamp(
-                record.created, tz=datetime.timezone.utc
-            ).isoformat(),
+            # 7 campos obligatorios Fase 14 (19.1)
+            'timestamp': timestamp_iso,
+            'request_id': request_id,
+            'user_id': user_id,
+            'method': method,
+            'path': path,
+            'status': status_code,
+            'duration': duration_ms,
+            # Metadatos del runtime y log
             'level': record.levelname,
             'logger': record.name,
             'message': message,
@@ -70,9 +109,9 @@ class StructuredJsonFormatter(logging.Formatter):
             'thread': record.thread,
         }
 
-        # Extraer campos de contexto HTTP / trazabilidad si existen
-        for attr in ('request_id', 'method', 'path', 'status_code', 'duration_ms', 'db_queries', 'user_id', 'ip'):
-            if hasattr(record, attr):
+        # Campos adicionales de rendimiento y trazabilidad si existen
+        for attr in ('status_code', 'duration_ms', 'db_queries', 'db_duration_ms', 'ip', 'endpoint'):
+            if hasattr(record, attr) and attr not in log_data:
                 log_data[attr] = getattr(record, attr)
 
         # Capturar traza de excepción si existe
@@ -92,7 +131,7 @@ class StructuredJsonFormatter(logging.Formatter):
             if key not in standard_attrs and key not in log_data:
                 log_data[key] = val
 
-        # Sanitización de datos sensibles antes de serializar
+        # Sanitización estricta de datos sensibles antes de serializar
         sanitized_log_data = sanitize_sensitive_data(log_data)
 
         try:

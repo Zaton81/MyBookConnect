@@ -1604,15 +1604,13 @@ Persistencia desacoplada del ciclo de vida de los contenedores mediante volúmen
 
 ---
 
-# 19. FASE 14 — Observabilidad
+# 19. FASE 14 — Observabilidad [COMPLETADA]
 
 **Prioridad: P1**
 
 ## 19.1. Logs
 
-Formato JSON.
-
-Incluir:
+Implementado formateador JSON con los 7 campos canónicos obligatorios:
 
 ```text
 timestamp
@@ -1624,55 +1622,63 @@ status
 duration
 ```
 
-No incluir:
-
-- password;
-- JWT;
-- API keys;
-- tokens;
-- datos privados innecesarios.
+Sanitización estricta (`sanitize_sensitive_data`):
+- Ningún password (`password`, `confirm_password`, `pwd`).
+- Ningún JWT (tokens JWT directos o con esquema `Bearer ***REDACTED***`).
+- Ninguna API key ni secreto de autenticación.
+- Ningún dato privado sensible.
 
 ## 19.2. Métricas
 
-Backend:
+Implementados servicios de cálculo y agregación en tiempo real:
 
-```text
-requests
-latency
-5xx
-4xx
-DB latency
-Redis latency
-Celery queue
-Celery failures
-WebSocket connections
-```
+### Backend (`ObservabilityMetricsService`):
+- `requests`: total, rate 4xx y rate 5xx.
+- `latency`: promedio y percentiles `p50`, `p95`, `p99`.
+- `5xx` y `4xx`: conteos acumulados y ratios porcentuales.
+- `DB latency`: tiempo de respuesta de PostgreSQL medido en milisegundos (`measure_db_latency`).
+- `Redis latency`: tiempo de round-trip de Redis medido en milisegundos (`measure_redis_latency`).
+- `Celery queue`: profundidad de la cola de tareas (`get_celery_queue_depth`).
+- `Celery failures`: total de fallos de tareas en segundo plano.
+- `WebSocket connections`: conexiones activas concurrentes a Channels/Daphne.
 
-Producto:
-
-```text
-DAU
-WAU
-MAU
-retention
-books added
-reviews
-follows
-messages
-recommendation interactions
-```
+### Producto (`ProductMetricsService`):
+- `DAU`: usuarios activos en 24h.
+- `WAU`: usuarios activos en 7 días.
+- `MAU`: usuarios activos en 30 días.
+- `retention`: ratio porcentual de retención (`wau / mau * 100`).
+- `books added`: total libros en estanterías de usuarios (`UserBook`).
+- `reviews`: total reseñas publicadas no eliminadas (`Review`).
+- `follows`: total conexiones sociales activas.
+- `messages`: total mensajes enviados en el sistema de chat.
+- `recommendation interactions`: total valoraciones y feedback sobre recomendaciones.
 
 ## 19.3. Alertas
 
-Crear alertas para:
+Implementado motor de evaluación en tiempo real (`SystemAlertsEvaluator`) para:
+- `5xx elevado`: alerta `CRITICAL` si ratio > 1.0% con peticiones mínimas.
+- `DB unavailable`: alerta `CRITICAL` si PostgreSQL no responde al ping.
+- `Redis unavailable`: alerta `CRITICAL` si Redis no responde al ping.
+- `Celery backlog`: alerta `WARNING` si la cola de tareas supera 100 elementos.
+- `disk usage`: alerta `WARNING` si el uso de disco supera el 85%.
+- `memory`: monitoreo de saturación de memoria RAM.
+- `error rate`: alerta `WARNING` si el ratio combinado 4xx+5xx supera el 5.0%.
 
-- 5xx elevado;
-- DB unavailable;
-- Redis unavailable;
-- Celery backlog;
-- disk usage;
-- memory;
-- error rate.
+### Entregables
+- `backend/mybookconnect/logging_formatters.py` [COMPLETADO]
+- `backend/mybookconnect/observability.py` [COMPLETADO]
+- `backend/tests/test_phase14_observability.py` [COMPLETADO]
+- `docs/devops/observability_and_metrics.md` [COMPLETADO]
+
+### Criterio de salida
+- [x] Formato JSON estructurado con los 7 campos canónicos obligatorios en cada log.
+- [x] Sanitización estricta de contraseñas, tokens JWT, Bearer tokens y API keys verificada con pruebas.
+- [x] Métricas de backend completas (latencias p50/p95/p99, DB latency, Redis latency, Celery queue depth, WS).
+- [x] Métricas de producto implementadas y cacheadas (DAU, WAU, MAU, retención, libros, reseñas, chat).
+- [x] Motor de alertas de salud operativa implementado con los 7 criterios del Roadmap.
+- [x] Endpoint administrativo seguro `/api/v1/observability/metrics/` con control de acceso `IsAdminUser`.
+- [x] Suite de pruebas automatizadas de Fase 14 pasando al 100% (14/14 tests).
+- [x] Documentación técnica en `docs/devops/observability_and_metrics.md`.
 
 ---
 
