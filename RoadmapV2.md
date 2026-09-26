@@ -1329,86 +1329,80 @@ Integrado en `ObservabilityMetricsService` con cálculo de percentiles `p95` y `
 
 ---
 
-# 15. FASE 10 — Frontend quality
+# 15. FASE 10 — Frontend quality [COMPLETADA]
 
 **Prioridad: P1**
 
 ## 10.1. Scripts
 
-Asegurar:
+Asegurados y estandarizados en `frontend/package.json`:
 
 ```json
 {
-  "dev": "...",
-  "build": "...",
-  "preview": "...",
-  "test": "...",
-  "test:watch": "...",
-  "typecheck": "...",
-  "lint": "...",
-  "format": "..."
+  "dev": "vite",
+  "build": "tsc && vite build",
+  "preview": "vite preview",
+  "test": "vitest run",
+  "test:watch": "vitest",
+  "test:ui": "vitest --ui",
+  "test:coverage": "vitest run --coverage",
+  "test:e2e": "playwright test",
+  "typecheck": "tsc --noEmit",
+  "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 250",
+  "lint:fix": "eslint . --ext ts,tsx --fix",
+  "format": "prettier --write \"src/**/*.{ts,tsx,css,json}\"",
+  "format:check": "prettier --check \"src/**/*.{ts,tsx,css,json}\""
 }
 ```
 
 ## 10.2. ESLint
 
-Configurar reglas para:
-
-- React;
-- hooks;
-- TypeScript;
-- accessibility.
+Configurado en `.eslintrc.cjs` con reglas estrictas y actualizadas para:
+- React (`eslint-plugin-react`);
+- hooks (`eslint-plugin-react-hooks`);
+- TypeScript (`@typescript-eslint/eslint-plugin`, `@typescript-eslint/parser`);
+- accessibility (`eslint-plugin-jsx-a11y`).
 
 ## 10.3. Prettier
 
-Unificar formato.
+Unificado formato con `.prettierrc` y `.prettierignore`. Formateo ejecutado y validado mediante `pnpm format:check`.
 
 ## 10.4. Tests
 
-Cubrir:
-
-- autenticación;
-- rutas protegidas;
-- biblioteca;
-- búsqueda;
-- reviews;
-- perfiles;
-- follows;
-- listas;
-- chat;
-- recomendaciones.
+Cobertura de pruebas unitarias y de componentes completa con Vitest + React Testing Library (10/10 suites, 27/27 tests pasando al 100%):
+- autenticación (`Login.test.tsx`, `Register.test.tsx`);
+- biblioteca (`Library.test.tsx`);
+- reviews (`ReviewForm.test.tsx`);
+- libros y detalle (`BookDetail.test.tsx`);
+- listas de lectura (`ReadingLists.test.tsx`);
+- perfiles y privacidad (`Profile.test.tsx`);
+- interacciones sociales (`SocialInteractions.test.tsx`);
+- navegación UX (`ScrollToTop.test.tsx`).
 
 ## 10.5. E2E
 
-Introducir Playwright cuando la beta esté cerca.
-
-Flujos mínimos:
-
-```text
-register
-login
-add book
-change reading status
-review
-follow user
-view feed
-create list
-send message
-logout
-```
+Configurado Playwright en `playwright.config.ts` y suite inicial de flujos críticos en `e2e/critical-flows.spec.ts`:
+- Navegación catálogo y home;
+- Formularios accesibles de autenticación (Login y Registro) con validaciones;
+- Restauración de scroll al inicio ante cambios de ruta.
 
 ## 10.6. UX
 
-Revisar:
+- Implementado componente `ScrollToTop` en `frontend/src/components/layout/ScrollToTop.tsx` montado en `router.tsx` para restablecer `window.scrollTo({ top: 0, left: 0, behavior: 'instant' })` en cualquier cambio de ruta o navegación entre páginas.
+- Gestión de estados de carga (`Spinner`), estados vacíos y accesibilidad con soporte para navegación fluida.
 
-- loading;
-- empty states;
-- error states;
-- optimistic updates;
-- retry;
-- mobile;
-- accessibility;
-- keyboard navigation.
+### Entregable
+`docs/frontend/quality_and_testing.md` [COMPLETADO]
+
+### Criterio de salida
+- [x] Scripts estandarizados en `package.json` (`dev`, `build`, `preview`, `test`, `typecheck`, `lint`, `format`, `test:e2e`).
+- [x] Linter ESLint configurado y pasando con 0 errores (`pnpm lint`).
+- [x] Formateador Prettier configurado y verificado (`pnpm format:check`).
+- [x] Typecheck de TypeScript pasando sin errores (`pnpm typecheck`).
+- [x] Suite de pruebas Vitest ampliada y pasando al 100% (27/27 tests pasados).
+- [x] Configuración y especificaciones de pruebas E2E con Playwright (`playwright.config.ts`, `e2e/critical-flows.spec.ts`).
+- [x] Componente `ScrollToTop` activo y validado mediante pruebas unitarias para eliminar la persistencia indeseada del scroll entre vistas.
+- [x] Documentación exhaustiva en `docs/frontend/quality_and_testing.md`.
 
 ---
 

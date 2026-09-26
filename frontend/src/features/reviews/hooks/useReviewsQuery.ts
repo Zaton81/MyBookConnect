@@ -8,7 +8,7 @@ export function useBookReviews(bookId?: string | number) {
     queryFn: async () => {
       if (!bookId) return [];
       const res = await api.get(`/api/v1/books/${bookId}/reviews/`);
-      return Array.isArray(res) ? res : (res?.results || []);
+      return Array.isArray(res) ? res : res?.results || [];
     },
     enabled: Boolean(bookId),
   });

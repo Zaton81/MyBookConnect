@@ -1,7 +1,7 @@
-import { Link } from "react-router-dom";
-import { BsGithub, BsInstagram, BsTwitterX, BsDiscord, BsBookHalf } from "react-icons/bs";
-import logoLibro from "../../assets/logo-libro.png";
-import { openCookiePreferences } from "../ui/CookieBanner";
+import { Link } from 'react-router-dom';
+import { BsGithub, BsInstagram, BsTwitterX, BsDiscord, BsBookHalf } from 'react-icons/bs';
+import logoLibro from '../../assets/logo-libro.png';
+import { openCookiePreferences } from '../ui/CookieBanner';
 
 export function FooterSection() {
   const currentYear = new Date().getFullYear();
@@ -23,13 +23,17 @@ export function FooterSection() {
               </span>
             </Link>
             <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed max-w-sm">
-              Tu red social y biblioteca virtual para descubrir lecturas, catalogar tus libros favoritos y compartir opiniones con una comunidad apasionada por las historias.
+              Tu red social y biblioteca virtual para descubrir lecturas, catalogar tus libros
+              favoritos y compartir opiniones con una comunidad apasionada por las historias.
             </p>
 
             {/* Amazon Affiliate Legal Notice */}
             <div className="p-3 rounded-xl bg-slate-100 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-800 text-[11px] leading-relaxed text-slate-500 dark:text-slate-400 max-w-md">
               <p>
-                <strong className="text-slate-700 dark:text-slate-300">Aviso de Afiliación:</strong> En calidad de Afiliado de Amazon, My Book Social podría obtener ingresos por las compras adscritas que cumplan los requisitos aplicables. Apoyas el proyecto sin ningún coste adicional para ti.
+                <strong className="text-slate-700 dark:text-slate-300">Aviso de Afiliación:</strong>{' '}
+                En calidad de Afiliado de Amazon, My Book Social podría obtener ingresos por las
+                compras adscritas que cumplan los requisitos aplicables. Apoyas el proyecto sin
+                ningún coste adicional para ti.
               </p>
             </div>
           </div>
@@ -41,27 +45,42 @@ export function FooterSection() {
             </h3>
             <ul className="space-y-2.5 text-sm">
               <li>
-                <Link to="/home" className="hover:text-teal-600 dark:hover:text-teal-400 transition-colors">
+                <Link
+                  to="/home"
+                  className="hover:text-teal-600 dark:hover:text-teal-400 transition-colors"
+                >
                   Feed Social
                 </Link>
               </li>
               <li>
-                <Link to="/library" className="hover:text-teal-600 dark:hover:text-teal-400 transition-colors">
+                <Link
+                  to="/library"
+                  className="hover:text-teal-600 dark:hover:text-teal-400 transition-colors"
+                >
                   Mi Biblioteca
                 </Link>
               </li>
               <li>
-                <Link to="/books/add" className="hover:text-teal-600 dark:hover:text-teal-400 transition-colors">
+                <Link
+                  to="/books/add"
+                  className="hover:text-teal-600 dark:hover:text-teal-400 transition-colors"
+                >
                   Añadir Libro
                 </Link>
               </li>
               <li>
-                <Link to="/friends" className="hover:text-teal-600 dark:hover:text-teal-400 transition-colors">
+                <Link
+                  to="/friends"
+                  className="hover:text-teal-600 dark:hover:text-teal-400 transition-colors"
+                >
                   Lectores & Amigos
                 </Link>
               </li>
               <li>
-                <Link to="/chat" className="hover:text-teal-600 dark:hover:text-teal-400 transition-colors">
+                <Link
+                  to="/chat"
+                  className="hover:text-teal-600 dark:hover:text-teal-400 transition-colors"
+                >
                   Mensajería en vivo
                 </Link>
               </li>
@@ -75,17 +94,26 @@ export function FooterSection() {
             </h3>
             <ul className="space-y-2.5 text-sm">
               <li>
-                <Link to="/privacy" className="hover:text-teal-600 dark:hover:text-teal-400 transition-colors">
+                <Link
+                  to="/privacy"
+                  className="hover:text-teal-600 dark:hover:text-teal-400 transition-colors"
+                >
                   Política de Privacidad
                 </Link>
               </li>
               <li>
-                <Link to="/terms" className="hover:text-teal-600 dark:hover:text-teal-400 transition-colors">
+                <Link
+                  to="/terms"
+                  className="hover:text-teal-600 dark:hover:text-teal-400 transition-colors"
+                >
                   Términos y Condiciones
                 </Link>
               </li>
               <li>
-                <Link to="/cookies" className="hover:text-teal-600 dark:hover:text-teal-400 transition-colors">
+                <Link
+                  to="/cookies"
+                  className="hover:text-teal-600 dark:hover:text-teal-400 transition-colors"
+                >
                   Política de Cookies
                 </Link>
               </li>
@@ -177,4 +205,3 @@ export function FooterSection() {
 }
 
 export default FooterSection;
-

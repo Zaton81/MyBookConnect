@@ -16,11 +16,9 @@ export function useFollowers(userId?: string | number) {
   return useQuery<User[]>({
     queryKey: queryKeys.social.followers(userId),
     queryFn: async () => {
-      const url = userId
-        ? `/api/v1/users/${userId}/followers/`
-        : '/api/v1/users/followers/';
+      const url = userId ? `/api/v1/users/${userId}/followers/` : '/api/v1/users/followers/';
       const res = await api.get(url);
-      return Array.isArray(res) ? res : (res?.results || []);
+      return Array.isArray(res) ? res : res?.results || [];
     },
   });
 }
@@ -29,11 +27,9 @@ export function useFollowing(userId?: string | number) {
   return useQuery<User[]>({
     queryKey: queryKeys.social.following(userId),
     queryFn: async () => {
-      const url = userId
-        ? `/api/v1/users/${userId}/following/`
-        : '/api/v1/users/following/';
+      const url = userId ? `/api/v1/users/${userId}/following/` : '/api/v1/users/following/';
       const res = await api.get(url);
-      return Array.isArray(res) ? res : (res?.results || []);
+      return Array.isArray(res) ? res : res?.results || [];
     },
   });
 }

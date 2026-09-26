@@ -235,7 +235,9 @@ export function ReadingLists() {
     try {
       const headers: Record<string, string> = {};
       if (token) headers['Authorization'] = `Bearer ${token}`;
-      const res = await fetch(`${apiUrl}/api/v1/books/?search=${encodeURIComponent(query)}`, { headers });
+      const res = await fetch(`${apiUrl}/api/v1/books/?search=${encodeURIComponent(query)}`, {
+        headers,
+      });
       if (res.ok) {
         const data = await res.json();
         const items = Array.isArray(data) ? data : data.results || [];
@@ -278,10 +280,13 @@ export function ReadingLists() {
   const handleRemoveBookFromList = async (bookId: number) => {
     if (!selectedList || !token) return;
     try {
-      const res = await fetch(`${apiUrl}/api/v1/books/reading-lists/${selectedList.id}/remove-book/?book_id=${bookId}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await fetch(
+        `${apiUrl}/api/v1/books/reading-lists/${selectedList.id}/remove-book/?book_id=${bookId}`,
+        {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
       if (res.ok) {
         await fetchLists();
       }
@@ -336,7 +341,8 @@ export function ReadingLists() {
             <span>Listas de Lectura</span>
           </h1>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-            Organiza, comparte y descubre colecciones temáticas de libros (Favoritos, Por leer 2027, etc.).
+            Organiza, comparte y descubre colecciones temáticas de libros (Favoritos, Por leer 2027,
+            etc.).
           </p>
         </div>
 
@@ -424,15 +430,15 @@ export function ReadingLists() {
                       selectedList.privacy === 'public'
                         ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
                         : selectedList.privacy === 'followers'
-                        ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
-                        : 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300'
+                          ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
+                          : 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300'
                     }`}
                   >
                     {selectedList.privacy === 'public'
                       ? 'Pública'
                       : selectedList.privacy === 'followers'
-                      ? 'Solo seguidores'
-                      : 'Privada'}
+                        ? 'Solo seguidores'
+                        : 'Privada'}
                   </span>
                 </div>
                 {selectedList.description && (
@@ -647,8 +653,8 @@ export function ReadingLists() {
                 {activeTab === 'my'
                   ? 'Aún no has creado ninguna lista de lectura. ¡Crea la primera para organizar tus libros!'
                   : activeTab === 'followed'
-                  ? 'No sigues ninguna lista de lectura aún.'
-                  : 'Aún no hay listas públicas compartidas por la comunidad.'}
+                    ? 'No sigues ninguna lista de lectura aún.'
+                    : 'Aún no hay listas públicas compartidas por la comunidad.'}
               </p>
               {activeTab === 'my' && token && (
                 <button
@@ -674,15 +680,15 @@ export function ReadingLists() {
                           list.privacy === 'public'
                             ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
                             : list.privacy === 'followers'
-                            ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
-                            : 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300'
+                              ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
+                              : 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300'
                         }`}
                       >
                         {list.privacy === 'public'
                           ? 'Pública'
                           : list.privacy === 'followers'
-                          ? 'Seguidores'
-                          : 'Privada'}
+                            ? 'Seguidores'
+                            : 'Privada'}
                       </span>
                       <span className="text-[11px] text-slate-400">
                         {list.items_count || 0} {list.items_count === 1 ? 'libro' : 'libros'}
@@ -828,4 +834,3 @@ export function ReadingLists() {
 }
 
 export default ReadingLists;
-

@@ -21,7 +21,11 @@ export interface ChatMessage {
 interface UseChatWebSocketOptions {
   conversationId: number | null;
   onMessageReceived?: (message: ChatMessage) => void;
-  onMessagesRead?: (conversationId: number, readerId?: number, lastReadMessageId?: number | null) => void;
+  onMessagesRead?: (
+    conversationId: number,
+    readerId?: number,
+    lastReadMessageId?: number | null
+  ) => void;
 }
 
 export function useChatWebSocket({
@@ -54,7 +58,7 @@ export function useChatWebSocket({
       const ticketRes = await fetch(`${apiUrl}/api/v1/auth/ws-ticket/`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
       });
@@ -119,7 +123,10 @@ export function useChatWebSocket({
 
         // Si no fue cierre intencionado ni error fatal de autenticación (4001/4003), reconectar con backoff exponencial
         if (event.code !== 1000 && event.code !== 4001 && event.code !== 4003) {
-          const backoffDelay = Math.min(1000 * Math.pow(1.5, retryCountRef.current) + Math.random() * 500, 15000);
+          const backoffDelay = Math.min(
+            1000 * Math.pow(1.5, retryCountRef.current) + Math.random() * 500,
+            15000
+          );
           retryCountRef.current += 1;
           reconnectTimeoutRef.current = setTimeout(() => {
             connect();
@@ -150,7 +157,8 @@ export function useChatWebSocket({
 
   const sendMessage = useCallback((text: string, clientMessageId?: string) => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      const generatedId = clientMessageId || `${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+      const generatedId =
+        clientMessageId || `${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
       wsRef.current.send(
         JSON.stringify({
           action: 'send_message',

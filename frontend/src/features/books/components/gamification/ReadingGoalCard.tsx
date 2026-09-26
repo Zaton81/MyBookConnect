@@ -106,7 +106,10 @@ export const ReadingGoalCard: React.FC<ReadingGoalCardProps> = ({
       </div>
 
       {isEditing ? (
-        <form onSubmit={handleSaveGoal} className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-700">
+        <form
+          onSubmit={handleSaveGoal}
+          className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-700"
+        >
           <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
             ¿Cuántos libros quieres leer en {goal?.year || new Date().getFullYear()}?
           </label>

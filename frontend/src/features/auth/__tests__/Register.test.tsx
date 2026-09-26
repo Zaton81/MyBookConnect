@@ -52,7 +52,9 @@ describe('Register Component', () => {
     fireEvent.click(submitButton);
 
     await waitFor(() => {
-      expect(screen.getAllByText(/requerido|obligatorio|min|caracteres/i).length).toBeGreaterThan(0);
+      expect(screen.getAllByText(/requerido|obligatorio|min|caracteres/i).length).toBeGreaterThan(
+        0
+      );
     });
   });
 
@@ -66,7 +68,7 @@ describe('Register Component', () => {
     fireEvent.change(usernameInput, { target: { value: 'testuser' } });
     fireEvent.change(emailInput, { target: { value: 'test@example.com' } });
     fireEvent.change(passwordInput, { target: { value: 'Password123!' } });
-    
+
     fireEvent.click(submitButton);
 
     await waitFor(() => {
@@ -78,7 +80,7 @@ describe('Register Component', () => {
   it('displays error message when registration fails', async () => {
     mockRegister.mockRejectedValueOnce(new Error('El usuario ya existe'));
     renderRegister();
-    
+
     const usernameInput = screen.getByLabelText(/nombre de usuario/i);
     const emailInput = screen.getByLabelText(/email/i);
     const passwordInput = screen.getByLabelText(/contraseña/i);
@@ -87,7 +89,7 @@ describe('Register Component', () => {
     fireEvent.change(usernameInput, { target: { value: 'testuser' } });
     fireEvent.change(emailInput, { target: { value: 'test@example.com' } });
     fireEvent.change(passwordInput, { target: { value: 'Password123!' } });
-    
+
     fireEvent.click(submitButton);
 
     await waitFor(() => {

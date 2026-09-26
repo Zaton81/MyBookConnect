@@ -263,7 +263,8 @@ export const Home = () => {
               ¡Qué bueno verte de nuevo, {user.username}!
             </h1>
             <p className="mt-3 text-teal-100 text-sm sm:text-base leading-relaxed">
-              Explora las novedades literarias de tus amigos, descubre qué libros son tendencia hoy o consulta a tu asistente de lectura inteligente.
+              Explora las novedades literarias de tus amigos, descubre qué libros son tendencia hoy
+              o consulta a tu asistente de lectura inteligente.
             </p>
 
             <div className="mt-6 flex flex-wrap items-center gap-3">
@@ -351,7 +352,9 @@ export const Home = () => {
                       </div>
                     )}
                     <div className="mt-1">
-                      {book.average_rating ? renderStars(book.average_rating) : (
+                      {book.average_rating ? (
+                        renderStars(book.average_rating)
+                      ) : (
                         <span className="text-[11px] text-gray-400">Sin reseñas aún</span>
                       )}
                     </div>
@@ -425,7 +428,8 @@ export const Home = () => {
             </div>
           ) : trending.length === 0 ? (
             <div className="text-center py-8 bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 text-gray-500 text-sm">
-              Aún no hay suficientes actividades registradas en este periodo para calcular tendencias. ¡Sé el primero en interactuar con tus libros!
+              Aún no hay suficientes actividades registradas en este periodo para calcular
+              tendencias. ¡Sé el primero en interactuar con tus libros!
             </div>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 sm:gap-6">
@@ -452,7 +456,9 @@ export const Home = () => {
                       )}
 
                       {/* Medalla de ranking */}
-                      <span className={`absolute top-2 left-2 ${rank.bg} text-[10px] font-extrabold px-2 py-0.5 rounded-md shadow`}>
+                      <span
+                        className={`absolute top-2 left-2 ${rank.bg} text-[10px] font-extrabold px-2 py-0.5 rounded-md shadow`}
+                      >
                         {rank.label}
                       </span>
 
@@ -482,7 +488,9 @@ export const Home = () => {
                         {book.author_name || 'Autor desconocido'}
                       </p>
                       <div className="mt-1">
-                        {book.average_rating ? renderStars(book.average_rating) : (
+                        {book.average_rating ? (
+                          renderStars(book.average_rating)
+                        ) : (
                           <span className="text-[11px] text-gray-400">Sin reseñas aún</span>
                         )}
                       </div>
@@ -548,7 +556,8 @@ export const Home = () => {
             ) : feed.length === 0 ? (
               <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-8">
                 <p className="text-gray-500 text-sm">
-                  Aún no hay actividad social reciente. ¡Conecta con amigos para ver sus lecturas aquí!
+                  Aún no hay actividad social reciente. ¡Conecta con amigos para ver sus lecturas
+                  aquí!
                 </p>
                 <button
                   onClick={() => navigate('/friends')}
@@ -606,7 +615,8 @@ export const Home = () => {
                         </div>
                       </div>
 
-                      {(item.rating || item.review?.rating) && renderStars(item.rating || item.review?.rating || 0)}
+                      {(item.rating || item.review?.rating) &&
+                        renderStars(item.rating || item.review?.rating || 0)}
                     </div>
 
                     {item.book && (
@@ -655,7 +665,8 @@ export const Home = () => {
               </div>
               <h3 className="text-lg font-bold">Asistente Literario BookAI</h3>
               <p className="mt-2 text-xs sm:text-sm text-teal-100/90 leading-relaxed">
-                ¿No sabes qué leer a continuación? Pídele recomendaciones a BookAI basadas en tu biblioteca o consulta por géneros y autores.
+                ¿No sabes qué leer a continuación? Pídele recomendaciones a BookAI basadas en tu
+                biblioteca o consulta por géneros y autores.
               </p>
               <button
                 onClick={() => setIsAiModalOpen(true)}
@@ -670,7 +681,8 @@ export const Home = () => {
                 Comunidad & Conexiones
               </h3>
               <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
-                Encuentra amigos lectores, compara vuestras estanterías y chatea en tiempo real sobre vuestras novelas favoritas.
+                Encuentra amigos lectores, compara vuestras estanterías y chatea en tiempo real
+                sobre vuestras novelas favoritas.
               </p>
               <div className="pt-2 flex flex-col gap-2">
                 <button
@@ -696,10 +708,7 @@ export const Home = () => {
         </div>
       </div>
 
-      <AIAssistantModal
-        isOpen={isAiModalOpen}
-        onClose={() => setIsAiModalOpen(false)}
-      />
+      <AIAssistantModal isOpen={isAiModalOpen} onClose={() => setIsAiModalOpen(false)} />
     </div>
   );
 };

@@ -63,7 +63,11 @@ export function BookReviewsSection({
   const [newCommentText, setNewCommentText] = useState<Record<number, string>>({});
   const [submittingComment, setSubmittingComment] = useState<Record<number, boolean>>({});
   const [likePending, setLikePending] = useState<Record<number, boolean>>({});
-  const [reportingTarget, setReportingTarget] = useState<{ type: 'review' | 'comment'; id: number; title?: string } | null>(null);
+  const [reportingTarget, setReportingTarget] = useState<{
+    type: 'review' | 'comment';
+    id: number;
+    title?: string;
+  } | null>(null);
 
   // Formulario de reseña con React Hook Form y Zod
   const [myExistingReview, setMyExistingReview] = useState<ReviewItem | null>(null);
@@ -236,7 +240,9 @@ export function BookReviewsSection({
         }));
         setReviews((prev) =>
           prev.map((r) =>
-            r.id === reviewId ? { ...r, comments_count: Math.max(0, (r.comments_count || 1) - 1) } : r
+            r.id === reviewId
+              ? { ...r, comments_count: Math.max(0, (r.comments_count || 1) - 1) }
+              : r
           )
         );
       }
@@ -244,7 +250,6 @@ export function BookReviewsSection({
       console.error('Error deleting comment:', err);
     }
   };
-
 
   const onSubmitReview = async (data: ReviewFormData) => {
     if (!token) {
@@ -317,7 +322,15 @@ export function BookReviewsSection({
             className="self-start sm:self-auto inline-flex items-center gap-2 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold px-4 py-2.5 rounded-2xl transition-all shadow-sm"
           >
             <span>✍️</span>
-            <span>{myExistingReview ? (showForm ? 'Cancelar edición' : 'Editar mi reseña') : (showForm ? 'Cerrar formulario' : 'Escribir una reseña')}</span>
+            <span>
+              {myExistingReview
+                ? showForm
+                  ? 'Cancelar edición'
+                  : 'Editar mi reseña'
+                : showForm
+                  ? 'Cerrar formulario'
+                  : 'Escribir una reseña'}
+            </span>
           </button>
         )}
       </div>
@@ -349,7 +362,9 @@ export function BookReviewsSection({
                 maxRating={5}
                 size="lg"
                 interactive={true}
-                onRatingChange={(newVal) => setReviewValue('rating', newVal, { shouldValidate: true })}
+                onRatingChange={(newVal) =>
+                  setReviewValue('rating', newVal, { shouldValidate: true })
+                }
               />
               <span className="text-xs font-bold text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-900/40 px-2 py-1 rounded-lg">
                 {currentRating} / 5
@@ -406,7 +421,11 @@ export function BookReviewsSection({
               disabled={submitting}
               className="bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold px-5 py-2 rounded-xl shadow-md transition-all disabled:opacity-50"
             >
-              {submitting ? 'Guardando...' : (myExistingReview ? 'Actualizar reseña' : 'Publicar reseña')}
+              {submitting
+                ? 'Guardando...'
+                : myExistingReview
+                  ? 'Actualizar reseña'
+                  : 'Publicar reseña'}
             </button>
           </div>
         </form>
@@ -435,12 +454,19 @@ export function BookReviewsSection({
       ) : (
         <div className="space-y-4 divide-y divide-slate-100 dark:divide-slate-700/60">
           {reviews.map((rev: any) => {
-            const authorName = rev.username || (typeof rev.user === 'string' ? rev.user : '') || (rev.user?.username) || 'Lector';
+            const authorName =
+              rev.username ||
+              (typeof rev.user === 'string' ? rev.user : '') ||
+              rev.user?.username ||
+              'Lector';
             const rawAvatar = rev.avatar || rev.user_avatar || rev.user?.avatar;
             const avatarUrl = rawAvatar
-              ? (rawAvatar.startsWith('http') ? rawAvatar : `${apiUrl}${rawAvatar}`)
+              ? rawAvatar.startsWith('http')
+                ? rawAvatar
+                : `${apiUrl}${rawAvatar}`
               : null;
-            const targetUserId = rev.user_id || (typeof rev.user === 'number' ? rev.user : rev.user?.id);
+            const targetUserId =
+              rev.user_id || (typeof rev.user === 'number' ? rev.user : rev.user?.id);
             const dateStr = rev.created_at
               ? new Date(rev.created_at).toLocaleDateString('es-ES', {
                   year: 'numeric',
@@ -528,14 +554,21 @@ export function BookReviewsSection({
                   >
                     <span>💬</span>
                     <span>
-                      {rev.comments_count || 0} {rev.comments_count === 1 ? 'comentario' : 'comentarios'}
+                      {rev.comments_count || 0}{' '}
+                      {rev.comments_count === 1 ? 'comentario' : 'comentarios'}
                     </span>
                   </button>
 
                   {token && (
                     <button
                       type="button"
-                      onClick={() => setReportingTarget({ type: 'review', id: rev.id, title: rev.title || `Reseña de ${authorName}` })}
+                      onClick={() =>
+                        setReportingTarget({
+                          type: 'review',
+                          id: rev.id,
+                          title: rev.title || `Reseña de ${authorName}`,
+                        })
+                      }
                       className="inline-flex items-center gap-1 px-2 py-1 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-all font-medium ml-auto"
                       title="Denunciar reseña"
                     >
@@ -549,9 +582,7 @@ export function BookReviewsSection({
                 {expandedComments[rev.id] && (
                   <div className="mt-3 pl-3 sm:pl-4 border-l-2 border-teal-500/40 dark:border-teal-400/30 space-y-3 animate-in fade-in duration-200">
                     {loadingComments[rev.id] ? (
-                      <div className="text-[11px] text-slate-400 py-2">
-                        Cargando comentarios...
-                      </div>
+                      <div className="text-[11px] text-slate-400 py-2">Cargando comentarios...</div>
                     ) : (commentsData[rev.id] || []).length === 0 ? (
                       <div className="text-[11px] text-slate-400 italic py-1">
                         No hay comentarios todavía en esta reseña. ¡Sé el primero en responder!
@@ -560,7 +591,9 @@ export function BookReviewsSection({
                       <div className="space-y-2 pt-1">
                         {(commentsData[rev.id] || []).map((c) => {
                           const cAvatar = c.user?.avatar
-                            ? (c.user.avatar.startsWith('http') ? c.user.avatar : `${apiUrl}${c.user.avatar}`)
+                            ? c.user.avatar.startsWith('http')
+                              ? c.user.avatar
+                              : `${apiUrl}${c.user.avatar}`
                             : null;
                           const cDate = c.created_at
                             ? new Date(c.created_at).toLocaleDateString('es-ES', {
@@ -608,7 +641,13 @@ export function BookReviewsSection({
                                 {token && (
                                   <button
                                     type="button"
-                                    onClick={() => setReportingTarget({ type: 'comment', id: c.id, title: `Comentario de @${c.user?.username}` })}
+                                    onClick={() =>
+                                      setReportingTarget({
+                                        type: 'comment',
+                                        id: c.id,
+                                        title: `Comentario de @${c.user?.username}`,
+                                      })
+                                    }
                                     className="text-slate-400 hover:text-rose-500 p-1 text-[11px] transition-colors"
                                     title="Denunciar comentario"
                                   >
@@ -650,7 +689,9 @@ export function BookReviewsSection({
                         />
                         <button
                           type="submit"
-                          disabled={submittingComment[rev.id] || !(newCommentText[rev.id] || '').trim()}
+                          disabled={
+                            submittingComment[rev.id] || !(newCommentText[rev.id] || '').trim()
+                          }
                           className="px-3 py-2 rounded-xl text-xs font-bold bg-teal-600 hover:bg-teal-700 text-white disabled:opacity-50 transition-all shadow-sm shrink-0"
                         >
                           {submittingComment[rev.id] ? '...' : 'Comentar'}
@@ -665,7 +706,6 @@ export function BookReviewsSection({
                 )}
               </article>
             );
-
           })}
         </div>
       )}

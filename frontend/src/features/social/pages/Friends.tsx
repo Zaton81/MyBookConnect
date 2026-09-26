@@ -74,7 +74,9 @@ export function Friends() {
             </h5>
             <p className="text-xs text-gray-500 truncate">@{user.username}</p>
             {user.bio && (
-              <p className="text-xs text-gray-600 dark:text-gray-300 line-clamp-1 mt-0.5">{user.bio.replace(/<[^>]*>/g, '')}</p>
+              <p className="text-xs text-gray-600 dark:text-gray-300 line-clamp-1 mt-0.5">
+                {user.bio.replace(/<[^>]*>/g, '')}
+              </p>
             )}
           </div>
         </Link>
@@ -94,14 +96,14 @@ export function Friends() {
   return (
     <div className="max-w-4xl mx-auto p-4">
       <h2 className="text-2xl font-bold mb-4">Mis Amigos</h2>
-      
+
       <Tabs aria-label="Amigos tabs">
         <Tabs.Item active title={`Siguiendo (${following.length})`}>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
             {following.length === 0 ? (
               <p className="text-gray-600">No sigues a nadie aún</p>
             ) : (
-              following.map(user => <UserCard key={user.id} user={user} />)
+              following.map((user) => <UserCard key={user.id} user={user} />)
             )}
           </div>
         </Tabs.Item>
@@ -110,7 +112,7 @@ export function Friends() {
             {followers.length === 0 ? (
               <p className="text-gray-600">Nadie te sigue aún</p>
             ) : (
-              followers.map(user => <UserCard key={user.id} user={user} />)
+              followers.map((user) => <UserCard key={user.id} user={user} />)
             )}
           </div>
         </Tabs.Item>

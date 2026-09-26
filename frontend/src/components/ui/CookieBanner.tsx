@@ -96,13 +96,18 @@ export function CookieBanner() {
         >
           <div className="p-5 rounded-2xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border border-slate-200/80 dark:border-slate-800 shadow-2xl shadow-slate-900/10 text-slate-800 dark:text-slate-200">
             <div className="flex items-start gap-3">
-              <div className="text-2xl select-none" aria-hidden="true">🍪</div>
+              <div className="text-2xl select-none" aria-hidden="true">
+                🍪
+              </div>
               <div className="flex-1 text-sm leading-relaxed">
                 <h3 className="font-semibold text-slate-900 dark:text-white mb-1">
                   Tu privacidad en My Book Social
                 </h3>
                 <p className="text-xs text-slate-600 dark:text-slate-400">
-                  Utilizamos cookies técnicas para el funcionamiento seguro de la plataforma, y cookies opcionales para análisis y gestión de publicidad/enlaces de afiliación (como el Programa de Afiliados de Amazon). Puedes aceptarlas, rechazarlas o personalizarlas en cualquier momento.
+                  Utilizamos cookies técnicas para el funcionamiento seguro de la plataforma, y
+                  cookies opcionales para análisis y gestión de publicidad/enlaces de afiliación
+                  (como el Programa de Afiliados de Amazon). Puedes aceptarlas, rechazarlas o
+                  personalizarlas en cualquier momento.
                 </p>
                 <div className="mt-2 text-xs flex gap-3 text-teal-600 dark:text-teal-400 font-medium">
                   <Link to="/cookies" className="hover:underline">
@@ -165,10 +170,16 @@ export function CookieBanner() {
             </div>
 
             <p className="mt-3 text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-              Elige qué cookies permites en tu navegador. Puedes revisar la información detallada sobre su uso en nuestra{' '}
-              <Link to="/cookies" className="text-teal-600 dark:text-teal-400 underline" onClick={() => setIsModalOpen(false)}>
+              Elige qué cookies permites en tu navegador. Puedes revisar la información detallada
+              sobre su uso en nuestra{' '}
+              <Link
+                to="/cookies"
+                className="text-teal-600 dark:text-teal-400 underline"
+                onClick={() => setIsModalOpen(false)}
+              >
                 Política de Cookies
-              </Link>.
+              </Link>
+              .
             </p>
 
             <div className="mt-5 space-y-4">
@@ -183,7 +194,8 @@ export function CookieBanner() {
                       </span>
                     </h3>
                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                      Imprescindibles para mantener tu sesión activa, seguridad contra ataques CSRF y recordar tus preferencias básicas.
+                      Imprescindibles para mantener tu sesión activa, seguridad contra ataques CSRF
+                      y recordar tus preferencias básicas.
                     </p>
                   </div>
                   <input
@@ -203,7 +215,8 @@ export function CookieBanner() {
                       Cookies de Análisis y Rendimiento
                     </h3>
                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                      Nos ayudan a entender de forma agregada cómo los usuarios navegan y usan My Book Social para optimizar tiempos de carga y descubrir errores.
+                      Nos ayudan a entender de forma agregada cómo los usuarios navegan y usan My
+                      Book Social para optimizar tiempos de carga y descubrir errores.
                     </p>
                   </div>
                   <input
@@ -224,7 +237,9 @@ export function CookieBanner() {
                       Cookies de Publicidad y Afiliación (Amazon)
                     </h3>
                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                      Permiten mostrar sugerencias de compra de libros y medir transacciones del Programa de Afiliados de Amazon. Ayudan al sustento y mantenimiento del proyecto sin coste extra para ti.
+                      Permiten mostrar sugerencias de compra de libros y medir transacciones del
+                      Programa de Afiliados de Amazon. Ayudan al sustento y mantenimiento del
+                      proyecto sin coste extra para ti.
                     </p>
                   </div>
                   <input
@@ -271,4 +286,3 @@ export function CookieBanner() {
 }
 
 export default CookieBanner;
-

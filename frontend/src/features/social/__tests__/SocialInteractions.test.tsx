@@ -33,7 +33,7 @@ describe('Friends Component (Social Interactions)', () => {
   it('displays loading state initially', () => {
     vi.spyOn(socialHooks, 'useFollowing').mockReturnValue({ data: [], isLoading: true } as any);
     vi.spyOn(socialHooks, 'useFollowers').mockReturnValue({ data: [], isLoading: false } as any);
-    
+
     const { container } = renderFriends();
     expect(container).toBeInTheDocument();
   });
@@ -41,12 +41,12 @@ describe('Friends Component (Social Interactions)', () => {
   it('renders following and followers lists when data is loaded', () => {
     vi.spyOn(socialHooks, 'useFollowing').mockReturnValue({
       data: [{ id: 2, username: 'FollowedUser' }],
-      isLoading: false
+      isLoading: false,
     } as any);
 
     vi.spyOn(socialHooks, 'useFollowers').mockReturnValue({
       data: [{ id: 3, username: 'FollowerUser' }],
-      isLoading: false
+      isLoading: false,
     } as any);
 
     renderFriends();

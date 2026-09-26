@@ -46,9 +46,7 @@ export const ActiveChallengesCard: React.FC<ActiveChallengesCardProps> = ({
             🎯
           </div>
           <div>
-            <h3 className="font-bold text-slate-900 dark:text-white text-base">
-              Retos de Lectura
-            </h3>
+            <h3 className="font-bold text-slate-900 dark:text-white text-base">Retos de Lectura</h3>
             <p className="text-xs text-slate-500 dark:text-slate-400">
               Desafíos comunitarios por tiempo limitado
             </p>
@@ -69,9 +67,7 @@ export const ActiveChallengesCard: React.FC<ActiveChallengesCardProps> = ({
             🎯
           </div>
           <div>
-            <h3 className="font-bold text-slate-900 dark:text-white text-base">
-              Retos de Lectura
-            </h3>
+            <h3 className="font-bold text-slate-900 dark:text-white text-base">Retos de Lectura</h3>
             <p className="text-xs text-slate-500 dark:text-slate-400">
               Desafíos temáticos y mensuales para impulsar tu ritmo
             </p>
@@ -98,9 +94,7 @@ export const ActiveChallengesCard: React.FC<ActiveChallengesCardProps> = ({
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <div className="flex items-center gap-2">
-                    <h4 className="font-bold text-sm text-slate-900 dark:text-white">
-                      {ch.title}
-                    </h4>
+                    <h4 className="font-bold text-sm text-slate-900 dark:text-white">{ch.title}</h4>
                     {isCompleted && (
                       <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-300">
                         ✓ ¡Completado!
@@ -122,13 +116,17 @@ export const ActiveChallengesCard: React.FC<ActiveChallengesCardProps> = ({
               {/* Barra de progreso */}
               <div className="mt-3 pt-2">
                 <div className="flex items-center justify-between text-xs mb-1.5 font-semibold text-slate-600 dark:text-slate-300">
-                  <span>Progreso: {ch.current_progress} / {ch.target_count}</span>
+                  <span>
+                    Progreso: {ch.current_progress} / {ch.target_count}
+                  </span>
                   <span className="text-indigo-600 dark:text-indigo-400">{ch.percentage}%</span>
                 </div>
                 <div className="w-full h-2 bg-slate-200/70 dark:bg-slate-700 rounded-full overflow-hidden">
                   <div
                     className={`h-full rounded-full transition-all duration-500 ${
-                      isCompleted ? 'bg-emerald-500' : 'bg-gradient-to-r from-indigo-500 to-teal-400'
+                      isCompleted
+                        ? 'bg-emerald-500'
+                        : 'bg-gradient-to-r from-indigo-500 to-teal-400'
                     }`}
                     style={{ width: `${Math.min(100, ch.percentage)}%` }}
                   />

@@ -8,7 +8,7 @@ import { GoogleLoginButton } from '../components/GoogleLoginButton';
 
 export const Login = () => {
   const navigate = useNavigate();
-  const login = useAuthStore(state => state.login);
+  const login = useAuthStore((state) => state.login);
   const [serverError, setServerError] = useState<string | null>(null);
 
   const {
@@ -56,9 +56,7 @@ export const Login = () => {
                 }`}
                 placeholder="Email o usuario"
               />
-              {errors.email && (
-                <p className="mt-1 text-xs text-red-600">{errors.email.message}</p>
-              )}
+              {errors.email && <p className="mt-1 text-xs text-red-600">{errors.email.message}</p>}
             </div>
 
             <div>

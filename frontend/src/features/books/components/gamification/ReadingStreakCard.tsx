@@ -52,11 +52,13 @@ export const ReadingStreakCard: React.FC<ReadingStreakCardProps> = ({
     <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 border border-slate-100 dark:border-slate-700/60 shadow-sm relative overflow-hidden">
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-2xl shadow-inner ${
-            currentStreak > 0
-              ? 'bg-gradient-to-tr from-amber-500 to-orange-500 text-white animate-pulse'
-              : 'bg-slate-100 dark:bg-slate-700 text-slate-400'
-          }`}>
+          <div
+            className={`w-12 h-12 rounded-2xl flex items-center justify-center text-2xl shadow-inner ${
+              currentStreak > 0
+                ? 'bg-gradient-to-tr from-amber-500 to-orange-500 text-white animate-pulse'
+                : 'bg-slate-100 dark:bg-slate-700 text-slate-400'
+            }`}
+          >
             🔥
           </div>
           <div>

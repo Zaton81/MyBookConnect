@@ -47,7 +47,12 @@ export function AddBook() {
 
   const apiUrl = (import.meta as any).env.VITE_API_URL || 'http://localhost:8000';
 
-  const handleSearch = async (q: string, currentOffset: number, signal?: AbortSignal, forceExternal: boolean = false) => {
+  const handleSearch = async (
+    q: string,
+    currentOffset: number,
+    signal?: AbortSignal,
+    forceExternal: boolean = false
+  ) => {
     if (!token || q.length < 2) {
       setSearchResults([]);
       return;
@@ -69,14 +74,20 @@ export function AddBook() {
       }
 
       // Verificar si hay una coincidencia cercana con el título buscado
-      const normQ = q.toLowerCase().replace(/[^\w\s]/gi, '').trim();
+      const normQ = q
+        .toLowerCase()
+        .replace(/[^\w\s]/gi, '')
+        .trim();
       const hasCloseMatch = localResults.some((b) => {
         const normTitle = (b.title || '').toLowerCase().replace(/[^\w\s]/gi, '');
         return normTitle.includes(normQ) || normQ.includes(normTitle);
       });
 
       // 2. Si no hay coincidencia cercana, si hay pocos resultados o si se fuerza, buscar externamente
-      const shouldQueryExternal = forceExternal || (!hasCloseMatch && q.length >= 3 && currentOffset === 0) || (localResults.length < 3 && currentOffset === 0);
+      const shouldQueryExternal =
+        forceExternal ||
+        (!hasCloseMatch && q.length >= 3 && currentOffset === 0) ||
+        (localResults.length < 3 && currentOffset === 0);
 
       if (shouldQueryExternal) {
         setSearchSource('Consultando Google Books, OpenLibrary y Wikipedia...');
@@ -310,7 +321,9 @@ export function AddBook() {
                   className="text-xs text-teal-600 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-300 font-semibold underline flex items-center gap-1"
                 >
                   <span>🌐</span>
-                  <span>¿No ves la edición exacta? Buscar en Google Books, OpenLibrary y Wikipedia</span>
+                  <span>
+                    ¿No ves la edición exacta? Buscar en Google Books, OpenLibrary y Wikipedia
+                  </span>
                 </button>
               </div>
             )}
@@ -353,7 +366,8 @@ export function AddBook() {
                         </p>
                         {book.published_date && (
                           <span className="inline-block text-[11px] text-slate-400 mt-1">
-                            Año: {new Date(book.published_date).getFullYear() || book.published_date}
+                            Año:{' '}
+                            {new Date(book.published_date).getFullYear() || book.published_date}
                           </span>
                         )}
                         {book.categories && book.categories.length > 0 && (
@@ -638,4 +652,3 @@ export function AddBook() {
 }
 
 export default AddBook;
-

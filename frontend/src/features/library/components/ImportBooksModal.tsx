@@ -170,15 +170,30 @@ export function ImportBooksModal({ isOpen, onClose, onSuccess }: ImportBooksModa
   const getStatusLabel = (status: string) => {
     switch (status) {
       case 'read':
-        return { label: 'Leído', color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' };
+        return {
+          label: 'Leído',
+          color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300',
+        };
       case 'reading':
-        return { label: 'Leyendo', color: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300' };
+        return {
+          label: 'Leyendo',
+          color: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300',
+        };
       case 'want_to_read':
-        return { label: 'Por leer', color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' };
+        return {
+          label: 'Por leer',
+          color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
+        };
       case 'abandoned':
-        return { label: 'Abandonado', color: 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300' };
+        return {
+          label: 'Abandonado',
+          color: 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300',
+        };
       default:
-        return { label: status, color: 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300' };
+        return {
+          label: status,
+          color: 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300',
+        };
     }
   };
 
@@ -314,10 +329,14 @@ export function ImportBooksModal({ isOpen, onClose, onSuccess }: ImportBooksModa
                 </div>
                 <div>
                   <p className="text-base font-bold text-slate-800 dark:text-slate-100">
-                    Arrastra aquí tu archivo CSV o <span className="text-teal-600 dark:text-teal-400 underline">haz clic para examinar</span>
+                    Arrastra aquí tu archivo CSV o{' '}
+                    <span className="text-teal-600 dark:text-teal-400 underline">
+                      haz clic para examinar
+                    </span>
                   </p>
                   <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
-                    Formatos detectados automáticamente: Goodreads Export, Calibre CSV o CSV estándar.
+                    Formatos detectados automáticamente: Goodreads Export, Calibre CSV o CSV
+                    estándar.
                   </p>
                 </div>
               </div>
@@ -330,7 +349,8 @@ export function ImportBooksModal({ isOpen, onClose, onSuccess }: ImportBooksModa
                     <span>Desde Goodreads</span>
                   </div>
                   <p>
-                    Ve a <strong>My Books &rarr; Import and export</strong> y pulsa en <em>Export Library</em>. Descarga el archivo CSV generado y súbelo aquí.
+                    Ve a <strong>My Books &rarr; Import and export</strong> y pulsa en{' '}
+                    <em>Export Library</em>. Descarga el archivo CSV generado y súbelo aquí.
                   </p>
                 </div>
                 <div className="p-4 bg-slate-50 dark:bg-slate-700/40 rounded-2xl border border-slate-200/80 dark:border-slate-700 text-xs text-slate-600 dark:text-slate-300 space-y-1.5">
@@ -339,7 +359,8 @@ export function ImportBooksModal({ isOpen, onClose, onSuccess }: ImportBooksModa
                     <span>Desde Calibre</span>
                   </div>
                   <p>
-                    En Calibre, ve a <strong>Convertir libros &rarr; Crear un catálogo</strong>, selecciona formato <em>CSV</em> e incluye título, autores e identificadores.
+                    En Calibre, ve a <strong>Convertir libros &rarr; Crear un catálogo</strong>,
+                    selecciona formato <em>CSV</em> e incluye título, autores e identificadores.
                   </p>
                 </div>
               </div>
@@ -375,13 +396,17 @@ export function ImportBooksModal({ isOpen, onClose, onSuccess }: ImportBooksModa
                   <span className="block text-xl font-bold text-emerald-600 dark:text-emerald-400">
                     {previewData.new_books_count}
                   </span>
-                  <span className="text-[11px] text-emerald-600 dark:text-emerald-400">Libros nuevos</span>
+                  <span className="text-[11px] text-emerald-600 dark:text-emerald-400">
+                    Libros nuevos
+                  </span>
                 </div>
                 <div className="p-3 bg-amber-50 dark:bg-amber-900/20 rounded-2xl border border-amber-200/60 dark:border-amber-700 text-center">
                   <span className="block text-xl font-bold text-amber-600 dark:text-amber-400">
                     {previewData.in_catalog_count}
                   </span>
-                  <span className="text-[11px] text-amber-600 dark:text-amber-400">En catálogo</span>
+                  <span className="text-[11px] text-amber-600 dark:text-amber-400">
+                    En catálogo
+                  </span>
                 </div>
                 <div className="p-3 bg-slate-100 dark:bg-slate-700/80 rounded-2xl border border-slate-300/60 dark:border-slate-600 text-center">
                   <span className="block text-xl font-bold text-slate-600 dark:text-slate-300">
@@ -413,7 +438,10 @@ export function ImportBooksModal({ isOpen, onClose, onSuccess }: ImportBooksModa
                             className="hover:bg-slate-50 dark:hover:bg-slate-700/40 transition-colors"
                           >
                             <td className="p-3">
-                              <span className="font-semibold block truncate max-w-xs" title={item.title}>
+                              <span
+                                className="font-semibold block truncate max-w-xs"
+                                title={item.title}
+                              >
                                 {item.title}
                               </span>
                               <span className="text-[11px] text-slate-400 dark:text-slate-500 block">
@@ -433,7 +461,8 @@ export function ImportBooksModal({ isOpen, onClose, onSuccess }: ImportBooksModa
                             <td className="p-3">
                               {item.rating ? (
                                 <span className="text-amber-500 font-bold">
-                                  {'★'.repeat(item.rating)}{'☆'.repeat(5 - item.rating)}
+                                  {'★'.repeat(item.rating)}
+                                  {'☆'.repeat(5 - item.rating)}
                                 </span>
                               ) : (
                                 <span className="text-slate-400 text-[11px]">—</span>

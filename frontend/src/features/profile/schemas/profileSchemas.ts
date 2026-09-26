@@ -10,7 +10,11 @@ export const editProfileSchema = z.object({
   reading_privacy_level: z.enum(['public', 'friends', 'private']).optional(),
   activity_privacy_level: z.enum(['public', 'friends', 'private']).optional(),
   allow_messages_from: z.enum(['everyone', 'followed', 'nobody']).optional(),
-  bio: z.string().max(2000, 'La biografía no puede exceder 2000 caracteres').optional().or(z.literal('')),
+  bio: z
+    .string()
+    .max(2000, 'La biografía no puede exceder 2000 caracteres')
+    .optional()
+    .or(z.literal('')),
   show_email: z.boolean(),
   show_birth_date: z.boolean(),
   show_location: z.boolean(),

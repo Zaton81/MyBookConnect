@@ -38,12 +38,13 @@ export const ReportModal: React.FC<ReportModalProps> = ({
 
   if (!isOpen) return null;
 
-  const targetLabel = {
-    user: 'al usuario',
-    review: 'la reseña',
-    comment: 'el comentario',
-    message: 'el mensaje',
-  }[targetType] || 'el elemento';
+  const targetLabel =
+    {
+      user: 'al usuario',
+      review: 'la reseña',
+      comment: 'el comentario',
+      message: 'el mensaje',
+    }[targetType] || 'el elemento';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -78,7 +79,9 @@ export const ReportModal: React.FC<ReportModalProps> = ({
         throw new Error(errorData.detail || errorData.error || 'Error al enviar la denuncia.');
       }
 
-      setSuccessMsg('Denuncia enviada correctamente. El equipo de moderación la revisará a la brevedad.');
+      setSuccessMsg(
+        'Denuncia enviada correctamente. El equipo de moderación la revisará a la brevedad.'
+      );
       if (onReportSubmitted) {
         onReportSubmitted();
       }
@@ -168,19 +171,15 @@ export const ReportModal: React.FC<ReportModalProps> = ({
             </div>
 
             <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-              Las denuncias infundadas o maliciosas reiteradas pueden suponer sanciones disciplinarias sobre la cuenta denunciante.
+              Las denuncias infundadas o maliciosas reiteradas pueden suponer sanciones
+              disciplinarias sobre la cuenta denunciante.
             </p>
 
             <div className="flex justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-700">
               <Button color="light" size="xs" onClick={onClose} disabled={isSubmitting}>
                 Cancelar
               </Button>
-              <Button
-                color="failure"
-                size="xs"
-                type="submit"
-                disabled={isSubmitting}
-              >
+              <Button color="failure" size="xs" type="submit" disabled={isSubmitting}>
                 {isSubmitting ? (
                   <div className="flex items-center gap-1.5">
                     <Spinner size="xs" />

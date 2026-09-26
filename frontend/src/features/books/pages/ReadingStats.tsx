@@ -125,9 +125,7 @@ export function ReadingStats() {
         <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100 mb-2">
           Acceso Restringido
         </h2>
-        <p className="text-slate-600 dark:text-slate-400 text-sm mb-6">
-          {error}
-        </p>
+        <p className="text-slate-600 dark:text-slate-400 text-sm mb-6">{error}</p>
         <Button color="light" onClick={() => navigate(-1)} className="mx-auto">
           Volver atrás
         </Button>
@@ -302,7 +300,10 @@ export function ReadingStats() {
           {stats.books_per_month.map((item) => {
             const heightPercent = maxMonthCount > 0 ? (item.count / maxMonthCount) * 100 : 0;
             return (
-              <div key={item.key} className="flex flex-col items-center h-full justify-end group relative">
+              <div
+                key={item.key}
+                className="flex flex-col items-center h-full justify-end group relative"
+              >
                 {/* Tooltip flotante */}
                 <div className="absolute -top-7 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none bg-slate-900 text-white text-[10px] py-1 px-2 rounded font-medium whitespace-nowrap z-10 shadow-lg">
                   {item.label}: {item.count} {item.count === 1 ? 'libro' : 'libros'}
@@ -343,7 +344,10 @@ export function ReadingStats() {
           <div className="space-y-2.5">
             {[10, 9, 8, 7, 6, 5, 4, 3, 2, 1].map((score) => {
               const count = stats.ratings_distribution[score] || 0;
-              const totalRatings = Object.values(stats.ratings_distribution).reduce((a, b) => a + b, 0);
+              const totalRatings = Object.values(stats.ratings_distribution).reduce(
+                (a, b) => a + b,
+                0
+              );
               const percentage = totalRatings > 0 ? Math.round((count / totalRatings) * 100) : 0;
 
               return (
@@ -354,11 +358,7 @@ export function ReadingStats() {
                   <div className="flex-1 h-3.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
                     <div
                       className={`h-full rounded-full transition-all duration-500 ${
-                        score >= 8
-                          ? 'bg-amber-400'
-                          : score >= 6
-                          ? 'bg-teal-500'
-                          : 'bg-slate-400'
+                        score >= 8 ? 'bg-amber-400' : score >= 6 ? 'bg-teal-500' : 'bg-slate-400'
                       }`}
                       style={{ width: `${percentage}%` }}
                     />
@@ -458,4 +458,3 @@ export function ReadingStats() {
 }
 
 export default ReadingStats;
-

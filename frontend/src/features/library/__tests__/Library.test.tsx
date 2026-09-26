@@ -15,7 +15,7 @@ describe('Library Component', () => {
       const state = { token: 'mock-token', user: { id: 1, username: 'testuser' } };
       return selector ? selector(state) : state;
     });
-    
+
     globalThis.fetch = vi.fn();
   });
 
@@ -32,7 +32,7 @@ describe('Library Component', () => {
   it('displays a loading spinner initially', () => {
     (globalThis.fetch as any).mockImplementationOnce(() => new Promise(() => {})); // Never resolves
     renderLibrary();
-    
+
     expect(screen.getByRole('status')).toBeInTheDocument();
   });
 
@@ -50,10 +50,10 @@ describe('Library Component', () => {
             },
             status: 'reading',
             progress: 50,
-          }
+          },
         ],
-        count: 1
-      })
+        count: 1,
+      }),
     });
 
     renderLibrary();
