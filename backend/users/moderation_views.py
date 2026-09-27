@@ -21,7 +21,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from books.admin_views import IsModeratorOrAdmin
-from books.models import Review, ReviewComment
+from books.models import ReadingList, Review, ReviewComment
 from books.pagination import StandardResultsSetPagination
 from messages_app.models import Message
 from users.models import Report, ReportStatus
@@ -33,6 +33,7 @@ from .moderation_serializers import (
     ReportListSerializer,
     ReportResolveSerializer,
 )
+from .throttles import ReportRateThrottle
 
 User = get_user_model()
 
@@ -44,6 +45,7 @@ class ReportCreateView(generics.CreateAPIView):
     """
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = ReportCreateSerializer
+    throttle_classes = [ReportRateThrottle]
 
 
 class UserReportsListView(generics.ListAPIView):
@@ -63,7 +65,7 @@ class UserReportsListView(generics.ListAPIView):
 
 class AdminReportListView(generics.ListAPIView):
     """
-    Cola de moderación administrativa con filtros de búsqueda.
+    Cola de moderación administrativa con filtros de búsqueda y soporte de aliases.
     GET /api/v1/admin/reports/
     """
     permission_classes = [IsModeratorOrAdmin]
@@ -75,7 +77,7 @@ class AdminReportListView(generics.ListAPIView):
 
         status_param = self.request.query_params.get('status')
         if status_param and status_param != 'all':
-            qs = qs.filter(status=status_param.upper())
+            qs = qs.filter(status=ReportStatus.normalize(status_param))
 
         reason_param = self.request.query_params.get('reason')
         if reason_param and reason_param != 'all':
@@ -120,6 +122,7 @@ class AdminReportDetailView(generics.RetrieveUpdateAPIView):
         resolution_notes = serializer.validated_data.get('resolution_notes', instance.resolution_notes)
 
         with transaction.atomic():
+            new_status = ReportStatus.normalize(new_status)
             instance.status = new_status
             instance.action_taken = action_taken
             instance.resolution_notes = resolution_notes
@@ -143,6 +146,9 @@ class AdminReportDetailView(generics.RetrieveUpdateAPIView):
                     elif isinstance(target, Message):
                         target.is_moderated = True
                         target.save(update_fields=['is_moderated'])
+                    elif isinstance(target, ReadingList):
+                        target.is_moderated = True
+                        target.save(update_fields=['is_moderated'])
 
                 elif action_taken == 'RESTORE_CONTENT' and target:
                     if isinstance(target, Review):
@@ -154,12 +160,15 @@ class AdminReportDetailView(generics.RetrieveUpdateAPIView):
                     elif isinstance(target, Message):
                         target.is_moderated = False
                         target.save(update_fields=['is_moderated'])
+                    elif isinstance(target, ReadingList):
+                        target.is_moderated = False
+                        target.save(update_fields=['is_moderated'])
 
                 elif action_taken in ('BAN_USER', 'MUTE_USER_24H', 'MUTE_USER_7D') and target:
                     user_to_act = None
                     if isinstance(target, User):
                         user_to_act = target
-                    elif isinstance(target, (Review, ReviewComment)):
+                    elif isinstance(target, (Review, ReviewComment, ReadingList)):
                         user_to_act = target.user
                     elif isinstance(target, Message):
                         user_to_act = target.sender
@@ -274,6 +283,12 @@ class AdminContentHideView(APIView):
                     return Response({'detail': 'Mensaje no encontrado.'}, status=status.HTTP_404_NOT_FOUND)
                 target.is_moderated = True
                 target.save(update_fields=['is_moderated'])
+            elif target_type == 'list':
+                target = ReadingList.objects.filter(id=target_id).first()
+                if not target:
+                    return Response({'detail': 'Lista de lectura no encontrada.'}, status=status.HTTP_404_NOT_FOUND)
+                target.is_moderated = True
+                target.save(update_fields=['is_moderated'])
             else:
                 return Response({'detail': f"target_type no válido: {target_type}"}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -291,7 +306,7 @@ class AdminContentRestoreView(APIView):
     """
     Restauración directa de contenido previamente moderado u ocultado (Fase 58).
     POST /api/v1/admin/moderation/restore/
-    Payload: { "target_type": "review" | "comment" | "message", "target_id": <int> }
+    Payload: { "target_type": "review" | "comment" | "message" | "list", "target_id": <int> }
     """
     permission_classes = [IsModeratorOrAdmin]
 
@@ -323,6 +338,12 @@ class AdminContentRestoreView(APIView):
                 target = Message.objects.filter(id=target_id).first()
                 if not target:
                     return Response({'detail': 'Mensaje no encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+                target.is_moderated = False
+                target.save(update_fields=['is_moderated'])
+            elif target_type == 'list':
+                target = ReadingList.objects.filter(id=target_id).first()
+                if not target:
+                    return Response({'detail': 'Lista de lectura no encontrada.'}, status=status.HTTP_404_NOT_FOUND)
                 target.is_moderated = False
                 target.save(update_fields=['is_moderated'])
             else:

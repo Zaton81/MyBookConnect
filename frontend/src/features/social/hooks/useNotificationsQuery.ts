@@ -20,7 +20,7 @@ export function useNotifications() {
     queryKey: queryKeys.notifications.list(),
     queryFn: async () => {
       const res = await api.get('/api/v1/notifications/');
-      return Array.isArray(res) ? res : (res?.results || []);
+      return Array.isArray(res) ? res : res?.results || [];
     },
   });
 }

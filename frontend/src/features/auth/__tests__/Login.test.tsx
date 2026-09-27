@@ -64,7 +64,7 @@ describe('Login Component', () => {
 
     fireEvent.change(emailInput, { target: { value: 'test@example.com' } });
     fireEvent.change(passwordInput, { target: { value: 'Password123!' } });
-    
+
     fireEvent.click(submitButton);
 
     await waitFor(() => {
@@ -76,14 +76,14 @@ describe('Login Component', () => {
   it('displays error message when login fails', async () => {
     mockLogin.mockRejectedValueOnce(new Error('Credenciales inválidas'));
     renderLogin();
-    
+
     const emailInput = screen.getByLabelText(/correo electrónico/i);
     const passwordInput = screen.getByLabelText(/contraseña/i);
     const submitButton = screen.getByRole('button', { name: /iniciar sesión/i });
 
     fireEvent.change(emailInput, { target: { value: 'wrong@example.com' } });
     fireEvent.change(passwordInput, { target: { value: 'wrongpass' } });
-    
+
     fireEvent.click(submitButton);
 
     await waitFor(() => {

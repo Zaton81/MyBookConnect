@@ -29,7 +29,7 @@ export function useReadingLists() {
     queryKey: queryKeys.books.readingLists(),
     queryFn: async () => {
       const res = await api.get('/api/v1/books/reading-lists/');
-      return Array.isArray(res) ? res : (res?.results || []);
+      return Array.isArray(res) ? res : res?.results || [];
     },
   });
 }
@@ -51,7 +51,7 @@ export function useTrendingBooks() {
     queryKey: queryKeys.books.trending(),
     queryFn: async () => {
       const res = await api.get('/api/v1/books/trending/');
-      return Array.isArray(res) ? res : (res?.results || []);
+      return Array.isArray(res) ? res : res?.results || [];
     },
   });
 }
@@ -61,7 +61,7 @@ export function useRecommendedBooks() {
     queryKey: queryKeys.books.recommended(),
     queryFn: async () => {
       const res = await api.get('/api/v1/books/recommendations/');
-      return Array.isArray(res) ? res : (res?.results || []);
+      return Array.isArray(res) ? res : res?.results || [];
     },
   });
 }

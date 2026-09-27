@@ -14,10 +14,7 @@ export default function LoginButtons() {
       >
         Iniciar sesión
       </button>
-      <button
-        onClick={() => setShowRegister(true)}
-        className="rounded border px-4 py-2"
-      >
+      <button onClick={() => setShowRegister(true)} className="rounded border px-4 py-2">
         Registrarse
       </button>
 

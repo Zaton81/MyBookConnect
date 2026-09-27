@@ -16,7 +16,12 @@ export async function login(username: string, password: string) {
   return res.json();
 }
 
-export async function register(username: string, email: string, password: string, password2: string = password) {
+export async function register(
+  username: string,
+  email: string,
+  password: string,
+  password2: string = password
+) {
   const res = await fetch(`${API_URL}/auth/register/`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

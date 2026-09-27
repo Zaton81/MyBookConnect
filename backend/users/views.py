@@ -13,6 +13,7 @@ from mybookconnect.idempotency import idempotent
 
 from . import policies
 from .serializers import UserBasicSerializer, UserCreateSerializer, UserSerializer
+from .throttles import FollowRateThrottle
 
 User = get_user_model()
 
@@ -28,22 +29,32 @@ class UserProfileView(generics.RetrieveAPIView):
     serializer_class = UserSerializer
 
     def get_object(self):
-        return self.request.user
+        user = self.request.user
+        if not user or not user.is_authenticated:
+            return user
+        return (
+            User.objects.annotate(
+                reviews_count=Count('reviews', filter=Q(reviews__deleted_at__isnull=True, reviews__is_moderated=False), distinct=True),
+                books_read_count=Count('user_books', filter=Q(user_books__is_read=True), distinct=True),
+                following_count=Count('following', distinct=True),
+                followers_count=Count('followers', distinct=True),
+            )
+            .prefetch_related('following', 'followers')
+            .get(pk=user.pk)
+        )
 
     def retrieve(self, request, *args, **kwargs):
-        from django.core.cache import cache
-
-        from books.cache_utils import TTL_USER_PROFILE, user_profile_key
+        from books.cache_utils import TTL_USER_PROFILE, safe_cache_get, safe_cache_set, user_profile_key
 
         cache_key = user_profile_key(request.user.id)
-        cached_data = cache.get(cache_key)
+        cached_data = safe_cache_get(cache_key)
         if cached_data is not None:
             return Response(cached_data)
 
         instance = self.get_object()
         serializer = self.get_serializer(instance)
         data = serializer.data
-        cache.set(cache_key, data, timeout=TTL_USER_PROFILE)
+        safe_cache_set(cache_key, data, timeout=TTL_USER_PROFILE)
         return Response(data)
 
 
@@ -57,8 +68,9 @@ class UserUpdateView(generics.UpdateAPIView):
     def perform_update(self, serializer):
         with transaction.atomic():
             instance = serializer.save()
-            from books.cache_utils import invalidate_user_profile_cache
+            from books.cache_utils import cascade_privacy_invalidation, invalidate_user_profile_cache
             invalidate_user_profile_cache(instance.id)
+            cascade_privacy_invalidation(instance.id)
 
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop('partial', False)
@@ -112,6 +124,7 @@ class UserDetailView(generics.RetrieveAPIView):
 
 class FollowUserView(APIView):
     permission_classes = (permissions.IsAuthenticated,)
+    throttle_classes = [FollowRateThrottle]
 
     @extend_schema(
         summary="Seguir a un usuario",
@@ -160,10 +173,8 @@ class FollowUserView(APIView):
                 target_user=user_to_follow,
             )
 
-            from books.cache_utils import invalidate_user_profile_cache, invalidate_user_recommendations_cache
-            invalidate_user_profile_cache(request.user.id)
-            invalidate_user_profile_cache(user_to_follow.id)
-            invalidate_user_recommendations_cache(request.user.id)
+            from books.cache_utils import cascade_follow_invalidation
+            cascade_follow_invalidation(request.user.id, user_to_follow.id)
 
         return Response({"detail": f"Ahora sigues a {user_to_follow.username}"}, status=status.HTTP_200_OK)
 
@@ -185,10 +196,8 @@ class UnfollowUserView(APIView):
         user_to_unfollow = get_object_or_404(User, id=user_id)
         with transaction.atomic():
             request.user.following.remove(user_to_unfollow)
-            from books.cache_utils import invalidate_user_profile_cache, invalidate_user_recommendations_cache
-            invalidate_user_profile_cache(request.user.id)
-            invalidate_user_profile_cache(user_to_unfollow.id)
-            invalidate_user_recommendations_cache(request.user.id)
+            from books.cache_utils import cascade_follow_invalidation
+            cascade_follow_invalidation(request.user.id, user_to_unfollow.id)
         return Response({"detail": f"Dejaste de seguir a {user_to_unfollow.username}"}, status=status.HTTP_200_OK)
 
 
@@ -415,9 +424,9 @@ class CheckFollowStatusView(APIView):
         tags=['Users'],
     )
     def get(self, request, user_id):
-        target_user = get_object_or_404(User, id=user_id)
-        is_following = target_user in request.user.following.all()
-        is_follower = request.user in target_user.following.all()
+        _ = get_object_or_404(User, id=user_id)
+        is_following = request.user.following.filter(id=user_id).exists()
+        is_follower = request.user.followers.filter(id=user_id).exists()
 
         return Response({
             "is_following": is_following,
@@ -586,10 +595,12 @@ class FeedPagination(StandardResultsSetPagination):
 
 class FeedView(generics.ListAPIView):
     """
-    Feed social inteligente (Fase 53) y cronológico de actividades.
+    Feed social inteligente (Fase 22 / 53) y cronológico de actividades.
     Soporta modos:
-    - ?mode=smart (por defecto): ordenado por relevancia multi-criterio (recency, relationship, engagement, content).
+    - ?mode=smart (por defecto): ordenado por relevancia multi-criterio.
     - ?mode=chronological: orden cronológico estricto (-created_at).
+    - ?type=<ActivityType>: filtrado por tipo de evento exacto.
+    - ?category=reads|reviews|lists|social: agrupaciones temáticas.
     """
     from .serializers import ActivitySerializer
 
@@ -599,7 +610,8 @@ class FeedView(generics.ListAPIView):
     filter_backends = []
 
     def get_queryset(self):
-        from .models import Activity
+        from .models import Activity, ActivityType
+        from .privacy_service import PrivacyService
 
         if getattr(self, 'swagger_fake_view', False) or not self.request.user.is_authenticated:
             return Activity.objects.none()
@@ -608,20 +620,51 @@ class FeedView(generics.ListAPIView):
         following_ids = list(user.following.values_list('id', flat=True))
         feed_user_ids = following_ids + [user.id]
 
-        blocked_ids = set(user.blocked_users.values_list('id', flat=True)).union(
-            user.blocked_by.values_list('id', flat=True)
-        )
-        allowed_user_ids = [uid for uid in feed_user_ids if uid not in blocked_ids]
-
         qs = (
-            Activity.objects.filter(user_id__in=allowed_user_ids)
+            Activity.objects.filter(user_id__in=feed_user_ids)
             .select_related('user', 'book', 'book__author', 'review', 'target_user')
             .prefetch_related('book__categories', 'review__likes', 'review__comments')
         )
 
+        # 1. Filtro riguroso de visibilidad, privacidad y bloqueos bidireccionales (Roadmap 7.4)
+        qs = PrivacyService.filter_visible_activities(user, qs)
+
+        # 2. Exclusión de actividades ocultadas por el usuario (Roadmap 27)
+        hidden_ids = user.hidden_feed_activities.values_list('activity_id', flat=True)
+        if hidden_ids:
+            qs = qs.exclude(id__in=hidden_ids)
+
+        # 3. Excluir cuentas eliminadas (RGPD)
+        qs = qs.filter(user__deleted_at__isnull=True)
+
+        # 4. Filtro por tipo de actividad
         activity_type = self.request.query_params.get('type')
         if activity_type:
             qs = qs.filter(type=activity_type)
+
+        # 5. Filtro por categoría o grupo temático
+        category = self.request.query_params.get('category')
+        if category == 'reads':
+            qs = qs.filter(type__in=[
+                ActivityType.BOOK_STARTED,
+                ActivityType.BOOK_FINISHED,
+                ActivityType.BOOK_ADDED,
+                ActivityType.BOOK_RATED,
+            ])
+        elif category == 'reviews':
+            qs = qs.filter(type__in=[
+                ActivityType.REVIEW_CREATED,
+                ActivityType.REVIEW_LIKED,
+                ActivityType.COMMENT_ADDED,
+            ])
+        elif category == 'lists':
+            qs = qs.filter(type=ActivityType.LIST_CREATED)
+        elif category == 'social':
+            qs = qs.filter(type__in=[
+                ActivityType.USER_FOLLOWED,
+                ActivityType.REVIEW_LIKED,
+                ActivityType.COMMENT_ADDED,
+            ])
 
         mode = self.request.query_params.get('mode', 'smart').lower()
         if mode == 'chronological':
@@ -641,5 +684,58 @@ class FeedView(generics.ListAPIView):
 
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
+
+
+class FeedActivityHideView(APIView):
+    """Permite al usuario ocultar una publicación de su feed (Fase 22 - Roadmap 27)."""
+    permission_classes = (permissions.IsAuthenticated,)
+
+    @extend_schema(
+        summary="Ocultar actividad del feed",
+        responses={
+            200: inline_serializer(
+                name='FeedActivityHideResponse',
+                fields={'detail': serializers.CharField(), 'hidden': serializers.BooleanField()},
+            ),
+            404: OpenApiResponse(description="Actividad no encontrada"),
+        },
+        tags=['Social Feed'],
+    )
+    def post(self, request, activity_id):
+        from .models import Activity, HiddenActivity
+
+        activity = get_object_or_404(Activity, id=activity_id)
+        HiddenActivity.objects.get_or_create(user=request.user, activity=activity)
+        return Response(
+            {'detail': 'Actividad ocultada de tu feed.', 'hidden': True},
+            status=status.HTTP_200_OK,
+        )
+
+
+class FeedActivityUnhideView(APIView):
+    """Permite al usuario restaurar una actividad previamente ocultada en su feed (Fase 22)."""
+    permission_classes = (permissions.IsAuthenticated,)
+
+    @extend_schema(
+        summary="Desocultar actividad del feed",
+        responses={
+            200: inline_serializer(
+                name='FeedActivityUnhideResponse',
+                fields={'detail': serializers.CharField(), 'hidden': serializers.BooleanField()},
+            ),
+            404: OpenApiResponse(description="Actividad no encontrada"),
+        },
+        tags=['Social Feed'],
+    )
+    def post(self, request, activity_id):
+        from .models import Activity, HiddenActivity
+
+        activity = get_object_or_404(Activity, id=activity_id)
+        HiddenActivity.objects.filter(user=request.user, activity=activity).delete()
+        return Response(
+            {'detail': 'Actividad restaurada en tu feed.', 'hidden': False},
+            status=status.HTTP_200_OK,
+        )
+
 
 

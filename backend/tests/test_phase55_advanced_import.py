@@ -241,3 +241,41 @@ class Phase55AdvancedImportTests(APITestCase):
         # Comprobar que los libros existen y están en la estantería
         self.assertTrue(Book.objects.filter(title='El Aleph').exists())
         self.assertTrue(UserBook.objects.filter(user=self.user, book__title='El Aleph').exists())
+
+    def test_user_goodreads_sample_import(self):
+        """Verifica la importación completa y persistencia en biblioteca con el CSV real de Goodreads."""
+        import os
+        self.client.force_authenticate(user=self.user)
+        fixture_path = os.path.join(os.path.dirname(__file__), 'fixtures', 'goodreads_sample.csv')
+        self.assertTrue(os.path.exists(fixture_path))
+
+        with open(fixture_path, 'rb') as f:
+            file = SimpleUploadedFile('goodreads_export.csv', f.read(), content_type='text/csv')
+
+        res_preview = self.client.post(
+            '/api/v1/books/import/csv/preview/',
+            {'file': file},
+            format='multipart',
+        )
+        self.assertEqual(res_preview.status_code, status.HTTP_200_OK)
+        self.assertEqual(res_preview.data['format_detected'], CSVFormatDetector.GOODREADS)
+        self.assertEqual(res_preview.data['format_label'], 'Goodreads Export')
+        self.assertEqual(res_preview.data['total_rows'], 63)
+        self.assertEqual(res_preview.data['valid_rows'], 63)
+        self.assertIn('raw_items_payload', res_preview.data)
+
+        # Confirmar importación
+        res_confirm = self.client.post(
+            '/api/v1/books/import/csv/confirm/',
+            {'items': res_preview.data['raw_items_payload'], 'update_existing': True},
+            format='json',
+        )
+        self.assertEqual(res_confirm.status_code, status.HTTP_200_OK)
+        self.assertTrue(res_confirm.data['success'])
+        self.assertEqual(res_confirm.data['created_user_books'], 63)
+
+        # Verificar que libros de prueba específicos del usuario se añadieron a su biblioteca
+        self.assertTrue(UserBook.objects.filter(user=self.user, book__title__icontains='Ferox: Serás leyenda').exists())
+        self.assertTrue(UserBook.objects.filter(user=self.user, book__title__icontains='La caída de los gigantes').exists())
+        self.assertTrue(UserBook.objects.filter(user=self.user, book__title__icontains='Trilogía de Trajano').exists())
+

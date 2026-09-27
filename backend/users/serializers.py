@@ -46,7 +46,8 @@ class UserSerializer(serializers.ModelSerializer):
             'show_email', 'show_birth_date', 'show_location', 'show_bio',
             'following', 'followers', 'is_editor', 'is_staff', 'is_superuser', 'role',
             'reviews_count', 'books_read_count', 'following_count', 'followers_count',
-            'is_following', 'is_blocked', 'am_i_blocked', 'is_muted', 'is_disciplinary_muted', 'muted_until'
+            'is_following', 'is_blocked', 'am_i_blocked', 'is_muted', 'is_disciplinary_muted', 'muted_until',
+            'onboarding_completed', 'favorite_categories',
         )
         read_only_fields = ('id', 'followers', 'is_editor', 'is_staff', 'is_superuser', 'role', 'is_email_verified', 'muted_until')
 
@@ -107,7 +108,9 @@ class UserSerializer(serializers.ModelSerializer):
 
     @extend_schema_field(serializers.IntegerField)
     def get_reviews_count(self, obj):
-        return getattr(obj, 'reviews_count', obj.reviews.filter(deleted_at__isnull=True, is_moderated=False).count())
+        if hasattr(obj, 'reviews_count'):
+            return obj.reviews_count
+        return obj.reviews.filter(deleted_at__isnull=True, is_moderated=False).count()
 
     @extend_schema_field(serializers.IntegerField)
     def get_books_read_count(self, obj):
@@ -117,11 +120,15 @@ class UserSerializer(serializers.ModelSerializer):
 
     @extend_schema_field(serializers.IntegerField)
     def get_following_count(self, obj):
-        return getattr(obj, 'following_count', obj.following.count())
+        if hasattr(obj, 'following_count'):
+            return obj.following_count
+        return obj.following.count()
 
     @extend_schema_field(serializers.IntegerField)
     def get_followers_count(self, obj):
-        return getattr(obj, 'followers_count', obj.followers.count())
+        if hasattr(obj, 'followers_count'):
+            return obj.followers_count
+        return obj.followers.count()
 
     @extend_schema_field(serializers.BooleanField)
     def get_is_following(self, obj):
@@ -129,6 +136,8 @@ class UserSerializer(serializers.ModelSerializer):
             return obj.is_following
         request = self.context.get('request')
         if request and request.user.is_authenticated:
+            if request.user.id == obj.id:
+                return False
             return request.user.following.filter(id=obj.id).exists()
         return False
 
@@ -138,6 +147,8 @@ class UserSerializer(serializers.ModelSerializer):
             return obj.is_blocked
         request = self.context.get('request')
         if request and request.user.is_authenticated:
+            if request.user.id == obj.id:
+                return False
             return request.user.blocked_users.filter(id=obj.id).exists()
         return False
 
@@ -147,6 +158,8 @@ class UserSerializer(serializers.ModelSerializer):
             return obj.am_i_blocked
         request = self.context.get('request')
         if request and request.user.is_authenticated:
+            if request.user.id == obj.id:
+                return False
             return obj.blocked_users.filter(id=request.user.id).exists()
         return False
 
@@ -156,6 +169,8 @@ class UserSerializer(serializers.ModelSerializer):
             return obj.is_muted_val
         request = self.context.get('request')
         if request and request.user.is_authenticated and hasattr(request.user, 'muted_users'):
+            if request.user.id == obj.id:
+                return False
             return request.user.muted_users.filter(id=obj.id).exists()
         return False
 

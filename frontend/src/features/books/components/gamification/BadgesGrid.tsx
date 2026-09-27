@@ -23,9 +23,10 @@ export const BadgesGrid: React.FC<BadgesGridProps> = ({ badges }) => {
     { key: 'community', label: '🤝 Comunidad' },
   ];
 
-  const filteredBadges = selectedCategory === 'all'
-    ? badgeList
-    : badgeList.filter((b) => b.category === selectedCategory);
+  const filteredBadges =
+    selectedCategory === 'all'
+      ? badgeList
+      : badgeList.filter((b) => b.category === selectedCategory);
 
   return (
     <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 border border-slate-100 dark:border-slate-700/60 shadow-sm space-y-5">
@@ -83,11 +84,13 @@ export const BadgesGrid: React.FC<BadgesGridProps> = ({ badges }) => {
             >
               <div>
                 <div className="flex items-start justify-between gap-2">
-                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-2xl shadow-inner ${
-                    isUnlocked
-                      ? 'bg-white dark:bg-slate-700 border border-teal-100 dark:border-teal-900/60'
-                      : 'bg-slate-200 dark:bg-slate-700/80 grayscale'
-                  }`}>
+                  <div
+                    className={`w-12 h-12 rounded-2xl flex items-center justify-center text-2xl shadow-inner ${
+                      isUnlocked
+                        ? 'bg-white dark:bg-slate-700 border border-teal-100 dark:border-teal-900/60'
+                        : 'bg-slate-200 dark:bg-slate-700/80 grayscale'
+                    }`}
+                  >
                     {badge.icon}
                   </div>
                   <div className="flex flex-col items-end gap-1">

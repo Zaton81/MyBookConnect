@@ -1,19 +1,36 @@
 """
-Políticas de seguridad, validación de mensajes y límites para el asistente de IA (Fase 27).
+Políticas de seguridad, validación de mensajes y límites para el asistente de IA (Fase 5 - RoadmapV2).
 
-Protege la aplicación contra sobrecarga de contexto, inyecciones de prompts (prompt injection / jailbreaks),
-inyección de roles de sistema no autorizados y abuso mediante rate limiting.
+Protege la aplicación contra:
+- Sobrecarga de contexto y consumo descontrolado de tokens.
+- Inyecciones de prompts (prompt injection / jailbreaks).
+- Inyección de roles no autorizados (system, developer, tool).
+- Parámetros de control reservados para el backend (provider, model, temperature, max_tokens, etc.).
+- Abuso y denegación de servicio mediante Rate Limiting multinivel en Redis (minuto, hora, día).
 """
 
 import re
 from typing import Any
 
+from django.conf import settings
 from django.core.cache import cache
 
 MAX_MESSAGES_COUNT = 20
 MAX_MESSAGE_LENGTH = 3000
 MAX_TOTAL_MESSAGES_LENGTH = 12000
 ALLOWED_ROLES = {'user', 'assistant'}
+
+# Parámetros que el cliente jamás puede manipular directamente (Sección 10.2 RoadmapV2)
+FORBIDDEN_CLIENT_PARAMS = {
+    'system',
+    'system_prompt',
+    'tools',
+    'provider',
+    'model',
+    'temperature',
+    'max_tokens',
+    'prompt',
+}
 
 # Patrones típicos de evasión, jailbreak y anulación de directivas del sistema
 INJECTION_PATTERNS = [
@@ -49,8 +66,30 @@ class AIPolicyViolationError(ValueError):
 
 
 class AIRateLimitExceededError(AIPolicyViolationError):
-    """Excepción lanzada cuando un usuario supera el límite de peticiones al asistente."""
-    pass
+    """Excepción lanzada cuando un usuario supera las cuotas de tasa del asistente de IA."""
+    def __init__(self, message: str, window: str = 'minute', retry_after: int = 60) -> None:
+        super().__init__(message)
+        self.window = window
+        self.retry_after = retry_after
+
+
+def validate_forbidden_client_parameters(data: dict[str, Any]) -> None:
+    """
+    Verifica que el cuerpo de la petición no contenga parámetros de control del modelo
+    o instrucciones reservadas exclusivamente al backend (Sección 10.2).
+
+    :param data: Diccionario de datos de la petición (request.data).
+    :raises AIPolicyViolationError: Si se detecta un parámetro reservado o no permitido.
+    """
+    if not isinstance(data, dict):
+        return
+
+    for key in data.keys():
+        clean_key = str(key).lower().strip()
+        if clean_key in FORBIDDEN_CLIENT_PARAMS:
+            raise AIPolicyViolationError(
+                f"El parámetro '{key}' no puede ser controlado directamente por el cliente."
+            )
 
 
 def detect_prompt_injection(text: str) -> bool:
@@ -88,39 +127,116 @@ def sanitize_untrusted_input(text: str) -> str:
     # 2. Neutralizar tokens especiales de formateo de instrucciones LLM
     for token in SPECIAL_LLM_TOKENS:
         if token in sanitized:
-            # Reemplazar con versión escapada inocua
             sanitized = sanitized.replace(token, f"[neutralized:{token.strip('<>|[]')}]")
 
     return sanitized.strip()
 
 
-def check_ai_rate_limit(user: Any, limit: int = 30, window_seconds: int = 60) -> bool:
+def sanitize_book_context(text: str, max_chars: int = 2000) -> str:
     """
-    Aplica una política de límite de frecuencia (Rate Limiting) por usuario
-    utilizando el backend de caché de Redis.
+    Sanitiza descripciones y metadatos de libros antes de agregarlos al prompt del sistema,
+    garantizando que ninguna instrucción maliciosa en sinopsis sea interpretada como comando (Sección 10.6).
+
+    :param text: Descripción o sinopsis del libro.
+    :param max_chars: Longitud máxima permitida para acotar el contexto.
+    :return: Texto desarmado e inocuo para el LLM.
+    """
+    if not text:
+        return ''
+
+    clean = sanitize_untrusted_input(text)
+
+    # Neutralizar intentos de inyección pasiva en libros/documentos
+    for pattern in INJECTION_PATTERNS:
+        clean = pattern.sub('[contenido neutralizado]', clean)
+
+    if len(clean) > max_chars:
+        clean = clean[:max_chars] + '...'
+
+    return clean.strip()
+
+
+def check_ai_rate_limit(
+    user: Any,
+    limit: int | None = None,
+    window_seconds: int | None = None,
+) -> bool:
+    """
+    Aplica política de Rate Limiting multinivel (Minuto, Hora, Día) en Redis.
+    Si se especifican 'limit' y 'window_seconds', evalúa esa ventana puntual (retrocompatibilidad).
+    De lo contrario, evalúa concurrentemente las 3 ventanas configuradas en settings.
 
     :param user: Instancia del usuario autenticado.
-    :param limit: Número máximo de peticiones permitidas en la ventana.
-    :param window_seconds: Duración de la ventana de tiempo en segundos (por defecto 60s).
-    :return: True si está dentro del límite permitido, False si superó la cuota.
+    :param limit: Límite específico opcional.
+    :param window_seconds: Segundos específicos opcionales.
+    :return: True si está dentro de todos los límites, False si excedió alguna cuota.
     """
     user_id = getattr(user, 'id', None)
     if not user_id:
-        return True  # Si no hay id identificable, no bloquea por esta vía
+        return True
 
-    cache_key = f"ai:ratelimit:user:{user_id}"
+    # Caso ventana única parametrizada
+    if limit is not None and window_seconds is not None:
+        cache_key = f"ai:ratelimit:user:{user_id}:custom_{window_seconds}"
+        try:
+            is_new = cache.add(cache_key, 1, timeout=window_seconds)
+            if not is_new:
+                count = cache.incr(cache_key)
+                if count > limit:
+                    return False
+            return True
+        except Exception:
+            return True
+
+    # Ventanas por defecto (Sección 10.4)
+    windows = [
+        ('minute', getattr(settings, 'AI_RATE_LIMIT_PER_MINUTE', 20), 60),
+        ('hour', getattr(settings, 'AI_RATE_LIMIT_PER_HOUR', 100), 3600),
+        ('day', getattr(settings, 'AI_RATE_LIMIT_PER_DAY', 500), 86400),
+    ]
 
     try:
-        # Añadir con valor inicial 1 si no existe
-        is_new = cache.add(cache_key, 1, timeout=window_seconds)
-        if not is_new:
-            current_count = cache.incr(cache_key)
-            if current_count > limit:
-                return False
+        for window_name, max_reqs, ttl in windows:
+            key = f"ai:ratelimit:user:{user_id}:{window_name}"
+            is_new = cache.add(key, 1, timeout=ttl)
+            if not is_new:
+                current_count = cache.incr(key)
+                if current_count > max_reqs:
+                    return False
         return True
     except Exception:
-        # Si la caché no está disponible, permitir la petición para evitar denegación de servicio accidental
+        # Falla abierta defensiva de caché para evitar denegación de servicio accidental si Redis falla
         return True
+
+
+def check_ai_rate_limit_detailed(user: Any) -> tuple[bool, str, int]:
+    """
+    Evalúa detalladamente las cuotas de tasa e informa qué ventana exacta fue superada
+    junto al tiempo sugerido de espera (Retry-After).
+
+    :return: Tupla (is_allowed, exceeded_window_name, retry_after_seconds)
+    """
+    user_id = getattr(user, 'id', None)
+    if not user_id:
+        return True, '', 0
+
+    windows = [
+        ('minute', getattr(settings, 'AI_RATE_LIMIT_PER_MINUTE', 20), 60),
+        ('hour', getattr(settings, 'AI_RATE_LIMIT_PER_HOUR', 100), 3600),
+        ('day', getattr(settings, 'AI_RATE_LIMIT_PER_DAY', 500), 86400),
+    ]
+
+    try:
+        for window_name, max_reqs, ttl in windows:
+            key = f"ai:ratelimit:user:{user_id}:{window_name}"
+            is_new = cache.add(key, 1, timeout=ttl)
+            if not is_new:
+                current_count = cache.incr(key)
+                if current_count > max_reqs:
+                    return False, window_name, ttl
+        return True, '', 0
+    except Exception:
+        return True, '', 0
 
 
 def validate_and_sanitize_chat_messages(raw_messages: Any) -> list[dict[str, str]]:

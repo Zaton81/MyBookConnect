@@ -2,7 +2,7 @@ import logging
 
 from django.core.cache import cache
 from django.db import IntegrityError, transaction
-from django.db.models import Q
+from django.db.models import F, Q
 from django.shortcuts import get_object_or_404
 from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema, inline_serializer
 from rest_framework import generics, permissions, serializers, status, viewsets
@@ -10,7 +10,9 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from mybookconnect.html_sanitizer import sanitize_plain_text
 from mybookconnect.idempotency import idempotent
+from users.throttles import CommentRateThrottle, LikeRateThrottle
 
 from . import services
 from .cache_utils import TTL_BOOK_DETAIL, book_detail_key
@@ -21,8 +23,10 @@ from .models import (
     Errata,
     ErrataStatus,
     ReadingList,
+    ReadingListComment,
     ReadingListFollow,
     ReadingListItem,
+    ReadingListPrivacy,
     Review,
     ReviewComment,
     ReviewLike,
@@ -33,6 +37,7 @@ from .serializers import (
     AuthorSerializer,
     BookSerializer,
     ErrataSerializer,
+    ReadingListCommentSerializer,
     ReadingListCreateUpdateSerializer,
     ReadingListItemSerializer,
     ReadingListSerializer,
@@ -548,6 +553,7 @@ class ReviewDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 class ReviewLikeToggleView(APIView):
     permission_classes = (permissions.IsAuthenticated,)
+    throttle_classes = [LikeRateThrottle]
 
     @extend_schema(
         summary="Alternar like en una reseña",
@@ -613,6 +619,21 @@ class ReviewLikeToggleView(APIView):
                             link=f"/books/{review.book_id}?review={review.id}",
                         )
 
+                if liked:
+                    try:
+                        from users.activity_service import record_activity
+                        from users.models import ActivityType
+                        record_activity(
+                            user=request.user,
+                            activity_type=ActivityType.REVIEW_LIKED,
+                            book=review.book,
+                            review=review,
+                            target_user=review.user,
+                            metadata={'review_id': review.id, 'rating': review.rating},
+                        )
+                    except Exception:
+                        pass
+
         return Response({
             'liked': liked,
             'likes_count': review.likes.count(),
@@ -621,6 +642,11 @@ class ReviewLikeToggleView(APIView):
 
 class ReviewCommentListCreateView(APIView):
     permission_classes = (permissions.IsAuthenticatedOrReadOnly,)
+
+    def get_throttles(self):
+        if self.request.method.lower() == 'post':
+            return [CommentRateThrottle()]
+        return super().get_throttles()
 
     @extend_schema(
         summary="Listar comentarios de una reseña",
@@ -650,7 +676,13 @@ class ReviewCommentListCreateView(APIView):
             if excluded:
                 comments = comments.exclude(user_id__in=excluded)
 
-        serializer = ReviewCommentSerializer(comments, many=True, context={'request': request})
+        if request.query_params.get('page') or request.query_params.get('paginate') == 'true':
+            paginator = StandardResultsSetPagination()
+            page = paginator.paginate_queryset(comments, request)
+            serializer = ReviewCommentSerializer(page, many=True, context={'request': request})
+            return paginator.get_paginated_response(serializer.data)
+
+        serializer = ReviewCommentSerializer(comments[:100], many=True, context={'request': request})
         return Response(serializer.data)
 
     @extend_schema(
@@ -715,6 +747,20 @@ class ReviewCommentListCreateView(APIView):
                         message=content[:120],
                         link=f"/books/{review.book_id}?review={review.id}",
                     )
+
+            try:
+                from users.activity_service import record_activity
+                from users.models import ActivityType
+                record_activity(
+                    user=request.user,
+                    activity_type=ActivityType.COMMENT_ADDED,
+                    book=review.book,
+                    review=review,
+                    target_user=review.user,
+                    metadata={'comment_id': comment.id, 'review_id': review.id},
+                )
+            except Exception:
+                pass
 
         serializer = ReviewCommentSerializer(comment, context={'request': request})
         return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -1365,7 +1411,7 @@ class TrendingBooksView(APIView):
     Acepta parámetro query `?period=week|month|year|all` (por defecto 'week').
     Resuelve dinámicamente las URLs de medios absolutas y emplea caché Redis por periodo.
     """
-    permission_classes = (permissions.IsAuthenticated,)
+    permission_classes = (permissions.AllowAny,)
 
     @extend_schema(
         summary="Libros en tendencia",
@@ -1483,9 +1529,29 @@ class ReadingListViewSet(viewsets.ModelViewSet):
             return ReadingListCreateUpdateSerializer
         return ReadingListSerializer
 
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        # Registrar incremento de apertura si el consultante no es el dueño
+        if request.user != instance.user:
+            ReadingList.objects.filter(pk=instance.pk).update(views_count=F('views_count') + 1)
+            instance.views_count += 1
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data)
+
     def perform_create(self, serializer):
         with transaction.atomic():
-            serializer.save(user=self.request.user)
+            instance = serializer.save(user=self.request.user)
+            if instance.privacy != ReadingListPrivacy.PRIVATE:
+                try:
+                    from users.activity_service import record_activity
+                    from users.models import ActivityType
+                    record_activity(
+                        user=self.request.user,
+                        activity_type=ActivityType.LIST_CREATED,
+                        metadata={'list_id': instance.id, 'name': instance.name, 'privacy': instance.privacy},
+                    )
+                except Exception:
+                    pass
 
     def perform_update(self, serializer):
         instance = self.get_object()
@@ -1618,6 +1684,83 @@ class ReadingListViewSet(viewsets.ModelViewSet):
                 reading_list=reading_list,
             ).delete()
         return Response({'detail': 'Has dejado de seguir esta lista.', 'deleted': deleted_count > 0}, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['post'], url_path='clone', permission_classes=[permissions.IsAuthenticated])
+    def clone(self, request, pk=None):
+        """Clona una lista pública o accesible en la biblioteca del usuario actual (Fase 21)."""
+        source_list = self.get_object()
+        with transaction.atomic():
+            new_list = ReadingList.objects.create(
+                user=request.user,
+                name=f"Copia de {source_list.name}"[:200],
+                description=source_list.description,
+                privacy=ReadingListPrivacy.PRIVATE,
+            )
+            items_to_create = [
+                ReadingListItem(
+                    reading_list=new_list,
+                    book=item.book,
+                    position=item.position,
+                    notes=item.notes,
+                )
+                for item in source_list.items.all()
+            ]
+            if items_to_create:
+                ReadingListItem.objects.bulk_create(items_to_create)
+
+        serializer = self.get_serializer(new_list)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['get', 'post'], url_path='comments')
+    def comments(self, request, pk=None):
+        """Consulta o añade comentarios sobre la lista de lectura (Fase 21)."""
+        reading_list = self.get_object()
+
+        if request.method == 'GET':
+            comments_qs = reading_list.comments.filter(
+                deleted_at__isnull=True, is_moderated=False
+            ).select_related('user')
+            serializer = ReadingListCommentSerializer(comments_qs, many=True, context={'request': request})
+            return Response(serializer.data)
+
+        # POST: crear comentario
+        if not request.user.is_authenticated:
+            return Response({'detail': 'Autenticación requerida para comentar.'}, status=status.HTTP_401_UNAUTHORIZED)
+
+        raw_content = request.data.get('content', '')
+        if not isinstance(raw_content, str) or not raw_content.strip():
+            return Response({'detail': 'El contenido del comentario es obligatorio.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        clean_content = sanitize_plain_text(raw_content).strip()
+        comment = ReadingListComment.objects.create(
+            user=request.user,
+            reading_list=reading_list,
+            content=clean_content,
+        )
+        return Response(
+            ReadingListCommentSerializer(comment, context={'request': request}).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+    @action(
+        detail=True,
+        methods=['delete'],
+        url_path=r'comments/(?P<comment_id>[^/.]+)',
+        permission_classes=[permissions.IsAuthenticated],
+    )
+    def delete_comment(self, request, pk=None, comment_id=None):
+        """Elimina un comentario propio o por parte del staff (soft delete)."""
+        reading_list = self.get_object()
+        comment = get_object_or_404(
+            reading_list.comments.filter(deleted_at__isnull=True), id=comment_id
+        )
+        if comment.user != request.user and not request.user.is_staff:
+            return Response(
+                {'detail': 'No tienes permiso para eliminar este comentario.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        comment.delete()
+        return Response({'detail': 'Comentario eliminado.'}, status=status.HTTP_200_OK)
 
 
 class ReadingStatsView(APIView):

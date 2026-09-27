@@ -1,50 +1,66 @@
 import { lazy } from 'react';
 import { BrowserRouter, Navigate, Routes, Route, useParams } from 'react-router-dom';
 import { AuthBox } from '../features/auth';
-import { Logo, PublicLayout, ProtectedLayout, AdminLayout } from '../components/layout';
+import {
+  Logo,
+  PublicLayout,
+  ProtectedLayout,
+  AdminLayout,
+  ScrollToTop,
+} from '../components/layout';
 import { useAuthStore } from '../store/auth';
 
-const EditProfile = lazy(() => import('../features/profile').then(m => ({ default: m.EditProfile })));
-const Profile = lazy(() => import('../features/profile').then(m => ({ default: m.Profile })));
-const Library = lazy(() => import('../features/library').then(m => ({ default: m.Library })));
-const AddBook = lazy(() => import('../features/books').then(m => ({ default: m.AddBook })));
-const Home = lazy(() => import('../features/social').then(m => ({ default: m.Home })));
-const BookDetail = lazy(() => import('../features/books').then(m => ({ default: m.BookDetail })));
-const Author = lazy(() => import('../features/books').then(m => ({ default: m.Author })));
-const Friends = lazy(() => import('../features/social').then(m => ({ default: m.Friends })));
-const Chat = lazy(() => import('../features/chat').then(m => ({ default: m.Chat })));
-const PrivacyPolicy = lazy(() => import('../features/legal').then(m => ({ default: m.PrivacyPolicy })));
-const TermsOfService = lazy(() => import('../features/legal').then(m => ({ default: m.TermsOfService })));
-const CookiePolicy = lazy(() => import('../features/legal').then(m => ({ default: m.CookiePolicy })));
-const AdminDashboard = lazy(() => import('../features/admin').then(m => ({ default: m.AdminDashboard })));
-const ReadingLists = lazy(() => import('../features/books').then(m => ({ default: m.ReadingLists })));
-const ReadingStats = lazy(() => import('../features/books').then(m => ({ default: m.ReadingStats })));
+const EditProfile = lazy(() =>
+  import('../features/profile').then((m) => ({ default: m.EditProfile }))
+);
+const Profile = lazy(() => import('../features/profile').then((m) => ({ default: m.Profile })));
+const Library = lazy(() => import('../features/library').then((m) => ({ default: m.Library })));
+const AddBook = lazy(() => import('../features/books').then((m) => ({ default: m.AddBook })));
+const Home = lazy(() => import('../features/social').then((m) => ({ default: m.Home })));
+const BookDetail = lazy(() => import('../features/books').then((m) => ({ default: m.BookDetail })));
+const Author = lazy(() => import('../features/books').then((m) => ({ default: m.Author })));
+const Friends = lazy(() => import('../features/social').then((m) => ({ default: m.Friends })));
+const Chat = lazy(() => import('../features/chat').then((m) => ({ default: m.Chat })));
+const PrivacyPolicy = lazy(() =>
+  import('../features/legal').then((m) => ({ default: m.PrivacyPolicy }))
+);
+const TermsOfService = lazy(() =>
+  import('../features/legal').then((m) => ({ default: m.TermsOfService }))
+);
+const CookiePolicy = lazy(() =>
+  import('../features/legal').then((m) => ({ default: m.CookiePolicy }))
+);
+const LegalNotice = lazy(() =>
+  import('../features/legal').then((m) => ({ default: m.LegalNotice }))
+);
+const ContentPolicy = lazy(() =>
+  import('../features/legal').then((m) => ({ default: m.ContentPolicy }))
+);
+const DeletionPolicy = lazy(() =>
+  import('../features/legal').then((m) => ({ default: m.DeletionPolicy }))
+);
+const ContactPage = lazy(() =>
+  import('../features/legal').then((m) => ({ default: m.ContactPage }))
+);
+const AdminDashboard = lazy(() =>
+  import('../features/admin').then((m) => ({ default: m.AdminDashboard }))
+);
+const ReadingLists = lazy(() =>
+  import('../features/books').then((m) => ({ default: m.ReadingLists }))
+);
+const ReadingStats = lazy(() =>
+  import('../features/books').then((m) => ({ default: m.ReadingStats }))
+);
+const OnboardingPage = lazy(() =>
+  import('../features/onboarding').then((m) => ({ default: m.OnboardingPage }))
+);
+const PublicLandingPage = lazy(() =>
+  import('../features/discovery').then((m) => ({ default: m.PublicLandingPage }))
+);
 
 function ProfileIdRedirect() {
   const { id } = useParams();
   return <Navigate to={`/users/${id}`} replace />;
-}
-
-function LandingPage() {
-  const isAuthenticated = useAuthStore(s => s.isAuthenticated);
-
-  if (isAuthenticated) {
-    return <Navigate to="/home" replace />;
-  }
-
-  return (
-    <div className="mx-auto grid max-w-5xl grid-cols-1 gap-8 md:grid-cols-2 mt-8 items-center">
-      <div className="flex flex-col items-start justify-center px-4">
-        <Logo />
-        <p className="mt-4 text-slate-600 dark:text-slate-400 text-base leading-relaxed">
-          Tu espacio social para organizar lecturas, descubrir nuevos autores y compartir reseñas con una comunidad de apasionados por los libros.
-        </p>
-      </div>
-      <div className="flex items-center justify-center px-4">
-        <AuthBox />
-      </div>
-    </div>
-  );
 }
 
 export const ADMIN_ROUTE = (import.meta as any).env?.VITE_ADMIN_PATH || '/panel-control-mbc';
@@ -52,13 +68,21 @@ export const ADMIN_ROUTE = (import.meta as any).env?.VITE_ADMIN_PATH || '/panel-
 export function AppRouter() {
   return (
     <BrowserRouter>
+      <ScrollToTop />
       <Routes>
-        {/* Rutas Públicas (Landing y Legales) */}
+        {/* Rutas Públicas (Landing, Auth y Legales) */}
         <Route element={<PublicLayout />}>
-          <Route path="/" element={<LandingPage />} />
+          <Route path="/" element={<PublicLandingPage />} />
+          <Route path="/login" element={<Navigate to="/?auth=login" replace />} />
+          <Route path="/register" element={<Navigate to="/?auth=register" replace />} />
           <Route path="/privacy" element={<PrivacyPolicy />} />
           <Route path="/terms" element={<TermsOfService />} />
           <Route path="/cookies" element={<CookiePolicy />} />
+          <Route path="/legal-notice" element={<LegalNotice />} />
+          <Route path="/legal" element={<Navigate to="/legal-notice" replace />} />
+          <Route path="/content-policy" element={<ContentPolicy />} />
+          <Route path="/deletion-policy" element={<DeletionPolicy />} />
+          <Route path="/contact" element={<ContactPage />} />
         </Route>
 
         {/* Rutas Protegidas de Miembros */}
@@ -78,6 +102,7 @@ export function AppRouter() {
           <Route path="/users/:userId" element={<Profile />} />
           <Route path="/chat" element={<Chat />} />
           <Route path="/friends" element={<Friends />} />
+          <Route path="/onboarding" element={<OnboardingPage />} />
         </Route>
 
         {/* Rutas de Administración y Moderación Seguras */}

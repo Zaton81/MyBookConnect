@@ -101,6 +101,33 @@ class User(AbstractUser):
         default=True,
         help_text="Permite activar o desactivar opcionalmente la gamificación (retos, rachas, objetivos e insignias).",
     )
+    deleted_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text="Fecha de eliminación y anonimización de la cuenta por solicitud del usuario (Fase 17 - RGPD).",
+    )
+    terms_accepted_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Fecha de consentimiento y aceptación de los Términos de Servicio.",
+    )
+    privacy_accepted_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Fecha de consentimiento y aceptación de la Política de Privacidad.",
+    )
+    onboarding_completed = models.BooleanField(
+        default=False,
+        db_index=True,
+        help_text="Indica si el usuario ha completado o desestimado el flujo de bienvenida/onboarding (Fase 19).",
+    )
+    favorite_categories = models.ManyToManyField(
+        'books.Category',
+        related_name='favorited_by_users',
+        blank=True,
+        help_text="Categorías o géneros literarios favoritos seleccionados por el lector durante el onboarding.",
+    )
 
     class Meta:
         ordering = ['-date_joined']
@@ -178,6 +205,8 @@ class ActivityType(models.TextChoices):
     REVIEW_CREATED = 'REVIEW_CREATED', 'Publicó una reseña'
     USER_FOLLOWED = 'USER_FOLLOWED', 'Comenzó a seguir'
     LIST_CREATED = 'LIST_CREATED', 'Creó una lista'
+    REVIEW_LIKED = 'REVIEW_LIKED', 'Le gustó una reseña'
+    COMMENT_ADDED = 'COMMENT_ADDED', 'Comentó en una reseña'
 
 
 class Activity(models.Model):
@@ -201,11 +230,45 @@ class Activity(models.Model):
         return f"{self.user.username} - {self.get_type_display()} ({self.created_at})"
 
 
+class HiddenActivity(models.Model):
+    """Permite al usuario ocultar publicaciones específicas de su feed personal (Fase 22)."""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='hidden_feed_activities')
+    activity = models.ForeignKey(Activity, on_delete=models.CASCADE, related_name='hidden_by_users')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('user', 'activity')
+        indexes = [
+            models.Index(fields=['user', 'activity'], name='idx_hidden_user_activity'),
+        ]
+
+    def __str__(self):
+        return f"HiddenActivity #{self.activity_id} por {self.user.username}"
+
+
 class ReportStatus(models.TextChoices):
     OPEN = 'OPEN', 'Abierto'
     UNDER_REVIEW = 'UNDER_REVIEW', 'En revisión'
+    INVESTIGATING = 'INVESTIGATING', 'En investigación'
     RESOLVED = 'RESOLVED', 'Resuelto'
     REJECTED = 'REJECTED', 'Rechazado'
+    DISMISSED = 'DISMISSED', 'Desestimado'
+
+    @classmethod
+    def normalize(cls, val: str) -> str:
+        """Normaliza aliases canónicos de estado (Roadmap 21.3)."""
+        if not val:
+            return cls.OPEN
+        norm = str(val).upper().strip()
+        mapping = {
+            'OPEN': cls.OPEN,
+            'UNDER_REVIEW': cls.UNDER_REVIEW,
+            'INVESTIGATING': cls.UNDER_REVIEW,
+            'RESOLVED': cls.RESOLVED,
+            'REJECTED': cls.REJECTED,
+            'DISMISSED': cls.REJECTED,
+        }
+        return mapping.get(norm, norm)
 
 
 class ReportReason(models.TextChoices):
@@ -215,17 +278,20 @@ class ReportReason(models.TextChoices):
     INAPPROPRIATE = 'INAPPROPRIATE', 'Contenido explícito o inapropiado'
     SPOILER = 'SPOILER', 'Spoilers sin advertencia'
     COPYRIGHT = 'COPYRIGHT', 'Infracción de derechos de autor'
+    ILLEGAL_CONTENT = 'ILLEGAL_CONTENT', 'Contenido ilegal o perjudicial'
+    IMPERSONATION = 'IMPERSONATION', 'Suplantación de identidad o engaño'
     OTHER = 'OTHER', 'Otro motivo'
 
 
 class Report(models.Model):
     """
-    Modelo de denuncias y moderación de contenido (Fase 29).
+    Modelo de denuncias y moderación de contenido (Fases 16 y 29).
     Permite registrar denuncias de usuarios sobre:
     - Cuentas de usuario (User)
     - Reseñas (Review)
     - Comentarios en reseñas (ReviewComment)
     - Mensajes de chat (Message)
+    - Listas de lectura (ReadingList)
     """
     reporter = models.ForeignKey(
         User,
@@ -307,6 +373,9 @@ class AuditAction(models.TextChoices):
     CONTENT_RESTORE = 'CONTENT_RESTORE', 'Restauración de Contenido'
     CONTENT_DELETE = 'CONTENT_DELETE', 'Eliminación de Contenido'
     SECURITY_PASSWORD_CHANGE = 'SECURITY_PASSWORD_CHANGE', 'Cambio de Contraseña'
+    USER_DELETE = 'USER_DELETE', 'Eliminación y Anonimización de Cuenta'
+    EMAIL_CHANGE = 'EMAIL_CHANGE', 'Cambio de Dirección de Correo Electrónico'
+    DATA_EXPORT = 'DATA_EXPORT', 'Exportación de Datos Personales (GDPR)'
     OTHER = 'OTHER', 'Otra Acción'
 
 

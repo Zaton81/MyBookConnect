@@ -25,7 +25,8 @@ export function AdminLayout() {
   }
 
   const isAuthorized = Boolean(
-    user && (user.is_staff || user.is_superuser || user.role === 'ADMIN' || user.role === 'MODERATOR')
+    user &&
+    (user.is_staff || user.is_superuser || user.role === 'ADMIN' || user.role === 'MODERATOR')
   );
 
   if (!isAuthorized) {
@@ -35,8 +36,8 @@ export function AdminLayout() {
   const roleLabel = user?.is_superuser
     ? 'Superusuario'
     : user?.role === 'ADMIN' || user?.is_staff
-    ? 'Administrador'
-    : 'Moderador';
+      ? 'Administrador'
+      : 'Moderador';
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans antialiased">

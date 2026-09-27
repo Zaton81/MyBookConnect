@@ -93,4 +93,3 @@ export const BioEditor: React.FC<BioEditorProps> = ({ content, onChange }) => {
 };
 
 export default BioEditor;
-

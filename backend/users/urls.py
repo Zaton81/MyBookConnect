@@ -3,6 +3,11 @@ from rest_framework.routers import DefaultRouter
 
 from messages_app.views import ConversationViewSet, MessageViewSet
 
+from .account_views import (
+    AccountDeleteView,
+    DataExportView,
+    EmailChangeView,
+)
 from .auth_views import (
     EmailVerifyConfirmView,
     EmailVerifyRequestView,
@@ -13,9 +18,16 @@ from .auth_views import (
     RevokeAllSessionsView,
     WebSocketTicketView,
 )
+from .onboarding_views import (
+    OnboardingCompleteView,
+    OnboardingSkipView,
+    OnboardingStatusView,
+)
 from .views import (
     BlockUserView,
     CheckFollowStatusView,
+    FeedActivityHideView,
+    FeedActivityUnhideView,
     FeedView,
     FollowUserView,
     LogoutView,
@@ -58,6 +70,12 @@ urlpatterns = [
     path('register/', UserRegistrationView.as_view(), name='register'),
     path('logout/', LogoutView.as_view(), name='logout'),
     path('password/change/', PasswordChangeView.as_view(), name='password-change'),
+    path('email/change/', EmailChangeView.as_view(), name='email-change'),
+    path('account/delete/', AccountDeleteView.as_view(), name='account-delete'),
+    path('account/export/', DataExportView.as_view(), name='account-export'),
+    path('onboarding/', OnboardingStatusView.as_view(), name='onboarding-status'),
+    path('onboarding/complete/', OnboardingCompleteView.as_view(), name='onboarding-complete'),
+    path('onboarding/skip/', OnboardingSkipView.as_view(), name='onboarding-skip'),
     path('password/reset/', PasswordResetRequestView.as_view(), name='password-reset-request'),
     path('password/reset/confirm/', PasswordResetConfirmView.as_view(), name='password-reset-confirm'),
     path('email/verify-request/', EmailVerifyRequestView.as_view(), name='email-verify-request'),
@@ -75,6 +93,8 @@ urlpatterns = [
     path('notifications/read-all/', NotificationMarkAllReadView.as_view(), name='notification-read-all'),
     path('notifications/unread-count/', NotificationUnreadCountView.as_view(), name='notification-unread-count'),
     path('feed/', FeedView.as_view(), name='social-feed'),
+    path('feed/<int:activity_id>/hide/', FeedActivityHideView.as_view(), name='feed-activity-hide'),
+    path('feed/<int:activity_id>/unhide/', FeedActivityUnhideView.as_view(), name='feed-activity-unhide'),
     *user_action_patterns,
     path('users/', include(user_action_patterns)),
 ] + router.urls

@@ -62,20 +62,20 @@ export const useUIStore = create<UIState>()(
 
       setSidebarOpen: (open: boolean) => set({ sidebarOpen: open }),
 
-      toggleSidebar: () => set(state => ({ sidebarOpen: !state.sidebarOpen })),
+      toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
 
       openModal: (modalId: string) =>
-        set(state => ({
+        set((state) => ({
           activeModals: { ...state.activeModals, [modalId]: true },
         })),
 
       closeModal: (modalId: string) =>
-        set(state => ({
+        set((state) => ({
           activeModals: { ...state.activeModals, [modalId]: false },
         })),
 
       toggleModal: (modalId: string) =>
-        set(state => ({
+        set((state) => ({
           activeModals: {
             ...state.activeModals,
             [modalId]: !state.activeModals[modalId],
@@ -83,12 +83,12 @@ export const useUIStore = create<UIState>()(
         })),
 
       setDraft: (key: string, content: string) =>
-        set(state => ({
+        set((state) => ({
           drafts: { ...state.drafts, [key]: content },
         })),
 
       clearDraft: (key: string) =>
-        set(state => {
+        set((state) => {
           const newDrafts = { ...state.drafts };
           delete newDrafts[key];
           return { drafts: newDrafts };
@@ -98,7 +98,7 @@ export const useUIStore = create<UIState>()(
     }),
     {
       name: 'ui-storage',
-      partialize: state => ({
+      partialize: (state) => ({
         theme: state.theme,
         drafts: state.drafts,
       }),

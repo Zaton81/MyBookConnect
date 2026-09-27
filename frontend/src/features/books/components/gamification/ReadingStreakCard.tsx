@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ReadingStreakData } from './types';
+import { useAuthStore } from '../../../../store/auth';
 
 interface ReadingStreakCardProps {
   streak?: ReadingStreakData;
@@ -15,12 +16,18 @@ export const ReadingStreakCard: React.FC<ReadingStreakCardProps> = ({
   const [logging, setLogging] = useState(false);
   const [justLogged, setJustLogged] = useState(false);
 
+  const { token } = useAuthStore();
   const apiUrl = (import.meta as any).env.VITE_API_URL || 'http://localhost:8000';
-  const token = localStorage.getItem('access_token');
+
+  useEffect(() => {
+    if (streak?.read_today) {
+      setJustLogged(true);
+    }
+  }, [streak?.read_today]);
 
   const currentStreak = streak?.current_streak || 0;
   const longestStreak = streak?.longest_streak || 0;
-  const readToday = streak?.read_today || justLogged;
+  const readToday = Boolean(streak?.read_today || justLogged);
 
   const handleLogToday = async () => {
     if (!token || readToday || logging) return;
@@ -52,11 +59,13 @@ export const ReadingStreakCard: React.FC<ReadingStreakCardProps> = ({
     <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 border border-slate-100 dark:border-slate-700/60 shadow-sm relative overflow-hidden">
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-2xl shadow-inner ${
-            currentStreak > 0
-              ? 'bg-gradient-to-tr from-amber-500 to-orange-500 text-white animate-pulse'
-              : 'bg-slate-100 dark:bg-slate-700 text-slate-400'
-          }`}>
+          <div
+            className={`w-12 h-12 rounded-2xl flex items-center justify-center text-2xl shadow-inner ${
+              currentStreak > 0
+                ? 'bg-gradient-to-tr from-amber-500 to-orange-500 text-white animate-pulse'
+                : 'bg-slate-100 dark:bg-slate-700 text-slate-400'
+            }`}
+          >
             🔥
           </div>
           <div>

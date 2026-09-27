@@ -8,7 +8,7 @@ import { GoogleLoginButton } from '../components/GoogleLoginButton';
 
 export const Register = () => {
   const navigate = useNavigate();
-  const registerAction = useAuthStore(state => state.register);
+  const registerAction = useAuthStore((state) => state.register);
   const [serverError, setServerError] = useState<string | null>(null);
 
   const {
@@ -32,7 +32,10 @@ export const Register = () => {
     { label: 'Una letra mayúscula', passed: /[A-Z]/.test(passwordValue) },
     { label: 'Una letra minúscula', passed: /[a-z]/.test(passwordValue) },
     { label: 'Un número', passed: /[0-9]/.test(passwordValue) },
-    { label: 'Un símbolo especial', passed: /[!@#$%^&*(),.?"':{}|<>\[\]\\/~`_+=;-]/.test(passwordValue) },
+    {
+      label: 'Un símbolo especial',
+      passed: /[!@#$%^&*(),.?"':{}|<>\[\]\\/~`_+=;-]/.test(passwordValue),
+    },
   ];
 
   const onSubmit = async (data: RegisterFormData) => {
@@ -49,9 +52,7 @@ export const Register = () => {
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
         <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Crea tu cuenta
-          </h2>
+          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">Crea tu cuenta</h2>
         </div>
         <form className="mt-8 space-y-5" onSubmit={handleSubmit(onSubmit)} noValidate>
           <div>
@@ -85,9 +86,7 @@ export const Register = () => {
               }`}
               placeholder="Email"
             />
-            {errors.email && (
-              <p className="mt-1 text-xs text-red-600">{errors.email.message}</p>
-            )}
+            {errors.email && <p className="mt-1 text-xs text-red-600">{errors.email.message}</p>}
           </div>
 
           <div>

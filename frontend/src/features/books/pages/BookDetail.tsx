@@ -31,7 +31,9 @@ export function BookDetail() {
 
   // Estado de estantería del usuario
   const [userBook, setUserBook] = useState<any | null>(null);
-  const [readingStatus, setReadingStatus] = useState<'want_to_read' | 'reading' | 'read' | 'abandoned'>('want_to_read');
+  const [readingStatus, setReadingStatus] = useState<
+    'want_to_read' | 'reading' | 'read' | 'abandoned'
+  >('want_to_read');
   const [progress, setProgress] = useState<number>(0);
   const [currentPage, setCurrentPage] = useState<number>(0);
   const [startedAt, setStartedAt] = useState<string>('');
@@ -397,7 +399,8 @@ export function BookDetail() {
 
                       <div className="pt-1 border-t border-slate-200/60 dark:border-slate-600">
                         <p>
-                          <strong>Mi nota privada:</strong> {rating ? `⭐ ${rating}/10` : 'Sin puntuar'}
+                          <strong>Mi nota privada:</strong>{' '}
+                          {rating ? `⭐ ${rating}/10` : 'Sin puntuar'}
                         </p>
                         {notes && (
                           <p className="pt-1 italic text-slate-500 dark:text-slate-400 line-clamp-2">
@@ -440,7 +443,9 @@ export function BookDetail() {
                         <div className="p-2.5 bg-indigo-50/50 dark:bg-indigo-900/20 rounded-xl space-y-2 border border-indigo-100 dark:border-indigo-900/40">
                           <div className="flex items-center justify-between text-[11px] font-semibold">
                             <span>Progreso:</span>
-                            <span className="font-bold text-indigo-600 dark:text-indigo-400">{progress}%</span>
+                            <span className="font-bold text-indigo-600 dark:text-indigo-400">
+                              {progress}%
+                            </span>
                           </div>
                           <input
                             type="range"
@@ -469,7 +474,9 @@ export function BookDetail() {
                       {/* Fechas de Lectura */}
                       <div className="grid grid-cols-2 gap-2">
                         <div>
-                          <label className="block text-[10px] text-slate-500 mb-0.5">Fecha inicio:</label>
+                          <label className="block text-[10px] text-slate-500 mb-0.5">
+                            Fecha inicio:
+                          </label>
                           <input
                             type="date"
                             value={startedAt}
@@ -478,7 +485,9 @@ export function BookDetail() {
                           />
                         </div>
                         <div>
-                          <label className="block text-[10px] text-slate-500 mb-0.5">Fecha fin:</label>
+                          <label className="block text-[10px] text-slate-500 mb-0.5">
+                            Fecha fin:
+                          </label>
                           <input
                             type="date"
                             value={finishedAt}
@@ -628,7 +637,8 @@ export function BookDetail() {
                   <>
                     <span className="text-slate-300 dark:text-slate-600">•</span>
                     <span className="text-xs text-slate-500">
-                      Publicado en {new Date(book.published_date).getFullYear() || book.published_date}
+                      Publicado en{' '}
+                      {new Date(book.published_date).getFullYear() || book.published_date}
                     </span>
                   </>
                 )}
@@ -717,7 +727,8 @@ export function BookDetail() {
 
               {!aiSummary && !loadingAi && (
                 <p className="text-xs text-teal-200/70">
-                  Descubre los temas centrales, estilo narrativo y a quién va recomendada esta obra con inteligencia artificial.
+                  Descubre los temas centrales, estilo narrativo y a quién va recomendada esta obra
+                  con inteligencia artificial.
                 </p>
               )}
             </div>
@@ -758,9 +769,7 @@ export function BookDetail() {
         ) : (
           <form onSubmit={handleSendErrata} className="space-y-3">
             <div className="flex gap-3 items-center">
-              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                Tipo:
-              </label>
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Tipo:</label>
               <select
                 value={errataType}
                 onChange={(e) => setErrataType(e.target.value as any)}
@@ -827,9 +836,7 @@ export function BookDetail() {
                   <h4 className="text-xs font-bold text-slate-900 dark:text-white truncate group-hover:text-teal-600 transition-colors">
                     {rel.title}
                   </h4>
-                  <p className="text-[11px] text-slate-500 truncate">
-                    {rel.author_name}
-                  </p>
+                  <p className="text-[11px] text-slate-500 truncate">{rel.author_name}</p>
                   {rel.average_rating && (
                     <span className="text-[11px] text-amber-500 font-medium flex items-center gap-1 mt-0.5">
                       ★ {rel.average_rating.toFixed(1)}

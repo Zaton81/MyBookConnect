@@ -106,7 +106,9 @@ export function Profile() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profileId, token]);
 
-  const handleAction = async (action: 'follow' | 'unfollow' | 'block' | 'unblock' | 'mute' | 'unmute') => {
+  const handleAction = async (
+    action: 'follow' | 'unfollow' | 'block' | 'unblock' | 'mute' | 'unmute'
+  ) => {
     if (!profileUser || !token) return;
     const apiUrl = (import.meta as any).env.VITE_API_URL || 'http://localhost:8000';
     try {
@@ -172,7 +174,9 @@ export function Profile() {
           <div className="text-center text-red-600 p-4">
             <h3 className="text-xl font-bold mb-2">Acceso restringido</h3>
             <p>{error}</p>
-            <Button color="light" className="mt-4 mx-auto" onClick={() => navigate(-1)}>Volver</Button>
+            <Button color="light" className="mt-4 mx-auto" onClick={() => navigate(-1)}>
+              Volver
+            </Button>
           </div>
         </Card>
       </div>
@@ -204,7 +208,9 @@ export function Profile() {
             )}
             <div>
               <h5 className="text-xl font-bold">
-                {profileUser.first_name ? `${profileUser.first_name} ${profileUser.last_name || ''}` : profileUser.username}
+                {profileUser.first_name
+                  ? `${profileUser.first_name} ${profileUser.last_name || ''}`
+                  : profileUser.username}
               </h5>
               <p className="text-sm text-gray-500">@{profileUser.username}</p>
               {(isOwnProfile || canShow(profileUser.show_email)) && (
@@ -228,11 +234,15 @@ export function Profile() {
               </>
             ) : (
               <>
-                <Button color="light" size="sm" onClick={() => navigate(`/statistics?user_id=${profileUser.id}`)}>
+                <Button
+                  color="light"
+                  size="sm"
+                  onClick={() => navigate(`/statistics?user_id=${profileUser.id}`)}
+                >
                   📊 Estadísticas
                 </Button>
-                {!profileUser.is_blocked && (
-                  isFollowing || profileUser.is_following ? (
+                {!profileUser.is_blocked &&
+                  (isFollowing || profileUser.is_following ? (
                     <Button color="light" size="sm" onClick={() => handleAction('unfollow')}>
                       Dejar de seguir
                     </Button>
@@ -240,25 +250,47 @@ export function Profile() {
                     <Button color="blue" size="sm" onClick={() => handleAction('follow')}>
                       Seguir
                     </Button>
-                  )
-                )}
+                  ))}
                 {isMutual && (
-                  <Button size="sm" color="teal" onClick={handleStartChat} className="flex items-center gap-1">
+                  <Button
+                    size="sm"
+                    color="teal"
+                    onClick={handleStartChat}
+                    className="flex items-center gap-1"
+                  >
                     💬 Mensaje
                   </Button>
                 )}
-                <Dropdown label="" renderTrigger={() => <Button color="light" size="sm">...</Button>}>
+                <Dropdown
+                  label=""
+                  renderTrigger={() => (
+                    <Button color="light" size="sm">
+                      ...
+                    </Button>
+                  )}
+                >
                   {profileUser.is_muted ? (
-                    <Dropdown.Item onClick={() => handleAction('unmute')}>🔊 Dejar de silenciar</Dropdown.Item>
+                    <Dropdown.Item onClick={() => handleAction('unmute')}>
+                      🔊 Dejar de silenciar
+                    </Dropdown.Item>
                   ) : (
-                    <Dropdown.Item onClick={() => handleAction('mute')}>🔇 Silenciar usuario</Dropdown.Item>
+                    <Dropdown.Item onClick={() => handleAction('mute')}>
+                      🔇 Silenciar usuario
+                    </Dropdown.Item>
                   )}
                   {profileUser.is_blocked ? (
-                    <Dropdown.Item onClick={() => handleAction('unblock')}>Desbloquear</Dropdown.Item>
+                    <Dropdown.Item onClick={() => handleAction('unblock')}>
+                      Desbloquear
+                    </Dropdown.Item>
                   ) : (
-                    <Dropdown.Item onClick={() => handleAction('block')} className="text-red-600">Bloquear</Dropdown.Item>
+                    <Dropdown.Item onClick={() => handleAction('block')} className="text-red-600">
+                      Bloquear
+                    </Dropdown.Item>
                   )}
-                  <Dropdown.Item onClick={() => setIsReportingUser(true)} className="text-amber-600">
+                  <Dropdown.Item
+                    onClick={() => setIsReportingUser(true)}
+                    className="text-amber-600"
+                  >
                     🚩 Denunciar usuario
                   </Dropdown.Item>
                 </Dropdown>
@@ -269,8 +301,12 @@ export function Profile() {
 
         <div className="mt-4 space-y-2">
           <p className="text-sm text-gray-600">
-            Privacidad: {profileUser.privacy_level === 'public' ? 'Público' :
-                        profileUser.privacy_level === 'friends' ? 'Solo amigos' : 'Privado'}
+            Privacidad:{' '}
+            {profileUser.privacy_level === 'public'
+              ? 'Público'
+              : profileUser.privacy_level === 'friends'
+                ? 'Solo amigos'
+                : 'Privado'}
           </p>
           {isMutual && !isOwnProfile && (
             <span className="text-teal-600 text-sm font-medium">Amistad mutua</span>
@@ -354,7 +390,9 @@ export function Profile() {
             <span className="text-sm text-gray-500">Reseñas</span>
           </div>
           <div>
-            <span className="block font-bold text-xl">{profileUser.following_count ?? profileUser.following?.length ?? 0}</span>
+            <span className="block font-bold text-xl">
+              {profileUser.following_count ?? profileUser.following?.length ?? 0}
+            </span>
             <span className="text-sm text-gray-500">Siguiendo</span>
           </div>
         </div>
@@ -371,7 +409,9 @@ export function Profile() {
               </div>
               <button
                 type="button"
-                onClick={() => navigate(profileId ? `/users/${profileId}/statistics` : '/statistics')}
+                onClick={() =>
+                  navigate(profileId ? `/users/${profileId}/statistics` : '/statistics')
+                }
                 className="text-xs font-semibold text-teal-600 dark:text-teal-400 hover:underline"
               >
                 Ver estadísticas completas ➔
@@ -384,11 +424,10 @@ export function Profile() {
                 <span className="text-2xl">🔥</span>
                 <div>
                   <div className="text-base font-extrabold text-amber-700 dark:text-amber-300">
-                    {gamification.streak?.current_streak || 0} {gamification.streak?.current_streak === 1 ? 'día' : 'días'}
+                    {gamification.streak?.current_streak || 0}{' '}
+                    {gamification.streak?.current_streak === 1 ? 'día' : 'días'}
                   </div>
-                  <div className="text-[11px] text-slate-500 dark:text-slate-400">
-                    Racha activa
-                  </div>
+                  <div className="text-[11px] text-slate-500 dark:text-slate-400">Racha activa</div>
                 </div>
               </div>
 
@@ -402,7 +441,8 @@ export function Profile() {
                       : 'Sin meta fija'}
                   </div>
                   <div className="text-[11px] text-slate-500 dark:text-slate-400">
-                    Meta {gamification.goal?.year || new Date().getFullYear()} ({gamification.goal?.percentage || 0}%)
+                    Meta {gamification.goal?.year || new Date().getFullYear()} (
+                    {gamification.goal?.percentage || 0}%)
                   </div>
                 </div>
               </div>
@@ -454,4 +494,3 @@ export function Profile() {
 }
 
 export default Profile;
-

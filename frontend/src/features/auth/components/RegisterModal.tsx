@@ -38,7 +38,10 @@ export default function RegisterModal({ open, onClose, onRegisterSuccess }: Regi
     { label: 'Una letra mayúscula', passed: /[A-Z]/.test(passwordValue) },
     { label: 'Una letra minúscula', passed: /[a-z]/.test(passwordValue) },
     { label: 'Un número', passed: /[0-9]/.test(passwordValue) },
-    { label: 'Un símbolo especial', passed: /[!@#$%^&*(),.?"':{}|<>\[\]\\/~`_+=;-]/.test(passwordValue) },
+    {
+      label: 'Un símbolo especial',
+      passed: /[!@#$%^&*(),.?"':{}|<>\[\]\\/~`_+=;-]/.test(passwordValue),
+    },
   ];
 
   const onSubmit = async (data: RegisterFormData) => {
@@ -73,7 +76,9 @@ export default function RegisterModal({ open, onClose, onRegisterSuccess }: Regi
               {...register('email')}
               placeholder="tu@ejemplo.com"
               className={`w-full rounded-xl border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 dark:bg-gray-700 dark:text-white ${
-                errors.email ? 'border-red-500 bg-red-50/20' : 'border-gray-300 dark:border-gray-600'
+                errors.email
+                  ? 'border-red-500 bg-red-50/20'
+                  : 'border-gray-300 dark:border-gray-600'
               }`}
             />
             {errors.email && (
@@ -90,11 +95,15 @@ export default function RegisterModal({ open, onClose, onRegisterSuccess }: Regi
               {...register('username')}
               placeholder="Nombre de usuario"
               className={`w-full rounded-xl border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 dark:bg-gray-700 dark:text-white ${
-                errors.username ? 'border-red-500 bg-red-50/20' : 'border-gray-300 dark:border-gray-600'
+                errors.username
+                  ? 'border-red-500 bg-red-50/20'
+                  : 'border-gray-300 dark:border-gray-600'
               }`}
             />
             {errors.username && (
-              <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors.username.message}</p>
+              <p className="mt-1 text-xs text-red-600 dark:text-red-400">
+                {errors.username.message}
+              </p>
             )}
           </div>
 
@@ -107,16 +116,22 @@ export default function RegisterModal({ open, onClose, onRegisterSuccess }: Regi
               {...register('password')}
               placeholder="Contraseña"
               className={`w-full rounded-xl border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 dark:bg-gray-700 dark:text-white ${
-                errors.password ? 'border-red-500 bg-red-50/20' : 'border-gray-300 dark:border-gray-600'
+                errors.password
+                  ? 'border-red-500 bg-red-50/20'
+                  : 'border-gray-300 dark:border-gray-600'
               }`}
             />
             {errors.password && (
-              <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors.password.message}</p>
+              <p className="mt-1 text-xs text-red-600 dark:text-red-400">
+                {errors.password.message}
+              </p>
             )}
 
             {passwordValue && (
               <div className="mt-2 p-2.5 bg-gray-50 dark:bg-gray-700/50 rounded-lg text-xs space-y-1">
-                <p className="font-medium text-gray-700 dark:text-gray-300">La contraseña debe incluir:</p>
+                <p className="font-medium text-gray-700 dark:text-gray-300">
+                  La contraseña debe incluir:
+                </p>
                 {passwordChecks.map((req, idx) => (
                   <div key={idx} className="flex items-center gap-1.5">
                     <span>{req.passed ? '✅' : '⚪'}</span>

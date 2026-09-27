@@ -84,6 +84,7 @@ class Book(models.Model):
             models.Index(fields=['title'], name='idx_book_title'),
             models.Index(fields=['title', 'author'], name='idx_book_title_author'),
             models.Index(fields=['-created_at'], name='idx_book_created_at'),
+            models.Index(fields=['author', '-created_at'], name='idx_book_author_created'),
             GinIndex(fields=['title'], name='idx_book_title_trgm', opclasses=['gin_trgm_ops']),
             GinIndex(fields=['description'], name='idx_book_desc_trgm', opclasses=['gin_trgm_ops']),
         ]
@@ -153,6 +154,7 @@ class UserBook(models.Model):
             models.Index(fields=['user', 'wishlist']),
             models.Index(fields=['is_read', '-updated_at'], name='idx_userbook_read_updated'),
             models.Index(fields=['status', '-updated_at'], name='idx_userbook_status_updated'),
+            models.Index(fields=['book', 'status'], name='idx_userbook_book_status'),
         ]
 
     def save(self, *args, **kwargs):
@@ -215,6 +217,8 @@ class Review(SoftDeleteModel):
             models.Index(fields=['-created_at'], name='idx_review_created_at'),
             models.Index(fields=['book', 'deleted_at'], name='idx_review_book_del'),
             models.Index(fields=['user', 'deleted_at'], name='idx_review_user_del'),
+            models.Index(fields=['book', 'rating'], name='idx_review_book_rating'),
+            models.Index(fields=['user', 'book'], name='idx_review_user_book'),
         ]
 
     def __str__(self):
@@ -333,14 +337,8 @@ def update_book_rating(sender, instance, **kwargs):
 @receiver(post_delete, sender=Book)
 def invalidate_book_cache_signal(sender, instance, **kwargs):
     try:
-        from .cache_utils import (
-            invalidate_book_cache,
-            invalidate_book_recommendations_cache,
-            invalidate_trending_cache,
-        )
-        invalidate_book_cache(instance.id)
-        invalidate_book_recommendations_cache(instance.id)
-        invalidate_trending_cache()
+        from .cache_utils import cascade_book_invalidation
+        cascade_book_invalidation(instance.id)
     except Exception:
         pass
 
@@ -376,22 +374,10 @@ def handle_review_signals(sender, instance, **kwargs):
 @receiver(post_delete, sender=UserBook)
 def handle_userbook_signals(sender, instance, **kwargs):
     created = kwargs.get('created', False)
-    # Invalida caché de perfil, estadísticas, recomendaciones y tendencias
+    # Invalida caché de perfil, estadísticas, recomendaciones, feed y libro (Fase 8 - 13.3)
     try:
-        from .cache_utils import (
-            invalidate_book_cache,
-            invalidate_book_recommendations_cache,
-            invalidate_trending_cache,
-            invalidate_user_profile_cache,
-            invalidate_user_recommendations_cache,
-            invalidate_user_stats_cache,
-        )
-        invalidate_user_profile_cache(instance.user_id)
-        invalidate_user_stats_cache(instance.user_id)
-        invalidate_user_recommendations_cache(instance.user_id)
-        invalidate_book_recommendations_cache(instance.book_id)
-        invalidate_trending_cache()
-        invalidate_book_cache(instance.book_id)
+        from .cache_utils import cascade_reading_status_invalidation
+        cascade_reading_status_invalidation(instance.user_id, instance.book_id)
     except Exception:
         pass
 
@@ -438,6 +424,9 @@ class LegalDocument(models.Model):
         ('privacy', 'Política de Privacidad'),
         ('cookies', 'Política de Cookies'),
         ('legal_notice', 'Aviso Legal'),
+        ('content_policy', 'Política de Contenido'),
+        ('deletion_policy', 'Política de Eliminación y Retención'),
+        ('contact', 'Contacto y Soporte Legal'),
     ]
     slug = models.SlugField(max_length=50, unique=True, choices=DOCUMENT_TYPES)
     title = models.CharField(max_length=200)
@@ -477,6 +466,15 @@ class ReadingList(models.Model):
         default=ReadingListPrivacy.PUBLIC,
         db_index=True,
     )
+    is_moderated = models.BooleanField(
+        default=False,
+        db_index=True,
+        help_text="Indica si la lista ha sido ocultada por el equipo de moderación",
+    )
+    views_count = models.PositiveIntegerField(
+        default=0,
+        help_text="Número de veces que la lista ha sido abierta/consultada",
+    )
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -488,6 +486,7 @@ class ReadingList(models.Model):
         indexes = [
             models.Index(fields=['user', '-updated_at'], name='idx_readinglist_user_updated'),
             models.Index(fields=['privacy', '-updated_at'], name='idx_readinglist_priv_updated'),
+            models.Index(fields=['is_moderated', '-updated_at'], name='idx_readinglist_mod_updated'),
         ]
 
     def save(self, *args, **kwargs):
@@ -548,6 +547,33 @@ class ReadingListFollow(models.Model):
         return f"{self.user.username} sigue {self.reading_list.name}"
 
 
+class ReadingListComment(SoftDeleteModel):
+    """
+    Comentario social dentro de una lista de lectura pública o de seguidos (Fase 21).
+    Permite debatir e intercambiar opiniones sobre selecciones de libros.
+    """
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='reading_list_comments')
+    reading_list = models.ForeignKey(ReadingList, on_delete=models.CASCADE, related_name='comments')
+    content = models.TextField(help_text="Contenido del comentario sobre la lista")
+    is_moderated = models.BooleanField(
+        default=False,
+        db_index=True,
+        help_text="Indica si el comentario ha sido ocultado por el equipo de moderación",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['created_at']
+        indexes = [
+            models.Index(fields=['reading_list', 'created_at'], name='idx_rlcomment_list_created'),
+            models.Index(fields=['reading_list', 'deleted_at'], name='idx_rlcomment_list_del'),
+        ]
+
+    def __str__(self):
+        return f"Comentario de {self.user.username} en Lista {self.reading_list_id}"
+
+
 class RecommendationFeedbackAction(models.TextChoices):
     RECOMMENDATION_SHOWN = 'recommendation_shown', 'Recomendación mostrada'
     RECOMMENDATION_CLICKED = 'recommendation_clicked', 'Recomendación clickeada'
@@ -556,6 +582,7 @@ class RecommendationFeedbackAction(models.TextChoices):
     READING_STARTED = 'reading_started', 'Lectura iniciada'
     READING_FINISHED = 'reading_finished', 'Lectura finalizada'
     RATED = 'rated', 'Valorado'
+    DISMISSED = 'dismissed', 'Descartado'
 
 
 class RecommendationFeedback(models.Model):
@@ -585,6 +612,66 @@ class RecommendationFeedback(models.Model):
         return f"{self.user.username} - {self.action} - {self.book.title} ({self.strategy})"
 
 
+class EmbeddingStatus(models.TextChoices):
+    PENDING = 'pending', 'Pendiente'
+    COMPLETED = 'completed', 'Completado'
+    FAILED = 'failed', 'Fallido'
+    STALE = 'stale', 'Desactualizado'
+
+
+class BookEmbedding(models.Model):
+    """
+    Modelo satélite para persistencia vectorial y metadatos de embeddings de libros (Fase 6 - 11.5).
+    Mantiene la tabla principal de libros liviana y registra el ciclo de vida de vectorización.
+    """
+    book = models.OneToOneField(
+        Book,
+        on_delete=models.CASCADE,
+        related_name='embedding_record',
+        verbose_name='Libro asociado',
+    )
+    vector = models.JSONField(default=list, blank=True, verbose_name='Vector de embedding')
+    dimension = models.PositiveIntegerField(default=768, verbose_name='Dimensión del vector')
+    embedding_model = models.CharField(
+        max_length=128,
+        default='nomic-embed-text',
+        verbose_name='Modelo generador',
+    )
+    embedding_version = models.CharField(
+        max_length=32,
+        default='v1.0',
+        verbose_name='Versión del pipeline',
+    )
+    embedded_at = models.DateTimeField(null=True, blank=True, verbose_name='Fecha de vectorización')
+    embedding_status = models.CharField(
+        max_length=20,
+        choices=EmbeddingStatus.choices,
+        default=EmbeddingStatus.PENDING,
+        db_index=True,
+        verbose_name='Estado del embedding',
+    )
+    content_hash = models.CharField(
+        max_length=64,
+        blank=True,
+        default='',
+        db_index=True,
+        verbose_name='Hash SHA256 del contenido fuente',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Embedding de Libro'
+        verbose_name_plural = 'Embeddings de Libros'
+        indexes = [
+            models.Index(fields=['embedding_status', 'embedded_at'], name='idx_emb_status_date'),
+            models.Index(fields=['embedding_model', 'embedding_version'], name='idx_emb_mod_ver'),
+        ]
+
+    def __str__(self) -> str:
+        return f"Embedding [{self.embedding_status}] - {self.book.title} ({self.dimension}d)"
+
+
 # Modelos de gamificación opcional (Fase 54)
 from .gamification_models import (  # noqa: E402, F401
     Badge,
@@ -597,5 +684,6 @@ from .gamification_models import (  # noqa: E402, F401
     UserBadge,
     UserChallenge,
 )
+
 
 

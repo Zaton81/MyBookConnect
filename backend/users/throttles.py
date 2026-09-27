@@ -1,7 +1,11 @@
-from rest_framework.throttling import AnonRateThrottle, SimpleRateThrottle
+from mybookconnect.throttling import (
+    ResilientAnonRateThrottle,
+    ResilientSimpleRateThrottle,
+    ResilientUserRateThrottle,
+)
 
 
-class AuthAnonRateThrottle(AnonRateThrottle):
+class AuthAnonRateThrottle(ResilientAnonRateThrottle):
     """
     Limitador estricto para operaciones de autenticación anónimas (registro, solicitud de tokens).
     Previene abusos de scraping o creación masiva de cuentas.
@@ -9,7 +13,7 @@ class AuthAnonRateThrottle(AnonRateThrottle):
     scope = 'auth_anon'
 
 
-class LoginRateThrottle(SimpleRateThrottle):
+class LoginRateThrottle(ResilientSimpleRateThrottle):
     """
     Limitador de velocidad para intentos de inicio de sesión (/api/v1/auth/token/).
     Mitiga ataques de fuerza bruta, adivinación de contraseñas y credential stuffing.
@@ -32,7 +36,7 @@ class LoginRateThrottle(SimpleRateThrottle):
         }
 
 
-class PasswordResetRateThrottle(SimpleRateThrottle):
+class PasswordResetRateThrottle(ResilientSimpleRateThrottle):
     """
     Limitador de velocidad para solicitudes de restablecimiento de contraseña.
     Evita bombardeo de correos y saturación de la pasarela SMTP.
@@ -52,3 +56,30 @@ class PasswordResetRateThrottle(SimpleRateThrottle):
             'scope': self.scope,
             'ident': ident,
         }
+
+
+# --- Throttles de Seguridad y Moderación Social (Roadmap 21.4) ---
+
+class ReportRateThrottle(ResilientUserRateThrottle):
+    """Evita el spam y abuso de denuncias a moderación (Roadmap 21.4)."""
+    scope = 'reports'
+
+
+class FollowRateThrottle(ResilientUserRateThrottle):
+    """Evita operaciones de follow/unfollow masivas automatizadas (Roadmap 21.4)."""
+    scope = 'follows'
+
+
+class CommentRateThrottle(ResilientUserRateThrottle):
+    """Evita el spam y flood de comentarios en reseñas literarias (Roadmap 21.4)."""
+    scope = 'comments'
+
+
+class LikeRateThrottle(ResilientUserRateThrottle):
+    """Evita la automatización y spam de likes/unlikes en reseñas (Roadmap 21.4)."""
+    scope = 'likes'
+
+
+class MessageRateThrottle(ResilientUserRateThrottle):
+    """Evita el flood y spam masivo de mensajería directa (Roadmap 21.4)."""
+    scope = 'messages'

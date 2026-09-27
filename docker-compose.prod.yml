@@ -1,40 +1,17 @@
+# ==============================================================================
+# MyBookConnect - Orquestación de Contenedores para Producción
+# Fase 13 - Docker y Producción (Prioridad P1)
+# ==============================================================================
+# Principios de Seguridad y Aislamiento:
+# 1. Reverse proxy (frontend Nginx) es el ÚNICO servicio que expone puertos al exterior (80 / 443).
+# 2. Django Backend no expone puertos al host, sólo se comunica internamente con Nginx vía frontend_net.
+# 3. Base de datos (PostgreSQL 16) y Redis 7 están aisladas en backend_net sin puertos mapeados al host.
+# 4. Graceful shutdown configurado con stop_signal y stop_grace_period en todos los servicios.
+# 5. Healthchecks separados: /health/ready para readiness en backend y /health/live para el contenedor.
+# ==============================================================================
+
 services:
-  backend:
-    build:
-      context: ./backend
-      target: production
-    container_name: booksocial-backend-prod
-    restart: always
-    ports:
-      - "8000:8000"
-    env_file:
-      - .env
-    depends_on:
-      db:
-        condition: service_healthy
-      cache:
-        condition: service_healthy
-    volumes:
-      - backend_media:/app/media
-      - backups_data:/app/backups
-
-  celery_worker:
-    build:
-      context: ./backend
-      target: production
-    container_name: booksocial-celery-worker-prod
-    restart: always
-    command: celery -A mybookconnect worker -l INFO --concurrency=2
-    env_file:
-      - .env
-    depends_on:
-      db:
-        condition: service_healthy
-      cache:
-        condition: service_healthy
-    volumes:
-      - backend_media:/app/media
-
+  # ─── Reverse Proxy & Frontend SPA (Nginx) ───
   frontend:
     build:
       context: ./frontend
@@ -43,14 +20,86 @@ services:
     restart: always
     ports:
       - "80:80"
+    networks:
+      - frontend_net
+    volumes:
+      - backend_media:/app/media:ro
+      - backend_static:/app/staticfiles:ro
     depends_on:
       backend:
-        condition: service_started
+        condition: service_healthy
+    stop_signal: SIGQUIT
+    stop_grace_period: 10s
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:80/"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
 
+  # ─── Backend API & ASGI Channels (Daphne) ───
+  backend:
+    build:
+      context: ./backend
+      target: production
+    container_name: booksocial-backend-prod
+    restart: always
+    expose:
+      - "8000"
+    networks:
+      - frontend_net
+      - backend_net
+    env_file:
+      - .env
+    depends_on:
+      db:
+        condition: service_healthy
+      cache:
+        condition: service_healthy
+    volumes:
+      - backend_media:/app/media
+      - backend_static:/app/staticfiles
+      - backups_data:/app/backups
+    stop_signal: SIGTERM
+    stop_grace_period: 30s
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health/ready || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  # ─── Worker de Tareas Asíncronas (Celery) ───
+  celery_worker:
+    build:
+      context: ./backend
+      target: production
+    container_name: booksocial-celery-worker-prod
+    restart: always
+    command: celery -A mybookconnect worker -l INFO --concurrency=2
+    networks:
+      - backend_net
+    env_file:
+      - .env
+    depends_on:
+      db:
+        condition: service_healthy
+      cache:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+    volumes:
+      - backend_media:/app/media
+    stop_signal: SIGTERM
+    stop_grace_period: 60s
+
+  # ─── Base de Datos Relacional (PostgreSQL 16 con pgvector) ───
   db:
-    image: postgres:15
+    image: pgvector/pgvector:pg16
     container_name: booksocial-db-prod
     restart: always
+    networks:
+      - backend_net
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -64,10 +113,13 @@ services:
       retries: 5
       start_period: 10s
 
+  # ─── Caché y Message Broker (Redis 7) ───
   cache:
     image: redis:7-alpine
     container_name: booksocial-cache-prod
     restart: always
+    networks:
+      - backend_net
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -75,7 +127,21 @@ services:
       retries: 5
       start_period: 5s
 
+networks:
+  # Red pública compartida entre Nginx y Backend
+  frontend_net:
+    driver: bridge
+  # Red interna privada para Backend, Celery, PostgreSQL y Redis
+  backend_net:
+    driver: bridge
+    internal: true
+
 volumes:
   db_prod_data:
+    name: booksocial_db_prod_data
   backend_media:
+    name: booksocial_media_data
+  backend_static:
+    name: booksocial_static_data
   backups_data:
+    name: booksocial_backups_data

@@ -214,6 +214,8 @@ class PrivacyService:
         """
         if not reading_list or not getattr(reading_list, "user", None):
             return False
+        if getattr(reading_list, "is_moderated", False) and not cls.can_moderate(viewer):
+            return False
         creator = reading_list.user
 
         if viewer and getattr(viewer, "is_authenticated", False):
@@ -550,6 +552,9 @@ class PrivacyService:
         """
         if not viewer or not getattr(viewer, "is_staff", False):
             queryset = queryset.filter(user__is_active=True)
+
+        if not cls.can_moderate(viewer):
+            queryset = queryset.filter(is_moderated=False)
 
         if not viewer or not getattr(viewer, "is_authenticated", False):
             return queryset.filter(

@@ -250,8 +250,8 @@ def get_tools_definitions() -> list[dict[str, Any]]:
 
 def execute_tool(name: str, user: Any, arguments: dict[str, Any] | None = None) -> dict[str, Any]:
     """
-    Ejecuta de forma segura una herramienta solicitada, validando permisos del usuario
-    y parámetros antes de realizar cualquier acción.
+    Ejecuta de forma segura una herramienta solicitada, validando permisos del usuario,
+    cuotas de rate limiting y parámetros antes de realizar cualquier acción (Sección 10.7).
 
     :param name: Nombre de la herramienta (ej: 'catalog_search').
     :param user: Instancia del usuario autenticado.
@@ -259,27 +259,40 @@ def execute_tool(name: str, user: Any, arguments: dict[str, Any] | None = None) 
     :return: Diccionario con los resultados estructurados de la ejecución.
     :raises ToolExecutionError: Si la herramienta no existe o falla la validación.
     """
+    import time
     args = arguments or {}
     tool = _TOOLS_REGISTRY.get(name)
 
     if not tool:
-        raise ToolExecutionError(f"Herramienta '{name}' no reconocida o no registrada.")
+        raise ToolExecutionError(f"Herramienta '{name}' no reconocida o no registrada en la allowlist.")
 
-    # 1. Validación estricta de permisos del usuario
+    # 1. Validación estricta de permisos del usuario (autorización)
     tool.validate_permissions(user)
 
-    # 2. Validación de parámetros obligatorios
+    # 2. Validación de rate limit específico de la herramienta
+    tool.check_rate_limit(user)
+
+    # 3. Validación de parámetros obligatorios según esquema
     schema = tool.parameters_schema
     required_fields = schema.get('required', [])
     for field in required_fields:
         if field not in args:
             raise ToolExecutionError(f"Falta el parámetro obligatorio '{field}' para la herramienta '{name}'.")
 
-    # 3. Ejecución controlada con captura de excepciones
+    # 4. Ejecución controlada con captura de excepciones y auditoría
+    start_time = time.perf_counter()
     try:
-        return tool.execute(user, **args)
-    except ToolExecutionError:
+        result = tool.execute(user, **args)
+        dur_ms = int((time.perf_counter() - start_time) * 1000)
+        tool.audit(user=user, arguments=args, result=result, duration_ms=dur_ms, success=True)
+        return result
+    except ToolExecutionError as terr:
+        dur_ms = int((time.perf_counter() - start_time) * 1000)
+        tool.audit(user=user, arguments=args, result=None, duration_ms=dur_ms, success=False, error=str(terr))
         raise
     except Exception as exc:
+        dur_ms = int((time.perf_counter() - start_time) * 1000)
+        tool.audit(user=user, arguments=args, result=None, duration_ms=dur_ms, success=False, error=str(exc))
         logger.exception("Error inesperado al ejecutar herramienta '%s': %s", name, exc)
         raise ToolExecutionError(f"Error al ejecutar '{name}': {str(exc)}") from exc
+

@@ -17,7 +17,7 @@ function PageLoadingFallback() {
 }
 
 export function ProtectedLayout() {
-  const isAuthenticated = useAuthStore(state => state.isAuthenticated);
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const location = useLocation();
 
   if (!isAuthenticated) {

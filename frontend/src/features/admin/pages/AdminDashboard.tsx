@@ -11,7 +11,9 @@ export function AdminDashboard() {
   const { user, token } = useAuthStore();
 
   // Redirigir a usuarios no autorizados
-  const isAuthorized = user && (user.is_staff || user.is_superuser || user.role === 'ADMIN' || user.role === 'MODERATOR');
+  const isAuthorized =
+    user &&
+    (user.is_staff || user.is_superuser || user.role === 'ADMIN' || user.role === 'MODERATOR');
 
   useEffect(() => {
     if (!token || (user && !isAuthorized)) {
@@ -19,7 +21,9 @@ export function AdminDashboard() {
     }
   }, [user, token, isAuthorized, navigate]);
 
-  const [activeTab, setActiveTab] = useState<'stats' | 'users' | 'catalog' | 'erratas' | 'reports' | 'audit' | 'legal'>('stats');
+  const [activeTab, setActiveTab] = useState<
+    'stats' | 'users' | 'catalog' | 'erratas' | 'reports' | 'audit' | 'legal'
+  >('stats');
 
   // Estado de Métricas
   const [stats, setStats] = useState<any | null>(null);
@@ -47,15 +51,21 @@ export function AdminDashboard() {
   const [catalogItems, setCatalogItems] = useState<any[]>([]);
   const [loadingCatalog, setLoadingCatalog] = useState(false);
   const [catalogSearch, setCatalogSearch] = useState('');
-  const [catalogProviderFilter, setCatalogProviderFilter] = useState<'all' | 'google' | 'openlibrary' | 'isbn'>('all');
+  const [catalogProviderFilter, setCatalogProviderFilter] = useState<
+    'all' | 'google' | 'openlibrary' | 'isbn'
+  >('all');
   const [catalogEnrichFilter, setCatalogEnrichFilter] = useState<'all' | 'true' | 'false'>('all');
-  const [catalogRatingFilter, setCatalogRatingFilter] = useState<'all' | '4.0' | '3.0' | '2.0'>('all');
+  const [catalogRatingFilter, setCatalogRatingFilter] = useState<'all' | '4.0' | '3.0' | '2.0'>(
+    'all'
+  );
   const [catalogMsg, setCatalogMsg] = useState<string | null>(null);
   const [selectedCatalogIds, setSelectedCatalogIds] = useState<Set<number>>(new Set());
   const [bulkActionLoading, setBulkActionLoading] = useState(false);
 
   // Datos auxiliares para edición (categorías y autores)
-  const [categoriesList, setCategoriesList] = useState<{ id: number; name: string; slug: string }[]>([]);
+  const [categoriesList, setCategoriesList] = useState<
+    { id: number; name: string; slug: string }[]
+  >([]);
   const [authorsList, setAuthorsList] = useState<{ id: number; name: string }[]>([]);
 
   // Modales de Libro
@@ -108,14 +118,18 @@ export function AdminDashboard() {
   const [reportReasonFilter, setReportReasonFilter] = useState<string>('all');
   const [reportTargetFilter, setReportTargetFilter] = useState<string>('all');
   const [selectedReport, setSelectedReport] = useState<any | null>(null);
-  const [modResolveStatus, setModResolveStatus] = useState<'RESOLVED' | 'REJECTED' | 'UNDER_REVIEW'>('RESOLVED');
+  const [modResolveStatus, setModResolveStatus] = useState<
+    'RESOLVED' | 'REJECTED' | 'UNDER_REVIEW'
+  >('RESOLVED');
   const [modResolveAction, setModResolveAction] = useState<string>('HIDE_CONTENT');
   const [modResolveNotes, setModResolveNotes] = useState<string>('');
   const [resolvingReport, setResolvingReport] = useState(false);
   const [reportActionMsg, setReportActionMsg] = useState<string | null>(null);
 
   // Estado de CMS Legal
-  const [legalSlug, setLegalSlug] = useState<'terms' | 'privacy' | 'cookies' | 'legal_notice'>('terms');
+  const [legalSlug, setLegalSlug] = useState<'terms' | 'privacy' | 'cookies' | 'legal_notice'>(
+    'terms'
+  );
   const [legalTitle, setLegalTitle] = useState('');
   const [legalContent, setLegalContent] = useState('');
   const [legalUpdatedBy, setLegalUpdatedBy] = useState<string | null>(null);
@@ -171,7 +185,11 @@ export function AdminDashboard() {
   };
 
   // Toggle Ban / Role
-  const handleUpdateUser = async (targetUser: any, field: 'is_active' | 'is_staff' | 'is_editor' | 'role', value: any) => {
+  const handleUpdateUser = async (
+    targetUser: any,
+    field: 'is_active' | 'is_staff' | 'is_editor' | 'role',
+    value: any
+  ) => {
     if (!token) return;
     if (targetUser.id === user?.id && field === 'is_active' && !value) {
       alert('No puedes bloquear tu propia cuenta de administrador.');
@@ -185,7 +203,8 @@ export function AdminDashboard() {
       alert('No puedes degradar tu propio rol de administrador.');
       return;
     }
-    if (!window.confirm(`¿Confirmas cambiar ${field} a ${value} para ${targetUser.username}?`)) return;
+    if (!window.confirm(`¿Confirmas cambiar ${field} a ${value} para ${targetUser.username}?`))
+      return;
 
     try {
       const res = await fetch(`${apiUrl}/api/v1/admin/users/${targetUser.id}/`, {
@@ -328,8 +347,12 @@ export function AdminDashboard() {
     if (!token) return;
     try {
       const [catsRes, authorsRes] = await Promise.all([
-        fetch(`${apiUrl}/api/v1/admin/categories/?all=true`, { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`${apiUrl}/api/v1/admin/authors/?all=true&ordering=name`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${apiUrl}/api/v1/admin/categories/?all=true`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        fetch(`${apiUrl}/api/v1/admin/authors/?all=true&ordering=name`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
       ]);
       if (catsRes.ok) {
         const catsData = await catsRes.json();
@@ -399,10 +422,13 @@ export function AdminDashboard() {
       action === 're_enrich'
         ? 're-enriquecer'
         : action === 'rebuild_embedding'
-        ? 'reconstruir embeddings de'
-        : 'eliminar';
+          ? 'reconstruir embeddings de'
+          : 'eliminar';
 
-    if (!window.confirm(`¿Confirmas que deseas ${actionLabel} ${count} elemento(s) seleccionado(s)?`)) return;
+    if (
+      !window.confirm(`¿Confirmas que deseas ${actionLabel} ${count} elemento(s) seleccionado(s)?`)
+    )
+      return;
 
     setBulkActionLoading(true);
     const endpoint = catalogSubtab === 'books' ? 'books' : 'authors';
@@ -540,7 +566,9 @@ export function AdminDashboard() {
         });
         setBookForm((prev) => ({
           ...prev,
-          category_ids: prev.category_ids.includes(newCat.id) ? prev.category_ids : [...prev.category_ids, newCat.id],
+          category_ids: prev.category_ids.includes(newCat.id)
+            ? prev.category_ids
+            : [...prev.category_ids, newCat.id],
         }));
         setNewCategoryName('');
         setShowCreateCategory(false);
@@ -623,7 +651,9 @@ export function AdminDashboard() {
       }
 
       const isNew = editingBook.isNew;
-      const url = isNew ? `${apiUrl}/api/v1/admin/books/` : `${apiUrl}/api/v1/admin/books/${editingBook.id}/`;
+      const url = isNew
+        ? `${apiUrl}/api/v1/admin/books/`
+        : `${apiUrl}/api/v1/admin/books/${editingBook.id}/`;
       const method = isNew ? 'POST' : 'PATCH';
 
       const res = await fetch(url, {
@@ -635,7 +665,9 @@ export function AdminDashboard() {
       });
 
       if (res.ok) {
-        setCatalogMsg(isNew ? 'Libro añadido con éxito al catálogo.' : 'Libro actualizado correctamente.');
+        setCatalogMsg(
+          isNew ? 'Libro añadido con éxito al catálogo.' : 'Libro actualizado correctamente.'
+        );
         setEditingBook(null);
         fetchCatalog();
         fetchStats();
@@ -694,7 +726,9 @@ export function AdminDashboard() {
       }
 
       const isNew = editingAuthor.isNew;
-      const url = isNew ? `${apiUrl}/api/v1/admin/authors/` : `${apiUrl}/api/v1/admin/authors/${editingAuthor.id}/`;
+      const url = isNew
+        ? `${apiUrl}/api/v1/admin/authors/`
+        : `${apiUrl}/api/v1/admin/authors/${editingAuthor.id}/`;
       const method = isNew ? 'POST' : 'PATCH';
 
       const res = await fetch(url, {
@@ -706,7 +740,9 @@ export function AdminDashboard() {
       });
 
       if (res.ok) {
-        setCatalogMsg(isNew ? 'Autor añadido con éxito al catálogo.' : 'Autor actualizado correctamente.');
+        setCatalogMsg(
+          isNew ? 'Autor añadido con éxito al catálogo.' : 'Autor actualizado correctamente.'
+        );
         setEditingAuthor(null);
         fetchCatalog();
         fetchAuxiliaryCatalogData();
@@ -793,10 +829,10 @@ export function AdminDashboard() {
           slug === 'terms'
             ? 'Términos del Servicio'
             : slug === 'privacy'
-            ? 'Política de Privacidad'
-            : slug === 'cookies'
-            ? 'Política de Cookies'
-            : 'Aviso Legal'
+              ? 'Política de Privacidad'
+              : slug === 'cookies'
+                ? 'Política de Cookies'
+                : 'Aviso Legal'
         );
         setLegalContent('');
         setLegalUpdatedBy(null);
@@ -894,7 +930,8 @@ export function AdminDashboard() {
         <span className="text-5xl">⛔</span>
         <h2 className="text-xl font-bold text-slate-900 dark:text-white">Acceso Restringido</h2>
         <p className="text-xs text-slate-500 dark:text-slate-400">
-          Esta sección está protegida y reservada exclusivamente para el equipo de administración de My Book Social.
+          Esta sección está protegida y reservada exclusivamente para el equipo de administración de
+          My Book Social.
         </p>
       </div>
     );
@@ -913,7 +950,8 @@ export function AdminDashboard() {
             Administración del Sistema
           </h1>
           <p className="text-xs sm:text-sm text-slate-300 mt-1 max-w-xl">
-            Gestión integral de usuarios, moderación de catálogo editorial, cola de denuncias, auditoría de seguridad y control legal.
+            Gestión integral de usuarios, moderación de catálogo editorial, cola de denuncias,
+            auditoría de seguridad y control legal.
           </p>
         </div>
 
@@ -927,12 +965,12 @@ export function AdminDashboard() {
               {user?.is_superuser
                 ? 'Superadministrador'
                 : user?.role === 'ADMIN'
-                ? 'Administrador'
-                : user?.role === 'MODERATOR'
-                ? 'Moderador'
-                : user?.role === 'EDITOR'
-                ? 'Editor'
-                : 'Staff'}
+                  ? 'Administrador'
+                  : user?.role === 'MODERATOR'
+                    ? 'Moderador'
+                    : user?.role === 'EDITOR'
+                      ? 'Editor'
+                      : 'Staff'}
             </div>
           </div>
         </div>
@@ -982,8 +1020,12 @@ export function AdminDashboard() {
                 </div>
                 <div className="text-xs font-bold text-slate-500">Usuarios Registrados</div>
                 <div className="flex gap-2 pt-2 text-[11px]">
-                  <span className="text-emerald-600 font-semibold">● {stats.users.active} activos</span>
-                  <span className="text-rose-500 font-semibold">● {stats.users.banned} bloqueados</span>
+                  <span className="text-emerald-600 font-semibold">
+                    ● {stats.users.active} activos
+                  </span>
+                  <span className="text-rose-500 font-semibold">
+                    ● {stats.users.banned} bloqueados
+                  </span>
                 </div>
               </div>
 
@@ -1034,8 +1076,12 @@ export function AdminDashboard() {
         <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-200/80 dark:border-slate-700 p-6 sm:p-8 shadow-sm space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <h2 className="text-lg font-bold text-slate-900 dark:text-white">Gestión de Usuarios</h2>
-              <p className="text-xs text-slate-500">Control de estado de cuenta, roles y bloqueos de seguridad.</p>
+              <h2 className="text-lg font-bold text-slate-900 dark:text-white">
+                Gestión de Usuarios
+              </h2>
+              <p className="text-xs text-slate-500">
+                Control de estado de cuenta, roles y bloqueos de seguridad.
+              </p>
             </div>
             {userActionMsg && (
               <div className="p-2.5 bg-emerald-50 text-emerald-800 dark:bg-emerald-900/30 rounded-xl text-xs font-semibold">
@@ -1183,9 +1229,12 @@ export function AdminDashboard() {
               <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-teal-50 text-teal-700 dark:bg-teal-950/40 dark:text-teal-300 border border-teal-200 dark:border-teal-800 mb-1">
                 <span>📚 Administración Editorial del Catálogo</span>
               </div>
-              <h2 className="text-lg font-bold text-slate-900 dark:text-white">Gestión de Catálogo Literario</h2>
+              <h2 className="text-lg font-bold text-slate-900 dark:text-white">
+                Gestión de Catálogo Literario
+              </h2>
               <p className="text-xs text-slate-500">
-                Edición directa de títulos, autores, metadatos, filtros por proveedor y acciones masivas.
+                Edición directa de títulos, autores, metadatos, filtros por proveedor y acciones
+                masivas.
               </p>
             </div>
 
@@ -1213,7 +1262,12 @@ export function AdminDashboard() {
           {catalogMsg && (
             <div className="p-3 bg-teal-50 text-teal-800 dark:bg-teal-950/40 dark:text-teal-300 border border-teal-200 dark:border-teal-800 rounded-2xl text-xs font-semibold flex items-center justify-between">
               <span>{catalogMsg}</span>
-              <button onClick={() => setCatalogMsg(null)} className="text-teal-600 hover:text-teal-800">&times;</button>
+              <button
+                onClick={() => setCatalogMsg(null)}
+                className="text-teal-600 hover:text-teal-800"
+              >
+                &times;
+              </button>
             </div>
           )}
 
@@ -1324,7 +1378,9 @@ export function AdminDashboard() {
                 onClick={handleToggleSelectAll}
                 className="text-xs font-bold text-slate-600 dark:text-slate-300 hover:text-teal-600 dark:hover:text-teal-400 underline px-2"
               >
-                {selectedCatalogIds.size === catalogItems.length ? 'Deseleccionar todos' : 'Seleccionar todos'}
+                {selectedCatalogIds.size === catalogItems.length
+                  ? 'Deseleccionar todos'
+                  : 'Seleccionar todos'}
               </button>
             )}
           </div>
@@ -1392,7 +1448,9 @@ export function AdminDashboard() {
               <p className="text-sm font-bold text-slate-700 dark:text-slate-300">
                 No se encontraron {catalogSubtab === 'books' ? 'libros' : 'autores'}
               </p>
-              <p className="text-xs text-slate-500 mt-1">Prueba a modificar los filtros o la búsqueda.</p>
+              <p className="text-xs text-slate-500 mt-1">
+                Prueba a modificar los filtros o la búsqueda.
+              </p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1417,9 +1475,13 @@ export function AdminDashboard() {
 
                     {/* Portada o Foto */}
                     <div className="w-16 h-22 rounded-xl overflow-hidden bg-slate-200 dark:bg-slate-700 shrink-0 border border-slate-300 dark:border-slate-600 shadow-sm relative">
-                      {(item.cover || item.photo) ? (
+                      {item.cover || item.photo ? (
                         <img
-                          src={(item.cover || item.photo).startsWith('http') ? (item.cover || item.photo) : `${apiUrl}${item.cover || item.photo}`}
+                          src={
+                            (item.cover || item.photo).startsWith('http')
+                              ? item.cover || item.photo
+                              : `${apiUrl}${item.cover || item.photo}`
+                          }
                           alt={item.title || item.name}
                           className="w-full h-full object-cover"
                         />
@@ -1433,7 +1495,10 @@ export function AdminDashboard() {
                     {/* Información y Acciones */}
                     <div className="flex-1 min-w-0 space-y-1.5">
                       <div className="flex items-start justify-between gap-2">
-                        <h4 className="text-xs font-extrabold text-slate-900 dark:text-white truncate" title={item.title || item.name}>
+                        <h4
+                          className="text-xs font-extrabold text-slate-900 dark:text-white truncate"
+                          title={item.title || item.name}
+                        >
                           {item.title || item.name}
                         </h4>
                         <span className="text-[10px] font-mono text-slate-400 bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 rounded">
@@ -1499,7 +1564,11 @@ export function AdminDashboard() {
                       {/* Botones de acción directos */}
                       <div className="flex flex-wrap gap-1.5 pt-2">
                         <button
-                          onClick={() => (catalogSubtab === 'books' ? openEditBookModal(item) : openEditAuthorModal(item))}
+                          onClick={() =>
+                            catalogSubtab === 'books'
+                              ? openEditBookModal(item)
+                              : openEditAuthorModal(item)
+                          }
                           className="bg-teal-50 hover:bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300 font-bold px-2.5 py-1 rounded-lg text-[10px] transition-colors border border-teal-200 dark:border-teal-800 flex items-center gap-1"
                         >
                           <span>✏️</span>
@@ -1536,7 +1605,9 @@ export function AdminDashboard() {
                   <div>
                     <h3 className="text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
                       <span>📖</span>
-                      <span>{editingBook.isNew ? 'Añadir Nuevo Libro' : 'Editar Libro en Catálogo'}</span>
+                      <span>
+                        {editingBook.isNew ? 'Añadir Nuevo Libro' : 'Editar Libro en Catálogo'}
+                      </span>
                     </h3>
                     <p className="text-xs text-slate-400">
                       Modifica los atributos canónicos del libro en la base de datos principal.
@@ -1610,7 +1681,8 @@ export function AdminDashboard() {
                           className="w-full text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-teal-50 file:text-teal-700 hover:file:bg-teal-100 dark:file:bg-teal-900/40 dark:file:text-teal-300 cursor-pointer"
                         />
                         <p className="text-[10px] text-slate-400">
-                          Formatos aceptados: JPEG, PNG, WebP (máx. 10MB). Se optimizará y sanitizará automáticamente.
+                          Formatos aceptados: JPEG, PNG, WebP (máx. 10MB). Se optimizará y
+                          sanitizará automáticamente.
                         </p>
                       </div>
                     </div>
@@ -1661,12 +1733,18 @@ export function AdminDashboard() {
                           />
                           <select
                             value={bookForm.author_id}
-                            onChange={(e) => setBookForm({ ...bookForm, author_id: e.target.value })}
+                            onChange={(e) =>
+                              setBookForm({ ...bookForm, author_id: e.target.value })
+                            }
                             className="w-full text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700 p-2.5"
                           >
                             <option value="">-- Sin autor o anónimo --</option>
                             {authorsList
-                              .filter((a) => !authorSearch.trim() || a.name.toLowerCase().includes(authorSearch.toLowerCase()))
+                              .filter(
+                                (a) =>
+                                  !authorSearch.trim() ||
+                                  a.name.toLowerCase().includes(authorSearch.toLowerCase())
+                              )
                               .slice(0, 100)
                               .map((a) => (
                                 <option key={a.id} value={a.id}>
@@ -1709,7 +1787,8 @@ export function AdminDashboard() {
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                        Categorías / Géneros ({bookForm.category_ids.length} seleccionadas de {categoriesList.length})
+                        Categorías / Géneros ({bookForm.category_ids.length} seleccionadas de{' '}
+                        {categoriesList.length})
                       </label>
                       <button
                         type="button"
@@ -1766,7 +1845,9 @@ export function AdminDashboard() {
                                 onClick={() =>
                                   setBookForm({
                                     ...bookForm,
-                                    category_ids: bookForm.category_ids.filter((cId) => cId !== cat.id),
+                                    category_ids: bookForm.category_ids.filter(
+                                      (cId) => cId !== cat.id
+                                    ),
                                   })
                                 }
                                 className="hover:text-rose-200 text-xs font-bold"
@@ -1782,7 +1863,11 @@ export function AdminDashboard() {
                     {/* Lista scrollable de géneros filtrados */}
                     <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto p-2.5 bg-slate-50 dark:bg-slate-700/50 rounded-xl border border-slate-200 dark:border-slate-700">
                       {categoriesList
-                        .filter((cat) => !categorySearch.trim() || cat.name.toLowerCase().includes(categorySearch.toLowerCase()))
+                        .filter(
+                          (cat) =>
+                            !categorySearch.trim() ||
+                            cat.name.toLowerCase().includes(categorySearch.toLowerCase())
+                        )
                         .slice(0, 80)
                         .map((cat) => {
                           const isCatSelected = bookForm.category_ids.includes(cat.id);
@@ -1855,7 +1940,9 @@ export function AdminDashboard() {
                   <div>
                     <h3 className="text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
                       <span>✍️</span>
-                      <span>{editingAuthor.isNew ? 'Añadir Nuevo Autor' : 'Editar Autor en Catálogo'}</span>
+                      <span>
+                        {editingAuthor.isNew ? 'Añadir Nuevo Autor' : 'Editar Autor en Catálogo'}
+                      </span>
                     </h3>
                     <p className="text-xs text-slate-400">
                       Gestiona la biografía y datos canónicos del autor.
@@ -1976,8 +2063,12 @@ export function AdminDashboard() {
         <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-200/80 dark:border-slate-700 p-6 sm:p-8 shadow-sm space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <h2 className="text-lg font-bold text-slate-900 dark:text-white">Reportes de Erratas y Sugerencias</h2>
-              <p className="text-xs text-slate-500">Revisión de solicitudes comunitarias de corrección de datos.</p>
+              <h2 className="text-lg font-bold text-slate-900 dark:text-white">
+                Reportes de Erratas y Sugerencias
+              </h2>
+              <p className="text-xs text-slate-500">
+                Revisión de solicitudes comunitarias de corrección de datos.
+              </p>
             </div>
             <select
               value={errataStatusFilter}
@@ -1996,7 +2087,9 @@ export function AdminDashboard() {
               <Spinner size="lg" color="info" />
             </div>
           ) : erratas.length === 0 ? (
-            <p className="text-xs text-slate-400 py-8 text-center">No hay reportes de erratas en este filtro.</p>
+            <p className="text-xs text-slate-400 py-8 text-center">
+              No hay reportes de erratas en este filtro.
+            </p>
           ) : (
             <div className="space-y-3">
               {erratas.map((errata) => (
@@ -2019,8 +2112,8 @@ export function AdminDashboard() {
                         errata.status === 'open'
                           ? 'bg-amber-100 text-amber-800'
                           : errata.status === 'approved'
-                          ? 'bg-emerald-100 text-emerald-800'
-                          : 'bg-rose-100 text-rose-800'
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : 'bg-rose-100 text-rose-800'
                       }`}
                     >
                       {errata.status}
@@ -2028,7 +2121,11 @@ export function AdminDashboard() {
                   </div>
 
                   <p className="text-xs text-slate-700 dark:text-slate-300 font-medium">
-                    {errata.book ? `Libro: ${errata.book.title}` : (errata.author ? `Autor: ${errata.author.name}` : '')}
+                    {errata.book
+                      ? `Libro: ${errata.book.title}`
+                      : errata.author
+                        ? `Autor: ${errata.author.name}`
+                        : ''}
                   </p>
                   <p className="text-xs text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-700/50 p-2.5 rounded-xl border border-slate-200/60 dark:border-slate-600">
                     "{errata.text}"
@@ -2065,9 +2162,7 @@ export function AdminDashboard() {
                 <h3 className="text-base font-bold text-slate-900 dark:text-white">
                   Resolver Errata #{selectedErrata.id}
                 </h3>
-                <p className="text-xs text-slate-600 dark:text-slate-300">
-                  {selectedErrata.text}
-                </p>
+                <p className="text-xs text-slate-600 dark:text-slate-300">{selectedErrata.text}</p>
 
                 <textarea
                   rows={3}
@@ -2113,9 +2208,12 @@ export function AdminDashboard() {
               <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-teal-50 text-teal-700 dark:bg-teal-950/40 dark:text-teal-300 border border-teal-200 dark:border-teal-800 mb-1">
                 <span>🛡️ Sistema Disciplinario & Moderación</span>
               </div>
-              <h2 className="text-lg font-bold text-slate-900 dark:text-white">Cola de Denuncias</h2>
+              <h2 className="text-lg font-bold text-slate-900 dark:text-white">
+                Cola de Denuncias
+              </h2>
               <p className="text-xs text-slate-500">
-                Supervisa y resuelve reportes sobre usuarios, reseñas, comentarios y mensajes de chat.
+                Supervisa y resuelve reportes sobre usuarios, reseñas, comentarios y mensajes de
+                chat.
               </p>
             </div>
             {reportActionMsg && (
@@ -2129,20 +2227,36 @@ export function AdminDashboard() {
           {reportStats && (
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <div className="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200/80 dark:border-amber-800">
-                <div className="text-[11px] font-bold text-amber-700 dark:text-amber-400">Abiertas (Pendientes)</div>
-                <div className="text-xl font-black text-amber-900 dark:text-amber-200">{reportStats.by_status?.open || 0}</div>
+                <div className="text-[11px] font-bold text-amber-700 dark:text-amber-400">
+                  Abiertas (Pendientes)
+                </div>
+                <div className="text-xl font-black text-amber-900 dark:text-amber-200">
+                  {reportStats.by_status?.open || 0}
+                </div>
               </div>
               <div className="p-3.5 rounded-2xl bg-blue-50 dark:bg-blue-950/30 border border-blue-200/80 dark:border-blue-800">
-                <div className="text-[11px] font-bold text-blue-700 dark:text-blue-400">En Revisión</div>
-                <div className="text-xl font-black text-blue-900 dark:text-blue-200">{reportStats.by_status?.under_review || 0}</div>
+                <div className="text-[11px] font-bold text-blue-700 dark:text-blue-400">
+                  En Revisión
+                </div>
+                <div className="text-xl font-black text-blue-900 dark:text-blue-200">
+                  {reportStats.by_status?.under_review || 0}
+                </div>
               </div>
               <div className="p-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200/80 dark:border-emerald-800">
-                <div className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400">Resueltas</div>
-                <div className="text-xl font-black text-emerald-900 dark:text-emerald-200">{reportStats.by_status?.resolved || 0}</div>
+                <div className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400">
+                  Resueltas
+                </div>
+                <div className="text-xl font-black text-emerald-900 dark:text-emerald-200">
+                  {reportStats.by_status?.resolved || 0}
+                </div>
               </div>
               <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-700">
-                <div className="text-[11px] font-bold text-slate-600 dark:text-slate-300">Total Expedientes</div>
-                <div className="text-xl font-black text-slate-900 dark:text-white">{reportStats.total || 0}</div>
+                <div className="text-[11px] font-bold text-slate-600 dark:text-slate-300">
+                  Total Expedientes
+                </div>
+                <div className="text-xl font-black text-slate-900 dark:text-white">
+                  {reportStats.total || 0}
+                </div>
               </div>
             </div>
           )}
@@ -2204,8 +2318,12 @@ export function AdminDashboard() {
           ) : reports.length === 0 ? (
             <div className="text-center py-12 border border-dashed border-slate-200 dark:border-slate-700 rounded-2xl">
               <div className="text-4xl mb-2">🎉</div>
-              <p className="text-sm font-bold text-slate-700 dark:text-slate-300">¡Bandeja de moderación despejada!</p>
-              <p className="text-xs text-slate-500 mt-1">No hay denuncias pendientes bajo los filtros seleccionados.</p>
+              <p className="text-sm font-bold text-slate-700 dark:text-slate-300">
+                ¡Bandeja de moderación despejada!
+              </p>
+              <p className="text-xs text-slate-500 mt-1">
+                No hay denuncias pendientes bajo los filtros seleccionados.
+              </p>
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -2227,19 +2345,19 @@ export function AdminDashboard() {
                       r.status === 'OPEN'
                         ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300'
                         : r.status === 'UNDER_REVIEW'
-                        ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300'
-                        : r.status === 'RESOLVED'
-                        ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300'
-                        : 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300';
+                          ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300'
+                          : r.status === 'RESOLVED'
+                            ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300'
+                            : 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300';
 
                     const targetTypeBadge =
                       r.target_type === 'review'
                         ? 'bg-purple-100 text-purple-800'
                         : r.target_type === 'user'
-                        ? 'bg-rose-100 text-rose-800'
-                        : r.target_type === 'comment'
-                        ? 'bg-teal-100 text-teal-800'
-                        : 'bg-blue-100 text-blue-800';
+                          ? 'bg-rose-100 text-rose-800'
+                          : r.target_type === 'comment'
+                            ? 'bg-teal-100 text-teal-800'
+                            : 'bg-blue-100 text-blue-800';
 
                     return (
                       <tr key={r.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-700/30">
@@ -2257,27 +2375,36 @@ export function AdminDashboard() {
                             {r.reason_display || r.reason}
                           </span>
                           {r.description && (
-                            <div className="text-[10px] text-slate-500 truncate max-w-xs" title={r.description}>
+                            <div
+                              className="text-[10px] text-slate-500 truncate max-w-xs"
+                              title={r.description}
+                            >
                               "{r.description}"
                             </div>
                           )}
                         </td>
                         <td className="py-3 px-3">
                           <div className="flex items-center gap-1.5 mb-1">
-                            <span className={`px-1.5 py-0.2 text-[9px] font-bold uppercase rounded ${targetTypeBadge}`}>
+                            <span
+                              className={`px-1.5 py-0.2 text-[9px] font-bold uppercase rounded ${targetTypeBadge}`}
+                            >
                               {r.target_type}
                             </span>
-                            <span className="text-[10px] text-slate-400 font-mono">id: {r.object_id}</span>
+                            <span className="text-[10px] text-slate-400 font-mono">
+                              id: {r.object_id}
+                            </span>
                           </div>
                           <div className="text-[11px] text-slate-600 dark:text-slate-400 max-w-xs">
                             {r.target_preview?.type === 'review' && (
                               <span>
-                                Por <b>@{r.target_preview.author}</b> en <i>{r.target_preview.book_title}</i>: "{r.target_preview.snippet}"
+                                Por <b>@{r.target_preview.author}</b> en{' '}
+                                <i>{r.target_preview.book_title}</i>: "{r.target_preview.snippet}"
                               </span>
                             )}
                             {r.target_preview?.type === 'user' && (
                               <span>
-                                Usuario <b>@{r.target_preview.username}</b> ({r.target_preview.email})
+                                Usuario <b>@{r.target_preview.username}</b> (
+                                {r.target_preview.email})
                               </span>
                             )}
                             {r.target_preview?.type === 'comment' && (
@@ -2290,13 +2417,15 @@ export function AdminDashboard() {
                                 De <b>@{r.target_preview.sender}</b>: "{r.target_preview.snippet}"
                               </span>
                             )}
-                            {!['review', 'user', 'comment', 'message'].includes(r.target_preview?.type) && (
-                              <span>{r.target_preview?.summary || 'Elemento objetivo'}</span>
-                            )}
+                            {!['review', 'user', 'comment', 'message'].includes(
+                              r.target_preview?.type
+                            ) && <span>{r.target_preview?.summary || 'Elemento objetivo'}</span>}
                           </div>
                         </td>
                         <td className="py-3 px-3">
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${statusBadgeClass}`}>
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${statusBadgeClass}`}
+                          >
                             {r.status_display || r.status}
                           </span>
                         </td>
@@ -2354,7 +2483,9 @@ export function AdminDashboard() {
                 {/* Resumen del reporte */}
                 <div className="space-y-2 bg-slate-50 dark:bg-slate-700/50 p-3.5 rounded-2xl text-xs">
                   <div className="flex justify-between text-slate-500 text-[11px]">
-                    <span>Denunciante: <b>@{selectedReport.reporter_username}</b></span>
+                    <span>
+                      Denunciante: <b>@{selectedReport.reporter_username}</b>
+                    </span>
                     <span>Fecha: {new Date(selectedReport.created_at).toLocaleString()}</span>
                   </div>
                   {selectedReport.description && (
@@ -2363,7 +2494,9 @@ export function AdminDashboard() {
                     </div>
                   )}
                   <div className="pt-1 border-t border-slate-200/60 dark:border-slate-600">
-                    <span className="font-bold text-slate-600 dark:text-slate-400">Elemento denunciado ({selectedReport.target_type}):</span>
+                    <span className="font-bold text-slate-600 dark:text-slate-400">
+                      Elemento denunciado ({selectedReport.target_type}):
+                    </span>
                     <div className="mt-1 p-2 bg-white dark:bg-slate-800 rounded-xl border border-slate-200/60 dark:border-slate-700 text-slate-700 dark:text-slate-300">
                       {JSON.stringify(selectedReport.target_preview, null, 2)}
                     </div>
@@ -2382,7 +2515,9 @@ export function AdminDashboard() {
                     >
                       <option value="RESOLVED">✅ RESOLVED (Procedente / Aplicar medidas)</option>
                       <option value="REJECTED">❌ REJECTED (Desestimar / Sin infracción)</option>
-                      <option value="UNDER_REVIEW">🔍 UNDER_REVIEW (Mantener en investigación)</option>
+                      <option value="UNDER_REVIEW">
+                        🔍 UNDER_REVIEW (Mantener en investigación)
+                      </option>
                     </select>
                   </div>
 
@@ -2396,11 +2531,21 @@ export function AdminDashboard() {
                         onChange={(e) => setModResolveAction(e.target.value)}
                         className="w-full text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700 p-2.5"
                       >
-                        <option value="HIDE_CONTENT">🚫 HIDE_CONTENT (Ocultar contenido moderado)</option>
-                        <option value="RESTORE_CONTENT">♻️ RESTORE_CONTENT (Restaurar contenido moderado)</option>
-                        <option value="MUTE_USER_24H">🔇 MUTE_USER_24H (Silenciar infractor 24 horas)</option>
-                        <option value="MUTE_USER_7D">🔇 MUTE_USER_7D (Silenciar infractor 7 días)</option>
-                        <option value="BAN_USER">⛔ BAN_USER (Bloquear/Desactivar cuenta de usuario)</option>
+                        <option value="HIDE_CONTENT">
+                          🚫 HIDE_CONTENT (Ocultar contenido moderado)
+                        </option>
+                        <option value="RESTORE_CONTENT">
+                          ♻️ RESTORE_CONTENT (Restaurar contenido moderado)
+                        </option>
+                        <option value="MUTE_USER_24H">
+                          🔇 MUTE_USER_24H (Silenciar infractor 24 horas)
+                        </option>
+                        <option value="MUTE_USER_7D">
+                          🔇 MUTE_USER_7D (Silenciar infractor 7 días)
+                        </option>
+                        <option value="BAN_USER">
+                          ⛔ BAN_USER (Bloquear/Desactivar cuenta de usuario)
+                        </option>
                         <option value="WARNING">⚠️ WARNING (Apercibimiento / Advertencia)</option>
                         <option value="DISMISS">ℹ️ DISMISS (Resolver sin acción directa)</option>
                       </select>
@@ -2451,9 +2596,12 @@ export function AdminDashboard() {
               <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-purple-50 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300 border border-purple-200 dark:border-purple-800 mb-1">
                 <span>📜 Trazabilidad & Cumplimiento Normativo</span>
               </div>
-              <h2 className="text-lg font-bold text-slate-900 dark:text-white">Bitácora Inmutable de Auditoría</h2>
+              <h2 className="text-lg font-bold text-slate-900 dark:text-white">
+                Bitácora Inmutable de Auditoría
+              </h2>
               <p className="text-xs text-slate-500">
-                Historial cronológico de eventos sensibles: cambios de privilegios, bloqueos, moderación y borrado de contenido.
+                Historial cronológico de eventos sensibles: cambios de privilegios, bloqueos,
+                moderación y borrado de contenido.
               </p>
             </div>
           </div>
@@ -2462,19 +2610,33 @@ export function AdminDashboard() {
           {auditStats && (
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <div className="p-3.5 rounded-2xl bg-purple-50 dark:bg-purple-950/30 border border-purple-200/80 dark:border-purple-800">
-                <div className="text-[11px] font-bold text-purple-700 dark:text-purple-400">Total Eventos</div>
-                <div className="text-xl font-black text-purple-900 dark:text-purple-200">{auditStats.total || 0}</div>
+                <div className="text-[11px] font-bold text-purple-700 dark:text-purple-400">
+                  Total Eventos
+                </div>
+                <div className="text-xl font-black text-purple-900 dark:text-purple-200">
+                  {auditStats.total || 0}
+                </div>
               </div>
               <div className="p-3.5 rounded-2xl bg-teal-50 dark:bg-teal-950/30 border border-teal-200/80 dark:border-teal-800">
-                <div className="text-[11px] font-bold text-teal-700 dark:text-teal-400">Últimas 24 Horas</div>
-                <div className="text-xl font-black text-teal-900 dark:text-teal-200">{auditStats.last_24h || 0}</div>
+                <div className="text-[11px] font-bold text-teal-700 dark:text-teal-400">
+                  Últimas 24 Horas
+                </div>
+                <div className="text-xl font-black text-teal-900 dark:text-teal-200">
+                  {auditStats.last_24h || 0}
+                </div>
               </div>
               <div className="p-3.5 rounded-2xl bg-blue-50 dark:bg-blue-950/30 border border-blue-200/80 dark:border-blue-800">
-                <div className="text-[11px] font-bold text-blue-700 dark:text-blue-400">Últimos 7 Días</div>
-                <div className="text-xl font-black text-blue-900 dark:text-blue-200">{auditStats.last_7d || 0}</div>
+                <div className="text-[11px] font-bold text-blue-700 dark:text-blue-400">
+                  Últimos 7 Días
+                </div>
+                <div className="text-xl font-black text-blue-900 dark:text-blue-200">
+                  {auditStats.last_7d || 0}
+                </div>
               </div>
               <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-700">
-                <div className="text-[11px] font-bold text-slate-600 dark:text-slate-300">Tipos de Acciones</div>
+                <div className="text-[11px] font-bold text-slate-600 dark:text-slate-300">
+                  Tipos de Acciones
+                </div>
                 <div className="text-xl font-black text-slate-900 dark:text-white">
                   {auditStats.by_action ? Object.keys(auditStats.by_action).length : 0}
                 </div>
@@ -2495,7 +2657,9 @@ export function AdminDashboard() {
               <option value="USER_UNBAN">Desbloqueos de Cuenta (USER_UNBAN)</option>
               <option value="USER_BLOCK">Bloqueos Sociales (USER_BLOCK)</option>
               <option value="USER_UNBLOCK">Desbloqueos Sociales (USER_UNBLOCK)</option>
-              <option value="MODERATION_RESOLVE">Resolución de Denuncia (MODERATION_RESOLVE)</option>
+              <option value="MODERATION_RESOLVE">
+                Resolución de Denuncia (MODERATION_RESOLVE)
+              </option>
               <option value="MODERATION_REJECT">Rechazo de Denuncia (MODERATION_REJECT)</option>
               <option value="CONTENT_DELETE">Eliminación de Contenido (CONTENT_DELETE)</option>
               <option value="SECURITY_PASSWORD_CHANGE">Seguridad de Acceso</option>
@@ -2508,8 +2672,7 @@ export function AdminDashboard() {
               onChange={(e) => setAuditActorFilter(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && fetchAuditLogs()}
               className="text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700 p-2.5 w-44"
-            >
-            </input>
+            ></input>
 
             <input
               type="text"
@@ -2536,8 +2699,12 @@ export function AdminDashboard() {
           ) : auditLogs.length === 0 ? (
             <div className="text-center py-12 border border-dashed border-slate-200 dark:border-slate-700 rounded-2xl">
               <div className="text-4xl mb-2">📜</div>
-              <p className="text-sm font-bold text-slate-700 dark:text-slate-300">No hay eventos registrados</p>
-              <p className="text-xs text-slate-500 mt-1">No se encontraron eventos bajo los criterios de búsqueda especificados.</p>
+              <p className="text-sm font-bold text-slate-700 dark:text-slate-300">
+                No hay eventos registrados
+              </p>
+              <p className="text-xs text-slate-500 mt-1">
+                No se encontraron eventos bajo los criterios de búsqueda especificados.
+              </p>
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -2558,20 +2725,20 @@ export function AdminDashboard() {
                       log.action === 'ROLE_CHANGE'
                         ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300'
                         : log.action === 'USER_BAN'
-                        ? 'bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-300'
-                        : log.action === 'USER_UNBAN'
-                        ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300'
-                        : log.action === 'USER_BLOCK'
-                        ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300'
-                        : log.action === 'USER_UNBLOCK'
-                        ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300'
-                        : log.action === 'MODERATION_RESOLVE'
-                        ? 'bg-teal-100 text-teal-800 dark:bg-teal-900/40 dark:text-teal-300'
-                        : log.action === 'MODERATION_REJECT'
-                        ? 'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300'
-                        : log.action === 'CONTENT_DELETE'
-                        ? 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300'
-                        : 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300';
+                          ? 'bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-300'
+                          : log.action === 'USER_UNBAN'
+                            ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300'
+                            : log.action === 'USER_BLOCK'
+                              ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300'
+                              : log.action === 'USER_UNBLOCK'
+                                ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300'
+                                : log.action === 'MODERATION_RESOLVE'
+                                  ? 'bg-teal-100 text-teal-800 dark:bg-teal-900/40 dark:text-teal-300'
+                                  : log.action === 'MODERATION_REJECT'
+                                    ? 'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300'
+                                    : log.action === 'CONTENT_DELETE'
+                                      ? 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300'
+                                      : 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300';
 
                     return (
                       <tr key={log.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-700/30">
@@ -2585,7 +2752,9 @@ export function AdminDashboard() {
                           {log.actor_username ? `@${log.actor_username}` : 'Sistema'}
                         </td>
                         <td className="py-3 px-3">
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${actionBadgeClass}`}>
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${actionBadgeClass}`}
+                          >
                             {log.action_display || log.action}
                           </span>
                         </td>
@@ -2595,10 +2764,15 @@ export function AdminDashboard() {
                               {log.target_type}
                             </span>
                             {log.object_id && (
-                              <span className="text-[10px] text-slate-400 font-mono">id: {log.object_id}</span>
+                              <span className="text-[10px] text-slate-400 font-mono">
+                                id: {log.object_id}
+                              </span>
                             )}
                           </div>
-                          <div className="text-[11px] text-slate-700 dark:text-slate-300 truncate max-w-sm" title={log.target_repr}>
+                          <div
+                            className="text-[11px] text-slate-700 dark:text-slate-300 truncate max-w-sm"
+                            title={log.target_repr}
+                          >
                             {log.target_repr || '—'}
                           </div>
                         </td>
@@ -2647,31 +2821,42 @@ export function AdminDashboard() {
                     <div>
                       <span className="text-slate-400 text-[10px] font-bold uppercase">Actor</span>
                       <div className="font-bold text-slate-800 dark:text-slate-200">
-                        {selectedAuditLog.actor_username ? `@${selectedAuditLog.actor_username}` : 'Sistema'}
+                        {selectedAuditLog.actor_username
+                          ? `@${selectedAuditLog.actor_username}`
+                          : 'Sistema'}
                       </div>
                     </div>
                     <div>
-                      <span className="text-slate-400 text-[10px] font-bold uppercase">Fecha y Hora</span>
+                      <span className="text-slate-400 text-[10px] font-bold uppercase">
+                        Fecha y Hora
+                      </span>
                       <div className="font-mono text-slate-800 dark:text-slate-200">
                         {new Date(selectedAuditLog.created_at).toLocaleString()}
                       </div>
                     </div>
                     <div>
-                      <span className="text-slate-400 text-[10px] font-bold uppercase">Dirección IP</span>
+                      <span className="text-slate-400 text-[10px] font-bold uppercase">
+                        Dirección IP
+                      </span>
                       <div className="font-mono text-slate-800 dark:text-slate-200">
                         {selectedAuditLog.ip_address || 'No registrada'}
                       </div>
                     </div>
                     <div>
-                      <span className="text-slate-400 text-[10px] font-bold uppercase">Tipo de Objeto</span>
+                      <span className="text-slate-400 text-[10px] font-bold uppercase">
+                        Tipo de Objeto
+                      </span>
                       <div className="font-bold text-slate-800 dark:text-slate-200">
-                        {selectedAuditLog.target_type} {selectedAuditLog.object_id ? `(ID: ${selectedAuditLog.object_id})` : ''}
+                        {selectedAuditLog.target_type}{' '}
+                        {selectedAuditLog.object_id ? `(ID: ${selectedAuditLog.object_id})` : ''}
                       </div>
                     </div>
                   </div>
 
                   <div>
-                    <span className="text-slate-400 text-[10px] font-bold uppercase block mb-1">Elemento Afectado</span>
+                    <span className="text-slate-400 text-[10px] font-bold uppercase block mb-1">
+                      Elemento Afectado
+                    </span>
                     <div className="p-2.5 bg-slate-50 dark:bg-slate-700/40 rounded-xl font-medium text-slate-800 dark:text-slate-200">
                       {selectedAuditLog.target_repr || '—'}
                     </div>
@@ -2679,7 +2864,9 @@ export function AdminDashboard() {
 
                   {selectedAuditLog.user_agent && (
                     <div>
-                      <span className="text-slate-400 text-[10px] font-bold uppercase block mb-1">User Agent</span>
+                      <span className="text-slate-400 text-[10px] font-bold uppercase block mb-1">
+                        User Agent
+                      </span>
                       <div className="p-2.5 bg-slate-50 dark:bg-slate-700/40 rounded-xl font-mono text-[10px] text-slate-600 dark:text-slate-400 truncate">
                         {selectedAuditLog.user_agent}
                       </div>
@@ -2687,7 +2874,9 @@ export function AdminDashboard() {
                   )}
 
                   <div>
-                    <span className="text-slate-400 text-[10px] font-bold uppercase block mb-1">Metadatos Estructurados (Payload JSON)</span>
+                    <span className="text-slate-400 text-[10px] font-bold uppercase block mb-1">
+                      Metadatos Estructurados (Payload JSON)
+                    </span>
                     <pre className="p-3 bg-slate-900 text-teal-300 rounded-xl font-mono text-[11px] overflow-x-auto max-h-48 leading-relaxed">
                       {JSON.stringify(selectedAuditLog.metadata || {}, null, 2)}
                     </pre>
@@ -2713,9 +2902,12 @@ export function AdminDashboard() {
         <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-200/80 dark:border-slate-700 p-6 sm:p-8 shadow-sm space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <h2 className="text-lg font-bold text-slate-900 dark:text-white">CMS de Políticas y Textos Legales</h2>
+              <h2 className="text-lg font-bold text-slate-900 dark:text-white">
+                CMS de Políticas y Textos Legales
+              </h2>
               <p className="text-xs text-slate-500">
-                Edita los términos, políticas de privacidad y cookies que se publican en el sitio en tiempo real.
+                Edita los términos, políticas de privacidad y cookies que se publican en el sitio en
+                tiempo real.
               </p>
             </div>
             {legalMsg && (
@@ -2798,7 +2990,8 @@ export function AdminDashboard() {
                 <div className="text-[11px] text-slate-400">
                   {legalUpdatedAt ? (
                     <span>
-                      Última modificación: {new Date(legalUpdatedAt).toLocaleString()} {legalUpdatedBy ? `por ${legalUpdatedBy}` : ''}
+                      Última modificación: {new Date(legalUpdatedAt).toLocaleString()}{' '}
+                      {legalUpdatedBy ? `por ${legalUpdatedBy}` : ''}
                     </span>
                   ) : (
                     <span>Aún no se ha guardado una versión personalizada en base de datos.</span>
@@ -2822,4 +3015,3 @@ export function AdminDashboard() {
 }
 
 export default AdminDashboard;
-

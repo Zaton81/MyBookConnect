@@ -1,10 +1,10 @@
-import { useState, useEffect, useCallback, useRef } from "react";
-import { Button, Navbar, Spinner } from "flowbite-react";
-import { Link, NavLink, useNavigate } from "react-router-dom";
-import logoLibro from "../../assets/logo-libro.png";
-import { es } from "../../locales/es";
-import { useAuthStore } from "../../store/auth";
-import { AIAssistantModal } from "../../features/ai";
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { Button, Navbar, Spinner } from 'flowbite-react';
+import { Link, NavLink, useNavigate } from 'react-router-dom';
+import logoLibro from '../../assets/logo-libro.png';
+import { es } from '../../locales/es';
+import { useAuthStore } from '../../store/auth';
+import { AIAssistantModal } from '../../features/ai';
 
 export function Header() {
   const { isAuthenticated, logout, user, token } = useAuthStore();
@@ -66,9 +66,9 @@ export function Header() {
       }
     };
     if (isNotifOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
+      document.addEventListener('mousedown', handleClickOutside);
     }
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isNotifOpen]);
 
   const handleToggleNotifs = () => {
@@ -83,7 +83,7 @@ export function Header() {
     if (!token) return;
     try {
       await fetch(`${apiUrl}/api/v1/users/notifications/${id}/read/`, {
-        method: "POST",
+        method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
       });
       setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
@@ -97,7 +97,7 @@ export function Header() {
     if (!token) return;
     try {
       await fetch(`${apiUrl}/api/v1/users/notifications/read-all/`, {
-        method: "POST",
+        method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
       });
       setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
@@ -116,7 +116,7 @@ export function Header() {
       navigate(n.link);
     }
   };
-  
+
   if (!isAuthenticated) return null;
 
   const isStaff = user && (user.is_staff || user.is_superuser);
@@ -124,8 +124,8 @@ export function Header() {
   const navLinkClasses = ({ isActive }: { isActive: boolean }) =>
     `px-3.5 py-1.5 rounded-xl text-sm font-medium transition-all ${
       isActive
-        ? "bg-white/20 text-white font-bold shadow-sm backdrop-blur-sm"
-        : "text-teal-100 hover:text-white hover:bg-white/10"
+        ? 'bg-white/20 text-white font-bold shadow-sm backdrop-blur-sm'
+        : 'text-teal-100 hover:text-white hover:bg-white/10'
     }`;
 
   return (
@@ -160,7 +160,7 @@ export function Header() {
                 <span className="text-lg leading-none">🔔</span>
                 {unreadCount > 0 && (
                   <span className="absolute top-1 right-1 min-w-[18px] h-[18px] flex items-center justify-center px-1 text-[10px] font-black rounded-full bg-red-500 text-white shadow-sm ring-2 ring-teal-700 animate-pulse">
-                    {unreadCount > 9 ? "9+" : unreadCount}
+                    {unreadCount > 9 ? '9+' : unreadCount}
                   </span>
                 )}
               </button>
@@ -204,12 +204,12 @@ export function Header() {
                           onClick={() => handleNotifClick(n)}
                           className={`p-3 text-xs flex items-start gap-3 cursor-pointer transition-colors ${
                             !n.read
-                              ? "bg-teal-50/70 dark:bg-teal-900/20 hover:bg-teal-100/60"
-                              : "hover:bg-gray-50 dark:hover:bg-gray-700/40 opacity-80"
+                              ? 'bg-teal-50/70 dark:bg-teal-900/20 hover:bg-teal-100/60'
+                              : 'hover:bg-gray-50 dark:hover:bg-gray-700/40 opacity-80'
                           }`}
                         >
                           <div className="text-base flex-shrink-0 mt-0.5">
-                            {n.type === "FOLLOW" ? "👤" : n.type === "MESSAGE" ? "💬" : "📢"}
+                            {n.type === 'FOLLOW' ? '👤' : n.type === 'MESSAGE' ? '💬' : '📢'}
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="font-semibold text-gray-900 dark:text-white truncate">
@@ -294,13 +294,9 @@ export function Header() {
       </header>
 
       {/* Modal global del asistente de IA */}
-      <AIAssistantModal
-        isOpen={isAiModalOpen}
-        onClose={() => setIsAiModalOpen(false)}
-      />
+      <AIAssistantModal isOpen={isAiModalOpen} onClose={() => setIsAiModalOpen(false)} />
     </>
   );
 }
 
 export default Header;
-

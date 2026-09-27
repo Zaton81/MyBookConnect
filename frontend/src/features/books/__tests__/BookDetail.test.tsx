@@ -15,7 +15,7 @@ describe('BookDetail Component', () => {
       const state = { token: 'mock-token', user: { id: 1, username: 'testuser' } };
       return selector ? selector(state) : state;
     });
-    
+
     globalThis.fetch = vi.fn();
   });
 
@@ -44,8 +44,8 @@ describe('BookDetail Component', () => {
         author: { name: 'Mock Author' },
         description: 'Mock Description',
         categories: [],
-        rating: 4.5
-      })
+        rating: 4.5,
+      }),
     });
 
     renderBookDetail();
@@ -60,7 +60,7 @@ describe('BookDetail Component', () => {
     (globalThis.fetch as any).mockResolvedValue({
       ok: false,
       status: 404,
-      json: async () => ({})
+      json: async () => ({}),
     });
 
     renderBookDetail();

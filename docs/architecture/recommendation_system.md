@@ -214,5 +214,47 @@ Cada recomendación en las APIs (`v1`, `v2`, `v3`) incluye ahora un objeto estru
 ### Endpoints
 - `GET /api/v1/books/recommendations/<book_id>/explain/`: Endpoint público/autenticado para consultar bajo demanda la justificación multi-señal de un libro específico para el usuario actual.
 
+---
+
+## 5. Consolidación de la Fase 7 — Arquitectura por Capas y Privacy Filtering
+
+La Fase 7 (Sección 12 de `RoadmapV2.md`) formaliza el pipeline multicapa definitivo para todas las estrategias de recomendación:
+
+```text
+Candidate generation
+        ↓
+Feature extraction
+        ↓
+Scoring
+        ↓
+Privacy & Exclusion Filtering
+        ↓
+Diversity Re-ranking
+        ↓
+Explanation
+        ↓
+Top N
+```
+
+### 1. Privacy Filtering Estricto (12.3)
+- Toda señal social (lecturas de amigos seguidos, usuarios similares, listas seguidas) se filtra a través de `PrivacyService` y `filter_visible_user_books`.
+- Si un usuario tiene su perfil/biblioteca en modo privado (`PRIVATE`), o si existe un bloqueo mutuo (`User.blocked_users`), sus lecturas son excluidas de las fuentes de recomendación y de las razones explicativas de otros usuarios.
+
+### 2. Capa de Diversidad (`recommendation_diversity_service.py`) (12.1)
+- Evita la monotonía y la sobreconcentración en el Top N mediante `apply_diversity_filter`.
+- Por defecto, limita la presencia de un mismo autor a un máximo de 2 libros por recomendación (`max_per_author=2`) y equilibra las categorías, intercalando candidatos de autores alternativos mientras se preserva la relevancia global.
+
+### 3. Ciclo de Feedback y Descarte (`dismissed`) (12.4 & 12.5)
+- Se incorpora la acción `RecommendationFeedbackAction.DISMISSED = 'dismissed'`.
+- Métricas ampliadas en `get_recommendation_metrics` y `RecommendationMetricsView`:
+  - `open_rate`: $(O / S) \times 100$
+  - `dismiss_rate`: $(D / S) \times 100$
+  - `CTR`: $(C / S) \times 100$
+  - `wishlist_rate`, `start_rate`, `completion_rate`, `rating_rate`.
+
+### 4. Integración con `BookEmbedding` Satélite (12.2)
+- El motor vectorial `RecommendationEngineV3` detecta y lee los embeddings normalizados directamente desde el modelo satélite `BookEmbedding` (`related_name='embedding_record'`).
+- Permite la vectorización de preferencias de usuario y cálculo de similitud coseno de alta fidelidad sin sobrecargar la tabla principal `books_book`.
+
 
 

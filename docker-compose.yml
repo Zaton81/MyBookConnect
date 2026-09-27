@@ -19,6 +19,8 @@ services:
       - ./docs:/app/docs:ro
       - ./scripts:/app/scripts:ro
       - ./.github:/app/.github:ro
+      - ./docker-compose.prod.yml:/repo/docker-compose.prod.yml:ro
+      - ./frontend/nginx.conf:/repo/frontend_nginx.conf:ro
 
   celery_worker:
     build:

@@ -63,7 +63,8 @@ export function StarRating({
     return { stars, count };
   });
 
-  const totalVotesCount = distCounts.reduce((acc, curr) => acc + curr.count, 0) || totalReviews || 0;
+  const totalVotesCount =
+    distCounts.reduce((acc, curr) => acc + curr.count, 0) || totalReviews || 0;
 
   return (
     <div
@@ -88,15 +89,17 @@ export function StarRating({
               key={starIndex}
               onMouseEnter={() => interactive && setHoverRating(starIndex * (maxRating / 5))}
               onMouseLeave={() => interactive && setHoverRating(null)}
-              onClick={() => interactive && onRatingChange && onRatingChange(starIndex * (maxRating / 5))}
+              onClick={() =>
+                interactive && onRatingChange && onRatingChange(starIndex * (maxRating / 5))
+              }
               className={`transition-transform duration-150 ${
                 interactive ? 'hover:scale-125 cursor-pointer text-amber-400' : ''
               } ${
                 isFilled
                   ? 'text-amber-400 drop-shadow-[0_0_2px_rgba(251,191,36,0.6)]'
                   : isHalf
-                  ? 'text-amber-300'
-                  : 'text-slate-300 dark:text-slate-600'
+                    ? 'text-amber-300'
+                    : 'text-slate-300 dark:text-slate-600'
               }`}
             >
               ★
@@ -115,7 +118,7 @@ export function StarRating({
           {numericRating > 0 ? (
             <>
               <span className="text-sm sm:text-base font-black text-slate-900 dark:text-white">
-                {(normalized5).toFixed(1)}
+                {normalized5.toFixed(1)}
               </span>
               <span className="text-[11px] text-slate-400 font-normal">/ 5</span>
               {totalVotesCount > 0 && (
@@ -137,12 +140,13 @@ export function StarRating({
             <div>
               <div className="flex items-baseline gap-1.5">
                 <span className="text-2xl font-black text-slate-900 dark:text-white">
-                  {(normalized5).toFixed(1)}
+                  {normalized5.toFixed(1)}
                 </span>
                 <span className="text-xs text-slate-400">de 5</span>
               </div>
               <p className="text-[11px] text-slate-400">
-                {totalVotesCount} {totalVotesCount === 1 ? 'valoración global' : 'valoraciones globales'}
+                {totalVotesCount}{' '}
+                {totalVotesCount === 1 ? 'valoración global' : 'valoraciones globales'}
               </p>
             </div>
             <div className="text-amber-400 text-lg">★★★★★</div>
@@ -181,4 +185,3 @@ export function StarRating({
 }
 
 export default StarRating;
-

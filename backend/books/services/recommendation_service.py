@@ -48,6 +48,13 @@ def _calculate_user_affinity(user) -> tuple[dict[int, float], dict[int, float], 
     author_affinity: dict[int, float] = defaultdict(float)
     favorite_keywords: list[str] = []
 
+    # 0. Géneros favoritos seleccionados explícitamente en el Onboarding (Fase 19)
+    if hasattr(user, 'favorite_categories'):
+        for fav_cat in user.favorite_categories.all():
+            category_affinity[fav_cat.id] += 1.0
+            if not favorite_keywords:
+                favorite_keywords.extend([w.lower() for w in fav_cat.name.split() if len(w) > 3])
+
     user_entries = (
         UserBook.objects.filter(user=user)
         .select_related('book', 'book__author')
@@ -149,9 +156,13 @@ def get_user_recommendations(
         followed_users = [uid for uid in followed_users if uid not in blocked_ids]
 
     if followed_users:
+        from users.policies import filter_visible_user_books
         followed_entries = (
-            UserBook.objects.filter(user_id__in=followed_users)
-            .exclude(book_id__in=excluded_book_ids)
+            filter_visible_user_books(
+                user,
+                UserBook.objects.filter(user_id__in=followed_users)
+                .exclude(book_id__in=excluded_book_ids)
+            )
             .select_related('user', 'book')
         )
         for entry in followed_entries:
@@ -270,8 +281,12 @@ def get_user_recommendations(
                 'reason': "Lectura popular recomendada para empezar tu viaje",
             })
 
+    # Aplicar capa de diversidad (Diversity) para evitar sobreconcentración por autor
+    from .recommendation_diversity_service import apply_diversity_filter
+    diversified_candidates = apply_diversity_filter(scored_candidates, limit=limit, max_per_author=2)
+
     results = []
-    for item in scored_candidates[:limit]:
+    for item in diversified_candidates:
         b = item['book']
         results.append({
             'id': b.id,
@@ -281,6 +296,11 @@ def get_user_recommendations(
             'average_rating': b.average_rating,
             'score': round(float(item['score']), 2),
             'algorithm_version': 'v1',
+            'strategy': strategy,
+            'metadata': item.get('metadata', {
+                'reasons_count': 1,
+                'author_id': b.author_id,
+            }),
             'breakdown': item.get('breakdown', {
                 'genre': round(float(item.get('score_genre', 0.0)), 4),
                 'author': round(float(item.get('score_author', 0.0)), 4),

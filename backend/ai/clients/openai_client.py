@@ -2,13 +2,16 @@
 Cliente de proveedor para OpenAI oficial (AIProvider).
 
 Permite interactuar con modelos de OpenAI (gpt-4o, gpt-4o-mini, text-embedding-3-small, etc.)
-mediante su API REST estándar.
+mediante su API REST estándar con resiliencia HTTP (retries + backoff) y métricas de tokens.
 """
 
 import logging
+import time
 from typing import Any
 
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util import Retry
 
 from ai.clients.base import AIProvider
 from ai.config import AISettings
@@ -18,24 +21,35 @@ logger = logging.getLogger(__name__)
 
 class OpenAIProvider(AIProvider):
     """
-    Proveedor para la API oficial de OpenAI.
+    Proveedor para la API oficial de OpenAI con soporte de resiliencia y métricas.
     """
 
     DEFAULT_BASE_URL = 'https://api.openai.com/v1'
 
     def __init__(self, settings: AISettings) -> None:
         """
-        Inicializa el cliente de OpenAI.
+        Inicializa el cliente de OpenAI configurando sesión HTTP resiliente.
 
         :param settings: Configuración inmutable de IA.
         """
         self._settings = settings
-        # Si la URL configurada es la de Ollama por defecto, usar la oficial de OpenAI
         base = settings.base_url.rstrip('/')
         if 'localhost' in base or '127.0.0.1' in base:
             self._base_url = self.DEFAULT_BASE_URL
         else:
             self._base_url = base
+
+        # Sesión HTTP reutilizable con retries y backoff exponencial (Sección 10.3)
+        self._session = requests.Session()
+        retries = Retry(
+            total=2,
+            backoff_factor=0.5,
+            status_forcelist=[500, 502, 503, 504],
+            raise_on_status=False,
+        )
+        adapter = HTTPAdapter(max_retries=retries)
+        self._session.mount('https://', adapter)
+        self._session.mount('http://', adapter)
 
     @property
     def name(self) -> str:
@@ -47,7 +61,6 @@ class OpenAIProvider(AIProvider):
 
     @property
     def model_chat(self) -> str:
-        # Si el modelo configurado es llama, asignar gpt-4o-mini por defecto para OpenAI
         m = self._settings.model_chat
         return 'gpt-4o-mini' if ('llama' in m or not m) else m
 
@@ -75,7 +88,7 @@ class OpenAIProvider(AIProvider):
         if not self.enabled:
             return False
         try:
-            res = requests.get(
+            res = self._session.get(
                 f"{self.base_url}/models",
                 headers=self._get_headers(),
                 timeout=min(self.timeout, 4),
@@ -97,6 +110,10 @@ class OpenAIProvider(AIProvider):
                 "content": "La API de OpenAI no está configurada o carece de una clave válida.",
                 "provider": self.name,
                 "model": "offline",
+                "prompt_tokens": 0,
+                "completion_tokens": 0,
+                "total_tokens": 0,
+                "duration_ms": 0,
             }
 
         full_messages: list[dict[str, Any]] = []
@@ -111,23 +128,34 @@ class OpenAIProvider(AIProvider):
             "max_tokens": max_tokens,
         }
 
+        start_time = time.perf_counter()
         try:
-            response = requests.post(
+            response = self._session.post(
                 f"{self.base_url}/chat/completions",
                 headers=self._get_headers(),
                 json=payload,
                 timeout=self.timeout,
             )
+            duration_ms = int((time.perf_counter() - start_time) * 1000)
 
             if response.status_code == 200:
                 data = response.json()
                 choice = data.get("choices", [{}])[0]
                 content = choice.get("message", {}).get("content", "")
+                usage = data.get("usage", {})
+                p_tokens = usage.get("prompt_tokens", 0)
+                c_tokens = usage.get("completion_tokens", 0)
+                t_tokens = usage.get("total_tokens", p_tokens + c_tokens)
+
                 return {
                     "success": True,
                     "content": content,
                     "provider": self.name,
                     "model": self.model_chat,
+                    "prompt_tokens": p_tokens,
+                    "completion_tokens": c_tokens,
+                    "total_tokens": t_tokens,
+                    "duration_ms": duration_ms,
                 }
             else:
                 logger.warning(
@@ -140,22 +168,38 @@ class OpenAIProvider(AIProvider):
                     "content": f"El servicio de OpenAI respondió con error ({response.status_code}).",
                     "provider": self.name,
                     "model": self.model_chat,
+                    "prompt_tokens": 0,
+                    "completion_tokens": 0,
+                    "total_tokens": 0,
+                    "duration_ms": duration_ms,
+                    "error": f"HTTP {response.status_code}",
                 }
         except requests.exceptions.Timeout:
+            duration_ms = int((time.perf_counter() - start_time) * 1000)
             logger.warning("Timeout al conectar con OpenAI tras %ss", self.timeout)
             return {
                 "success": False,
                 "content": "Tiempo de espera agotado al consultar OpenAI.",
                 "provider": self.name,
                 "model": self.model_chat,
+                "prompt_tokens": 0,
+                "completion_tokens": 0,
+                "total_tokens": 0,
+                "duration_ms": duration_ms,
+                "error": "Timeout",
             }
         except Exception as exc:
+            duration_ms = int((time.perf_counter() - start_time) * 1000)
             logger.warning("Error de conexión con OpenAI: %s", exc)
             return {
                 "success": False,
                 "content": "No se pudo establecer conexión con OpenAI.",
                 "provider": self.name,
                 "model": self.model_chat,
+                "prompt_tokens": 0,
+                "completion_tokens": 0,
+                "total_tokens": 0,
+                "duration_ms": duration_ms,
                 "error": str(exc),
             }
 
@@ -169,7 +213,7 @@ class OpenAIProvider(AIProvider):
         }
 
         try:
-            response = requests.post(
+            response = self._session.post(
                 f"{self.base_url}/embeddings",
                 headers=self._get_headers(),
                 json=payload,

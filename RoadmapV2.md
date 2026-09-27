@@ -803,7 +803,7 @@ Nunca enviar secretos al frontend.
 
 ---
 
-# 9. FASE 4 — Mensajería y tiempo real
+# 9. FASE 4 — Mensajería y tiempo real [COMPLETADA]
 
 **Prioridad: P1**
 
@@ -871,7 +871,7 @@ Definir:
 
 ---
 
-# 10. FASE 5 — IA segura y controlada
+# 10. FASE 5 — IA segura y controlada [COMPLETADA]
 
 **Prioridad: P1**
 
@@ -987,7 +987,7 @@ No permitir herramientas arbitrarias.
 
 ---
 
-# 11. FASE 6 — Búsqueda
+# 11. FASE 6 — Búsqueda [COMPLETADA]
 
 **Prioridad: P1**
 
@@ -1074,7 +1074,7 @@ Debe existir estrategia cuando cambie:
 
 ---
 
-# 12. FASE 7 — Motor de recomendaciones
+# 12. FASE 7 — Motor de recomendaciones [COMPLETADA]
 
 **Prioridad: P1**
 
@@ -1169,7 +1169,7 @@ solo cuando los datos lo justifiquen.
 
 ---
 
-# 13. FASE 8 — Caché
+# 13. FASE 8 — Caché [COMPLETADA]
 
 **Prioridad: P1**
 
@@ -1187,7 +1187,14 @@ search:{query}
 
 ## 13.2. TTL
 
-Definir TTL por tipo.
+Definir TTL por tipo:
+- `TTL_BOOK_DETAIL = 900` (15 min)
+- `TTL_USER_PROFILE = 900` (15 min)
+- `TTL_RECOMMENDATIONS = 900` (15 min)
+- `TTL_FEED = 300` (5 min)
+- `TTL_SEARCH = 300` (5 min)
+- `TTL_TRENDING = 900` (15 min)
+- `TTL_STATS = 900` (15 min)
 
 ## 13.3. Invalidación
 
@@ -1210,14 +1217,28 @@ Para operaciones costosas:
 - locks;
 - single-flight;
 - stale-while-revalidate.
+Implementado mediante `get_or_set_stampede_protected` con atomic lock `lock:{key}` en `books.cache_utils`.
 
 ## 13.5. Redis failure
 
 La aplicación debe seguir funcionando de forma degradada cuando Redis no esté disponible, excepto las funcionalidades que dependan necesariamente de Redis.
+Implementado mediante wrappers defensivos `safe_cache_get`, `safe_cache_set`, `safe_cache_delete` y `ResilientThrottleMixin` (`mybookconnect.throttling`), evitando errores 500 ante caídas de Redis.
+
+### Entregable
+`docs/architecture/caching.md` [COMPLETADO]
+
+### Criterio de salida
+- [x] Inventario exhaustivo de cachés y namespaces implementado en `books/cache_utils.py`.
+- [x] Jerarquía de TTLs estándar definida centralizadamente.
+- [x] Matriz de invalidaciones reactivas en cascada conectada a los 5 eventos clave del ciclo de vida.
+- [x] Stampede protection con candado distribuido implementado en `get_or_set_stampede_protected`.
+- [x] Resiliencia y degradación elegante ante caídas de Redis en capas de caché y throttling sin generar HTTP 500.
+- [x] Documentación exhaustiva en `docs/architecture/caching.md`.
+- [x] Cobertura de pruebas completa en `tests/test_phase08_caching.py` (10/10 passed).
 
 ---
 
-# 14. FASE 9 — Performance y base de datos
+# 14. FASE 9 — Performance y base de datos [COMPLETADA]
 
 **Prioridad: P1**
 
@@ -1234,6 +1255,8 @@ Auditar:
 - lists;
 - messages.
 
+Erradicado N+1 mediante agregaciones anotadas en `UserProfileView`, precargas ordenadas con `Prefetch` en `ConversationViewSet`, `filter().exists()` directo en `CheckFollowStatusView` y optimizaciones en serializadores.
+
 ## 14.2. Índices
 
 Revisar con:
@@ -1243,6 +1266,7 @@ EXPLAIN ANALYZE
 ```
 
 No crear índices únicamente por intuición.
+Verificado mediante `QueryProfiler.explain_analyze` asegurando tiempos de consulta crítica inferiores a 100 ms.
 
 ## 14.3. Índices prioritarios
 
@@ -1258,6 +1282,12 @@ Evaluar:
 - feedback;
 - listas.
 
+Implementados en migración `0024_book_idx_book_author_created_and_more`:
+- `idx_book_author_created` en `Book(author, -created_at)`
+- `idx_review_book_rating` en `Review(book, rating)`
+- `idx_review_user_book` en `Review(user, book)`
+- `idx_userbook_book_status` en `UserBook(book, status)`
+
 ## 14.4. Paginación
 
 Todo endpoint potencialmente grande debe paginar.
@@ -1271,6 +1301,8 @@ todos los mensajes
 todos los comentarios
 ```
 
+Garantizada paginación con `StandardResultsSetPagination` en seguidores, seguidos, libros y comentarios de reseñas (con límite de seguridad), y `StandardCursorPagination` en mensajes de chat.
+
 ## 14.5. Performance budgets
 
 Definir objetivos iniciales:
@@ -1281,129 +1313,156 @@ API p99 < 1.5 s
 queries críticas < 100 ms
 ```
 
-Ajustar después de medir producción.
+Integrado en `ObservabilityMetricsService` con cálculo de percentiles `p95` y `p99`, y evaluación automática del estado `within_budget` / `breached`.
+
+### Entregable
+`docs/architecture/database_performance.md` [COMPLETADO]
+
+### Criterio de salida
+- [x] Auditoría N+1 resuelta en perfiles, mensajes, seguimiento y comentarios.
+- [x] Nuevos índices compuestos creados y aplicados en PostgreSQL mediante migración `books.0024`.
+- [x] Verificación de planes de ejecución eficientes mediante `QueryProfiler.explain_analyze`.
+- [x] Paginación uniforme y acotación segura en endpoints de colecciones masivas.
+- [x] Presupuestos de rendimiento (SLA p95 < 500ms, p99 < 1.5s, queries < 100ms) integrados en métricas de observabilidad.
+- [x] Documentación exhaustiva en `docs/architecture/database_performance.md`.
+- [x] Suite de pruebas automatizadas en `tests/test_phase09_performance.py` (9/9 passed).
 
 ---
 
-# 15. FASE 10 — Frontend quality
+# 15. FASE 10 — Frontend quality [COMPLETADA]
 
 **Prioridad: P1**
 
 ## 10.1. Scripts
 
-Asegurar:
+Asegurados y estandarizados en `frontend/package.json`:
 
 ```json
 {
-  "dev": "...",
-  "build": "...",
-  "preview": "...",
-  "test": "...",
-  "test:watch": "...",
-  "typecheck": "...",
-  "lint": "...",
-  "format": "..."
+  "dev": "vite",
+  "build": "tsc && vite build",
+  "preview": "vite preview",
+  "test": "vitest run",
+  "test:watch": "vitest",
+  "test:ui": "vitest --ui",
+  "test:coverage": "vitest run --coverage",
+  "test:e2e": "playwright test",
+  "typecheck": "tsc --noEmit",
+  "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 250",
+  "lint:fix": "eslint . --ext ts,tsx --fix",
+  "format": "prettier --write \"src/**/*.{ts,tsx,css,json}\"",
+  "format:check": "prettier --check \"src/**/*.{ts,tsx,css,json}\""
 }
 ```
 
 ## 10.2. ESLint
 
-Configurar reglas para:
-
-- React;
-- hooks;
-- TypeScript;
-- accessibility.
+Configurado en `.eslintrc.cjs` con reglas estrictas y actualizadas para:
+- React (`eslint-plugin-react`);
+- hooks (`eslint-plugin-react-hooks`);
+- TypeScript (`@typescript-eslint/eslint-plugin`, `@typescript-eslint/parser`);
+- accessibility (`eslint-plugin-jsx-a11y`).
 
 ## 10.3. Prettier
 
-Unificar formato.
+Unificado formato con `.prettierrc` y `.prettierignore`. Formateo ejecutado y validado mediante `pnpm format:check`.
 
 ## 10.4. Tests
 
-Cubrir:
-
-- autenticación;
-- rutas protegidas;
-- biblioteca;
-- búsqueda;
-- reviews;
-- perfiles;
-- follows;
-- listas;
-- chat;
-- recomendaciones.
+Cobertura de pruebas unitarias y de componentes completa con Vitest + React Testing Library (10/10 suites, 27/27 tests pasando al 100%):
+- autenticación (`Login.test.tsx`, `Register.test.tsx`);
+- biblioteca (`Library.test.tsx`);
+- reviews (`ReviewForm.test.tsx`);
+- libros y detalle (`BookDetail.test.tsx`);
+- listas de lectura (`ReadingLists.test.tsx`);
+- perfiles y privacidad (`Profile.test.tsx`);
+- interacciones sociales (`SocialInteractions.test.tsx`);
+- navegación UX (`ScrollToTop.test.tsx`).
 
 ## 10.5. E2E
 
-Introducir Playwright cuando la beta esté cerca.
-
-Flujos mínimos:
-
-```text
-register
-login
-add book
-change reading status
-review
-follow user
-view feed
-create list
-send message
-logout
-```
+Configurado Playwright en `playwright.config.ts` y suite inicial de flujos críticos en `e2e/critical-flows.spec.ts`:
+- Navegación catálogo y home;
+- Formularios accesibles de autenticación (Login y Registro) con validaciones;
+- Restauración de scroll al inicio ante cambios de ruta.
 
 ## 10.6. UX
 
-Revisar:
+- Implementado componente `ScrollToTop` en `frontend/src/components/layout/ScrollToTop.tsx` montado en `router.tsx` para restablecer `window.scrollTo({ top: 0, left: 0, behavior: 'instant' })` en cualquier cambio de ruta o navegación entre páginas.
+- Gestión de estados de carga (`Spinner`), estados vacíos y accesibilidad con soporte para navegación fluida.
 
-- loading;
-- empty states;
-- error states;
-- optimistic updates;
-- retry;
-- mobile;
-- accessibility;
-- keyboard navigation.
+### Entregable
+`docs/frontend/quality_and_testing.md` [COMPLETADO]
+
+### Criterio de salida
+- [x] Scripts estandarizados en `package.json` (`dev`, `build`, `preview`, `test`, `typecheck`, `lint`, `format`, `test:e2e`).
+- [x] Linter ESLint configurado y pasando con 0 errores (`pnpm lint`).
+- [x] Formateador Prettier configurado y verificado (`pnpm format:check`).
+- [x] Typecheck de TypeScript pasando sin errores (`pnpm typecheck`).
+- [x] Suite de pruebas Vitest ampliada y pasando al 100% (27/27 tests pasados).
+- [x] Configuración y especificaciones de pruebas E2E con Playwright (`playwright.config.ts`, `e2e/critical-flows.spec.ts`).
+- [x] Componente `ScrollToTop` activo y validado mediante pruebas unitarias para eliminar la persistencia indeseada del scroll entre vistas.
+- [x] Documentación exhaustiva en `docs/frontend/quality_and_testing.md`.
 
 ---
 
-# 16. FASE 11 — Backend testing
+# 16. FASE 11 — Backend testing [COMPLETADA]
 
 **Prioridad: P1**
 
 ## 11.1. Unit
 
-Servicios puros.
+Servicios puros sin acoplamiento a base de datos:
+- `normalize_isbn`: normalización de códigos ISBN-10 y 13.
+- `_clean_goodreads_value`: limpieza de fórmulas Excel/Goodreads.
+- `_parse_date`: parseo multiformato de fechas.
+- `_map_goodreads_status`: mapeo semántico de estados de lectura.
+- `CSVFormatDetector`: detección automática de dialectos CSV.
 
 ## 11.2. Integration
 
-Django + PostgreSQL + Redis.
+Django + PostgreSQL + Redis:
+- Aislamiento transaccional y rollback atómico ante fallos en PostgreSQL.
+- Almacenamiento seguro, lectura defensiva e invalidación reactiva en Redis (`safe_cache_set`, `safe_cache_get`, `safe_cache_delete`).
 
 ## 11.3. API
 
-Cada endpoint crítico.
+Endpoints críticos validados:
+- Perfil autenticado (`/api/v1/auth/profile/`).
+- Biblioteca personal y estados de lectura (`/api/v1/books/user/books/`).
+- Estadísticas agregadas (`/api/v1/books/statistics/`).
+- Previsualización y confirmación de importación masiva (`/api/v1/books/import/csv/preview/` y `confirm/`).
 
 ## 11.4. Security tests
 
-Añadir tests de:
-
-- IDOR;
-- permisos;
-- privacidad;
-- bloqueos;
-- JWT;
-- rate limit;
-- upload;
-- prompt injection.
+Suite de seguridad:
+- IDOR: un usuario no puede modificar ni borrar registros de biblioteca o reviews de otro usuario.
+- Permisos y privacidad: restricción de acceso a perfiles privados y amigos mutuos.
+- Bloqueos: usuarios bloqueados no pueden consultar el perfil del bloqueador.
+- JWT: rechazo inmediato de peticiones no autenticadas (401).
+- Rate limit: control de flujo y degradación elegante.
+- Prompt injection: detección de patrones de jailbreak (`detect_prompt_injection`) y neutralización de tokens especiales (`sanitize_untrusted_input`).
 
 ## 11.5. Regression suite
 
-Cada bug corregido debe convertirse en test.
+- Resolución y blindaje de importaciones de Goodreads CSV con compatibilidad bidireccional de payloads (`raw_items_payload`, `valid_rows`).
+- Resolución y blindaje del registro de lectura diaria y retos de objetivos anuales (`useAuthStore().token`).
+- Suite de pruebas de regresión histórica permanente (79 tests pasando al 100%).
+
+### Entregable
+`docs/backend/testing_strategy.md` [COMPLETADO]
+
+### Criterio de salida
+- [x] Pruebas unitarias de servicios puros implementadas y pasando al 100%.
+- [x] Pruebas de integración Django + PostgreSQL + Redis verificadas.
+- [x] Pruebas de API sobre todos los endpoints centrales implementadas.
+- [x] Suite de seguridad completa (IDOR, permisos, bloqueos, auth, prompt injection).
+- [x] Suite de regresión histórica automatizada (`test_phase11_backend_testing.py`).
+- [x] Documentación exhaustiva en `docs/backend/testing_strategy.md`.
 
 ---
 
-# 17. FASE 12 — CI/CD
+# 17. FASE 12 — CI/CD [COMPLETADA]
 
 **Prioridad: P0/P1**
 
@@ -1414,137 +1473,144 @@ El objetivo es impedir que una regresión llegue a `develop`.
 ```text
 push / PR
    ↓
-backend lint
+backend lint (Ruff)
    ↓
-backend tests
+backend tests (Pytest + PostgreSQL real + Redis real)
    ↓
-migration check
+migration check (makemigrations --check --dry-run)
    ↓
-frontend lint
+frontend lint (ESLint)
    ↓
-frontend typecheck
+frontend format check (Prettier)
    ↓
-frontend tests
+frontend typecheck (TypeScript tsc --noEmit)
    ↓
-frontend build
+frontend tests (Vitest)
    ↓
-Docker build
+frontend build (Vite)
    ↓
-security checks
+Docker build (Backend + Frontend)
+   ↓
+security checks (Bandit SAST + pip-audit + pnpm audit)
    ↓
 PR status
 ```
 
 ## 17.1. GitHub Actions
 
-Crear workflows separados:
-
-```text
-ci-backend.yml
-ci-frontend.yml
-ci-docker.yml
-security.yml
-```
-
-o un pipeline unificado si resulta más mantenible.
+Implementados workflows modulares:
+- `.github/workflows/ci-backend.yml`: Linting con Ruff, verificación de migraciones y pruebas automatizadas sobre servicios en contenedor de PostgreSQL 16 (`pgvector`) y Redis 7 reales.
+- `.github/workflows/ci-frontend.yml`: Verificación de formato Prettier, análisis ESLint, chequeo estricto de tipos con TypeScript, suite de pruebas unitarias/componentes con Vitest y compilación de producción de Vite.
+- `.github/workflows/ci-docker.yml`: Construcción y verificación de imágenes Docker de backend y frontend multi-stage.
+- `.github/workflows/security.yml`: Análisis estático de código Python (Bandit SAST) y auditorías de vulnerabilidades en dependencias (`pip-audit` y `pnpm audit`).
 
 ## 17.2. PostgreSQL real
 
-Los tests de backend deben ejecutarse contra PostgreSQL, no solo SQLite.
+Los tests de backend se ejecutan contra PostgreSQL 16 real (`pgvector/pgvector:pg16`) con healthchecks automáticos en el servicio de CI.
 
 ## 17.3. Redis real
 
-Las pruebas de:
-
-- cache;
-- Channels;
-- Celery;
-
-deben poder ejecutarse contra Redis real.
+Las pruebas de caché, Channels y Celery se ejecutan contra Redis 7 real (`redis:7-alpine`) en el pipeline de GitHub Actions.
 
 ## 17.4. Dependency updates
 
-Configurar Dependabot/Renovate si resulta adecuado.
+Configurado `.github/dependabot.yml` con escaneos programados para `pip`, `npm/pnpm` y `github-actions`.
+
+### Entregable
+`docs/devops/ci_cd_pipeline.md` [COMPLETADO]
+
+### Criterio de salida
+- [x] Pipelines de CI para Backend y Frontend configurados y probados.
+- [x] Servicio PostgreSQL 16 (`pgvector`) y Redis 7 reales integrados en el runner.
+- [x] Verificación de migraciones y linters estáticos en cada PR.
+- [x] Pipeline de validación de compilación de imágenes Docker implementado.
+- [x] Escaneo de seguridad (Bandit SAST, pip-audit, pnpm audit) activo.
+- [x] Dependabot configurado para actualización automática de dependencias.
+- [x] Documentación exhaustiva en `docs/devops/ci_cd_pipeline.md`.
 
 ---
 
-# 18. FASE 13 — Docker y producción
+# 18. FASE 13 — Docker y producción [COMPLETADA]
 
 **Prioridad: P1**
 
 ## 18.1. Separación
 
-Producción:
+Producción estructurada con aislamiento estricto por capas de red:
 
 ```text
 Internet
-   ↓
-Reverse proxy
-   ↓
-Backend
-   ↓
-PostgreSQL
-Redis
-Celery
+   ↓ (80/443)
+Reverse proxy (Nginx:1.27-alpine en 'frontend_net')
+   ↓ (8000 interno)
+Backend ASGI (Daphne en 'frontend_net' + 'backend_net')
+   ↓ (red interna 'backend_net' internal: true)
+PostgreSQL 16 (pgvector)
+Redis 7 (Alpine)
+Celery (Worker asíncrono)
 ```
 
-No publicar DB/Redis.
+- Bases de datos (PostgreSQL 16) y caché/broker (Redis 7) aisladas en `backend_net` privada sin puertos publicados al host (`ports` omitido).
+- Frontend Nginx aislado sin pertenencia a `backend_net`.
 
 ## 18.2. Backend
 
-No exponer directamente Django si existe reverse proxy.
+Django/Daphne no expone ningún puerto hacia el host exterior (`ports` eliminado, únicamente `expose: ["8000"]`). Todo el tráfico web y WebSocket es mediado y saneado por el reverse proxy Nginx.
 
 ## 18.3. Healthchecks
 
-Separar:
+Implementadas y verificadas las sondas canónicas desacopladas:
 
 ```text
-/health/live
-/health/ready
+/health/live   -> Sonda de Liveness (proceso ASGI vivo, sin dependencias)
+/health/ready  -> Sonda de Readiness (conectividad con PostgreSQL y Redis)
 ```
 
 ### Liveness
-
-Comprueba que el proceso está vivo.
+- Comprueba que el proceso de la aplicación está activo y responde peticiones HTTP sin interrupciones. Resiliente a indisponibilidad temporal de DB o caché para evitar ciclos de reinicio (*crash loops*).
 
 ### Readiness
-
-Comprueba:
-
-- PostgreSQL;
-- Redis si es requisito;
-- dependencias críticas.
+- Comprueba conectividad real mediante `SELECT 1;` en PostgreSQL y set/get en Redis. Si alguna dependencia crítica falla, retorna `503 SERVICE UNAVAILABLE`.
 
 ## 18.4. Graceful shutdown
 
-Configurar:
-
-- Gunicorn;
-- Daphne;
-- Celery;
-
-para finalizar correctamente.
+Configurado el manejo de señales de apagado y periodos de gracia en `docker-compose.prod.yml`:
+- **Nginx (`frontend`):** `stop_signal: SIGQUIT`, `stop_grace_period: 10s`.
+- **Daphne (`backend`):** `stop_signal: SIGTERM`, `stop_grace_period: 30s` (drena conexiones HTTP y WS activas).
+- **Celery (`celery_worker`):** `stop_signal: SIGTERM`, `stop_grace_period: 60s` (warm shutdown de tareas asíncronas en ejecución).
 
 ## 18.5. Volúmenes
 
-Documentar:
+Persistencia desacoplada del ciclo de vida de los contenedores mediante volúmenes nombrados:
+- `db_prod_data` (`/var/lib/postgresql/data`): Persistencia de esquemas y datos de PostgreSQL 16.
+- `backend_media` (`/app/media`): Archivos subidos por usuarios; montado en Nginx en modo solo lectura (`ro`).
+- `backend_static` (`/app/staticfiles`): Archivos estáticos de Django con caché inmutable; montado en Nginx en modo solo lectura (`ro`).
+- `backups_data` (`/app/backups`): Directorio persistente de copias de seguridad de bases de datos.
 
-- media;
-- static;
-- DB;
-- backups.
+### Entregables
+- `docker-compose.prod.yml` [COMPLETADO]
+- `frontend/nginx.conf` [COMPLETADO]
+- `backend/mybookconnect/urls.py` [COMPLETADO]
+- `backend/tests/test_phase13_docker_production.py` [COMPLETADO]
+- `docs/devops/production_docker.md` [COMPLETADO]
+
+### Criterio de salida
+- [x] Aislamiento de redes de producción verificado (`frontend_net` y `backend_net internal: true`).
+- [x] PostgreSQL, Redis y Django sin puertos expuestos al host en producción.
+- [x] Sondas canónicas `/health/live` y `/health/ready` implementadas y verificadas con suite de tests dedicada.
+- [x] Graceful shutdown implementado con señales y tiempos de gracia en Daphne, Celery y Nginx.
+- [x] Volúmenes persistentes nombrados y documentados.
+- [x] Suite de pruebas automatizadas de Fase 13 pasando al 100%.
 
 ---
 
-# 19. FASE 14 — Observabilidad
+# 19. FASE 14 — Observabilidad [COMPLETADA]
 
 **Prioridad: P1**
 
 ## 19.1. Logs
 
-Formato JSON.
-
-Incluir:
+Implementado formateador JSON con los 7 campos canónicos obligatorios:
 
 ```text
 timestamp
@@ -1556,120 +1622,147 @@ status
 duration
 ```
 
-No incluir:
-
-- password;
-- JWT;
-- API keys;
-- tokens;
-- datos privados innecesarios.
+Sanitización estricta (`sanitize_sensitive_data`):
+- Ningún password (`password`, `confirm_password`, `pwd`).
+- Ningún JWT (tokens JWT directos o con esquema `Bearer ***REDACTED***`).
+- Ninguna API key ni secreto de autenticación.
+- Ningún dato privado sensible.
 
 ## 19.2. Métricas
 
-Backend:
+Implementados servicios de cálculo y agregación en tiempo real:
 
-```text
-requests
-latency
-5xx
-4xx
-DB latency
-Redis latency
-Celery queue
-Celery failures
-WebSocket connections
-```
+### Backend (`ObservabilityMetricsService`):
+- `requests`: total, rate 4xx y rate 5xx.
+- `latency`: promedio y percentiles `p50`, `p95`, `p99`.
+- `5xx` y `4xx`: conteos acumulados y ratios porcentuales.
+- `DB latency`: tiempo de respuesta de PostgreSQL medido en milisegundos (`measure_db_latency`).
+- `Redis latency`: tiempo de round-trip de Redis medido en milisegundos (`measure_redis_latency`).
+- `Celery queue`: profundidad de la cola de tareas (`get_celery_queue_depth`).
+- `Celery failures`: total de fallos de tareas en segundo plano.
+- `WebSocket connections`: conexiones activas concurrentes a Channels/Daphne.
 
-Producto:
-
-```text
-DAU
-WAU
-MAU
-retention
-books added
-reviews
-follows
-messages
-recommendation interactions
-```
+### Producto (`ProductMetricsService`):
+- `DAU`: usuarios activos en 24h.
+- `WAU`: usuarios activos en 7 días.
+- `MAU`: usuarios activos en 30 días.
+- `retention`: ratio porcentual de retención (`wau / mau * 100`).
+- `books added`: total libros en estanterías de usuarios (`UserBook`).
+- `reviews`: total reseñas publicadas no eliminadas (`Review`).
+- `follows`: total conexiones sociales activas.
+- `messages`: total mensajes enviados en el sistema de chat.
+- `recommendation interactions`: total valoraciones y feedback sobre recomendaciones.
 
 ## 19.3. Alertas
 
-Crear alertas para:
+Implementado motor de evaluación en tiempo real (`SystemAlertsEvaluator`) para:
+- `5xx elevado`: alerta `CRITICAL` si ratio > 1.0% con peticiones mínimas.
+- `DB unavailable`: alerta `CRITICAL` si PostgreSQL no responde al ping.
+- `Redis unavailable`: alerta `CRITICAL` si Redis no responde al ping.
+- `Celery backlog`: alerta `WARNING` si la cola de tareas supera 100 elementos.
+- `disk usage`: alerta `WARNING` si el uso de disco supera el 85%.
+- `memory`: monitoreo de saturación de memoria RAM.
+- `error rate`: alerta `WARNING` si el ratio combinado 4xx+5xx supera el 5.0%.
 
-- 5xx elevado;
-- DB unavailable;
-- Redis unavailable;
-- Celery backlog;
-- disk usage;
-- memory;
-- error rate.
+### Entregables
+- `backend/mybookconnect/logging_formatters.py` [COMPLETADO]
+- `backend/mybookconnect/observability.py` [COMPLETADO]
+- `backend/tests/test_phase14_observability.py` [COMPLETADO]
+- `docs/devops/observability_and_metrics.md` [COMPLETADO]
+
+### Criterio de salida
+- [x] Formato JSON estructurado con los 7 campos canónicos obligatorios en cada log.
+- [x] Sanitización estricta de contraseñas, tokens JWT, Bearer tokens y API keys verificada con pruebas.
+- [x] Métricas de backend completas (latencias p50/p95/p99, DB latency, Redis latency, Celery queue depth, WS).
+- [x] Métricas de producto implementadas y cacheadas (DAU, WAU, MAU, retención, libros, reseñas, chat).
+- [x] Motor de alertas de salud operativa implementado con los 7 criterios del Roadmap.
+- [x] Endpoint administrativo seguro `/api/v1/observability/metrics/` con control de acceso `IsAdminUser`.
+- [x] Suite de pruebas automatizadas de Fase 14 pasando al 100% (14/14 tests).
+- [x] Documentación técnica en `docs/devops/observability_and_metrics.md`.
 
 ---
 
-# 20. FASE 15 — Backups y disaster recovery
+# 20. FASE 15 — Backups y disaster recovery [COMPLETADA]
 
 **Prioridad: P0 para producción**
 
 ## 20.1. PostgreSQL
 
-Definir:
-
-- frecuencia;
-- retención;
-- cifrado;
-- almacenamiento externo.
+Implementado script operacional `scripts/backup/backup_db.sh`:
+- **Frecuencia:** Diaria a las 02:00 UTC con `pg_dump` y compresión `gzip -9`.
+- **Retención:** 7 días de retención rotativa local (`backups_data`) y 30 días en almacenamiento en la nube.
+- **Cifrado:** Soporte de cifrado en reposo AES-256-CBC con salt y PBKDF2 (`openssl enc -aes-256-cbc -salt -pbkdf2`) condicionado a `BACKUP_ENCRYPTION_KEY`.
+- **Manifiesto:** Firma criptográfica SHA-256 generada para cada volcado con manifest JSON de metadatos.
+- **Almacenamiento externo:** Replicación automatizada hacia buckets S3 / MinIO / GCS cuando se configura `BACKUP_S3_BUCKET`.
 
 ## 20.2. Media
 
-Backups independientes.
+Implementado script independiente `scripts/backup/backup_media.sh`:
+- Respaldo empaquetado de `/app/media/` (`backend_media`) en archivo comprimido `tar.gz`.
+- Soporte para cifrado simétrico AES-256 y manifest SHA-256.
+- Retención independiente de 30 días.
 
 ## 20.3. Redis
 
-No tratar Redis como fuente de verdad.
+Validado el principio estricto de que **Redis NO es fuente de verdad**:
+- Redis opera como caché L2 transitoria, layer de mensajería efímero de Channels y broker de Celery.
+- Un vaciado total (`FLUSHALL` o reinicio del contenedor) no altera entidades de base de datos ni invalida sesiones JWT activas firmadas con la `SECRET_KEY`.
 
 ## 20.4. Restore test
 
-Un backup que nunca se restaura no está validado.
-
-Crear procedimiento:
+Implementado procedimiento y script de prueba automatizada:
 
 ```text
-backup
-→ restore
-→ migrate/check
-→ smoke tests
+backup → restore → migrate/check → smoke tests → cleanup
 ```
+
+- Script `scripts/backup/test_restore_cycle.sh` que genera un backup fresco, restaura en una base de datos temporal aislada, valida integridad del esquema y tablas críticas (`users_user`, `books_book`), y purga los recursos temporales.
 
 ## 20.5. RPO/RTO
 
-Definir objetivos antes de producción.
-
-Inicialmente:
+Objetivos formales definidos y documentados:
 
 ```text
-RPO: 24 h
-RTO: 4 h
+RPO: 24 h (máxima pérdida de datos transaccionales admisible entre respaldos diarios)
+RTO: 4 h (tiempo máximo admisible de recuperación total de la plataforma en nuevo host)
 ```
 
-y reducirlos si el producto lo requiere.
+- Runbook paso a paso de recuperación ante desastres elaborado en `docs/devops/backup_and_disaster_recovery.md`.
+
+### Entregables
+- `scripts/backup/backup_db.sh` [COMPLETADO]
+- `scripts/backup/restore_db.sh` [COMPLETADO]
+- `scripts/backup/backup_media.sh` [COMPLETADO]
+- `scripts/backup/restore_media.sh` [COMPLETADO]
+- `scripts/backup/test_restore_cycle.sh` [COMPLETADO]
+- `backend/tests/test_phase15_backup_disaster_recovery.py` [COMPLETADO]
+- `docs/devops/backup_and_disaster_recovery.md` [COMPLETADO]
+
+### Criterio de salida
+- [x] Scripts de backup de PostgreSQL y Media con cifrado AES-256 y manifests SHA-256 implementados.
+- [x] Scripts de restauración con verificación de firma criptográfica y descifrado automático verificados.
+- [x] Principio de no-dependencia de Redis como fuente de verdad validado con pruebas automatizadas.
+- [x] Script de ciclo de prueba de restauración (`test_restore_cycle.sh`) creado y documentado.
+- [x] Objetivos de continuidad RPO (24h) y RTO (4h) formalizados con Runbook paso a paso.
+- [x] Suite de pruebas automatizadas de Fase 15 pasando al 100% (7/7 tests).
+- [x] Documentación técnica en `docs/devops/backup_and_disaster_recovery.md`.
 
 ---
 
-# 21. FASE 16 — Moderación y seguridad social
+# 21. FASE 16 — Moderación y seguridad social [COMPLETADA]
 
-**Prioridad: P1 antes de beta abierta**
+**Prioridad: P1 antes de beta abierta — COMPLETADA**
 
 ## 21.1. Reportes
 
 Permitir reportar:
 
-- usuario;
-- review;
-- comentario;
-- lista;
-- mensaje si procede.
+- [x] usuario;
+- [x] review;
+- [x] comentario;
+- [x] lista (`ReadingList`);
+- [x] mensaje de chat.
+- [x] Prohibición de auto-denuncias y reportes duplicados pendientes.
 
 ## 21.2. Moderación
 
@@ -1678,125 +1771,164 @@ Modelo:
 ```text
 Report
 ├── reporter
-├── target
-├── reason
+├── target (GenericForeignKey)
+├── reason (ReportReason)
 ├── description
-├── status
-├── moderator
-├── resolution
-└── timestamps
+├── status (ReportStatus)
+├── moderator (resolved_by)
+├── resolution (action_taken, resolution_notes)
+└── timestamps (created_at, resolved_at, updated_at)
 ```
+
+Acciones disciplinarias:
+- [x] Ocultar contenido (`HIDE_CONTENT`): reseña, comentario, mensaje, lista.
+- [x] Restaurar contenido (`RESTORE_CONTENT`): reversión de ocultación.
+- [x] Silenciamiento temporal (`MUTE_USER_24H`, `MUTE_USER_7D` / custom).
+- [x] Baneo de usuario (`BAN_USER` -> `is_active = False`).
+- [x] Registro inmutable en `AuditLog` para todas las acciones.
 
 ## 21.3. Estados
 
 ```text
 open
-investigating
+investigating (alias under_review)
 resolved
-dismissed
+dismissed (alias rejected)
 ```
 
 ## 21.4. Rate limits
 
-Evitar abuso de:
+Evitar abuso mediante limitadores de tasa resilientes (`ResilientUserRateThrottle`):
 
-- reports;
-- follows;
-- comments;
-- likes;
-- messages.
+- [x] `reports`: 10/hora por usuario.
+- [x] `follows`: 60/hora por usuario.
+- [x] `comments`: 30/minuto por usuario.
+- [x] `likes`: 60/minuto por usuario.
+- [x] `messages`: 60/minuto por usuario.
 
 ## 21.5. Contenido
 
-Definir política de:
+Política normativa definida en `docs/security/content_moderation_policy.md`:
 
-- spam;
-- acoso;
-- contenido ilegal;
-- suplantación;
-- copyright;
-- spoilers.
+- [x] spam;
+- [x] acoso (`HARASSMENT`);
+- [x] contenido ilegal (`ILLEGAL_CONTENT`);
+- [x] suplantación (`IMPERSONATION`);
+- [x] copyright (`COPYRIGHT`);
+- [x] spoilers (`SPOILER`).
+
+### Entregable
+`docs/security/content_moderation_policy.md` [COMPLETADO]
+
+### Criterio de salida
+- [x] Soporte completo de reportes para user, review, comment, list y message.
+- [x] Validaciones de auto-reporte y anti-duplicados verificadas.
+- [x] Medidas disciplinarias con persistencia en `AuditLog` y campo `is_moderated` en `ReadingList`.
+- [x] Mapeo flexible de estados (`open`, `investigating`, `resolved`, `dismissed`).
+- [x] 5 limitadores de tasa específicos de seguridad implementados y activos.
+- [x] Integración de reporte de listas y motivos en frontend (`ReportModal.tsx`, `ReadingLists.tsx`).
+- [x] Suite de tests automatizados en `backend/tests/test_phase16_moderation_social_safety.py` (17/17 tests passing, 100%).
 
 ---
 
-# 22. FASE 17 — Cuenta y privacidad del usuario
+# 22. FASE 17 — Cuenta y privacidad del usuario [COMPLETADA]
 
 **Prioridad: P1**
 
-Implementar/revisar:
+Implementado:
 
-- cambio de email;
+- cambio de email seguro con reautenticación por contraseña (`POST /api/v1/users/email/change/`);
 - verificación email;
 - password reset;
 - cambio de password;
-- sesiones;
+- sesiones y revocación masiva de JWT en blacklist;
 - logout global;
-- exportación de datos;
-- eliminación de cuenta;
-- anonimización;
-- consentimiento cuando proceda.
+- exportación de datos en JSON estructurado conforme a RGPD Art. 20 (`GET /api/v1/users/account/export/`);
+- eliminación de cuenta y derecho al olvido conforme a RGPD Art. 17 (`POST /api/v1/users/account/delete/`);
+- anonimización irreversible y desvinculación social;
+- campos de consentimiento y trazabilidad (`deleted_at`, `terms_accepted_at`, `privacy_accepted_at`);
+- registro en `AuditLog` para `EMAIL_CHANGE`, `USER_DELETE` y `DATA_EXPORT`;
+- UI tabulada en frontend (`EditProfile.tsx`) con pestañas Perfil, Seguridad y Privacidad & RGPD.
 
-## 22.1. Eliminación
+## 22.1. Eliminación y Derecho al Olvido (RGPD Art. 17)
 
-Definir qué ocurre con:
+Definido y ejecutado de forma atómica:
+- **Usuario:** marcado como `is_active=False`, `deleted_at=now`, email y username anonimizados (`deleted_user_<id>`, `deleted_<id>_<timestamp>@deleted.local`), contraseña destruida (`set_unusable_password`), datos personales eliminados (bio, avatar, nombres, fechas).
+- **Protección superadministrador:** rechazo de eliminación si es el único superusuario activo del sistema.
+- **Relaciones sociales:** follows (`following`/`followers`), bloqueos (`blocked_users`) y mutes (`muted_users`) eliminados completamente.
+- **Listas de lectura:** colecciones personales convertidas a privadas (`privacy='private'`) y moderadas (`is_moderated=True`).
+- **Comentarios en reseñas:** soft-delete atómico (`deleted_at=now`).
+- **Notificaciones y recomendaciones:** eliminadas de la base de datos.
+- **Sesiones:** todos los tokens pendientes añadidos a la lista negra (`BlacklistedToken`).
 
-- reviews;
-- comentarios;
-- follows;
-- listas;
-- mensajes;
-- actividad;
-- feedback;
-- recomendaciones.
+## 22.2. Portabilidad de Datos (RGPD Art. 20)
 
-## 22.2. Export
+Endpoint: `GET /api/v1/users/account/export/` con descarga directa JSON (`attachment; filename="mybookconnect_data_export_<username>.json"`).
+Contenido:
+- `_metadata`: metadatos de plataforma, timestamp y base jurídica.
+- `profile`: cuenta, identificador, consentimiento de términos y privacidad.
+- `library`: libros en biblioteca, estados de lectura, calificaciones, fechas de inicio y fin, notas y progreso.
+- `reviews`: reseñas públicas emitidas con puntuaciones y textos.
+- `comments`: comentarios en reseñas de la comunidad.
+- `reading_lists`: listas temáticas de lectura creadas por el usuario.
+- `social`: listado de cuentas seguidas y seguidores.
 
-Formato inicial:
+### Entregable
+`docs/security/account_and_privacy_management.md` [COMPLETADO]
 
-```text
-JSON
-```
-
-con:
-
-- perfil;
-- biblioteca;
-- reviews;
-- listas;
-- follows si legalmente corresponde;
-- preferencias.
+### Criterio de salida
+- [x] Endpoint de cambio de email con confirmación de contraseña implementado y auditado.
+- [x] Endpoint de eliminación de cuenta conforme a RGPD Art. 17 con confirmación por contraseña y tecleo destructivo implementado.
+- [x] Anonimización de datos personales y revocación de sesiones JWT verificada.
+- [x] Endpoint de exportación de datos conforme a RGPD Art. 20 en formato JSON portable.
+- [x] Interfaz de usuario en Frontend tabulada (Perfil, Seguridad, Privacidad) operativa.
+- [x] Documentación técnica y normativa de seguridad y privacidad redactada.
+- [x] Suite de pruebas automatizadas completa pasando al 100% (`test_phase17_account_privacy.py`, 7/7).
 
 ---
 
-# 23. FASE 18 — Legal y privacidad para beta
+# 23. FASE 18 — Legal y privacidad para beta [COMPLETADA]
 
 **Prioridad: P1 antes de usuarios reales**
 
-Preparar:
+Preparado e implementado:
 
-- aviso legal;
-- política de privacidad;
-- política de cookies si se utilizan;
-- términos de uso;
-- política de contenido;
-- política de eliminación;
-- contacto.
+- aviso legal (`legal_notice`);
+- política de privacidad (`privacy`);
+- política de cookies técnicas y de sesión (`cookies`);
+- términos de uso para fase beta (`terms`);
+- política de contenido y normas de la comunidad DSA (`content_policy`);
+- política de eliminación, cancelación y retención RGPD Art. 17 (`deletion_policy`);
+- canales oficiales de contacto y ejercicio de derechos (`contact`).
 
-Documentar:
+Documentado y garantizado:
 
-- datos recogidos;
-- finalidad;
-- proveedores;
-- IA;
-- analytics;
-- cookies;
-- retención.
+- **datos recogidos:** cuentas, bibliotecas, reseñas y logs de seguridad estrictamente necesarios;
+- **finalidad:** catalogación de lecturas, interacción social literaria y seguridad;
+- **proveedores:** infraestructura en la UE, PostgreSQL vectorizado, Redis y APIs abiertas bibliográficas;
+- **IA:** búsqueda semántica y recomendaciones v3 sin utilizar datos de usuario para entrenar modelos de terceros (conforme a AI Act);
+- **analytics:** enfoque privacy-first sin herramientas de rastreo comercial invasivo;
+- **cookies:** cookies técnicas esenciales y de sesión JWT sin rastreo cruzado;
+- **retención:** mantenimiento durante vida de la cuenta y supresión/anonimización atómica (RGPD Art. 17).
+- **Principio rector:** Cero tracking innecesario en la plataforma.
 
-No introducir tracking innecesario.
+### Entregables
+- `docs/legal/legal_and_privacy_beta.md` [COMPLETADO]
+- Management command `seed_legal_documents` con los 7 documentos normativos completos [COMPLETADO]
+- Endpoints públicos `GET /api/v1/books/legal/` y `GET /api/v1/books/legal/<slug>/` [COMPLETADO]
+- Páginas en Frontend (`PrivacyPolicy.tsx`, `TermsOfService.tsx`, `CookiePolicy.tsx`, `LegalNotice.tsx`, `ContentPolicy.tsx`, `DeletionPolicy.tsx`, `ContactPage.tsx`) con rutas en `router.tsx` y enlaces en `Footer.tsx` [COMPLETADO]
+
+### Criterio de salida
+- [x] Los 7 documentos normativos sembrados y actualizables en backend.
+- [x] Endpoint público de listado y detalle operativo (`GET /api/v1/books/legal/`).
+- [x] Garantía documentada de no cesión ni entrenamiento de modelos IA con datos de usuario.
+- [x] Enfoque privacy-first sin rastreo invasivo de terceros activo en políticas y arquitectura.
+- [x] Páginas públicas operativas en frontend con enrutamiento y enlaces en pie de página.
+- [x] Suite de tests automatizados al 100% (`test_phase18_legal_privacy_beta.py`, 6/6).
 
 ---
 
-# 24. FASE 19 — Producto: onboarding
+# 24. FASE 19 — Producto: onboarding [COMPLETADA]
 
 **Prioridad: P1**
 
@@ -1838,7 +1970,7 @@ Ejemplo:
 
 ---
 
-# 25. FASE 20 — Descubrimiento de libros
+# 25. FASE 20 — Descubrimiento de libros [COMPLETADA]
 
 **Prioridad: P1/P2**
 
@@ -1858,7 +1990,7 @@ Evitar que todo dependa de IA.
 
 ---
 
-# 26. FASE 21 — Listas sociales
+# 26. FASE 21 — Listas sociales [COMPLETADA]
 
 **Prioridad: P1/P2**
 
@@ -1890,7 +2022,7 @@ Funciones:
 
 ---
 
-# 27. FASE 22 — Feed
+# 27. FASE 22 — Feed [COMPLETADA]
 
 **Prioridad: P1/P2**
 

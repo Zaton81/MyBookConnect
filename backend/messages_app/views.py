@@ -1,10 +1,12 @@
 from django.contrib.auth import get_user_model
-from rest_framework import mixins, permissions, serializers, viewsets
+from django.db.models import Count, Prefetch, Q
+from rest_framework import mixins, permissions, serializers, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 
 from books.pagination import StandardCursorPagination
+from users.throttles import MessageRateThrottle
 
 from .models import Conversation, Message
 from .serializers import ConversationSerializer, MessageSerializer
@@ -25,9 +27,29 @@ class ConversationViewSet(viewsets.ReadOnlyModelViewSet):
     def get_queryset(self):
         if getattr(self, 'swagger_fake_view', False) or not self.request.user.is_authenticated:
             return Conversation.objects.none()
-        return Conversation.objects.filter(
-            participants=self.request.user
-        ).prefetch_related('participants', 'messages').order_by('-updated_at')
+        user = self.request.user
+        return (
+            Conversation.objects.filter(participants=user)
+            .annotate(
+                annotated_unread_count=Count(
+                    'messages',
+                    filter=Q(messages__deleted_at__isnull=True, messages__is_moderated=False, messages__read=False)
+                    & ~Q(messages__sender=user),
+                    distinct=True,
+                )
+            )
+            .prefetch_related(
+                'participants',
+                Prefetch(
+                    'messages',
+                    queryset=Message.objects.filter(deleted_at__isnull=True, is_moderated=False)
+                    .select_related('sender')
+                    .order_by('-created_at'),
+                    to_attr='prefetched_messages',
+                ),
+            )
+            .order_by('-updated_at')
+        )
 
     @action(detail=False, methods=['post'], url_path='start')
     def start_conversation(self, request):
@@ -56,6 +78,11 @@ class MessageViewSet(
     parser_classes = [MultiPartParser, FormParser, JSONParser]
     pagination_class = StandardCursorPagination
 
+    def get_throttles(self):
+        if self.action == 'create' or self.request.method.lower() == 'post':
+            return [MessageRateThrottle()]
+        return super().get_throttles()
+
     def get_queryset(self):
         if getattr(self, 'swagger_fake_view', False) or not self.request.user.is_authenticated:
             return Message.objects.none()
@@ -78,6 +105,21 @@ class MessageViewSet(
             qs = qs.filter(is_moderated=False)
         return qs
 
+    def create(self, request, *args, **kwargs):
+        client_message_id = request.data.get('client_message_id')
+        conv_id = request.data.get('conversation')
+        if client_message_id and conv_id:
+            existing = Message.objects.filter(
+                conversation_id=conv_id,
+                sender=request.user,
+                client_message_id=client_message_id,
+                deleted_at__isnull=True,
+            ).first()
+            if existing:
+                serializer = self.get_serializer(existing)
+                return Response(serializer.data, status=status.HTTP_200_OK)
+        return super().create(request, *args, **kwargs)
+
     def perform_create(self, serializer):
         from rest_framework.exceptions import PermissionDenied
 
@@ -96,7 +138,8 @@ class MessageViewSet(
             if not can_message(self.request.user, participant):
                 raise serializers.ValidationError('No puedes enviar mensajes a esta conversación debido a una restricción de privacidad o bloqueo.')
 
-        msg = serializer.save(sender=self.request.user, conversation=conv)
+        client_message_id = self.request.data.get('client_message_id')
+        msg = serializer.save(sender=self.request.user, conversation=conv, client_message_id=client_message_id)
 
         # Generar notificación para los demás participantes que no hayan silenciado al remitente
         for participant in conv.participants.exclude(id=self.request.user.id):

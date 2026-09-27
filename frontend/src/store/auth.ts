@@ -14,7 +14,9 @@ interface AuthStore extends AuthState {
   updateProfile: (data: FormData | Partial<User>) => Promise<void>;
   followUser: (userId: number) => Promise<void>;
   unfollowUser: (userId: number) => Promise<void>;
-  getFollowStatus: (userId: number) => Promise<{ is_following: boolean; is_follower: boolean; is_mutual: boolean }>;
+  getFollowStatus: (
+    userId: number
+  ) => Promise<{ is_following: boolean; is_follower: boolean; is_mutual: boolean }>;
   getFollowing: () => Promise<User[]>;
   getFollowers: () => Promise<User[]>;
 }
@@ -45,7 +47,13 @@ export const useAuthStore = create<AuthStore>()(
           set({ user });
           queryClient.invalidateQueries({ queryKey: queryKeys.users.profile() });
         } catch (error: any) {
-          set({ token: null, refreshToken: null, isAuthenticated: false, user: null, error: error?.message });
+          set({
+            token: null,
+            refreshToken: null,
+            isAuthenticated: false,
+            user: null,
+            error: error?.message,
+          });
           throw error;
         }
       },
@@ -66,7 +74,13 @@ export const useAuthStore = create<AuthStore>()(
           set({ user });
           queryClient.invalidateQueries({ queryKey: queryKeys.users.profile() });
         } catch (error: any) {
-          set({ token: null, refreshToken: null, isAuthenticated: false, user: null, error: error?.message });
+          set({
+            token: null,
+            refreshToken: null,
+            isAuthenticated: false,
+            user: null,
+            error: error?.message,
+          });
           throw error;
         }
       },
@@ -89,7 +103,13 @@ export const useAuthStore = create<AuthStore>()(
           set({ user });
           queryClient.invalidateQueries({ queryKey: queryKeys.users.profile() });
         } catch (error: any) {
-          set({ token: null, refreshToken: null, isAuthenticated: false, user: null, error: error?.message });
+          set({
+            token: null,
+            refreshToken: null,
+            isAuthenticated: false,
+            user: null,
+            error: error?.message,
+          });
           throw error;
         }
       },
@@ -159,12 +179,12 @@ export const useAuthStore = create<AuthStore>()(
 
       getFollowing: async () => {
         const res: any = await api.get('/api/v1/users/following/');
-        return Array.isArray(res) ? res : (res?.results || []);
+        return Array.isArray(res) ? res : res?.results || [];
       },
 
       getFollowers: async () => {
         const res: any = await api.get('/api/v1/users/followers/');
-        return Array.isArray(res) ? res : (res?.results || []);
+        return Array.isArray(res) ? res : res?.results || [];
       },
     }),
     {

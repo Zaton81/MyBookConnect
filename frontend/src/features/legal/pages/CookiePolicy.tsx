@@ -5,8 +5,13 @@ export function CookiePolicy() {
   return (
     <article className="max-w-4xl mx-auto py-8 px-4 sm:px-6">
       {/* Breadcrumb */}
-      <nav aria-label="Navegación secundaria" className="text-xs text-slate-500 dark:text-slate-400 mb-6 flex items-center gap-2">
-        <Link to="/" className="hover:text-teal-600 dark:hover:text-teal-400">Inicio</Link>
+      <nav
+        aria-label="Navegación secundaria"
+        className="text-xs text-slate-500 dark:text-slate-400 mb-6 flex items-center gap-2"
+      >
+        <Link to="/" className="hover:text-teal-600 dark:hover:text-teal-400">
+          Inicio
+        </Link>
         <span>/</span>
         <span className="text-slate-800 dark:text-slate-200 font-medium">Política de Cookies</span>
       </nav>
@@ -31,7 +36,8 @@ export function CookiePolicy() {
               ¿Deseas modificar tus preferencias de cookies en cualquier momento?
             </h2>
             <p className="text-xs text-teal-800 dark:text-teal-300 mt-0.5">
-              Puedes activar o desactivar las cookies analíticas y de afiliados de Amazon con un solo clic.
+              Puedes activar o desactivar las cookies analíticas y de afiliados de Amazon con un
+              solo clic.
             </p>
           </div>
           <button
@@ -48,7 +54,10 @@ export function CookiePolicy() {
             1. ¿Qué es una cookie?
           </h2>
           <p className="text-sm">
-            Una cookie es un pequeño archivo de texto que un sitio web almacena en tu navegador u ordenador al visitarlo. Las cookies permiten a las páginas recordar tus acciones y preferencias (como inicio de sesión, idioma y opciones de visualización) para que no tengas que volver a configurarlas cada vez que regresas al sitio.
+            Una cookie es un pequeño archivo de texto que un sitio web almacena en tu navegador u
+            ordenador al visitarlo. Las cookies permiten a las páginas recordar tus acciones y
+            preferencias (como inicio de sesión, idioma y opciones de visualización) para que no
+            tengas que volver a configurarlas cada vez que regresas al sitio.
           </p>
         </section>
 
@@ -67,7 +76,9 @@ export function CookiePolicy() {
                 </span>
               </h3>
               <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
-                Son estrictamente necesarias para el funcionamiento del portal. Permiten la gestión de sesiones seguras mediante tokens JWT, la navegación por la biblioteca y la protección contra ataques maliciosos tipo Cross-Site Request Forgery (CSRF).
+                Son estrictamente necesarias para el funcionamiento del portal. Permiten la gestión
+                de sesiones seguras mediante tokens JWT, la navegación por la biblioteca y la
+                protección contra ataques maliciosos tipo Cross-Site Request Forgery (CSRF).
               </p>
             </div>
 
@@ -80,7 +91,9 @@ export function CookiePolicy() {
                 </span>
               </h3>
               <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
-                Recaban información agregada y anónima sobre el tráfico y uso de la plataforma, ayudándonos a detectar páginas lentas, optimizar el motor de búsqueda de libros y perfeccionar la experiencia de usuario.
+                Recaban información agregada y anónima sobre el tráfico y uso de la plataforma,
+                ayudándonos a detectar páginas lentas, optimizar el motor de búsqueda de libros y
+                perfeccionar la experiencia de usuario.
               </p>
             </div>
 
@@ -93,7 +106,13 @@ export function CookiePolicy() {
                 </span>
               </h3>
               <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
-                My Book Social incluye enlaces de compra a libros y servicios de lectura en tiendas asociadas, principalmente a través del <strong>Programa de Afiliados de Amazon</strong>. Cuando pulsas en un enlace de afiliado o interactúas con un módulo publicitario de libros, Amazon instala una cookie en tu navegador con una validez determinada (habitualmente 24 horas) para registrar la referencia y acreditar la comisión de venta correspondiente al soporte de nuestro proyecto, sin ningún incremento de precio en tu compra.
+                My Book Social incluye enlaces de compra a libros y servicios de lectura en tiendas
+                asociadas, principalmente a través del{' '}
+                <strong>Programa de Afiliados de Amazon</strong>. Cuando pulsas en un enlace de
+                afiliado o interactúas con un módulo publicitario de libros, Amazon instala una
+                cookie en tu navegador con una validez determinada (habitualmente 24 horas) para
+                registrar la referencia y acreditar la comisión de venta correspondiente al soporte
+                de nuestro proyecto, sin ningún incremento de precio en tu compra.
               </p>
             </div>
           </div>
@@ -129,7 +148,9 @@ export function CookiePolicy() {
                 <tr>
                   <td className="p-3 font-mono font-semibold">amazon_tag / session-id</td>
                   <td className="p-3">Amazon EU S.à r.l.</td>
-                  <td className="p-3">Rastreo de enlaces de afiliado y carrito de libros recomendados.</td>
+                  <td className="p-3">
+                    Rastreo de enlaces de afiliado y carrito de libros recomendados.
+                  </td>
                   <td className="p-3">24 horas / 90 días</td>
                 </tr>
               </tbody>
@@ -142,13 +163,27 @@ export function CookiePolicy() {
             4. Cómo gestionar y deshabilitar cookies desde tu navegador
           </h2>
           <p className="text-sm mb-3">
-            Además de nuestro panel de preferencias, puedes permitir, bloquear o eliminar las cookies instaladas en tu equipo mediante la configuración de las opciones del navegador que utilices:
+            Además de nuestro panel de preferencias, puedes permitir, bloquear o eliminar las
+            cookies instaladas en tu equipo mediante la configuración de las opciones del navegador
+            que utilices:
           </p>
           <ul className="list-disc pl-5 space-y-1.5 text-sm">
-            <li><strong>Google Chrome:</strong> Configuración &gt; Privacidad y seguridad &gt; Cookies y otros datos de sitios.</li>
-            <li><strong>Mozilla Firefox:</strong> Ajustes &gt; Privacidad &amp; Seguridad &gt; Cookies y datos del sitio.</li>
-            <li><strong>Apple Safari:</strong> Preferencias &gt; Privacidad &gt; Bloquear todas las cookies.</li>
-            <li><strong>Microsoft Edge:</strong> Configuración &gt; Permisos del sitio &gt; Cookies y datos del sitio.</li>
+            <li>
+              <strong>Google Chrome:</strong> Configuración &gt; Privacidad y seguridad &gt; Cookies
+              y otros datos de sitios.
+            </li>
+            <li>
+              <strong>Mozilla Firefox:</strong> Ajustes &gt; Privacidad &amp; Seguridad &gt; Cookies
+              y datos del sitio.
+            </li>
+            <li>
+              <strong>Apple Safari:</strong> Preferencias &gt; Privacidad &gt; Bloquear todas las
+              cookies.
+            </li>
+            <li>
+              <strong>Microsoft Edge:</strong> Configuración &gt; Permisos del sitio &gt; Cookies y
+              datos del sitio.
+            </li>
           </ul>
         </section>
       </div>
@@ -157,4 +192,3 @@ export function CookiePolicy() {
 }
 
 export default CookiePolicy;
-

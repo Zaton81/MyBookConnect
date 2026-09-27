@@ -9,10 +9,18 @@ describe('BookReviewsSection Component', () => {
     globalThis.fetch = vi.fn();
   });
 
-  const renderSection = (token: string | null = 'mock-token', currentUser: any = { id: 1, username: 'testuser' }) => {
+  const renderSection = (
+    token: string | null = 'mock-token',
+    currentUser: any = { id: 1, username: 'testuser' }
+  ) => {
     return render(
       <MemoryRouter>
-        <BookReviewsSection bookId={1} bookTitle="Mock Book" token={token} currentUser={currentUser} />
+        <BookReviewsSection
+          bookId={1}
+          bookTitle="Mock Book"
+          token={token}
+          currentUser={currentUser}
+        />
       </MemoryRouter>
     );
   };
@@ -36,9 +44,9 @@ describe('BookReviewsSection Component', () => {
             rating: 5,
             text: 'Amazing book!',
             created_at: new Date().toISOString(),
-          }
-        ]
-      })
+          },
+        ],
+      }),
     });
 
     renderSection();

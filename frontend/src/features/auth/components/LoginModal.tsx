@@ -60,7 +60,9 @@ export default function LoginModal({ open, onClose, onLoginSuccess }: LoginModal
               {...register('email')}
               placeholder="tu@ejemplo.com"
               className={`w-full rounded-xl border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 dark:bg-gray-700 dark:text-white ${
-                errors.email ? 'border-red-500 bg-red-50/20' : 'border-gray-300 dark:border-gray-600'
+                errors.email
+                  ? 'border-red-500 bg-red-50/20'
+                  : 'border-gray-300 dark:border-gray-600'
               }`}
             />
             {errors.email && (
@@ -77,11 +79,15 @@ export default function LoginModal({ open, onClose, onLoginSuccess }: LoginModal
               {...register('password')}
               placeholder="Contraseña"
               className={`w-full rounded-xl border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 dark:bg-gray-700 dark:text-white ${
-                errors.password ? 'border-red-500 bg-red-50/20' : 'border-gray-300 dark:border-gray-600'
+                errors.password
+                  ? 'border-red-500 bg-red-50/20'
+                  : 'border-gray-300 dark:border-gray-600'
               }`}
             />
             {errors.password && (
-              <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors.password.message}</p>
+              <p className="mt-1 text-xs text-red-600 dark:text-red-400">
+                {errors.password.message}
+              </p>
             )}
           </div>
 
@@ -105,9 +111,7 @@ export default function LoginModal({ open, onClose, onLoginSuccess }: LoginModal
                 <div className="w-full border-t border-gray-200 dark:border-gray-700" />
               </div>
               <div className="relative flex justify-center text-[11px] uppercase">
-                <span className="bg-white dark:bg-gray-800 px-2 text-gray-400">
-                  O entra con
-                </span>
+                <span className="bg-white dark:bg-gray-800 px-2 text-gray-400">O entra con</span>
               </div>
             </div>
 

@@ -29,9 +29,12 @@ export function EditProfileForm() {
       birth_date: user?.birth_date || '',
       location: user?.location || '',
       privacy_level: (user?.privacy_level as 'public' | 'friends' | 'private') || 'public',
-      reading_privacy_level: (user?.reading_privacy_level as 'public' | 'friends' | 'private') || 'public',
-      activity_privacy_level: (user?.activity_privacy_level as 'public' | 'friends' | 'private') || 'public',
-      allow_messages_from: (user?.allow_messages_from as 'everyone' | 'followed' | 'nobody') || 'everyone',
+      reading_privacy_level:
+        (user?.reading_privacy_level as 'public' | 'friends' | 'private') || 'public',
+      activity_privacy_level:
+        (user?.activity_privacy_level as 'public' | 'friends' | 'private') || 'public',
+      allow_messages_from:
+        (user?.allow_messages_from as 'everyone' | 'followed' | 'nobody') || 'everyone',
       bio: user?.bio || '',
       show_email: user?.show_email ?? false,
       show_birth_date: user?.show_birth_date ?? false,
@@ -147,10 +150,7 @@ export function EditProfileForm() {
 
       <div className="mb-4">
         <Label htmlFor="privacy_level" value="Nivel de privacidad" />
-        <Select
-          id="privacy_level"
-          {...register('privacy_level')}
-        >
+        <Select id="privacy_level" {...register('privacy_level')}>
           <option value="public">Público</option>
           <option value="friends">Solo amigos</option>
           <option value="private">Privado</option>
@@ -159,10 +159,7 @@ export function EditProfileForm() {
 
       <div className="mb-4">
         <Label htmlFor="reading_privacy_level" value="Privacidad de biblioteca y lecturas" />
-        <Select
-          id="reading_privacy_level"
-          {...register('reading_privacy_level')}
-        >
+        <Select id="reading_privacy_level" {...register('reading_privacy_level')}>
           <option value="public">Pública (visible para toda la comunidad)</option>
           <option value="friends">Solo amigos (personas a las que sigues)</option>
           <option value="private">Privada (solo visible para ti)</option>
@@ -171,10 +168,7 @@ export function EditProfileForm() {
 
       <div className="mb-4">
         <Label htmlFor="activity_privacy_level" value="Privacidad de actividad social (feed)" />
-        <Select
-          id="activity_privacy_level"
-          {...register('activity_privacy_level')}
-        >
+        <Select id="activity_privacy_level" {...register('activity_privacy_level')}>
           <option value="public">Pública</option>
           <option value="friends">Solo amigos</option>
           <option value="private">Privada</option>
@@ -183,10 +177,7 @@ export function EditProfileForm() {
 
       <div className="mb-4">
         <Label htmlFor="allow_messages_from" value="Recepción de mensajes directos" />
-        <Select
-          id="allow_messages_from"
-          {...register('allow_messages_from')}
-        >
+        <Select id="allow_messages_from" {...register('allow_messages_from')}>
           <option value="everyone">Todos los usuarios</option>
           <option value="followed">Solo personas que sigo / amigos</option>
           <option value="nobody">Nadie (desactivar mensajes entrantes)</option>
@@ -194,7 +185,9 @@ export function EditProfileForm() {
       </div>
 
       <div className="mb-4 border border-gray-200 dark:border-gray-700 rounded-xl p-4 bg-gray-50/50 dark:bg-gray-800/50">
-        <p className="font-semibold text-sm mb-3 text-gray-800 dark:text-gray-200">Visibilidad de campos</p>
+        <p className="font-semibold text-sm mb-3 text-gray-800 dark:text-gray-200">
+          Visibilidad de campos
+        </p>
         <div className="flex flex-col gap-2.5">
           <label className="flex items-center gap-2 cursor-pointer text-sm">
             <Controller
@@ -261,9 +254,7 @@ export function EditProfileForm() {
           content={bioContent}
           onChange={(value: string) => setValue('bio', value, { shouldValidate: true })}
         />
-        {errors.bio && (
-          <p className="mt-1 text-xs text-red-600">{errors.bio.message}</p>
-        )}
+        {errors.bio && <p className="mt-1 text-xs text-red-600">{errors.bio.message}</p>}
       </div>
 
       <div className="mb-6 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700 space-y-2">
@@ -272,7 +263,8 @@ export function EditProfileForm() {
           <span>Gamificación de Lectura (Opcional)</span>
         </h3>
         <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-          Si prefieres una experiencia minimalista centrada únicamente en tus libros y reseñas, puedes desactivar los retos, rachas de lectura y metas anuales en cualquier momento.
+          Si prefieres una experiencia minimalista centrada únicamente en tus libros y reseñas,
+          puedes desactivar los retos, rachas de lectura y metas anuales en cualquier momento.
         </p>
         <div className="pt-2">
           <label className="flex items-center gap-2 cursor-pointer text-sm">

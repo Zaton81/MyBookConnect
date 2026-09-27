@@ -40,6 +40,11 @@ urlpatterns = [
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
     path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
     path('api/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
+    # Healthchecks canónicos de Liveness y Readiness (Fase 13 - Docker y Producción)
+    path('health/live', HealthCheckView.as_view(), name='health_live_no_slash'),
+    path('health/live/', HealthCheckView.as_view(), name='health_live'),
+    path('health/ready', ReadinessCheckView.as_view(), name='health_ready_no_slash'),
+    path('health/ready/', ReadinessCheckView.as_view(), name='health_ready'),
     path('api/v1/health/', HealthCheckView.as_view(), name='health_check'),
     path('api/v1/ready/', ReadinessCheckView.as_view(), name='readiness_check'),
     path('api/v1/version/', VersionView.as_view(), name='api-version'),

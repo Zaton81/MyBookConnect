@@ -5,6 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useAuthStore } from '../../../store/auth';
 import { resolveMediaUrl } from '../../../utils/media';
+import { ReportModal } from '../../moderation';
 import { readingListSchema, ReadingListFormData } from '../schemas/listSchemas';
 
 interface BookItem {
@@ -39,7 +40,21 @@ interface ReadingList {
   items: ReadingListItem[];
   items_count: number;
   followers_count: number;
+  comments_count?: number;
+  views_count?: number;
   is_following: boolean;
+}
+
+interface ReadingListComment {
+  id: number;
+  user: {
+    id: number;
+    username: string;
+    avatar?: string;
+  };
+  content: string;
+  created_at: string;
+  can_delete: boolean;
 }
 
 export function ReadingLists() {
@@ -53,10 +68,19 @@ export function ReadingLists() {
   const [loading, setLoading] = useState(true);
   const [selectedList, setSelectedList] = useState<ReadingList | null>(null);
 
+  // Estados de comentarios (Fase 21)
+  const [comments, setComments] = useState<ReadingListComment[]>([]);
+  const [loadingComments, setLoadingComments] = useState(false);
+  const [newComment, setNewComment] = useState('');
+  const [submittingComment, setSubmittingComment] = useState(false);
+  const [cloningList, setCloningList] = useState(false);
+  const [shareToast, setShareToast] = useState(false);
+
   // Modal Crear / Editar Lista
   const [modalOpen, setModalOpen] = useState(false);
   const [editingList, setEditingList] = useState<ReadingList | null>(null);
   const [savingList, setSavingList] = useState(false);
+  const [reportingList, setReportingList] = useState<ReadingList | null>(null);
 
   const {
     register: registerList,
@@ -113,6 +137,115 @@ export function ReadingLists() {
   useEffect(() => {
     fetchLists();
   }, [activeTab, token]);
+
+  // Cargar comentarios al seleccionar una lista
+  const fetchComments = async (listId: number) => {
+    setLoadingComments(true);
+    try {
+      const headers: Record<string, string> = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const res = await fetch(`${apiUrl}/api/v1/books/reading-lists/${listId}/comments/`, { headers });
+      if (res.ok) {
+        const data = await res.json();
+        setComments(Array.isArray(data) ? data : []);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoadingComments(false);
+    }
+  };
+
+  useEffect(() => {
+    if (selectedList) {
+      fetchComments(selectedList.id);
+    } else {
+      setComments([]);
+    }
+  }, [selectedList?.id]);
+
+  const handleAddComment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedList || !token || !newComment.trim()) return;
+    setSubmittingComment(true);
+    try {
+      const res = await fetch(`${apiUrl}/api/v1/books/reading-lists/${selectedList.id}/comments/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ content: newComment.trim() }),
+      });
+      if (res.ok) {
+        setNewComment('');
+        await fetchComments(selectedList.id);
+        await fetchLists();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert(err.detail || 'Error al enviar el comentario.');
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setSubmittingComment(false);
+    }
+  };
+
+  const handleDeleteComment = async (commentId: number) => {
+    if (!selectedList || !token) return;
+    try {
+      const res = await fetch(`${apiUrl}/api/v1/books/reading-lists/${selectedList.id}/comments/${commentId}/`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        await fetchComments(selectedList.id);
+        await fetchLists();
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleCloneList = async (list: ReadingList) => {
+    if (!token) {
+      navigate('/login');
+      return;
+    }
+    setCloningList(true);
+    try {
+      const res = await fetch(`${apiUrl}/api/v1/books/reading-lists/${list.id}/clone/`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const cloned = await res.json();
+        alert(`¡Lista duplicada con éxito como "${cloned.name}" en tu biblioteca!`);
+        setActiveTab('my');
+        await fetchLists();
+        setSelectedList(cloned);
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert(err.detail || 'No se pudo duplicar la lista.');
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setCloningList(false);
+    }
+  };
+
+  const handleShareList = (list: ReadingList) => {
+    const shareUrl = `${window.location.origin}/reading-lists?id=${list.id}`;
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(shareUrl);
+      setShareToast(true);
+      setTimeout(() => setShareToast(false), 3000);
+    } else {
+      prompt('Copia el enlace a esta lista:', shareUrl);
+    }
+  };
 
   // Selección de lista por URL param inicial
   useEffect(() => {
@@ -235,7 +368,9 @@ export function ReadingLists() {
     try {
       const headers: Record<string, string> = {};
       if (token) headers['Authorization'] = `Bearer ${token}`;
-      const res = await fetch(`${apiUrl}/api/v1/books/?search=${encodeURIComponent(query)}`, { headers });
+      const res = await fetch(`${apiUrl}/api/v1/books/?search=${encodeURIComponent(query)}`, {
+        headers,
+      });
       if (res.ok) {
         const data = await res.json();
         const items = Array.isArray(data) ? data : data.results || [];
@@ -278,10 +413,13 @@ export function ReadingLists() {
   const handleRemoveBookFromList = async (bookId: number) => {
     if (!selectedList || !token) return;
     try {
-      const res = await fetch(`${apiUrl}/api/v1/books/reading-lists/${selectedList.id}/remove-book/?book_id=${bookId}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await fetch(
+        `${apiUrl}/api/v1/books/reading-lists/${selectedList.id}/remove-book/?book_id=${bookId}`,
+        {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
       if (res.ok) {
         await fetchLists();
       }
@@ -336,7 +474,8 @@ export function ReadingLists() {
             <span>Listas de Lectura</span>
           </h1>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-            Organiza, comparte y descubre colecciones temáticas de libros (Favoritos, Por leer 2027, etc.).
+            Organiza, comparte y descubre colecciones temáticas de libros (Favoritos, Por leer 2027,
+            etc.).
           </p>
         </div>
 
@@ -424,15 +563,15 @@ export function ReadingLists() {
                       selectedList.privacy === 'public'
                         ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
                         : selectedList.privacy === 'followers'
-                        ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
-                        : 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300'
+                          ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
+                          : 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300'
                     }`}
                   >
                     {selectedList.privacy === 'public'
                       ? 'Pública'
                       : selectedList.privacy === 'followers'
-                      ? 'Solo seguidores'
-                      : 'Privada'}
+                        ? 'Solo seguidores'
+                        : 'Privada'}
                   </span>
                 </div>
                 {selectedList.description && (
@@ -440,38 +579,72 @@ export function ReadingLists() {
                     {selectedList.description}
                   </p>
                 )}
-                <div className="flex items-center gap-4 text-xs text-slate-400 mt-3">
+                <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500 dark:text-slate-400 mt-3 font-medium">
                   <span>Por @{selectedList.user.username}</span>
                   <span>•</span>
-                  <span>{selectedList.items?.length || 0} libros</span>
+                  <span>📚 {selectedList.items?.length || selectedList.items_count || 0} libros</span>
                   <span>•</span>
-                  <span>{selectedList.followers_count || 0} seguidores</span>
+                  <span>👥 {selectedList.followers_count || 0} seguidores</span>
+                  <span>•</span>
+                  <span>👁️ {selectedList.views_count || 0} aperturas</span>
+                  <span>•</span>
+                  <span>💬 {selectedList.comments_count || comments.length || 0} comentarios</span>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                {/* Botón Compartir */}
+                <button
+                  onClick={() => handleShareList(selectedList)}
+                  className="text-xs font-bold px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-200 transition-colors flex items-center gap-1.5 cursor-pointer"
+                  title="Copiar enlace permanente a esta lista"
+                >
+                  <span>🔗</span>
+                  <span>Compartir</span>
+                </button>
+
                 {!isOwner(selectedList) ? (
-                  <button
-                    onClick={() => handleToggleFollow(selectedList)}
-                    className={`text-xs font-bold px-4 py-2 rounded-xl transition-all ${
-                      selectedList.is_following
-                        ? 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-red-50 hover:text-red-600'
-                        : 'bg-teal-600 hover:bg-teal-700 text-white shadow-sm shadow-teal-600/20'
-                    }`}
-                  >
-                    {selectedList.is_following ? 'Siguiendo ✓' : '+ Seguir Lista'}
-                  </button>
+                  <>
+                    {/* Botón Duplicar lista */}
+                    <button
+                      disabled={cloningList}
+                      onClick={() => handleCloneList(selectedList)}
+                      className="text-xs font-bold px-3 py-2 rounded-xl bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 hover:bg-teal-100 dark:hover:bg-teal-900/50 transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                      title="Guardar una copia exacta de esta lista en mi biblioteca"
+                    >
+                      <span>📑</span>
+                      <span>{cloningList ? 'Duplicando...' : 'Guardar copia'}</span>
+                    </button>
+
+                    <button
+                      onClick={() => handleToggleFollow(selectedList)}
+                      className={`text-xs font-bold px-4 py-2 rounded-xl transition-all cursor-pointer ${
+                        selectedList.is_following
+                          ? 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-red-50 hover:text-red-600'
+                          : 'bg-teal-600 hover:bg-teal-700 text-white shadow-sm shadow-teal-600/20'
+                      }`}
+                    >
+                      {selectedList.is_following ? 'Siguiendo ✓' : '+ Seguir Lista'}
+                    </button>
+                    <button
+                      onClick={() => setReportingList(selectedList)}
+                      className="text-xs font-semibold px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors cursor-pointer"
+                      title="Denunciar lista a moderación"
+                    >
+                      🚩 Denunciar
+                    </button>
+                  </>
                 ) : (
                   <>
                     <button
                       onClick={() => handleOpenEditModal(selectedList)}
-                      className="text-xs font-bold px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-200 transition-colors"
+                      className="text-xs font-bold px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-200 transition-colors cursor-pointer"
                     >
                       ✏️ Editar
                     </button>
                     <button
                       onClick={() => handleDeleteList(selectedList.id)}
-                      className="text-xs font-bold px-3.5 py-2 rounded-xl bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
+                      className="text-xs font-bold px-3.5 py-2 rounded-xl bg-red-50 text-red-600 hover:bg-red-100 transition-colors cursor-pointer"
                     >
                       🗑️ Eliminar
                     </button>
@@ -479,6 +652,14 @@ export function ReadingLists() {
                 )}
               </div>
             </div>
+
+            {/* Toast de compartir copiado */}
+            {shareToast && (
+              <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 text-xs font-bold rounded-2xl flex items-center justify-between">
+                <span>✓ ¡Enlace copiado al portapapeles! Ya puedes compartirlo con otros lectores.</span>
+                <button onClick={() => setShareToast(false)} className="text-emerald-500 font-bold ml-2">✕</button>
+              </div>
+            )}
 
             {/* Añadir libro a la lista (Solo propietario) */}
             {isOwner(selectedList) && (
@@ -632,6 +813,92 @@ export function ReadingLists() {
                 </div>
               )}
             </div>
+
+            {/* SECCIÓN DE DEBATE Y COMENTARIOS DE LA LISTA (Fase 21) */}
+            <div className="border-t border-slate-100 dark:border-slate-700 pt-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="font-bold text-base text-slate-900 dark:text-white flex items-center gap-2">
+                  <span>💬</span>
+                  <span>Debate y Comentarios</span>
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-bold">
+                    {comments.length}
+                  </span>
+                </h3>
+              </div>
+
+              {/* Formulario para añadir comentario */}
+              {token ? (
+                <form onSubmit={handleAddComment} className="flex flex-col sm:flex-row gap-2">
+                  <input
+                    type="text"
+                    value={newComment}
+                    onChange={(e) => setNewComment(e.target.value)}
+                    placeholder="Escribe tu opinión, recomendación o debate sobre esta lista..."
+                    className="flex-1 px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  />
+                  <button
+                    type="submit"
+                    disabled={submittingComment || !newComment.trim()}
+                    className="px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm text-white bg-teal-600 hover:bg-teal-700 disabled:opacity-50 transition-colors shadow-sm cursor-pointer whitespace-nowrap"
+                  >
+                    {submittingComment ? 'Publicando...' : 'Comentar'}
+                  </button>
+                </form>
+              ) : (
+                <div className="p-3 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-200/60 dark:border-slate-700/60 text-xs text-slate-500 text-center">
+                  <span>Inicia sesión para participar en el debate de esta lista.</span>
+                </div>
+              )}
+
+              {/* Listado de comentarios */}
+              {loadingComments ? (
+                <div className="py-4 text-center">
+                  <Spinner size="sm" />
+                </div>
+              ) : comments.length === 0 ? (
+                <p className="text-xs text-slate-400 py-3 text-center">
+                  Aún no hay comentarios en esta lista. ¡Sé el primero en compartir tu opinión!
+                </p>
+              ) : (
+                <div className="space-y-3 pt-2">
+                  {comments.map((c) => (
+                    <div
+                      key={c.id}
+                      className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-700/50 flex items-start justify-between gap-3 text-xs"
+                    >
+                      <div className="flex items-start gap-2.5 flex-1 min-w-0">
+                        <div className="w-7 h-7 rounded-full bg-teal-100 dark:bg-teal-900/60 text-teal-800 dark:text-teal-200 font-bold flex items-center justify-center shrink-0 text-xs">
+                          {c.user.username.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="font-bold text-slate-900 dark:text-white">
+                              @{c.user.username}
+                            </span>
+                            <span className="text-[10px] text-slate-400">
+                              {new Date(c.created_at).toLocaleDateString()}
+                            </span>
+                          </div>
+                          <p className="text-slate-700 dark:text-slate-300 text-xs leading-relaxed break-words">
+                            {c.content}
+                          </p>
+                        </div>
+                      </div>
+
+                      {c.can_delete && (
+                        <button
+                          onClick={() => handleDeleteComment(c.id)}
+                          className="text-slate-400 hover:text-red-500 p-1 rounded-lg transition-colors cursor-pointer"
+                          title="Eliminar comentario"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       ) : (
@@ -647,8 +914,8 @@ export function ReadingLists() {
                 {activeTab === 'my'
                   ? 'Aún no has creado ninguna lista de lectura. ¡Crea la primera para organizar tus libros!'
                   : activeTab === 'followed'
-                  ? 'No sigues ninguna lista de lectura aún.'
-                  : 'Aún no hay listas públicas compartidas por la comunidad.'}
+                    ? 'No sigues ninguna lista de lectura aún.'
+                    : 'Aún no hay listas públicas compartidas por la comunidad.'}
               </p>
               {activeTab === 'my' && token && (
                 <button
@@ -674,15 +941,15 @@ export function ReadingLists() {
                           list.privacy === 'public'
                             ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
                             : list.privacy === 'followers'
-                            ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
-                            : 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300'
+                              ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
+                              : 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300'
                         }`}
                       >
                         {list.privacy === 'public'
                           ? 'Pública'
                           : list.privacy === 'followers'
-                          ? 'Seguidores'
-                          : 'Privada'}
+                            ? 'Seguidores'
+                            : 'Privada'}
                       </span>
                       <span className="text-[11px] text-slate-400">
                         {list.items_count || 0} {list.items_count === 1 ? 'libro' : 'libros'}
@@ -823,9 +1090,18 @@ export function ReadingLists() {
           </div>
         </div>
       )}
+
+      {reportingList && (
+        <ReportModal
+          isOpen={!!reportingList}
+          onClose={() => setReportingList(null)}
+          targetType="list"
+          targetId={reportingList.id}
+          targetTitle={`Lista: ${reportingList.name}`}
+        />
+      )}
     </div>
   );
 }
 
 export default ReadingLists;
-

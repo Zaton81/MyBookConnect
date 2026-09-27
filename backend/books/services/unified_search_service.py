@@ -15,7 +15,7 @@ from django.db.models.functions import Coalesce, Greatest
 
 from ai.embeddings import cosine_similarity, get_embedding_for_text
 from ai.services import semantic_search_books
-from books.models import Book
+from books.models import Book, BookEmbedding, EmbeddingStatus
 from books.services.import_service import import_multiple_by_title, import_single_by_query
 
 logger = logging.getLogger(__name__)
@@ -228,7 +228,13 @@ class UnifiedSearchEngine:
                 semantic_scores[book.id] = score
 
         # Fusión y ranking final
-        return self._blend_and_rank(candidates_map, text_scores, fuzzy_scores, semantic_scores)
+        return self._blend_and_rank(
+            candidates_map,
+            text_scores,
+            fuzzy_scores,
+            semantic_scores,
+            query_str=query_str,
+        )
 
     def _execute_textual_search(self, query_str: str, base_qs: QuerySet) -> list[tuple[Book, float]]:
         is_postgres = connection.vendor == 'postgresql'
@@ -335,30 +341,34 @@ class UnifiedSearchEngine:
 
     def _execute_semantic_search(self, query_str: str, base_qs: QuerySet) -> list[tuple[Book, float]]:
         results: list[tuple[Book, float]] = []
+        allowed_ids = set(base_qs.values_list('id', flat=True))
 
-        # 1. Intentar cálculo vectorial directo si hay embeddings
+        # 1. Intentar cálculo vectorial directo contra BookEmbedding persistido
         query_emb = None
         try:
             query_emb = get_embedding_for_text(query_str)
         except Exception as exc:
             logger.debug("No se pudo obtener embedding para '%s': %s", query_str, exc)
 
-        if query_emb:
-            # Filtrar libros que tienen vector de embedding guardado
-            books_with_emb = base_qs.exclude(embedding__isnull=True).exclude(embedding=[])
-            for b in books_with_emb[:100]:
-                if b.embedding and isinstance(b.embedding, list):
-                    sim = cosine_similarity(query_emb, b.embedding)
-                    if sim > 0.2:
-                        results.append((b, float(sim)))
+        if query_emb and isinstance(query_emb, list) and len(query_emb) > 0:
+            embeddings_qs = (
+                BookEmbedding.objects.filter(
+                    embedding_status=EmbeddingStatus.COMPLETED,
+                    book_id__in=allowed_ids,
+                )
+                .select_related('book')
+            )
+            for emb_rec in embeddings_qs:
+                if emb_rec.vector and isinstance(emb_rec.vector, list) and len(emb_rec.vector) > 0:
+                    sim = cosine_similarity(query_emb, emb_rec.vector)
+                    if sim > 0.15:
+                        results.append((emb_rec.book, float(sim)))
 
         # 2. Si no hay resultados vectoriales directos, usar expansión conceptual temática
         if not results:
-            allowed_ids = set(base_qs.values_list('id', flat=True))
             semantic_candidates = semantic_search_books(query_str, limit=30)
             for rank_idx, b in enumerate(semantic_candidates):
                 if b.id in allowed_ids:
-                    # Score decreciente por orden de relevancia temática
                     score = max(0.2, 0.85 - (rank_idx * 0.03))
                     results.append((b, score))
 
@@ -370,10 +380,12 @@ class UnifiedSearchEngine:
         text_scores: dict[int, float],
         fuzzy_scores: dict[int, float],
         semantic_scores: dict[int, float],
+        query_str: str = '',
     ) -> list[SearchResultItem]:
         w_text = self.weights['text']
         w_fuzzy = self.weights['fuzzy']
         w_semantic = self.weights['semantic']
+        q_norm = query_str.lower().strip()
 
         ranked_items: list[SearchResultItem] = []
 
@@ -382,16 +394,38 @@ class UnifiedSearchEngine:
             s_fuzzy = fuzzy_scores.get(book_id, 0.0)
             s_semantic = semantic_scores.get(book_id, 0.0)
 
-            # Cálculo ponderado base
+            # Cálculo ponderado multicanal
             unified = (w_text * s_text) + (w_fuzzy * s_fuzzy) + (w_semantic * s_semantic)
 
-            # Boost sutil por calidad comunitaria (máx +0.05)
+            # Jerarquía de ranking determinista (Sección 11.2):
+            # 1. Exact match (+1.0)
+            # 2. Prefix match (+0.5)
+            # 3. Factor de calidad moderado (rating + popularidad <= 0.12)
+            title_norm = (book.title or '').lower().strip()
+            boost = 0.0
+            is_exact = False
+            is_prefix = False
+
+            if q_norm and title_norm:
+                if q_norm == title_norm:
+                    boost += 1.0
+                    is_exact = True
+                elif title_norm.startswith(q_norm):
+                    boost += 0.5
+                    is_prefix = True
+
             avg_rating = book.average_rating or 0.0
-            rating_boost = (avg_rating / 5.0) * 0.05 if avg_rating > 0 else 0.0
-            final_score = round(min(1.0, unified + rating_boost), 4)
+            rating_boost = (avg_rating / 5.0) * 0.08 if avg_rating > 0 else 0.0
+            popularity_boost = min(0.04, float(getattr(book, 'reviews_count', 0) or 0) * 0.004)
+
+            final_score = round(unified + boost + rating_boost + popularity_boost, 4)
 
             # Clasificación de tipo de coincidencia
-            if s_text >= 0.7 and s_fuzzy < 0.5:
+            if is_exact:
+                match_type = 'exact'
+            elif (s_text >= 0.4 and (s_fuzzy >= 0.3 or s_semantic >= 0.3)) or (s_fuzzy >= 0.3 and s_semantic >= 0.3):
+                match_type = 'hybrid'
+            elif is_prefix or (s_text >= 0.7 and s_fuzzy < 0.5):
                 match_type = 'exact'
             elif s_fuzzy >= 0.35 and s_text < 0.4:
                 match_type = 'fuzzy'
@@ -411,9 +445,9 @@ class UnifiedSearchEngine:
                 )
             )
 
-        # Ordenar descendentemente por unified_score y por promedio de calificación
+        # Paginación determinista (Sección 11.3): orden descendente por unified_score y desempate estable por -book.id
         ranked_items.sort(
-            key=lambda item: (item.unified_score, item.book.average_rating or 0.0),
+            key=lambda item: (item.unified_score, -(item.book.id)),
             reverse=True,
         )
         return ranked_items

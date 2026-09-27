@@ -141,24 +141,27 @@ export function Chat() {
   }, [fetchConversations]);
 
   // Cargar mensajes de la conversación activa
-  const fetchMessages = useCallback(async (convId: number) => {
-    if (!token) return;
-    try {
-      setLoadingMessages(true);
-      const res = await fetch(`${apiUrl}/api/v1/messages/?conversation=${convId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        const msgList: ChatMessage[] = Array.isArray(data) ? data : data.results || [];
-        setMessages(msgList);
+  const fetchMessages = useCallback(
+    async (convId: number) => {
+      if (!token) return;
+      try {
+        setLoadingMessages(true);
+        const res = await fetch(`${apiUrl}/api/v1/messages/?conversation=${convId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const msgList: ChatMessage[] = Array.isArray(data) ? data : data.results || [];
+          setMessages(msgList);
+        }
+      } catch (e) {
+        console.error('Error fetching messages', e);
+      } finally {
+        setLoadingMessages(false);
       }
-    } catch (e) {
-      console.error('Error fetching messages', e);
-    } finally {
-      setLoadingMessages(false);
-    }
-  }, [token, apiUrl]);
+    },
+    [token, apiUrl]
+  );
 
   useEffect(() => {
     if (activeConvId) {
@@ -168,24 +171,27 @@ export function Chat() {
   }, [activeConvId, fetchMessages, setSearchParams]);
 
   // Callback de WebSocket para nuevos mensajes entrantes
-  const handleMessageReceived = useCallback((newMsg: ChatMessage) => {
-    if (newMsg.conversation === activeConvId) {
-      setMessages((prev) => {
-        // Evitar duplicados por id
-        if (prev.some((m) => m.id === newMsg.id)) return prev;
-        return [...prev, newMsg];
-      });
-    }
+  const handleMessageReceived = useCallback(
+    (newMsg: ChatMessage) => {
+      if (newMsg.conversation === activeConvId) {
+        setMessages((prev) => {
+          // Evitar duplicados por id
+          if (prev.some((m) => m.id === newMsg.id)) return prev;
+          return [...prev, newMsg];
+        });
+      }
 
-    // Actualizar el último mensaje en la lista de conversaciones
-    setConversations((prev) =>
-      prev.map((c) =>
-        c.id === newMsg.conversation
-          ? { ...c, last_message: newMsg, updated_at: newMsg.created_at }
-          : c
-      )
-    );
-  }, [activeConvId]);
+      // Actualizar el último mensaje en la lista de conversaciones
+      setConversations((prev) =>
+        prev.map((c) =>
+          c.id === newMsg.conversation
+            ? { ...c, last_message: newMsg, updated_at: newMsg.created_at }
+            : c
+        )
+      );
+    },
+    [activeConvId]
+  );
 
   const { isConnected, sendMessage, markRead } = useChatWebSocket({
     conversationId: activeConvId,
@@ -230,9 +236,7 @@ export function Chat() {
 
   // Obtener el interlocutor de la conversación activa
   const activeConversation = conversations.find((c) => c.id === activeConvId);
-  const otherParticipant = activeConversation?.participants_details?.find(
-    (p) => p.id !== user?.id
-  );
+  const otherParticipant = activeConversation?.participants_details?.find((p) => p.id !== user?.id);
 
   const filteredConversations = conversations.filter((c) => {
     if (!searchQuery) return true;
@@ -282,11 +286,14 @@ export function Chat() {
           </div>
 
           {/* Selector de seguidos para iniciar chat rápido */}
-          {(showFollowingPicker || (searchQuery.trim().length > 0 && filteredFollowing.length > 0)) && (
+          {(showFollowingPicker ||
+            (searchQuery.trim().length > 0 && filteredFollowing.length > 0)) && (
             <div className="p-3 bg-teal-50/80 dark:bg-teal-900/20 border-b border-teal-100 dark:border-teal-800/50 max-h-48 overflow-y-auto">
               <div className="text-xs font-bold text-teal-900 dark:text-teal-200 mb-2 flex items-center justify-between">
                 <span>Escribir a tus seguidos:</span>
-                <span className="text-[10px] font-normal text-teal-700 dark:text-teal-300">({filteredFollowing.length})</span>
+                <span className="text-[10px] font-normal text-teal-700 dark:text-teal-300">
+                  ({filteredFollowing.length})
+                </span>
               </div>
               {filteredFollowing.length === 0 ? (
                 <div className="text-xs text-gray-500 dark:text-gray-400 py-2 text-center">
@@ -303,7 +310,11 @@ export function Chat() {
                     >
                       <div className="flex items-center gap-2 truncate">
                         {f.avatar ? (
-                          <img src={f.avatar} alt={f.username} className="w-7 h-7 rounded-full object-cover flex-shrink-0" />
+                          <img
+                            src={f.avatar}
+                            alt={f.username}
+                            className="w-7 h-7 rounded-full object-cover flex-shrink-0"
+                          />
                         ) : (
                           <div className="w-7 h-7 rounded-full bg-teal-600 text-white font-bold flex items-center justify-center flex-shrink-0 text-xs">
                             {f.username?.[0]?.toUpperCase() || 'U'}
@@ -314,7 +325,9 @@ export function Chat() {
                         </span>
                         <span className="text-[11px] text-gray-500 truncate">@{f.username}</span>
                       </div>
-                      <span className="text-teal-600 dark:text-teal-400 font-bold flex-shrink-0">💬 Chatear</span>
+                      <span className="text-teal-600 dark:text-teal-400 font-bold flex-shrink-0">
+                        💬 Chatear
+                      </span>
                     </button>
                   ))}
                 </div>
@@ -422,9 +435,7 @@ export function Chat() {
                   )}
                   <div>
                     <h2
-                      onClick={() =>
-                        otherParticipant && navigate(`/users/${otherParticipant.id}`)
-                      }
+                      onClick={() => otherParticipant && navigate(`/users/${otherParticipant.id}`)}
                       className="text-base font-bold text-gray-900 dark:text-white cursor-pointer hover:underline flex items-center gap-2"
                     >
                       {otherParticipant?.username || 'Usuario'}
@@ -467,7 +478,8 @@ export function Chat() {
                       ¡Saluda a {otherParticipant?.username || 'tu amigo'}!
                     </p>
                     <p className="text-xs text-gray-500 mt-1 max-w-sm">
-                      Comparte recomendaciones de libros, comenta lecturas o intercambia opiniones literarias.
+                      Comparte recomendaciones de libros, comenta lecturas o intercambia opiniones
+                      literarias.
                     </p>
                   </div>
                 ) : (
@@ -494,9 +506,7 @@ export function Chat() {
                               minute: '2-digit',
                             })}
                           </span>
-                          {isMine && (
-                            <span>{m.read ? '• Leído' : '• Enviado'}</span>
-                          )}
+                          {isMine && <span>{m.read ? '• Leído' : '• Enviado'}</span>}
                         </div>
                       </div>
                     );
@@ -539,7 +549,8 @@ export function Chat() {
                 Bandeja de Mensajes
               </h2>
               <p className="text-sm text-gray-500 mt-2 max-w-sm">
-                Selecciona una conversación a la izquierda o inicia un chat con tus amigos desde sus perfiles.
+                Selecciona una conversación a la izquierda o inicia un chat con tus amigos desde sus
+                perfiles.
               </p>
             </div>
           )}
@@ -550,4 +561,3 @@ export function Chat() {
 }
 
 export default Chat;
-

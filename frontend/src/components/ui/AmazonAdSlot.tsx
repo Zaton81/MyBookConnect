@@ -35,15 +35,16 @@ export function AmazonAdSlot({
     };
 
     window.addEventListener('mbc:cookie-consent-updated', handleUpdate as EventListener);
-    return () => window.removeEventListener('mbc:cookie-consent-updated', handleUpdate as EventListener);
+    return () =>
+      window.removeEventListener('mbc:cookie-consent-updated', handleUpdate as EventListener);
   }, []);
 
   // Build appropriate Amazon destination link
   const amazonUrl = asin
     ? `https://www.amazon.es/dp/${asin}?tag=${affiliateTag}`
     : searchQuery || bookTitle
-    ? `https://www.amazon.es/s?k=${encodeURIComponent(searchQuery || bookTitle || '')}&i=stripbooks&tag=${affiliateTag}`
-    : `https://www.amazon.es/gp/browse.html?node=599364031&tag=${affiliateTag}`; // Default books category in Amazon ES
+      ? `https://www.amazon.es/s?k=${encodeURIComponent(searchQuery || bookTitle || '')}&i=stripbooks&tag=${affiliateTag}`
+      : `https://www.amazon.es/gp/browse.html?node=599364031&tag=${affiliateTag}`; // Default books category in Amazon ES
 
   if (variant === 'compact') {
     return (
@@ -56,7 +57,9 @@ export function AmazonAdSlot({
       >
         <span>🛒</span>
         <span>Ver en Amazon</span>
-        <span className="text-[10px] text-amber-600 dark:text-amber-400 font-normal">(Afiliado)</span>
+        <span className="text-[10px] text-amber-600 dark:text-amber-400 font-normal">
+          (Afiliado)
+        </span>
       </a>
     );
   }
@@ -82,7 +85,8 @@ export function AmazonAdSlot({
           {bookTitle ? `Consigue «${bookTitle}» en papel o Kindle` : title}
         </h4>
         <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
-          Envíos rápidos con Amazon Prime y catálogo completo de lectura digital con Kindle Unlimited.
+          Envíos rápidos con Amazon Prime y catálogo completo de lectura digital con Kindle
+          Unlimited.
         </p>
 
         <div className="mt-3 flex items-center justify-between gap-2">
@@ -122,10 +126,13 @@ export function AmazonAdSlot({
               </span>
             </div>
             <h4 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
-              {bookTitle ? `¿Quieres leer «${bookTitle}»?` : 'Encuentra tus próximas lecturas en Amazon'}
+              {bookTitle
+                ? `¿Quieres leer «${bookTitle}»?`
+                : 'Encuentra tus próximas lecturas en Amazon'}
             </h4>
             <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5 max-w-xl">
-              Accede a millones de títulos en tapa blanda, tapa dura o en formato digital con la app Kindle.
+              Accede a millones de títulos en tapa blanda, tapa dura o en formato digital con la app
+              Kindle.
             </p>
           </div>
         </div>
@@ -145,4 +152,3 @@ export function AmazonAdSlot({
 }
 
 export default AmazonAdSlot;
-

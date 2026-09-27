@@ -56,8 +56,10 @@ class SmartFeedRankingEngine:
         ActivityType.BOOK_FINISHED: 0.85,
         ActivityType.BOOK_RATED: 0.70,
         ActivityType.LIST_CREATED: 0.65,
+        ActivityType.COMMENT_ADDED: 0.55,
         ActivityType.BOOK_STARTED: 0.50,
         ActivityType.BOOK_ADDED: 0.40,
+        ActivityType.REVIEW_LIKED: 0.35,
         ActivityType.USER_FOLLOWED: 0.30,
     }
 
@@ -239,6 +241,12 @@ class SmartFeedRankingEngine:
             feed_signal = "Actividad muy reciente"
         elif activity.type == ActivityType.BOOK_FINISHED:
             feed_signal = "Lectura completada"
+        elif activity.type == ActivityType.LIST_CREATED:
+            feed_signal = "Nueva lista de lectura"
+        elif activity.type == ActivityType.COMMENT_ADDED:
+            feed_signal = "Nuevo comentario"
+        elif activity.type == ActivityType.REVIEW_LIKED:
+            feed_signal = "Reacción en reseña"
         else:
             feed_signal = "Actividad de tu red"
 

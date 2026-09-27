@@ -1,0 +1,36 @@
+module.exports = {
+  root: true,
+  env: { browser: true, es2020: true, node: true },
+  extends: [
+    'eslint:recommended',
+    'plugin:@typescript-eslint/recommended',
+    'plugin:react/recommended',
+    'plugin:react/jsx-runtime',
+    'plugin:react-hooks/recommended',
+  ],
+  ignorePatterns: ['dist', '.eslintrc.cjs', 'node_modules', 'coverage', 'src/types/api.ts'],
+  parser: '@typescript-eslint/parser',
+  plugins: ['react-refresh', 'jsx-a11y'],
+  settings: {
+    react: {
+      version: 'detect',
+    },
+  },
+  rules: {
+    'react-refresh/only-export-components': 'off',
+    '@typescript-eslint/no-explicit-any': 'warn',
+    '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
+    '@typescript-eslint/ban-ts-comment': 'warn',
+    'react/prop-types': 'off',
+    'react/no-unescaped-entities': 'off',
+    'no-useless-escape': 'off',
+    'no-useless-catch': 'warn',
+    'no-case-declarations': 'warn',
+    'no-empty': ['warn', { allowEmptyCatch: true }],
+    'jsx-a11y/click-events-have-key-events': 'warn',
+    'jsx-a11y/no-static-element-interactions': 'warn',
+    'jsx-a11y/no-noninteractive-element-interactions': 'warn',
+    'jsx-a11y/heading-has-content': 'warn',
+    'jsx-a11y/anchor-is-valid': 'warn',
+  },
+};

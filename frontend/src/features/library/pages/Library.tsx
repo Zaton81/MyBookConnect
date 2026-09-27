@@ -79,10 +79,10 @@ export function Library() {
           order === 'fecha'
             ? '-updated_at'
             : order === 'nota'
-            ? '-rating'
-            : order === 'alfabetico'
-            ? 'book__title'
-            : '-updated_at';
+              ? '-rating'
+              : order === 'alfabetico'
+                ? 'book__title'
+                : '-updated_at';
         params.set('ordering', ordering);
 
         const res = await fetch(`${apiUrl}/api/v1/books/user/books/?${params.toString()}`, {
@@ -121,9 +121,7 @@ export function Library() {
         body: JSON.stringify({ [field]: val }),
       });
       if (res.ok) {
-        setBooks((prev) =>
-          prev.map((b) => (b.id === ubId ? { ...b, [field]: val } : b))
-        );
+        setBooks((prev) => prev.map((b) => (b.id === ubId ? { ...b, [field]: val } : b)));
       }
     } catch (e) {
       console.error(e);
@@ -132,7 +130,10 @@ export function Library() {
 
   const deleteSelected = async () => {
     if (selectedBooks.size === 0 || !token) return;
-    if (!window.confirm(`¿Seguro que deseas eliminar ${selectedBooks.size} libros de tu biblioteca?`)) return;
+    if (
+      !window.confirm(`¿Seguro que deseas eliminar ${selectedBooks.size} libros de tu biblioteca?`)
+    )
+      return;
 
     for (const id of selectedBooks) {
       await fetch(`${apiUrl}/api/v1/books/user/books/${id}/`, {
@@ -170,22 +171,30 @@ export function Library() {
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-3 sm:gap-4 px-4 py-2 bg-slate-50 dark:bg-slate-700/50 rounded-2xl border border-slate-200/60 dark:border-slate-600 text-xs">
             <div>
-              <span className="block font-bold text-base text-teal-600 dark:text-teal-400">{totalCount}</span>
+              <span className="block font-bold text-base text-teal-600 dark:text-teal-400">
+                {totalCount}
+              </span>
               <span className="text-slate-500 text-[10px]">Total</span>
             </div>
             <div className="w-px h-6 bg-slate-200 dark:bg-slate-600" />
             <div>
-              <span className="block font-bold text-base text-indigo-600 dark:text-indigo-400">{readingCount}</span>
+              <span className="block font-bold text-base text-indigo-600 dark:text-indigo-400">
+                {readingCount}
+              </span>
               <span className="text-slate-500 text-[10px]">Leyendo</span>
             </div>
             <div className="w-px h-6 bg-slate-200 dark:bg-slate-600" />
             <div>
-              <span className="block font-bold text-base text-emerald-600 dark:text-emerald-400">{readCount}</span>
+              <span className="block font-bold text-base text-emerald-600 dark:text-emerald-400">
+                {readCount}
+              </span>
               <span className="text-slate-500 text-[10px]">Leídos</span>
             </div>
             <div className="w-px h-6 bg-slate-200 dark:bg-slate-600" />
             <div>
-              <span className="block font-bold text-base text-amber-600 dark:text-amber-400">{wantCount}</span>
+              <span className="block font-bold text-base text-amber-600 dark:text-amber-400">
+                {wantCount}
+              </span>
               <span className="text-slate-500 text-[10px]">Por leer</span>
             </div>
           </div>
@@ -552,4 +561,3 @@ export function Library() {
 }
 
 export default Library;
-

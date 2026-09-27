@@ -3,7 +3,7 @@ from rest_framework.routers import DefaultRouter
 
 from users.views import FeedView
 
-from .admin_views import PublicLegalDocumentView
+from .admin_views import PublicLegalDocumentListView, PublicLegalDocumentView
 from .ai_views import (
     AIAssistantView,
     AIBookSummaryView,
@@ -12,6 +12,7 @@ from .ai_views import (
     AIToolExecuteView,
     AIToolsListView,
 )
+from .discovery_views import BookDiscoveryView
 from .import_views import CSVImportConfirmView, CSVImportPreviewView
 from .views import (
     AuthorBookRefreshView,
@@ -45,11 +46,13 @@ router = DefaultRouter()
 router.register('reading-lists', ReadingListViewSet, basename='reading-lists')
 
 urlpatterns = [
+    path('legal/', PublicLegalDocumentListView.as_view(), name='books-legal-list'),
     path('legal/<slug:slug>/', PublicLegalDocumentView.as_view(), name='books-legal-document'),
     # Rutas estándar limpias (/api/v1/books/...)
     path('', BookListCreateView.as_view(), name='books-list-root'),
     path('search/', UnifiedBookSearchView.as_view(), name='books-unified-search'),
     path('feed/', FeedView.as_view(), name='books-social-feed'),
+    path('discover/', BookDiscoveryView.as_view(), name='books-discover'),
     path('trending/', TrendingBooksView.as_view(), name='books-trending'),
     path('recommendations/', UserRecommendationsView.as_view(), name='user-recommendations'),
     path('recommendations/<int:book_id>/explain/', BookRecommendationExplainView.as_view(), name='book-recommendation-explain'),

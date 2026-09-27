@@ -137,12 +137,39 @@ class RecommendationV3Item:
             'average_rating': b.average_rating,
             'score': round(self.score, 4),
             'algorithm_version': self.algorithm_version,
+            'strategy': 'v3',
+            'metadata': {
+                'semantic_score': round(self.breakdown.semantic_score, 4),
+                'collaborative_score': round(self.breakdown.collaborative_score, 4),
+                'content_v1_score': round(self.breakdown.content_v1_score, 4),
+                'has_user_embedding': self.breakdown.has_user_embedding,
+                'author_id': b.author_id,
+            },
             'breakdown': self.breakdown.to_dict(),
             'scores': self.breakdown.to_dict(),
             'reason': self.reason,
             'explanation': self.explanation,
             'categories': [{'id': c.id, 'name': c.name} for c in b.categories.all()],
         }
+
+
+def _get_vector_from_book(book: Book) -> list[float] | None:
+    """Extrae el vector normalizado tanto de BookEmbedding satélite como de atributos mock directos."""
+    try:
+        # 1. Atributo directo o mock
+        emb = getattr(book, 'embedding', None)
+        if emb is not None:
+            if hasattr(emb, 'vector') and isinstance(emb.vector, list):
+                return emb.vector
+            if isinstance(emb, list):
+                return emb
+        # 2. Relación inversa satélite BookEmbedding (related_name='embedding_record')
+        rec = getattr(book, 'embedding_record', None)
+        if rec is not None and hasattr(rec, 'vector') and isinstance(rec.vector, list):
+            return rec.vector
+        return None
+    except Exception:
+        return None
 
 
 class RecommendationEngineV3:
@@ -203,7 +230,6 @@ class RecommendationEngineV3:
         user_entries = (
             UserBook.objects.filter(user=user)
             .select_related('book')
-            .exclude(book__embedding__isnull=True)
         )
 
         weighted_components: list[float] | None = None
@@ -212,7 +238,7 @@ class RecommendationEngineV3:
         dimension = 0
 
         for entry in user_entries:
-            emb = entry.book.embedding
+            emb = _get_vector_from_book(entry.book)
             if not emb or not isinstance(emb, list) or len(emb) == 0:
                 continue
 
@@ -280,7 +306,7 @@ class RecommendationEngineV3:
         if not user_pref_vector or not user_pref_vector.vector:
             return 0.0
 
-        book_emb = book.embedding
+        book_emb = _get_vector_from_book(book)
         if not book_emb or not isinstance(book_emb, list) or len(book_emb) != user_pref_vector.dimension:
             return 0.0
 
@@ -423,8 +449,12 @@ class RecommendationEngineV3:
                 )
                 v3_items.append(fb_item)
 
+        # Diversificación por autor y categorías (Diversity Layer)
+        from books.services.recommendation_diversity_service import apply_diversity_filter
+        final_items = apply_diversity_filter(v3_items, limit=limit, max_per_author=2)
+
         from books.services.recommendation_explanation_service import explain_recommendation
-        for item in v3_items[:limit]:
+        for item in final_items:
             expl = explain_recommendation(
                 user=user,
                 book=item.book,
@@ -436,7 +466,7 @@ class RecommendationEngineV3:
             if expl.get('primary_reason'):
                 item.reason = expl['primary_reason']
 
-        results = [item.to_dict(request=request) for item in v3_items[:limit]]
+        results = [item.to_dict(request=request) for item in final_items]
         cache.set(cache_key, results, timeout=TTL_RECOMMENDATIONS)
         return results
 

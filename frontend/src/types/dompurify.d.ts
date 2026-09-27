@@ -23,8 +23,14 @@ declare module 'dompurify' {
 
   export interface DOMPurifyInstance {
     sanitize(dirty: string | Node, config?: DOMPurifyConfig): string;
-    sanitize(dirty: string | Node, config: DOMPurifyConfig & { RETURN_DOM_FRAGMENT?: false; RETURN_DOM?: true }): HTMLElement;
-    sanitize(dirty: string | Node, config: DOMPurifyConfig & { RETURN_DOM_FRAGMENT: true; RETURN_DOM?: false }): DocumentFragment;
+    sanitize(
+      dirty: string | Node,
+      config: DOMPurifyConfig & { RETURN_DOM_FRAGMENT?: false; RETURN_DOM?: true }
+    ): HTMLElement;
+    sanitize(
+      dirty: string | Node,
+      config: DOMPurifyConfig & { RETURN_DOM_FRAGMENT: true; RETURN_DOM?: false }
+    ): DocumentFragment;
     addHook(hook: string, cb: (currentNode: any, data: any, config: any) => void): void;
     removeHook(hook: string): void;
     removeHooks(hooks: string): void;

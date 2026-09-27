@@ -6,6 +6,7 @@ from ai.tools.base import (
     AITool,
     ToolExecutionError,
     ToolPermissionDeniedError,
+    ToolRateLimitExceededError,
 )
 from ai.tools.registry import (
     AddToWishlistTool,
@@ -21,6 +22,7 @@ __all__ = [
     'AITool',
     'ToolExecutionError',
     'ToolPermissionDeniedError',
+    'ToolRateLimitExceededError',
     'CatalogSearchTool',
     'BookDetailTool',
     'UserReadingStatusTool',

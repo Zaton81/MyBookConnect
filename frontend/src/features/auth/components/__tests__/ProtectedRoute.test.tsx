@@ -28,8 +28,10 @@ describe('ProtectedRoute Component', () => {
   };
 
   it('redirects to "/" when user is NOT authenticated and accesses a protected route', () => {
-    (useAuthStore as unknown as ReturnType<typeof vi.fn>).mockImplementation((selector) => selector({ isAuthenticated: false }));
-    
+    (useAuthStore as unknown as ReturnType<typeof vi.fn>).mockImplementation((selector) =>
+      selector({ isAuthenticated: false })
+    );
+
     renderWithRouter(
       <ProtectedRoute requireAuth={true}>
         <div>Protected Content</div>
@@ -42,8 +44,10 @@ describe('ProtectedRoute Component', () => {
   });
 
   it('renders children when user IS authenticated and accesses a protected route', () => {
-    (useAuthStore as unknown as ReturnType<typeof vi.fn>).mockImplementation((selector) => selector({ isAuthenticated: true }));
-    
+    (useAuthStore as unknown as ReturnType<typeof vi.fn>).mockImplementation((selector) =>
+      selector({ isAuthenticated: true })
+    );
+
     renderWithRouter(
       <ProtectedRoute requireAuth={true}>
         <div>Protected Content</div>
@@ -55,8 +59,10 @@ describe('ProtectedRoute Component', () => {
   });
 
   it('redirects to "/home" when user IS authenticated and accesses a guest-only route', () => {
-    (useAuthStore as unknown as ReturnType<typeof vi.fn>).mockImplementation((selector) => selector({ isAuthenticated: true }));
-    
+    (useAuthStore as unknown as ReturnType<typeof vi.fn>).mockImplementation((selector) =>
+      selector({ isAuthenticated: true })
+    );
+
     renderWithRouter(
       <ProtectedRoute requireAuth={false}>
         <div>Guest Content</div>
@@ -69,8 +75,10 @@ describe('ProtectedRoute Component', () => {
   });
 
   it('renders children when user is NOT authenticated and accesses a guest-only route', () => {
-    (useAuthStore as unknown as ReturnType<typeof vi.fn>).mockImplementation((selector) => selector({ isAuthenticated: false }));
-    
+    (useAuthStore as unknown as ReturnType<typeof vi.fn>).mockImplementation((selector) =>
+      selector({ isAuthenticated: false })
+    );
+
     renderWithRouter(
       <ProtectedRoute requireAuth={false}>
         <div>Guest Content</div>
