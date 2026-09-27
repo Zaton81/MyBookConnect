@@ -9,6 +9,7 @@ from .models import (
     Errata,
     LegalDocument,
     ReadingList,
+    ReadingListComment,
     ReadingListItem,
     RecommendationFeedback,
     Review,
@@ -382,6 +383,7 @@ class ReadingListSerializer(serializers.ModelSerializer):
     items = ReadingListItemSerializer(many=True, read_only=True)
     items_count = serializers.SerializerMethodField()
     followers_count = serializers.SerializerMethodField()
+    comments_count = serializers.SerializerMethodField()
     is_following = serializers.SerializerMethodField()
 
     class Meta:
@@ -389,9 +391,9 @@ class ReadingListSerializer(serializers.ModelSerializer):
         fields = (
             'id', 'user', 'name', 'slug', 'description', 'privacy',
             'created_at', 'updated_at', 'items', 'items_count',
-            'followers_count', 'is_following'
+            'followers_count', 'comments_count', 'views_count', 'is_following'
         )
-        read_only_fields = ('id', 'user', 'slug', 'created_at', 'updated_at')
+        read_only_fields = ('id', 'user', 'slug', 'created_at', 'updated_at', 'views_count')
 
     @extend_schema_field(serializers.IntegerField())
     def get_items_count(self, obj):
@@ -401,12 +403,34 @@ class ReadingListSerializer(serializers.ModelSerializer):
     def get_followers_count(self, obj):
         return obj.followers.count()
 
+    @extend_schema_field(serializers.IntegerField())
+    def get_comments_count(self, obj):
+        return obj.comments.filter(deleted_at__isnull=True, is_moderated=False).count()
+
     @extend_schema_field(serializers.BooleanField())
     def get_is_following(self, obj):
         request = self.context.get('request')
         if request and request.user.is_authenticated:
             return obj.followers.filter(user=request.user).exists()
         return False
+
+
+class ReadingListCommentSerializer(serializers.ModelSerializer):
+    """Serializador para comentarios en listas de lectura (Fase 21)."""
+    user = ReadingListUserSerializer(read_only=True)
+    can_delete = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ReadingListComment
+        fields = ('id', 'reading_list', 'user', 'content', 'created_at', 'updated_at', 'can_delete')
+        read_only_fields = ('id', 'reading_list', 'user', 'created_at', 'updated_at')
+
+    @extend_schema_field(serializers.BooleanField())
+    def get_can_delete(self, obj):
+        request = self.context.get('request')
+        if not request or not request.user.is_authenticated:
+            return False
+        return obj.user_id == request.user.id or request.user.is_staff
 
 
 class ReadingListCreateUpdateSerializer(serializers.ModelSerializer):

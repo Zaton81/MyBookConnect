@@ -1990,7 +1990,7 @@ Evitar que todo dependa de IA.
 
 ---
 
-# 26. FASE 21 — Listas sociales
+# 26. FASE 21 — Listas sociales [COMPLETADA]
 
 **Prioridad: P1/P2**
 

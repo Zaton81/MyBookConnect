@@ -55,7 +55,8 @@ Cualquier agente de IA o desarrollador que se incorpore a la base de código **D
 | **18** | Legal y Privacidad para Beta | COMPLETADA | 7 documentos normativos sembrados, API pública list/detail, IA sin entrenamiento, privacy-first, páginas frontend y footer. |
 | **19** | Producto: Onboarding | COMPLETADA | Experiencia de bienvenida no obstructiva, géneros favoritos (`favorite_categories`), cold start boost en recomendaciones, modal de 3 pasos e importador. |
 | **20** | Descubrimiento de Libros | COMPLETADA | Exploración facetada independiente de IA (`/api/v1/books/discover/`), tendencias públicas, Landing visual y modales emergentes de autenticación (`AuthModal`). |
-| **21** | **Listas Sociales** | **SIGUIENTE** | Evolución de listas hacia públicas, colaborativas, seguidas, moderadas y filtradas por privacidad. |
+| **21** | Listas Sociales | COMPLETADA | Listas públicas/privadas/seguidores, clonación atómica (`clone`), comentarios (`ReadingListComment`), apertura `views_count`, compartición y métricas. |
+| **22** | **Feed Social y Actividad** | **SIGUIENTE** | Feed social cronológico/inteligente, eventos de lectura, reviews, listas y retos de amigos, smart ranking. |
 
 ---
 
@@ -102,6 +103,10 @@ Cualquier agente de IA o desarrollador que se incorpore a la base de código **D
 - **Nombre de Relación Inversa:** El modelo `Book` se relaciona con `UserBook` a través de `related_name='user_entries'` (no `user_books`). Para realizar agregaciones por volumen de lectores, usar `annotate(readers_count=Count('user_entries'))`.
 - **Tendencias Públicas:** `TrendingBooksView` debe mantener `permission_classes = (AllowAny,)` para nutrir tanto a la Landing Page pública como a lectores autenticados sin exigir tokens JWT.
 
+### 4.9. Listas Sociales, Clonación y Métricas de Apertura (Fase 21)
+- **Clonación Atómica (`clone`):** Duplica la lista asignándole como creador al usuario solicitante (`request.user`), preservando libros, orden y notas en una transacción atómica bajo visibilidad privada por defecto.
+- **Incremento Concurrente de Aperturas:** Al consultar el detalle de una lista por otro lector, `views_count` se incrementa mediante `F('views_count') + 1` directamente en BD para evitar condiciones de carrera.
+
 ---
 
 ## 5. Ubicación de Documentación Relevante
@@ -115,3 +120,4 @@ Cualquier agente de IA o desarrollador que se incorpore a la base de código **D
 - **Política de Moderación de Contenido:** [docs/security/content_moderation_policy.md](file:///c:/Users/zaton/Desktop/Escritorio/proyectos/MyBookConnect/docs/security/content_moderation_policy.md)
 - **Experiencia de Onboarding y Activación:** [docs/product/onboarding_experience.md](file:///c:/Users/zaton/Desktop/Escritorio/proyectos/MyBookConnect/docs/product/onboarding_experience.md)
 - **Descubrimiento y Landing Pública:** [docs/product/book_discovery_and_public_experience.md](file:///c:/Users/zaton/Desktop/Escritorio/proyectos/MyBookConnect/docs/product/book_discovery_and_public_experience.md)
+- **Listas Sociales y Colecciones:** [docs/product/social_reading_lists.md](file:///c:/Users/zaton/Desktop/Escritorio/proyectos/MyBookConnect/docs/product/social_reading_lists.md)

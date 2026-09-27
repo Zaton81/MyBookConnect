@@ -471,6 +471,10 @@ class ReadingList(models.Model):
         db_index=True,
         help_text="Indica si la lista ha sido ocultada por el equipo de moderación",
     )
+    views_count = models.PositiveIntegerField(
+        default=0,
+        help_text="Número de veces que la lista ha sido abierta/consultada",
+    )
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -541,6 +545,33 @@ class ReadingListFollow(models.Model):
 
     def __str__(self):
         return f"{self.user.username} sigue {self.reading_list.name}"
+
+
+class ReadingListComment(SoftDeleteModel):
+    """
+    Comentario social dentro de una lista de lectura pública o de seguidos (Fase 21).
+    Permite debatir e intercambiar opiniones sobre selecciones de libros.
+    """
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='reading_list_comments')
+    reading_list = models.ForeignKey(ReadingList, on_delete=models.CASCADE, related_name='comments')
+    content = models.TextField(help_text="Contenido del comentario sobre la lista")
+    is_moderated = models.BooleanField(
+        default=False,
+        db_index=True,
+        help_text="Indica si el comentario ha sido ocultado por el equipo de moderación",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['created_at']
+        indexes = [
+            models.Index(fields=['reading_list', 'created_at'], name='idx_rlcomment_list_created'),
+            models.Index(fields=['reading_list', 'deleted_at'], name='idx_rlcomment_list_del'),
+        ]
+
+    def __str__(self):
+        return f"Comentario de {self.user.username} en Lista {self.reading_list_id}"
 
 
 class RecommendationFeedbackAction(models.TextChoices):
