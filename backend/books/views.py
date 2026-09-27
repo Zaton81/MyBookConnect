@@ -1378,7 +1378,7 @@ class TrendingBooksView(APIView):
     Acepta parámetro query `?period=week|month|year|all` (por defecto 'week').
     Resuelve dinámicamente las URLs de medios absolutas y emplea caché Redis por periodo.
     """
-    permission_classes = (permissions.IsAuthenticated,)
+    permission_classes = (permissions.AllowAny,)
 
     @extend_schema(
         summary="Libros en tendencia",

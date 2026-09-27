@@ -54,33 +54,13 @@ const ReadingStats = lazy(() =>
 const OnboardingPage = lazy(() =>
   import('../features/onboarding').then((m) => ({ default: m.OnboardingPage }))
 );
+const PublicLandingPage = lazy(() =>
+  import('../features/discovery').then((m) => ({ default: m.PublicLandingPage }))
+);
 
 function ProfileIdRedirect() {
   const { id } = useParams();
   return <Navigate to={`/users/${id}`} replace />;
-}
-
-function LandingPage() {
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
-
-  if (isAuthenticated) {
-    return <Navigate to="/home" replace />;
-  }
-
-  return (
-    <div className="mx-auto grid max-w-5xl grid-cols-1 gap-8 md:grid-cols-2 mt-8 items-center">
-      <div className="flex flex-col items-start justify-center px-4">
-        <Logo />
-        <p className="mt-4 text-slate-600 dark:text-slate-400 text-base leading-relaxed">
-          Tu espacio social para organizar lecturas, descubrir nuevos autores y compartir reseñas
-          con una comunidad de apasionados por los libros.
-        </p>
-      </div>
-      <div className="flex items-center justify-center px-4">
-        <AuthBox />
-      </div>
-    </div>
-  );
 }
 
 export const ADMIN_ROUTE = (import.meta as any).env?.VITE_ADMIN_PATH || '/panel-control-mbc';
@@ -90,9 +70,11 @@ export function AppRouter() {
     <BrowserRouter>
       <ScrollToTop />
       <Routes>
-        {/* Rutas Públicas (Landing y Legales) */}
+        {/* Rutas Públicas (Landing, Auth y Legales) */}
         <Route element={<PublicLayout />}>
-          <Route path="/" element={<LandingPage />} />
+          <Route path="/" element={<PublicLandingPage />} />
+          <Route path="/login" element={<Navigate to="/?auth=login" replace />} />
+          <Route path="/register" element={<Navigate to="/?auth=register" replace />} />
           <Route path="/privacy" element={<PrivacyPolicy />} />
           <Route path="/terms" element={<TermsOfService />} />
           <Route path="/cookies" element={<CookiePolicy />} />

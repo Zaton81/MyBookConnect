@@ -12,6 +12,7 @@ from .ai_views import (
     AIToolExecuteView,
     AIToolsListView,
 )
+from .discovery_views import BookDiscoveryView
 from .import_views import CSVImportConfirmView, CSVImportPreviewView
 from .views import (
     AuthorBookRefreshView,
@@ -51,6 +52,7 @@ urlpatterns = [
     path('', BookListCreateView.as_view(), name='books-list-root'),
     path('search/', UnifiedBookSearchView.as_view(), name='books-unified-search'),
     path('feed/', FeedView.as_view(), name='books-social-feed'),
+    path('discover/', BookDiscoveryView.as_view(), name='books-discover'),
     path('trending/', TrendingBooksView.as_view(), name='books-trending'),
     path('recommendations/', UserRecommendationsView.as_view(), name='user-recommendations'),
     path('recommendations/<int:book_id>/explain/', BookRecommendationExplainView.as_view(), name='book-recommendation-explain'),

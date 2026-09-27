@@ -1,4 +1,5 @@
 export * from './Header';
+export * from './PublicHeader';
 export * from './Footer';
 export * from './Logo';
 export * from './PublicLayout';

@@ -1970,7 +1970,7 @@ Ejemplo:
 
 ---
 
-# 25. FASE 20 — Descubrimiento de libros
+# 25. FASE 20 — Descubrimiento de libros [COMPLETADA]
 
 **Prioridad: P1/P2**
 
