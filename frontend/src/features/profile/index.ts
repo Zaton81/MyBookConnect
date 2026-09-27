@@ -3,4 +3,3 @@ export { AccountSecuritySection } from './components/AccountSecuritySection';
 export { AccountPrivacySection } from './components/AccountPrivacySection';
 export { default as Profile } from './pages/Profile';
 export { default as EditProfile } from './pages/EditProfile';
-

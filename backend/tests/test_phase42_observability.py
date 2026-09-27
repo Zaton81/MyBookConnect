@@ -57,7 +57,7 @@ class TestSanitizeSensitiveData:
         assert sanitized['nested']['normal_field'] == 'public_info'
 
     def test_sanitize_bearer_token_string(self):
-        auth_header = 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0'
+        auth_header = 'Bearer dummy_test_token_not_real_jwt_secret_9999'
         sanitized = sanitize_sensitive_data(auth_header)
         assert sanitized == 'Bearer ***REDACTED***'
 

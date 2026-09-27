@@ -99,12 +99,12 @@ class TestPhase14StructuredLogging:
             "username": "lector_seguro",
             "password": "SuperSecretPassword123!",
             "confirm_password": "SuperSecretPassword123!",
-            "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c",
+            "token": "safe_dummy_secret_token_12345",
             "access_token": "secret_access_xyz",
             "refresh_token": "secret_refresh_xyz",
             "api_key": "live_key_9999",
             "headers": {
-                "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI5OSJ9.abcdef1234567890",
+                "Authorization": "Bearer safe_dummy_jwt_authorization_value",
                 "X-Api-Key": "secret_key_header",
             },
             "nested_list": [

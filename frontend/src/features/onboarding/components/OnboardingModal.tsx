@@ -1,6 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Modal, Button, Spinner } from 'flowbite-react';
-import { Link } from 'react-router-dom';
 import { useAuthStore } from '../../../store/auth';
 import { ImportBooksModal } from '../../library/components/ImportBooksModal';
 
@@ -28,20 +27,20 @@ export interface OnboardingModalProps {
 
 const CATEGORY_ICONS: Record<string, string> = {
   'ciencia-ficcion': '🚀',
-  'fantasia': '🧙‍♂️',
-  'misterio': '🔍',
+  fantasia: '🧙‍♂️',
+  misterio: '🔍',
   'novela-negra': '🕵️',
-  'romance': '💖',
-  'thriller': '⚡',
-  'historica': '🏛️',
-  'terror': '👻',
-  'filosofia': '🧠',
-  'clasicos': '📜',
-  'poesia': '✒️',
-  'biografia': '👤',
-  'ensayo': '📚',
-  'juvenil': '🌟',
-  'aventura': '🗺️',
+  romance: '💖',
+  thriller: '⚡',
+  historica: '🏛️',
+  terror: '👻',
+  filosofia: '🧠',
+  clasicos: '📜',
+  poesia: '✒️',
+  biografia: '👤',
+  ensayo: '📚',
+  juvenil: '🌟',
+  aventura: '🗺️',
 };
 
 export function OnboardingModal({ isOpen, onClose, onComplete }: OnboardingModalProps) {
@@ -57,7 +56,9 @@ export function OnboardingModal({ isOpen, onClose, onComplete }: OnboardingModal
 
   // Estado del usuario en el onboarding
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<number[]>([]);
-  const [selectedBooks, setSelectedBooks] = useState<Array<{ book_id: number; status: string }>>([]);
+  const [selectedBooks, setSelectedBooks] = useState<Array<{ book_id: number; status: string }>>(
+    []
+  );
   const [bio, setBio] = useState<string>('');
   const [firstRec, setFirstRec] = useState<any>(null);
 
@@ -171,13 +172,7 @@ export function OnboardingModal({ isOpen, onClose, onComplete }: OnboardingModal
 
   return (
     <>
-      <Modal
-        show={isOpen}
-        onClose={handleSkip}
-        size="2xl"
-        dismissible
-        className="backdrop-blur-sm"
-      >
+      <Modal show={isOpen} onClose={handleSkip} size="2xl" dismissible className="backdrop-blur-sm">
         <div className="relative bg-white dark:bg-slate-900 rounded-3xl overflow-hidden shadow-2xl border border-slate-100 dark:border-slate-800">
           {/* Header con Barra de Progreso y Botón Omitir */}
           <div className="px-6 pt-6 pb-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
@@ -274,7 +269,8 @@ export function OnboardingModal({ isOpen, onClose, onComplete }: OnboardingModal
                           <span>📦</span> ¿Ya tienes historial en Goodreads o StoryGraph?
                         </h4>
                         <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
-                          Importa tu archivo CSV con todas tus lecturas y valoraciones en 30 segundos.
+                          Importa tu archivo CSV con todas tus lecturas y valoraciones en 30
+                          segundos.
                         </p>
                       </div>
                       <button
@@ -410,8 +406,9 @@ export function OnboardingModal({ isOpen, onClose, onComplete }: OnboardingModal
 
                         <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/60 text-xs text-slate-600 dark:text-slate-400">
                           <p>
-                            <strong>Resumen de tu selección:</strong> {selectedCategoryIds.length} géneros
-                            favoritos y {selectedBooks.length} libros añadidos a tu estantería inicial.
+                            <strong>Resumen de tu selección:</strong> {selectedCategoryIds.length}{' '}
+                            géneros favoritos y {selectedBooks.length} libros añadidos a tu
+                            estantería inicial.
                           </p>
                         </div>
                       </div>
@@ -450,12 +447,7 @@ export function OnboardingModal({ isOpen, onClose, onComplete }: OnboardingModal
               )}
 
               {step === 3 && !firstRec && (
-                <Button
-                  color="teal"
-                  size="sm"
-                  onClick={handleFinish}
-                  disabled={submitting}
-                >
+                <Button color="teal" size="sm" onClick={handleFinish} disabled={submitting}>
                   {submitting ? (
                     <>
                       <Spinner size="xs" className="mr-2" /> Guardando...

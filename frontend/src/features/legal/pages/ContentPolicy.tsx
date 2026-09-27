@@ -62,8 +62,9 @@ export function ContentPolicy() {
           </h2>
           <p className="text-sm">
             MyBookConnect es un punto de encuentro para lectores. Valoramos la libertad de criterio,
-            el entusiasmo crítico y el debate argumentado. Para garantizar un entorno seguro y agradable
-            para todas las sensibilidades lectoras, establecemos las siguientes normas comunitarias.
+            el entusiasmo crítico y el debate argumentado. Para garantizar un entorno seguro y
+            agradable para todas las sensibilidades lectoras, establecemos las siguientes normas
+            comunitarias.
           </p>
         </section>
 
@@ -73,23 +74,23 @@ export function ContentPolicy() {
           </h2>
           <ul className="list-disc pl-5 space-y-2 text-sm">
             <li>
-              <strong>Acoso, amenazas e incitación al odio:</strong> Queda prohibido cualquier contenido
-              que insulte, hostigue o promueva la discriminación por motivos de raza, género, orientación
-              sexual, religión, nacionalidad o discapacidad.
+              <strong>Acoso, amenazas e incitación al odio:</strong> Queda prohibido cualquier
+              contenido que insulte, hostigue o promueva la discriminación por motivos de raza,
+              género, orientación sexual, religión, nacionalidad o discapacidad.
             </li>
             <li>
-              <strong>Spam y publicidad encubierta:</strong> No se permite la publicación reiterada de
-              enlaces con fines lucrativos ajenos a la plataforma, venta no autorizada o esquemas para
-              manipular artificialmente las valoraciones de libros.
+              <strong>Spam y publicidad encubierta:</strong> No se permite la publicación reiterada
+              de enlaces con fines lucrativos ajenos a la plataforma, venta no autorizada o esquemas
+              para manipular artificialmente las valoraciones de libros.
             </li>
             <li>
-              <strong>Contenido ilegal o perjudicial:</strong> Prohibición absoluta de distribución de
-              material protegido por derechos de autor sin autorización, malware, o contenido que vulnere
-              la integridad de menores.
+              <strong>Contenido ilegal o perjudicial:</strong> Prohibición absoluta de distribución
+              de material protegido por derechos de autor sin autorización, malware, o contenido que
+              vulnere la integridad de menores.
             </li>
             <li>
-              <strong>Spoilers no advertidos:</strong> Desvelar partes cruciales de tramas sin etiquetar
-              puede resultar en la ocultación de la reseña por parte de la comunidad.
+              <strong>Spoilers no advertidos:</strong> Desvelar partes cruciales de tramas sin
+              etiquetar puede resultar en la ocultación de la reseña por parte de la comunidad.
             </li>
           </ul>
         </section>
@@ -99,20 +100,26 @@ export function ContentPolicy() {
             3. Mecanismos de Reporte y Moderación (Fase 16)
           </h2>
           <p className="text-sm mb-3">
-            Cualquier usuario puede reportar infracciones mediante el botón de denuncia habilitado en
-            perfiles, reseñas, comentarios en reseñas, mensajes y listas de lectura:
+            Cualquier usuario puede reportar infracciones mediante el botón de denuncia habilitado
+            en perfiles, reseñas, comentarios en reseñas, mensajes y listas de lectura:
           </p>
           <div className="grid sm:grid-cols-3 gap-3 text-xs">
             <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800">
-              <span className="font-bold block text-slate-900 dark:text-white mb-1">1. Reporte Inmediato</span>
+              <span className="font-bold block text-slate-900 dark:text-white mb-1">
+                1. Reporte Inmediato
+              </span>
               Selección del motivo de la queja y envío a la cola de moderación.
             </div>
             <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800">
-              <span className="font-bold block text-slate-900 dark:text-white mb-1">2. Revisión Humana</span>
+              <span className="font-bold block text-slate-900 dark:text-white mb-1">
+                2. Revisión Humana
+              </span>
               Examen por el equipo administrador respetando el principio de proporcionalidad.
             </div>
             <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800">
-              <span className="font-bold block text-slate-900 dark:text-white mb-1">3. Medida Graduada</span>
+              <span className="font-bold block text-slate-900 dark:text-white mb-1">
+                3. Medida Graduada
+              </span>
               Advertencia, ocultación del contenido o suspensión con registro en auditoría.
             </div>
           </div>

@@ -111,12 +111,16 @@ export const AccountSecuritySection: React.FC = () => {
           <span>🔒</span> Seguridad y Credenciales
         </h3>
         <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-          Actualiza tu contraseña periódicamente o modifica tu dirección de correo electrónico vinculada.
+          Actualiza tu contraseña periódicamente o modifica tu dirección de correo electrónico
+          vinculada.
         </p>
       </div>
 
       {/* Formulario Cambio de Contraseña */}
-      <form onSubmit={handlePasswordChange} className="space-y-4 pt-2 border-t border-slate-100 dark:border-slate-700">
+      <form
+        onSubmit={handlePasswordChange}
+        className="space-y-4 pt-2 border-t border-slate-100 dark:border-slate-700"
+      >
         <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-200">
           Modificar Contraseña
         </h4>
@@ -173,13 +177,17 @@ export const AccountSecuritySection: React.FC = () => {
       </form>
 
       {/* Formulario Cambio de Correo Electrónico */}
-      <form onSubmit={handleEmailChange} className="space-y-4 pt-6 border-t border-slate-100 dark:border-slate-700">
+      <form
+        onSubmit={handleEmailChange}
+        className="space-y-4 pt-6 border-t border-slate-100 dark:border-slate-700"
+      >
         <div>
           <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-200">
             Cambiar Correo Electrónico
           </h4>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Email actual: <span className="font-mono text-slate-700 dark:text-slate-300">{user?.email}</span>
+            Email actual:{' '}
+            <span className="font-mono text-slate-700 dark:text-slate-300">{user?.email}</span>
           </p>
         </div>
 

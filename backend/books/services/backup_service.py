@@ -440,7 +440,7 @@ class MediaBackupService:
                 resolved_target = (dest_dir / member.name).resolve()
                 if not str(resolved_target).startswith(str(dest_dir.resolve())):
                     raise PermissionError(f"Ruta no permitida detectada en tarball: {member.name}")
-            tar.extractall(dest_dir)
+            tar.extractall(dest_dir, filter='data')  # nosec B202
 
         # Verificación de integridad archivo por archivo
         restored_count = 0
