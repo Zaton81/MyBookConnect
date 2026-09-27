@@ -1831,52 +1831,59 @@ Política normativa definida en `docs/security/content_moderation_policy.md`:
 
 ---
 
-# 22. FASE 17 — Cuenta y privacidad del usuario
+# 22. FASE 17 — Cuenta y privacidad del usuario [COMPLETADA]
 
 **Prioridad: P1**
 
-Implementar/revisar:
+Implementado:
 
-- cambio de email;
+- cambio de email seguro con reautenticación por contraseña (`POST /api/v1/users/email/change/`);
 - verificación email;
 - password reset;
 - cambio de password;
-- sesiones;
+- sesiones y revocación masiva de JWT en blacklist;
 - logout global;
-- exportación de datos;
-- eliminación de cuenta;
-- anonimización;
-- consentimiento cuando proceda.
+- exportación de datos en JSON estructurado conforme a RGPD Art. 20 (`GET /api/v1/users/account/export/`);
+- eliminación de cuenta y derecho al olvido conforme a RGPD Art. 17 (`POST /api/v1/users/account/delete/`);
+- anonimización irreversible y desvinculación social;
+- campos de consentimiento y trazabilidad (`deleted_at`, `terms_accepted_at`, `privacy_accepted_at`);
+- registro en `AuditLog` para `EMAIL_CHANGE`, `USER_DELETE` y `DATA_EXPORT`;
+- UI tabulada en frontend (`EditProfile.tsx`) con pestañas Perfil, Seguridad y Privacidad & RGPD.
 
-## 22.1. Eliminación
+## 22.1. Eliminación y Derecho al Olvido (RGPD Art. 17)
 
-Definir qué ocurre con:
+Definido y ejecutado de forma atómica:
+- **Usuario:** marcado como `is_active=False`, `deleted_at=now`, email y username anonimizados (`deleted_user_<id>`, `deleted_<id>_<timestamp>@deleted.local`), contraseña destruida (`set_unusable_password`), datos personales eliminados (bio, avatar, nombres, fechas).
+- **Protección superadministrador:** rechazo de eliminación si es el único superusuario activo del sistema.
+- **Relaciones sociales:** follows (`following`/`followers`), bloqueos (`blocked_users`) y mutes (`muted_users`) eliminados completamente.
+- **Listas de lectura:** colecciones personales convertidas a privadas (`privacy='private'`) y moderadas (`is_moderated=True`).
+- **Comentarios en reseñas:** soft-delete atómico (`deleted_at=now`).
+- **Notificaciones y recomendaciones:** eliminadas de la base de datos.
+- **Sesiones:** todos los tokens pendientes añadidos a la lista negra (`BlacklistedToken`).
 
-- reviews;
-- comentarios;
-- follows;
-- listas;
-- mensajes;
-- actividad;
-- feedback;
-- recomendaciones.
+## 22.2. Portabilidad de Datos (RGPD Art. 20)
 
-## 22.2. Export
+Endpoint: `GET /api/v1/users/account/export/` con descarga directa JSON (`attachment; filename="mybookconnect_data_export_<username>.json"`).
+Contenido:
+- `_metadata`: metadatos de plataforma, timestamp y base jurídica.
+- `profile`: cuenta, identificador, consentimiento de términos y privacidad.
+- `library`: libros en biblioteca, estados de lectura, calificaciones, fechas de inicio y fin, notas y progreso.
+- `reviews`: reseñas públicas emitidas con puntuaciones y textos.
+- `comments`: comentarios en reseñas de la comunidad.
+- `reading_lists`: listas temáticas de lectura creadas por el usuario.
+- `social`: listado de cuentas seguidas y seguidores.
 
-Formato inicial:
+### Entregable
+`docs/security/account_and_privacy_management.md` [COMPLETADO]
 
-```text
-JSON
-```
-
-con:
-
-- perfil;
-- biblioteca;
-- reviews;
-- listas;
-- follows si legalmente corresponde;
-- preferencias.
+### Criterio de salida
+- [x] Endpoint de cambio de email con confirmación de contraseña implementado y auditado.
+- [x] Endpoint de eliminación de cuenta conforme a RGPD Art. 17 con confirmación por contraseña y tecleo destructivo implementado.
+- [x] Anonimización de datos personales y revocación de sesiones JWT verificada.
+- [x] Endpoint de exportación de datos conforme a RGPD Art. 20 en formato JSON portable.
+- [x] Interfaz de usuario en Frontend tabulada (Perfil, Seguridad, Privacidad) operativa.
+- [x] Documentación técnica y normativa de seguridad y privacidad redactada.
+- [x] Suite de pruebas automatizadas completa pasando al 100% (`test_phase17_account_privacy.py`, 7/7).
 
 ---
 

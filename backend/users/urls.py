@@ -3,6 +3,11 @@ from rest_framework.routers import DefaultRouter
 
 from messages_app.views import ConversationViewSet, MessageViewSet
 
+from .account_views import (
+    AccountDeleteView,
+    DataExportView,
+    EmailChangeView,
+)
 from .auth_views import (
     EmailVerifyConfirmView,
     EmailVerifyRequestView,
@@ -58,6 +63,9 @@ urlpatterns = [
     path('register/', UserRegistrationView.as_view(), name='register'),
     path('logout/', LogoutView.as_view(), name='logout'),
     path('password/change/', PasswordChangeView.as_view(), name='password-change'),
+    path('email/change/', EmailChangeView.as_view(), name='email-change'),
+    path('account/delete/', AccountDeleteView.as_view(), name='account-delete'),
+    path('account/export/', DataExportView.as_view(), name='account-export'),
     path('password/reset/', PasswordResetRequestView.as_view(), name='password-reset-request'),
     path('password/reset/confirm/', PasswordResetConfirmView.as_view(), name='password-reset-confirm'),
     path('email/verify-request/', EmailVerifyRequestView.as_view(), name='email-verify-request'),

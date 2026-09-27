@@ -51,7 +51,8 @@ Cualquier agente de IA o desarrollador que se incorpore a la base de código **D
 | **14** | Observabilidad | COMPLETADA | Logs JSON estructurados sin secretos, métricas de backend, KPIs de producto y sistema de alertas. |
 | **15** | Backups y Disaster Recovery | COMPLETADA | Frecuencia de backups PostgreSQL/Media, retención, cifrado AES-256, restore test y RPO/RTO. |
 | **16** | Moderación y Seguridad Social | COMPLETADA | Reportes (user, review, comment, message, list), cola admin, acciones con AuditLog, 5 throttles resilientes, política de contenido. |
-| **17** | **Cuenta y Privacidad del Usuario** | **SIGUIENTE** | Cambio de email/password, eliminación/anonimización de cuenta, exportación GDPR de datos. |
+| **17** | Cuenta y Privacidad del Usuario | COMPLETADA | Cambio de email/password seguro, eliminación RGPD Art. 17 con anonimización atómica, exportación JSON RGPD Art. 20, tabs en UI y AuditLog. |
+| **18** | **Legal y Privacidad para Beta** | **SIGUIENTE** | Aviso legal, política de privacidad, política de cookies, términos de uso, retención de datos y contacto para beta abierta. |
 
 ---
 

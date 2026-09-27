@@ -101,6 +101,22 @@ class User(AbstractUser):
         default=True,
         help_text="Permite activar o desactivar opcionalmente la gamificación (retos, rachas, objetivos e insignias).",
     )
+    deleted_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text="Fecha de eliminación y anonimización de la cuenta por solicitud del usuario (Fase 17 - RGPD).",
+    )
+    terms_accepted_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Fecha de consentimiento y aceptación de los Términos de Servicio.",
+    )
+    privacy_accepted_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Fecha de consentimiento y aceptación de la Política de Privacidad.",
+    )
 
     class Meta:
         ordering = ['-date_joined']
@@ -328,6 +344,9 @@ class AuditAction(models.TextChoices):
     CONTENT_RESTORE = 'CONTENT_RESTORE', 'Restauración de Contenido'
     CONTENT_DELETE = 'CONTENT_DELETE', 'Eliminación de Contenido'
     SECURITY_PASSWORD_CHANGE = 'SECURITY_PASSWORD_CHANGE', 'Cambio de Contraseña'
+    USER_DELETE = 'USER_DELETE', 'Eliminación y Anonimización de Cuenta'
+    EMAIL_CHANGE = 'EMAIL_CHANGE', 'Cambio de Dirección de Correo Electrónico'
+    DATA_EXPORT = 'DATA_EXPORT', 'Exportación de Datos Personales (GDPR)'
     OTHER = 'OTHER', 'Otra Acción'
 
 
