@@ -46,7 +46,8 @@ class UserSerializer(serializers.ModelSerializer):
             'show_email', 'show_birth_date', 'show_location', 'show_bio',
             'following', 'followers', 'is_editor', 'is_staff', 'is_superuser', 'role',
             'reviews_count', 'books_read_count', 'following_count', 'followers_count',
-            'is_following', 'is_blocked', 'am_i_blocked', 'is_muted', 'is_disciplinary_muted', 'muted_until'
+            'is_following', 'is_blocked', 'am_i_blocked', 'is_muted', 'is_disciplinary_muted', 'muted_until',
+            'onboarding_completed', 'favorite_categories',
         )
         read_only_fields = ('id', 'followers', 'is_editor', 'is_staff', 'is_superuser', 'role', 'is_email_verified', 'muted_until')
 

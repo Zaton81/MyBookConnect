@@ -18,6 +18,11 @@ from .auth_views import (
     RevokeAllSessionsView,
     WebSocketTicketView,
 )
+from .onboarding_views import (
+    OnboardingCompleteView,
+    OnboardingSkipView,
+    OnboardingStatusView,
+)
 from .views import (
     BlockUserView,
     CheckFollowStatusView,
@@ -66,6 +71,9 @@ urlpatterns = [
     path('email/change/', EmailChangeView.as_view(), name='email-change'),
     path('account/delete/', AccountDeleteView.as_view(), name='account-delete'),
     path('account/export/', DataExportView.as_view(), name='account-export'),
+    path('onboarding/', OnboardingStatusView.as_view(), name='onboarding-status'),
+    path('onboarding/complete/', OnboardingCompleteView.as_view(), name='onboarding-complete'),
+    path('onboarding/skip/', OnboardingSkipView.as_view(), name='onboarding-skip'),
     path('password/reset/', PasswordResetRequestView.as_view(), name='password-reset-request'),
     path('password/reset/confirm/', PasswordResetConfirmView.as_view(), name='password-reset-confirm'),
     path('email/verify-request/', EmailVerifyRequestView.as_view(), name='email-verify-request'),

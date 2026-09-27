@@ -33,6 +33,8 @@ export interface User {
   books_read_count?: number;
   following_count?: number;
   followers_count?: number;
+  onboarding_completed?: boolean;
+  favorite_categories?: number[];
 }
 
 export interface Report {

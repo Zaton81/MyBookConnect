@@ -1928,7 +1928,7 @@ Documentado y garantizado:
 
 ---
 
-# 24. FASE 19 — Producto: onboarding
+# 24. FASE 19 — Producto: onboarding [COMPLETADA]
 
 **Prioridad: P1**
 

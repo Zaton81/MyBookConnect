@@ -51,6 +51,9 @@ const ReadingLists = lazy(() =>
 const ReadingStats = lazy(() =>
   import('../features/books').then((m) => ({ default: m.ReadingStats }))
 );
+const OnboardingPage = lazy(() =>
+  import('../features/onboarding').then((m) => ({ default: m.OnboardingPage }))
+);
 
 function ProfileIdRedirect() {
   const { id } = useParams();
@@ -117,6 +120,7 @@ export function AppRouter() {
           <Route path="/users/:userId" element={<Profile />} />
           <Route path="/chat" element={<Chat />} />
           <Route path="/friends" element={<Friends />} />
+          <Route path="/onboarding" element={<OnboardingPage />} />
         </Route>
 
         {/* Rutas de Administración y Moderación Seguras */}

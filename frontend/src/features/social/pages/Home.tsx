@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../../store/auth';
 import { Spinner } from 'flowbite-react';
 import { AIAssistantModal } from '../../ai';
+import { OnboardingModal } from '../../onboarding';
 import { AmazonAdSlot } from '../../../components/ui';
 import { resolveMediaUrl } from '../../../utils/media';
 
@@ -70,8 +71,16 @@ export const Home = () => {
   const [feedLoading, setFeedLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
+  const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
 
   const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
+  // Detección de primer login para lanzar el asistente de bienvenida (Fase 19)
+  useEffect(() => {
+    if (user && user.onboarding_completed === false) {
+      setIsOnboardingOpen(true);
+    }
+  }, [user]);
 
   // Carga inicial del dashboard: recomendaciones, feed y tendencias
   useEffect(() => {
@@ -709,6 +718,7 @@ export const Home = () => {
       </div>
 
       <AIAssistantModal isOpen={isAiModalOpen} onClose={() => setIsAiModalOpen(false)} />
+      <OnboardingModal isOpen={isOnboardingOpen} onClose={() => setIsOnboardingOpen(false)} />
     </div>
   );
 };

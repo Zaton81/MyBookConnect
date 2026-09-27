@@ -48,6 +48,13 @@ def _calculate_user_affinity(user) -> tuple[dict[int, float], dict[int, float], 
     author_affinity: dict[int, float] = defaultdict(float)
     favorite_keywords: list[str] = []
 
+    # 0. Géneros favoritos seleccionados explícitamente en el Onboarding (Fase 19)
+    if hasattr(user, 'favorite_categories'):
+        for fav_cat in user.favorite_categories.all():
+            category_affinity[fav_cat.id] += 1.0
+            if not favorite_keywords:
+                favorite_keywords.extend([w.lower() for w in fav_cat.name.split() if len(w) > 3])
+
     user_entries = (
         UserBook.objects.filter(user=user)
         .select_related('book', 'book__author')

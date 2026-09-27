@@ -117,6 +117,17 @@ class User(AbstractUser):
         blank=True,
         help_text="Fecha de consentimiento y aceptación de la Política de Privacidad.",
     )
+    onboarding_completed = models.BooleanField(
+        default=False,
+        db_index=True,
+        help_text="Indica si el usuario ha completado o desestimado el flujo de bienvenida/onboarding (Fase 19).",
+    )
+    favorite_categories = models.ManyToManyField(
+        'books.Category',
+        related_name='favorited_by_users',
+        blank=True,
+        help_text="Categorías o géneros literarios favoritos seleccionados por el lector durante el onboarding.",
+    )
 
     class Meta:
         ordering = ['-date_joined']

@@ -53,7 +53,8 @@ Cualquier agente de IA o desarrollador que se incorpore a la base de código **D
 | **16** | Moderación y Seguridad Social | COMPLETADA | Reportes (user, review, comment, message, list), cola admin, acciones con AuditLog, 5 throttles resilientes, política de contenido. |
 | **17** | Cuenta y Privacidad del Usuario | COMPLETADA | Cambio de email/password seguro, eliminación RGPD Art. 17 con anonimización atómica, exportación JSON RGPD Art. 20, tabs en UI y AuditLog. |
 | **18** | Legal y Privacidad para Beta | COMPLETADA | 7 documentos normativos sembrados, API pública list/detail, IA sin entrenamiento, privacy-first, páginas frontend y footer. |
-| **19** | **Producto: Onboarding** | **SIGUIENTE** | Flujo de bienvenida para nuevos lectores, selección de géneros, primeros libros leídos y comprensión rápida del producto. |
+| **19** | Producto: Onboarding | COMPLETADA | Experiencia de bienvenida no obstructiva, géneros favoritos (`favorite_categories`), cold start boost en recomendaciones, modal de 3 pasos e importador. |
+| **20** | **Descubrimiento de Libros** | **SIGUIENTE** | Exploración facetada, libros destacados/tendencias, navegación por categorías y enriquecimiento del catálogo. |
 
 ---
 
@@ -92,7 +93,9 @@ Cualquier agente de IA o desarrollador que se incorpore a la base de código **D
 ### 4.6. Moderación y Prevención de Abuso (Fase 16)
 - **Throttles Resilientes:** Los limitadores de abuso social (`reports`, `follows`, `comments`, `likes`, `messages`) heredan de `ResilientUserRateThrottle`. Si Redis sufre un microcorte, no bloquean al usuario legítimo con error 500, sino que degradan limpiamente.
 - **Normalización de Estados:** `ReportStatus.normalize(val)` traduce automáticamente entre la nomenclatura de roadmap (`open`, `investigating`, `resolved`, `dismissed`) y los choices de BD (`OPEN`, `UNDER_REVIEW`, `RESOLVED`, `REJECTED`).
-- **Ocultación de Listas:** Al moderar una `ReadingList`, se marca `is_moderated = True`. `PrivacyService.can_view_list` y `filter_visible_reading_lists` excluyen automáticamente las listas moderadas para usuarios no pertenecientes al staff.
+### 4.7. Onboarding y Arranque en Frío (Cold Start) de Recomendaciones (Fase 19)
+- **Cold Start:** Un lector recién registrado no tiene lecturas en `UserBook`. El servicio `recommendation_service._calculate_user_affinity` incluye directamente las categorías de `user.favorite_categories` con peso 1.0, permitiendo sugerencias inmediatas y relevantes en el paso final del onboarding.
+- **Flujo No Obstructivo:** Bajo ninguna circunstancia se debe forzar una pantalla modal bloqueante sin opción de salida. El endpoint `POST /api/v1/users/onboarding/skip/` y el botón "Explorar directamente" permiten omitir el asistente instantáneamente fijando `onboarding_completed = True`.
 
 ---
 
@@ -105,3 +108,4 @@ Cualquier agente de IA o desarrollador que se incorpore a la base de código **D
 - **Despliegue y Docker en Producción:** [docs/devops/production_docker.md](file:///c:/Users/zaton/Desktop/Escritorio/proyectos/MyBookConnect/docs/devops/production_docker.md)
 - **Scripts de Copias de Seguridad:** `scripts/backup/backup_db.sh` y `scripts/backup/restore_db.sh`
 - **Política de Moderación de Contenido:** [docs/security/content_moderation_policy.md](file:///c:/Users/zaton/Desktop/Escritorio/proyectos/MyBookConnect/docs/security/content_moderation_policy.md)
+- **Experiencia de Onboarding y Activación:** [docs/product/onboarding_experience.md](file:///c:/Users/zaton/Desktop/Escritorio/proyectos/MyBookConnect/docs/product/onboarding_experience.md)
