@@ -56,7 +56,8 @@ Cualquier agente de IA o desarrollador que se incorpore a la base de código **D
 | **19** | Producto: Onboarding | COMPLETADA | Experiencia de bienvenida no obstructiva, géneros favoritos (`favorite_categories`), cold start boost en recomendaciones, modal de 3 pasos e importador. |
 | **20** | Descubrimiento de Libros | COMPLETADA | Exploración facetada independiente de IA (`/api/v1/books/discover/`), tendencias públicas, Landing visual y modales emergentes de autenticación (`AuthModal`). |
 | **21** | Listas Sociales | COMPLETADA | Listas públicas/privadas/seguidores, clonación atómica (`clone`), comentarios (`ReadingListComment`), apertura `views_count`, compartición y métricas. |
-| **22** | **Feed Social y Actividad** | **SIGUIENTE** | Feed social cronológico/inteligente, eventos de lectura, reviews, listas y retos de amigos, smart ranking. |
+| **22** | Feed Social y Actividad | COMPLETADA | 9 eventos de lectura/reacciones/listas, ocultamiento (`HiddenActivity`), exclusión de silenciados/bloqueados y filtros temáticos. |
+| **23** | **Notificaciones** | **SIGUIENTE** | Notificaciones de follow, likes, comentarios, respuestas, recomendaciones y centro de alertas en tiempo real. |
 
 ---
 
@@ -105,7 +106,9 @@ Cualquier agente de IA o desarrollador que se incorpore a la base de código **D
 
 ### 4.9. Listas Sociales, Clonación y Métricas de Apertura (Fase 21)
 - **Clonación Atómica (`clone`):** Duplica la lista asignándole como creador al usuario solicitante (`request.user`), preservando libros, orden y notas en una transacción atómica bajo visibilidad privada por defecto.
-- **Incremento Concurrente de Aperturas:** Al consultar el detalle de una lista por otro lector, `views_count` se incrementa mediante `F('views_count') + 1` directamente en BD para evitar condiciones de carrera.
+### 4.10. Feed Social, Ocultamiento y Moderación Personal (Fase 22)
+- **Filtrado Multidimensional:** `FeedView.get_queryset()` integra `PrivacyService.filter_visible_activities(user, qs)` que aplica simultáneamente bloqueos bidireccionales (`blocked_users`, `blocked_by`), silenciados (`muted_users`) y restricciones de privacidad (`activity_privacy_level`).
+- **Ocultamiento de Publicaciones (`HiddenActivity`):** Permite a cada lector descartar publicaciones individuales de su feed sin afectar al resto de usuarios, garantizando persistencia y reversibilidad (`/feed/<id>/hide/` y `/feed/<id>/unhide/`).
 
 ---
 
@@ -121,3 +124,4 @@ Cualquier agente de IA o desarrollador que se incorpore a la base de código **D
 - **Experiencia de Onboarding y Activación:** [docs/product/onboarding_experience.md](file:///c:/Users/zaton/Desktop/Escritorio/proyectos/MyBookConnect/docs/product/onboarding_experience.md)
 - **Descubrimiento y Landing Pública:** [docs/product/book_discovery_and_public_experience.md](file:///c:/Users/zaton/Desktop/Escritorio/proyectos/MyBookConnect/docs/product/book_discovery_and_public_experience.md)
 - **Listas Sociales y Colecciones:** [docs/product/social_reading_lists.md](file:///c:/Users/zaton/Desktop/Escritorio/proyectos/MyBookConnect/docs/product/social_reading_lists.md)
+- **Feed Social y Actividad:** [docs/product/social_feed.md](file:///c:/Users/zaton/Desktop/Escritorio/proyectos/MyBookConnect/docs/product/social_feed.md)

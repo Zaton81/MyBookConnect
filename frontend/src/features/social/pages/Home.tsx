@@ -42,6 +42,21 @@ interface FeedItem {
     username: string;
     avatar?: string;
   };
+  target_user?: {
+    id: number;
+    username: string;
+    avatar?: string;
+  };
+  metadata?: {
+    list_id?: number;
+    name?: string;
+    privacy?: string;
+    rating?: number;
+    comment_id?: number;
+    review_id?: number;
+    status?: string;
+    progress?: number;
+  };
   book?: {
     id: number;
     title: string;
@@ -68,6 +83,9 @@ export const Home = () => {
   const [trendingLoading, setTrendingLoading] = useState(false);
   const [feed, setFeed] = useState<FeedItem[]>([]);
   const [feedMode, setFeedMode] = useState<'smart' | 'chronological'>('smart');
+  const [feedCategory, setFeedCategory] = useState<'all' | 'reads' | 'reviews' | 'lists' | 'social'>('all');
+  const [activeMenuId, setActiveMenuId] = useState<string | number | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [feedLoading, setFeedLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
@@ -163,22 +181,123 @@ export const Home = () => {
     }
   };
 
-  // Cambio interactivo del modo de feed (Inteligente vs Cronológico)
-  const handleFeedModeChange = async (mode: 'smart' | 'chronological') => {
-    if (mode === feedMode) return;
-    setFeedMode(mode);
+  // Cierre de menús contextuales al hacer clic en el documento
+  useEffect(() => {
+    const handleOutsideClick = () => setActiveMenuId(null);
+    window.addEventListener('click', handleOutsideClick);
+    return () => window.removeEventListener('click', handleOutsideClick);
+  }, []);
+
+  // Carga reactiva de elementos del feed según modo y categoría
+  const fetchFeedItems = async (
+    mode: 'smart' | 'chronological',
+    category: 'all' | 'reads' | 'reviews' | 'lists' | 'social',
+  ) => {
     try {
       setFeedLoading(true);
       const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
-      const res = await fetch(`${apiUrl}/api/v1/users/feed/?mode=${mode}`, { headers });
+      const params = new URLSearchParams();
+      params.append('mode', mode);
+      if (category !== 'all') {
+        params.append('category', category);
+      }
+      const res = await fetch(`${apiUrl}/api/v1/users/feed/?${params.toString()}`, { headers });
       if (res.ok) {
         const data = await res.json();
         setFeed(data.results || []);
       }
     } catch (e) {
-      console.error('Error switching feed mode', e);
+      console.error('Error fetching feed', e);
     } finally {
       setFeedLoading(false);
+    }
+  };
+
+  const handleFeedModeChange = (mode: 'smart' | 'chronological') => {
+    if (mode === feedMode) return;
+    setFeedMode(mode);
+    fetchFeedItems(mode, feedCategory);
+  };
+
+  const handleFeedCategoryChange = (category: 'all' | 'reads' | 'reviews' | 'lists' | 'social') => {
+    if (category === feedCategory) return;
+    setFeedCategory(category);
+    fetchFeedItems(feedMode, category);
+  };
+
+  // Acciones de control de feed para el usuario (Fase 22 - Roadmap 27)
+  const handleHideActivity = async (activityId: string | number) => {
+    setActiveMenuId(null);
+    try {
+      const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
+      const res = await fetch(`${apiUrl}/api/v1/auth/feed/${activityId}/hide/`, {
+        method: 'POST',
+        headers,
+      });
+      if (res.ok) {
+        setFeed((prev) => prev.filter((item) => item.id !== activityId));
+        setToastMessage('Publicación descartada de tu feed.');
+        setTimeout(() => setToastMessage(null), 3500);
+      }
+    } catch (e) {
+      console.error('Error hiding activity', e);
+    }
+  };
+
+  const handleMuteUser = async (userId: number, username: string) => {
+    setActiveMenuId(null);
+    try {
+      const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
+      const res = await fetch(`${apiUrl}/api/v1/auth/users/${userId}/mute/`, {
+        method: 'POST',
+        headers,
+      });
+      if (res.ok) {
+        setFeed((prev) => prev.filter((item) => item.user.id !== userId));
+        setToastMessage(`Has silenciado a @${username}. Sus publicaciones no aparecerán en tu feed.`);
+        setTimeout(() => setToastMessage(null), 4000);
+      }
+    } catch (e) {
+      console.error('Error muting user', e);
+    }
+  };
+
+  const handleUnfollowUser = async (userId: number, username: string) => {
+    setActiveMenuId(null);
+    try {
+      const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
+      const res = await fetch(`${apiUrl}/api/v1/auth/users/${userId}/unfollow/`, {
+        method: 'POST',
+        headers,
+      });
+      if (res.ok) {
+        setFeed((prev) => prev.filter((item) => item.user.id !== userId));
+        setToastMessage(`Has dejado de seguir a @${username}.`);
+        setTimeout(() => setToastMessage(null), 3500);
+      }
+    } catch (e) {
+      console.error('Error unfollowing user', e);
+    }
+  };
+
+  const handleBlockUser = async (userId: number, username: string) => {
+    setActiveMenuId(null);
+    if (!window.confirm(`¿Estás seguro de que deseas bloquear a @${username}? No podréis interactuar ni ver vuestro contenido mutuamente.`)) {
+      return;
+    }
+    try {
+      const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
+      const res = await fetch(`${apiUrl}/api/v1/auth/users/${userId}/block/`, {
+        method: 'POST',
+        headers,
+      });
+      if (res.ok) {
+        setFeed((prev) => prev.filter((item) => item.user.id !== userId));
+        setToastMessage(`Has bloqueado a @${username}.`);
+        setTimeout(() => setToastMessage(null), 4000);
+      }
+    } catch (e) {
+      console.error('Error blocking user', e);
     }
   };
 
@@ -201,6 +320,10 @@ export const Home = () => {
         return 'ha creado una lista de lectura';
       case 'USER_FOLLOWED':
         return 'ha comenzado a seguir a un lector';
+      case 'REVIEW_LIKED':
+        return 'ha reaccionado a la reseña de';
+      case 'COMMENT_ADDED':
+        return 'ha comentado en la reseña de';
       default:
         return 'ha compartido una novedad sobre';
     }
@@ -558,6 +681,31 @@ export const Home = () => {
               </div>
             </div>
 
+            {/* Píldoras de filtro por categoría temático (Fase 22) */}
+            <div className="flex flex-wrap items-center gap-1.5 pb-1">
+              {[
+                { id: 'all', label: '✨ Todo' },
+                { id: 'reads', label: '📖 Lecturas' },
+                { id: 'reviews', label: '✍️ Reseñas' },
+                { id: 'lists', label: '📑 Listas' },
+                { id: 'social', label: '👥 Social' },
+              ].map((cat) => (
+                <button
+                  key={cat.id}
+                  type="button"
+                  disabled={feedLoading}
+                  onClick={() => handleFeedCategoryChange(cat.id as any)}
+                  className={`px-3 py-1 rounded-full text-xs font-semibold transition-all ${
+                    feedCategory === cat.id
+                      ? 'bg-teal-600 text-white shadow-sm'
+                      : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+                  }`}
+                >
+                  {cat.label}
+                </button>
+              ))}
+            </div>
+
             {loading || feedLoading ? (
               <div className="flex justify-center items-center py-12">
                 <Spinner size="lg" color="info" />
@@ -565,8 +713,9 @@ export const Home = () => {
             ) : feed.length === 0 ? (
               <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-8">
                 <p className="text-gray-500 text-sm">
-                  Aún no hay actividad social reciente. ¡Conecta con amigos para ver sus lecturas
-                  aquí!
+                  {feedCategory !== 'all'
+                    ? 'No hay actividades en esta categoría para tu feed actual.'
+                    : 'Aún no hay actividad social reciente. ¡Conecta con amigos para ver sus lecturas aquí!'}
                 </p>
                 <button
                   onClick={() => navigate('/friends')}
@@ -580,7 +729,7 @@ export const Home = () => {
                 {feed.map((item) => (
                   <div
                     key={item.id}
-                    className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-100 dark:border-gray-700 shadow-sm hover:shadow-md transition-shadow"
+                    className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-100 dark:border-gray-700 shadow-sm hover:shadow-md transition-shadow relative"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex items-center space-x-3">
@@ -610,7 +759,15 @@ export const Home = () => {
                               </strong>{' '}
                               <span className="text-gray-500 dark:text-gray-400">
                                 {getActivityActionText(item)}
-                              </span>
+                              </span>{' '}
+                              {item.target_user && (
+                                <strong
+                                  onClick={() => navigate(`/users/${item.target_user?.id}`)}
+                                  className="cursor-pointer hover:text-teal-600 font-bold"
+                                >
+                                  @{item.target_user.username}
+                                </strong>
+                              )}
                             </p>
                             {item.feed_signal && (
                               <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-teal-50 text-teal-700 dark:bg-teal-950/60 dark:text-teal-300 border border-teal-200/60 dark:border-teal-800/60">
@@ -624,9 +781,92 @@ export const Home = () => {
                         </div>
                       </div>
 
-                      {(item.rating || item.review?.rating) &&
-                        renderStars(item.rating || item.review?.rating || 0)}
+                      <div className="flex items-center gap-2 shrink-0">
+                        {(item.rating || item.review?.rating) &&
+                          renderStars(item.rating || item.review?.rating || 0)}
+
+                        {/* Menú de Opciones y Controles del Feed (Fase 22) */}
+                        <div className="relative">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActiveMenuId(activeMenuId === item.id ? null : item.id);
+                            }}
+                            className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                            title="Opciones de publicación"
+                          >
+                            <span className="text-base font-bold leading-none px-1">⋮</span>
+                          </button>
+
+                          {activeMenuId === item.id && (
+                            <div
+                              onClick={(e) => e.stopPropagation()}
+                              className="absolute right-0 top-8 z-30 w-52 bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 py-1.5 text-xs divide-y divide-gray-100 dark:divide-gray-700/80 animate-fade-in"
+                            >
+                              <div className="py-1">
+                                <button
+                                  type="button"
+                                  onClick={() => handleHideActivity(item.id)}
+                                  className="w-full text-left px-3.5 py-2 hover:bg-gray-50 dark:hover:bg-gray-700/60 text-gray-700 dark:text-gray-200 flex items-center gap-2"
+                                >
+                                  <span>👁️</span>
+                                  <span>Ocultar esta publicación</span>
+                                </button>
+                              </div>
+                              {item.user.id !== user.id && (
+                                <div className="py-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleMuteUser(item.user.id, item.user.username)}
+                                    className="w-full text-left px-3.5 py-2 hover:bg-gray-50 dark:hover:bg-gray-700/60 text-gray-700 dark:text-gray-200 flex items-center gap-2"
+                                  >
+                                    <span>🔇</span>
+                                    <span>Silenciar a @{item.user.username}</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleUnfollowUser(item.user.id, item.user.username)}
+                                    className="w-full text-left px-3.5 py-2 hover:bg-gray-50 dark:hover:bg-gray-700/60 text-gray-700 dark:text-gray-200 flex items-center gap-2"
+                                  >
+                                    <span>👤</span>
+                                    <span>Dejar de seguir</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleBlockUser(item.user.id, item.user.username)}
+                                    className="w-full text-left px-3.5 py-2 hover:bg-red-50 dark:hover:bg-red-950/40 text-red-600 dark:text-red-400 flex items-center gap-2"
+                                  >
+                                    <span>🚫</span>
+                                    <span>Bloquear a @{item.user.username}</span>
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     </div>
+
+                    {/* Tarjeta de Lista Creada (LIST_CREATED) */}
+                    {item.type === 'LIST_CREATED' && item.metadata?.name && (
+                      <div
+                        onClick={() => navigate('/lists')}
+                        className="mt-4 p-3.5 rounded-xl bg-gradient-to-r from-teal-50 to-emerald-50 dark:from-teal-950/40 dark:to-emerald-950/40 hover:from-teal-100 hover:to-emerald-100 dark:hover:from-teal-900/50 dark:hover:to-emerald-900/50 cursor-pointer flex items-center space-x-3 border border-teal-200/60 dark:border-teal-800/60 transition-all shadow-sm"
+                      >
+                        <div className="w-10 h-10 rounded-xl bg-teal-600 text-white flex items-center justify-center font-bold text-lg shrink-0 shadow-inner">
+                          📑
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <h4 className="font-bold text-sm text-teal-900 dark:text-teal-200 truncate">
+                            {item.metadata.name}
+                          </h4>
+                          <p className="text-xs text-teal-700/80 dark:text-teal-400">
+                            Colección de libros comunitaria • Explorar listas ➔
+                          </p>
+                        </div>
+                      </div>
+                    )}
 
                     {item.book && (
                       <div
@@ -716,6 +956,20 @@ export const Home = () => {
           </div>
         </div>
       </div>
+
+      {toastMessage && (
+        <div className="fixed bottom-6 right-6 z-50 bg-gray-900/95 dark:bg-gray-100/95 text-white dark:text-gray-900 text-xs font-semibold px-4 py-3 rounded-2xl shadow-2xl flex items-center gap-3 backdrop-blur-md border border-gray-700/50 dark:border-gray-300/50">
+          <span>✨</span>
+          <span>{toastMessage}</span>
+          <button
+            type="button"
+            onClick={() => setToastMessage(null)}
+            className="ml-2 text-gray-400 hover:text-white dark:hover:text-black font-bold text-sm"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       <AIAssistantModal isOpen={isAiModalOpen} onClose={() => setIsAiModalOpen(false)} />
       <OnboardingModal isOpen={isOnboardingOpen} onClose={() => setIsOnboardingOpen(false)} />

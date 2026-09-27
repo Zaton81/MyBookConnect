@@ -26,6 +26,8 @@ from .onboarding_views import (
 from .views import (
     BlockUserView,
     CheckFollowStatusView,
+    FeedActivityHideView,
+    FeedActivityUnhideView,
     FeedView,
     FollowUserView,
     LogoutView,
@@ -91,6 +93,8 @@ urlpatterns = [
     path('notifications/read-all/', NotificationMarkAllReadView.as_view(), name='notification-read-all'),
     path('notifications/unread-count/', NotificationUnreadCountView.as_view(), name='notification-unread-count'),
     path('feed/', FeedView.as_view(), name='social-feed'),
+    path('feed/<int:activity_id>/hide/', FeedActivityHideView.as_view(), name='feed-activity-hide'),
+    path('feed/<int:activity_id>/unhide/', FeedActivityUnhideView.as_view(), name='feed-activity-unhide'),
     *user_action_patterns,
     path('users/', include(user_action_patterns)),
 ] + router.urls

@@ -619,6 +619,21 @@ class ReviewLikeToggleView(APIView):
                             link=f"/books/{review.book_id}?review={review.id}",
                         )
 
+                if liked:
+                    try:
+                        from users.activity_service import record_activity
+                        from users.models import ActivityType
+                        record_activity(
+                            user=request.user,
+                            activity_type=ActivityType.REVIEW_LIKED,
+                            book=review.book,
+                            review=review,
+                            target_user=review.user,
+                            metadata={'review_id': review.id, 'rating': review.rating},
+                        )
+                    except Exception:
+                        pass
+
         return Response({
             'liked': liked,
             'likes_count': review.likes.count(),
@@ -732,6 +747,20 @@ class ReviewCommentListCreateView(APIView):
                         message=content[:120],
                         link=f"/books/{review.book_id}?review={review.id}",
                     )
+
+            try:
+                from users.activity_service import record_activity
+                from users.models import ActivityType
+                record_activity(
+                    user=request.user,
+                    activity_type=ActivityType.COMMENT_ADDED,
+                    book=review.book,
+                    review=review,
+                    target_user=review.user,
+                    metadata={'comment_id': comment.id, 'review_id': review.id},
+                )
+            except Exception:
+                pass
 
         serializer = ReviewCommentSerializer(comment, context={'request': request})
         return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -1511,7 +1540,18 @@ class ReadingListViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         with transaction.atomic():
-            serializer.save(user=self.request.user)
+            instance = serializer.save(user=self.request.user)
+            if instance.privacy != ReadingListPrivacy.PRIVATE:
+                try:
+                    from users.activity_service import record_activity
+                    from users.models import ActivityType
+                    record_activity(
+                        user=self.request.user,
+                        activity_type=ActivityType.LIST_CREATED,
+                        metadata={'list_id': instance.id, 'name': instance.name, 'privacy': instance.privacy},
+                    )
+                except Exception:
+                    pass
 
     def perform_update(self, serializer):
         instance = self.get_object()

@@ -205,6 +205,8 @@ class ActivityType(models.TextChoices):
     REVIEW_CREATED = 'REVIEW_CREATED', 'Publicó una reseña'
     USER_FOLLOWED = 'USER_FOLLOWED', 'Comenzó a seguir'
     LIST_CREATED = 'LIST_CREATED', 'Creó una lista'
+    REVIEW_LIKED = 'REVIEW_LIKED', 'Le gustó una reseña'
+    COMMENT_ADDED = 'COMMENT_ADDED', 'Comentó en una reseña'
 
 
 class Activity(models.Model):
@@ -226,6 +228,22 @@ class Activity(models.Model):
 
     def __str__(self):
         return f"{self.user.username} - {self.get_type_display()} ({self.created_at})"
+
+
+class HiddenActivity(models.Model):
+    """Permite al usuario ocultar publicaciones específicas de su feed personal (Fase 22)."""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='hidden_feed_activities')
+    activity = models.ForeignKey(Activity, on_delete=models.CASCADE, related_name='hidden_by_users')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('user', 'activity')
+        indexes = [
+            models.Index(fields=['user', 'activity'], name='idx_hidden_user_activity'),
+        ]
+
+    def __str__(self):
+        return f"HiddenActivity #{self.activity_id} por {self.user.username}"
 
 
 class ReportStatus(models.TextChoices):
