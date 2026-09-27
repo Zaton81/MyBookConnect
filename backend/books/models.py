@@ -424,6 +424,9 @@ class LegalDocument(models.Model):
         ('privacy', 'Política de Privacidad'),
         ('cookies', 'Política de Cookies'),
         ('legal_notice', 'Aviso Legal'),
+        ('content_policy', 'Política de Contenido'),
+        ('deletion_policy', 'Política de Eliminación y Retención'),
+        ('contact', 'Contacto y Soporte Legal'),
     ]
     slug = models.SlugField(max_length=50, unique=True, choices=DOCUMENT_TYPES)
     title = models.CharField(max_length=200)

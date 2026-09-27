@@ -52,7 +52,8 @@ Cualquier agente de IA o desarrollador que se incorpore a la base de código **D
 | **15** | Backups y Disaster Recovery | COMPLETADA | Frecuencia de backups PostgreSQL/Media, retención, cifrado AES-256, restore test y RPO/RTO. |
 | **16** | Moderación y Seguridad Social | COMPLETADA | Reportes (user, review, comment, message, list), cola admin, acciones con AuditLog, 5 throttles resilientes, política de contenido. |
 | **17** | Cuenta y Privacidad del Usuario | COMPLETADA | Cambio de email/password seguro, eliminación RGPD Art. 17 con anonimización atómica, exportación JSON RGPD Art. 20, tabs en UI y AuditLog. |
-| **18** | **Legal y Privacidad para Beta** | **SIGUIENTE** | Aviso legal, política de privacidad, política de cookies, términos de uso, retención de datos y contacto para beta abierta. |
+| **18** | Legal y Privacidad para Beta | COMPLETADA | 7 documentos normativos sembrados, API pública list/detail, IA sin entrenamiento, privacy-first, páginas frontend y footer. |
+| **19** | **Producto: Onboarding** | **SIGUIENTE** | Flujo de bienvenida para nuevos lectores, selección de géneros, primeros libros leídos y comprensión rápida del producto. |
 
 ---
 

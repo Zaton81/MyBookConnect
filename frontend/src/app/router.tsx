@@ -30,6 +30,18 @@ const TermsOfService = lazy(() =>
 const CookiePolicy = lazy(() =>
   import('../features/legal').then((m) => ({ default: m.CookiePolicy }))
 );
+const LegalNotice = lazy(() =>
+  import('../features/legal').then((m) => ({ default: m.LegalNotice }))
+);
+const ContentPolicy = lazy(() =>
+  import('../features/legal').then((m) => ({ default: m.ContentPolicy }))
+);
+const DeletionPolicy = lazy(() =>
+  import('../features/legal').then((m) => ({ default: m.DeletionPolicy }))
+);
+const ContactPage = lazy(() =>
+  import('../features/legal').then((m) => ({ default: m.ContactPage }))
+);
 const AdminDashboard = lazy(() =>
   import('../features/admin').then((m) => ({ default: m.AdminDashboard }))
 );
@@ -81,6 +93,11 @@ export function AppRouter() {
           <Route path="/privacy" element={<PrivacyPolicy />} />
           <Route path="/terms" element={<TermsOfService />} />
           <Route path="/cookies" element={<CookiePolicy />} />
+          <Route path="/legal-notice" element={<LegalNotice />} />
+          <Route path="/legal" element={<Navigate to="/legal-notice" replace />} />
+          <Route path="/content-policy" element={<ContentPolicy />} />
+          <Route path="/deletion-policy" element={<DeletionPolicy />} />
+          <Route path="/contact" element={<ContactPage />} />
         </Route>
 
         {/* Rutas Protegidas de Miembros */}

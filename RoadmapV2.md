@@ -1887,31 +1887,44 @@ Contenido:
 
 ---
 
-# 23. FASE 18 — Legal y privacidad para beta
+# 23. FASE 18 — Legal y privacidad para beta [COMPLETADA]
 
 **Prioridad: P1 antes de usuarios reales**
 
-Preparar:
+Preparado e implementado:
 
-- aviso legal;
-- política de privacidad;
-- política de cookies si se utilizan;
-- términos de uso;
-- política de contenido;
-- política de eliminación;
-- contacto.
+- aviso legal (`legal_notice`);
+- política de privacidad (`privacy`);
+- política de cookies técnicas y de sesión (`cookies`);
+- términos de uso para fase beta (`terms`);
+- política de contenido y normas de la comunidad DSA (`content_policy`);
+- política de eliminación, cancelación y retención RGPD Art. 17 (`deletion_policy`);
+- canales oficiales de contacto y ejercicio de derechos (`contact`).
 
-Documentar:
+Documentado y garantizado:
 
-- datos recogidos;
-- finalidad;
-- proveedores;
-- IA;
-- analytics;
-- cookies;
-- retención.
+- **datos recogidos:** cuentas, bibliotecas, reseñas y logs de seguridad estrictamente necesarios;
+- **finalidad:** catalogación de lecturas, interacción social literaria y seguridad;
+- **proveedores:** infraestructura en la UE, PostgreSQL vectorizado, Redis y APIs abiertas bibliográficas;
+- **IA:** búsqueda semántica y recomendaciones v3 sin utilizar datos de usuario para entrenar modelos de terceros (conforme a AI Act);
+- **analytics:** enfoque privacy-first sin herramientas de rastreo comercial invasivo;
+- **cookies:** cookies técnicas esenciales y de sesión JWT sin rastreo cruzado;
+- **retención:** mantenimiento durante vida de la cuenta y supresión/anonimización atómica (RGPD Art. 17).
+- **Principio rector:** Cero tracking innecesario en la plataforma.
 
-No introducir tracking innecesario.
+### Entregables
+- `docs/legal/legal_and_privacy_beta.md` [COMPLETADO]
+- Management command `seed_legal_documents` con los 7 documentos normativos completos [COMPLETADO]
+- Endpoints públicos `GET /api/v1/books/legal/` y `GET /api/v1/books/legal/<slug>/` [COMPLETADO]
+- Páginas en Frontend (`PrivacyPolicy.tsx`, `TermsOfService.tsx`, `CookiePolicy.tsx`, `LegalNotice.tsx`, `ContentPolicy.tsx`, `DeletionPolicy.tsx`, `ContactPage.tsx`) con rutas en `router.tsx` y enlaces en `Footer.tsx` [COMPLETADO]
+
+### Criterio de salida
+- [x] Los 7 documentos normativos sembrados y actualizables en backend.
+- [x] Endpoint público de listado y detalle operativo (`GET /api/v1/books/legal/`).
+- [x] Garantía documentada de no cesión ni entrenamiento de modelos IA con datos de usuario.
+- [x] Enfoque privacy-first sin rastreo invasivo de terceros activo en políticas y arquitectura.
+- [x] Páginas públicas operativas en frontend con enrutamiento y enlaces en pie de página.
+- [x] Suite de tests automatizados al 100% (`test_phase18_legal_privacy_beta.py`, 6/6).
 
 ---
 

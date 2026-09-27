@@ -550,3 +550,15 @@ class PublicLegalDocumentView(generics.RetrieveAPIView):
     serializer_class = LegalDocumentSerializer
     lookup_field = 'slug'
     queryset = LegalDocument.objects.all()
+
+
+class PublicLegalDocumentListView(generics.ListAPIView):
+    """
+    Lista pública de todos los documentos legales vigentes (Fase 18).
+    Permite a los usuarios y clientes frontend descubrir las políticas disponibles.
+    """
+    permission_classes = [permissions.AllowAny]
+    serializer_class = LegalDocumentSerializer
+    queryset = LegalDocument.objects.all().order_by('slug')
+    pagination_class = None
+

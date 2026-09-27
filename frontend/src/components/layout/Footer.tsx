@@ -92,7 +92,7 @@ export function FooterSection() {
             <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white mb-4">
               Legal & Privacidad
             </h3>
-            <ul className="space-y-2.5 text-sm">
+            <ul className="space-y-2 text-xs">
               <li>
                 <Link
                   to="/privacy"
@@ -111,6 +111,30 @@ export function FooterSection() {
               </li>
               <li>
                 <Link
+                  to="/legal-notice"
+                  className="hover:text-teal-600 dark:hover:text-teal-400 transition-colors"
+                >
+                  Aviso Legal (LSSI)
+                </Link>
+              </li>
+              <li>
+                <Link
+                  to="/content-policy"
+                  className="hover:text-teal-600 dark:hover:text-teal-400 transition-colors"
+                >
+                  Normas de Contenido
+                </Link>
+              </li>
+              <li>
+                <Link
+                  to="/deletion-policy"
+                  className="hover:text-teal-600 dark:hover:text-teal-400 transition-colors"
+                >
+                  Eliminación (RGPD 17)
+                </Link>
+              </li>
+              <li>
+                <Link
                   to="/cookies"
                   className="hover:text-teal-600 dark:hover:text-teal-400 transition-colors"
                 >
@@ -118,10 +142,18 @@ export function FooterSection() {
                 </Link>
               </li>
               <li>
+                <Link
+                  to="/contact"
+                  className="hover:text-teal-600 dark:hover:text-teal-400 transition-colors"
+                >
+                  Contacto & Soporte
+                </Link>
+              </li>
+              <li className="pt-1">
                 <button
                   type="button"
                   onClick={openCookiePreferences}
-                  className="text-teal-600 dark:text-teal-400 hover:underline transition-colors flex items-center gap-1.5 cursor-pointer text-left"
+                  className="text-teal-600 dark:text-teal-400 hover:underline transition-colors flex items-center gap-1.5 cursor-pointer text-left font-medium"
                 >
                   <span>Configurar cookies</span>
                   <span className="text-[10px]">⚙️</span>
