@@ -156,12 +156,13 @@ class FollowUserView(APIView):
             request.user.following.add(user_to_follow)
 
             from .activity_service import record_activity
-            from .models import ActivityType, Notification, NotificationType
+            from .models import ActivityType, NotificationType
+            from .notification_service import NotificationService
 
-            Notification.objects.create(
+            NotificationService.send_notification(
                 recipient=user_to_follow,
                 actor=request.user,
-                type=NotificationType.FOLLOW,
+                notif_type=NotificationType.FOLLOW,
                 title='Nuevo seguidor',
                 message=f'{request.user.username} ha comenzado a seguirte.',
                 link=f'/users/{request.user.id}',
@@ -513,6 +514,9 @@ class NotificationListView(generics.ListCreateAPIView):
         unread_only = self.request.query_params.get('unread') in ('1', 'true', 'True')
         if unread_only:
             queryset = queryset.filter(read=False)
+        notif_type = self.request.query_params.get('type')
+        if notif_type:
+            queryset = queryset.filter(type=notif_type.upper().strip())
         return queryset
 
     @idempotent(required=False)
@@ -522,6 +526,76 @@ class NotificationListView(generics.ListCreateAPIView):
 
 
 NotificationCreateView = NotificationListView
+
+
+class NotificationDetailView(APIView):
+    """Permite consultar o eliminar una notificación individual."""
+    permission_classes = (permissions.IsAuthenticated,)
+
+    @extend_schema(
+        summary="Eliminar notificación individual",
+        responses={204: None, 404: OpenApiResponse(description="Notificación no encontrada")},
+        tags=['Notifications'],
+    )
+    def delete(self, request, notification_id):
+        from .models import Notification
+        notif = get_object_or_404(Notification, id=notification_id, recipient=request.user)
+        with transaction.atomic():
+            notif.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class NotificationClearReadView(APIView):
+    """Elimina en bloque todas las notificaciones ya leídas del usuario."""
+    permission_classes = (permissions.IsAuthenticated,)
+
+    @extend_schema(
+        summary="Eliminar notificaciones leídas",
+        responses={
+            200: inline_serializer(
+                name='NotificationClearReadResponse',
+                fields={'status': serializers.CharField(), 'deleted_count': serializers.IntegerField()},
+            ),
+        },
+        tags=['Notifications'],
+    )
+    def post(self, request):
+        from .models import Notification
+        with transaction.atomic():
+            deleted_count, _ = Notification.objects.filter(recipient=request.user, read=True).delete()
+        return Response({'status': 'cleared_read', 'deleted_count': deleted_count}, status=status.HTTP_200_OK)
+
+
+class NotificationPreferenceView(APIView):
+    """Consulta y actualiza las preferencias de notificación del usuario (Fase 23)."""
+    permission_classes = (permissions.IsAuthenticated,)
+
+    @extend_schema(
+        summary="Obtener preferencias de notificación",
+        responses={200: 'NotificationPreferenceSerializer'},
+        tags=['Notifications'],
+    )
+    def get(self, request):
+        from .notification_service import NotificationService
+        from .serializers import NotificationPreferenceSerializer
+        prefs = NotificationService.get_or_create_preferences(request.user)
+        serializer = NotificationPreferenceSerializer(prefs)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @extend_schema(
+        summary="Actualizar preferencias de notificación",
+        request='NotificationPreferenceSerializer',
+        responses={200: 'NotificationPreferenceSerializer'},
+        tags=['Notifications'],
+    )
+    def patch(self, request):
+        from .notification_service import NotificationService
+        from .serializers import NotificationPreferenceSerializer
+        prefs = NotificationService.get_or_create_preferences(request.user)
+        serializer = NotificationPreferenceSerializer(prefs, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 class NotificationMarkReadView(APIView):

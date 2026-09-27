@@ -2063,9 +2063,9 @@ Permitir:
 
 ---
 
-# 28. FASE 23 — Notificaciones
+# 28. FASE 23 — Notificaciones [COMPLETADA]
 
-**Prioridad: P1/P2**
+**Prioridad: P1/P2 - COMPLETADA**
 
 Eventos:
 

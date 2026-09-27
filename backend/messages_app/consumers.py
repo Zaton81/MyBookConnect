@@ -166,11 +166,14 @@ class ChatConsumer(AsyncWebsocketConsumer):
         )
 
         # Generar notificación para los demás participantes
+        from users.models import NotificationType
+        from users.notification_service import NotificationService
+
         for participant in conv.participants.exclude(id=sender_id):
-            Notification.objects.create(
+            NotificationService.send_notification(
                 recipient=participant,
                 actor=user,
-                type=NotificationType.MESSAGE,
+                notif_type=NotificationType.MESSAGE,
                 title=f'Mensaje de {user.username}',
                 message=text[:80],
                 link=f'/chat?conversationId={conv.id}',

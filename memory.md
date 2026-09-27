@@ -57,7 +57,8 @@ Cualquier agente de IA o desarrollador que se incorpore a la base de código **D
 | **20** | Descubrimiento de Libros | COMPLETADA | Exploración facetada independiente de IA (`/api/v1/books/discover/`), tendencias públicas, Landing visual y modales emergentes de autenticación (`AuthModal`). |
 | **21** | Listas Sociales | COMPLETADA | Listas públicas/privadas/seguidores, clonación atómica (`clone`), comentarios (`ReadingListComment`), apertura `views_count`, compartición y métricas. |
 | **22** | Feed Social y Actividad | COMPLETADA | 9 eventos de lectura/reacciones/listas, ocultamiento (`HiddenActivity`), exclusión de silenciados/bloqueados y filtros temáticos. |
-| **23** | **Notificaciones** | **SIGUIENTE** | Notificaciones de follow, likes, comentarios, respuestas, recomendaciones y centro de alertas en tiempo real. |
+| **23** | Notificaciones | COMPLETADA | Eventos (follow, follow_accepted, likes, comentarios, respuestas, listas, mensajes, recomendaciones), `NotificationPreference` (in-app, email, push), `NotificationService` y centro UI. |
+| **24** | **IA de producto** | **SIGUIENTE** | Asistente literario, explicar libros, comparar temas, recomendaciones semánticas y resúmenes guiados. |
 
 ---
 
@@ -110,6 +111,10 @@ Cualquier agente de IA o desarrollador que se incorpore a la base de código **D
 - **Filtrado Multidimensional:** `FeedView.get_queryset()` integra `PrivacyService.filter_visible_activities(user, qs)` que aplica simultáneamente bloqueos bidireccionales (`blocked_users`, `blocked_by`), silenciados (`muted_users`) y restricciones de privacidad (`activity_privacy_level`).
 - **Ocultamiento de Publicaciones (`HiddenActivity`):** Permite a cada lector descartar publicaciones individuales de su feed sin afectar al resto de usuarios, garantizando persistencia y reversibilidad (`/feed/<id>/hide/` y `/feed/<id>/unhide/`).
 
+### 4.11. Sistema Centralizado de Notificaciones y Privacidad (Fase 23)
+- **Despacho Exclusivo:** Toda emisión de alertas debe realizarse mediante `NotificationService.send_notification(...)`. Dicho servicio verifica la no auto-notificación (`actor != recipient`), bloqueos bidireccionales (`PrivacyService.are_mutually_blocked`), silencios activos y preferencias granulares de canal (`in_app` y `email`).
+- **Preferencias Granulares:** Se gestionan a través de `NotificationPreference` asociado 1:1 a cada usuario, permitiendo activar o desactivar avisos independientemente para cada canal e interacción social.
+
 ---
 
 ## 5. Ubicación de Documentación Relevante
@@ -125,3 +130,4 @@ Cualquier agente de IA o desarrollador que se incorpore a la base de código **D
 - **Descubrimiento y Landing Pública:** [docs/product/book_discovery_and_public_experience.md](file:///c:/Users/zaton/Desktop/Escritorio/proyectos/MyBookConnect/docs/product/book_discovery_and_public_experience.md)
 - **Listas Sociales y Colecciones:** [docs/product/social_reading_lists.md](file:///c:/Users/zaton/Desktop/Escritorio/proyectos/MyBookConnect/docs/product/social_reading_lists.md)
 - **Feed Social y Actividad:** [docs/product/social_feed.md](file:///c:/Users/zaton/Desktop/Escritorio/proyectos/MyBookConnect/docs/product/social_feed.md)
+- **Sistema de Notificaciones:** [docs/product/notifications_system.md](file:///c:/Users/zaton/Desktop/Escritorio/proyectos/MyBookConnect/docs/product/notifications_system.md)

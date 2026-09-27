@@ -142,13 +142,14 @@ class MessageViewSet(
         msg = serializer.save(sender=self.request.user, conversation=conv, client_message_id=client_message_id)
 
         # Generar notificación para los demás participantes que no hayan silenciado al remitente
+        from users.models import NotificationType
+        from users.notification_service import NotificationService
+
         for participant in conv.participants.exclude(id=self.request.user.id):
-            if hasattr(participant, 'muted_users') and participant.muted_users.filter(id=self.request.user.id).exists():
-                continue
-            Notification.objects.create(
+            NotificationService.send_notification(
                 recipient=participant,
                 actor=self.request.user,
-                type=NotificationType.MESSAGE,
+                notif_type=NotificationType.MESSAGE,
                 title=f'Mensaje de {self.request.user.username}',
                 message=msg.text[:80] if msg.text else 'Te ha enviado una imagen',
                 link=f'/chat?conversationId={conv.id}',

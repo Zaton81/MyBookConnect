@@ -602,22 +602,17 @@ class ReviewLikeToggleView(APIView):
                     liked = True
 
                 if liked and review.user_id != request.user.id:
-                    from users.models import Notification, NotificationType
-                    notif_exists = Notification.objects.filter(
+                    from users.models import NotificationType
+                    from users.notification_service import NotificationService
+
+                    NotificationService.send_notification(
                         recipient=review.user,
                         actor=request.user,
-                        type=NotificationType.LIKE,
+                        notif_type=NotificationType.LIKE,
+                        title=f"{request.user.username} le dio me gusta a tu reseña",
+                        message=f"A {request.user.username} le gustó tu reseña de '{review.book.title}'",
                         link=f"/books/{review.book_id}?review={review.id}",
-                    ).exists()
-                    if not notif_exists:
-                        Notification.objects.create(
-                            recipient=review.user,
-                            actor=request.user,
-                            type=NotificationType.LIKE,
-                            title=f"{request.user.username} le dio me gusta a tu reseña",
-                            message=f"A {request.user.username} le gustó tu reseña de '{review.book.title}'",
-                            link=f"/books/{review.book_id}?review={review.id}",
-                        )
+                    )
 
                 if liked:
                     try:
@@ -736,17 +731,32 @@ class ReviewCommentListCreateView(APIView):
                 content=content,
             )
 
-            if review.user_id != request.user.id:
-                # No enviar notificación si el receptor ha silenciado al autor
-                if not review.user.muted_users.filter(id=request.user.id).exists():
-                    Notification.objects.create(
-                        recipient=review.user,
-                        actor=request.user,
-                        type=NotificationType.COMMENT,
-                        title=f"{request.user.username} comentó en tu reseña",
-                        message=content[:120],
-                        link=f"/books/{review.book_id}?review={review.id}",
-                    )
+            from users.models import NotificationType
+            from users.notification_service import NotificationService
+
+            parent_id = request.data.get('parent_id') or request.data.get('parent')
+            parent_comment = None
+            if parent_id:
+                parent_comment = ReviewComment.objects.filter(id=parent_id, review=review).first()
+
+            if parent_comment and parent_comment.user_id != request.user.id:
+                NotificationService.send_notification(
+                    recipient=parent_comment.user,
+                    actor=request.user,
+                    notif_type=NotificationType.REPLY,
+                    title=f"{request.user.username} respondió a tu comentario",
+                    message=content[:120],
+                    link=f"/books/{review.book_id}?review={review.id}",
+                )
+            elif review.user_id != request.user.id:
+                NotificationService.send_notification(
+                    recipient=review.user,
+                    actor=request.user,
+                    notif_type=NotificationType.COMMENT,
+                    title=f"{request.user.username} comentó en tu reseña",
+                    message=content[:120],
+                    link=f"/books/{review.book_id}?review={review.id}",
+                )
 
             try:
                 from users.activity_service import record_activity
@@ -1672,6 +1682,18 @@ class ReadingListViewSet(viewsets.ModelViewSet):
                 user=request.user,
                 reading_list=reading_list,
             )
+            if created and reading_list.user_id != request.user.id:
+                from users.models import NotificationType
+                from users.notification_service import NotificationService
+
+                NotificationService.send_notification(
+                    recipient=reading_list.user,
+                    actor=request.user,
+                    notif_type=NotificationType.LIST_FOLLOW,
+                    title='Nuevo seguidor en tu lista',
+                    message=f"{request.user.username} ha comenzado a seguir tu lista '{reading_list.name}'.",
+                    link=f"/reading-lists?id={reading_list.id}",
+                )
         return Response({'detail': 'Ahora sigues esta lista.', 'created': created}, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=['delete', 'post'], url_path='unfollow', permission_classes=[permissions.IsAuthenticated])
@@ -1708,6 +1730,19 @@ class ReadingListViewSet(viewsets.ModelViewSet):
             if items_to_create:
                 ReadingListItem.objects.bulk_create(items_to_create)
 
+            if source_list.user_id != request.user.id:
+                from users.models import NotificationType
+                from users.notification_service import NotificationService
+
+                NotificationService.send_notification(
+                    recipient=source_list.user,
+                    actor=request.user,
+                    notif_type=NotificationType.LIST_FOLLOW,
+                    title='Alguien ha guardado tu lista',
+                    message=f"{request.user.username} ha guardado una copia de tu lista '{source_list.name}'.",
+                    link=f"/reading-lists?id={source_list.id}",
+                )
+
         serializer = self.get_serializer(new_list)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
@@ -1732,11 +1767,24 @@ class ReadingListViewSet(viewsets.ModelViewSet):
             return Response({'detail': 'El contenido del comentario es obligatorio.'}, status=status.HTTP_400_BAD_REQUEST)
 
         clean_content = sanitize_plain_text(raw_content).strip()
-        comment = ReadingListComment.objects.create(
-            user=request.user,
-            reading_list=reading_list,
-            content=clean_content,
-        )
+        with transaction.atomic():
+            comment = ReadingListComment.objects.create(
+                user=request.user,
+                reading_list=reading_list,
+                content=clean_content,
+            )
+            if reading_list.user_id != request.user.id:
+                from users.models import NotificationType
+                from users.notification_service import NotificationService
+
+                NotificationService.send_notification(
+                    recipient=reading_list.user,
+                    actor=request.user,
+                    notif_type=NotificationType.COMMENT,
+                    title=f"{request.user.username} comentó en tu lista",
+                    message=f"Nuevo comentario en '{reading_list.name}': {clean_content[:100]}",
+                    link=f"/reading-lists?id={reading_list.id}",
+                )
         return Response(
             ReadingListCommentSerializer(comment, context={'request': request}).data,
             status=status.HTTP_201_CREATED,

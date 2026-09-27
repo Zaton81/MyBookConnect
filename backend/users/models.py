@@ -169,11 +169,48 @@ class User(AbstractUser):
 
 class NotificationType(models.TextChoices):
     FOLLOW = 'FOLLOW', 'Nuevo seguidor'
+    FOLLOW_ACCEPTED = 'FOLLOW_ACCEPTED', 'Solicitud de seguimiento aceptada'
     MESSAGE = 'MESSAGE', 'Nuevo mensaje'
     REVIEW = 'REVIEW', 'Nueva reseña'
     LIKE = 'LIKE', 'Me gusta en reseña'
-    COMMENT = 'COMMENT', 'Comentario en reseña'
+    COMMENT = 'COMMENT', 'Comentario'
+    REPLY = 'REPLY', 'Respuesta a comentario'
+    LIST_FOLLOW = 'LIST_FOLLOW', 'Interacción en lista social'
+    RECOMMENDATION = 'RECOMMENDATION', 'Nueva recomendación'
     SYSTEM = 'SYSTEM', 'Sistema'
+
+
+class NotificationPreference(models.Model):
+    user = models.OneToOneField(User, related_name='notification_preferences', on_delete=models.CASCADE)
+
+    # Preferencias In-App
+    in_app_follow = models.BooleanField(default=True)
+    in_app_follow_accepted = models.BooleanField(default=True)
+    in_app_like = models.BooleanField(default=True)
+    in_app_comment = models.BooleanField(default=True)
+    in_app_reply = models.BooleanField(default=True)
+    in_app_list = models.BooleanField(default=True)
+    in_app_message = models.BooleanField(default=True)
+    in_app_recommendation = models.BooleanField(default=True)
+
+    # Preferencias Email
+    email_follow = models.BooleanField(default=False)
+    email_follow_accepted = models.BooleanField(default=False)
+    email_like = models.BooleanField(default=False)
+    email_comment = models.BooleanField(default=True)
+    email_reply = models.BooleanField(default=True)
+    email_list = models.BooleanField(default=False)
+    email_message = models.BooleanField(default=True)
+    email_recommendation = models.BooleanField(default=True)
+
+    # Preferencia Push (diseño preparado para PWA / Web Push futuro)
+    push_enabled = models.BooleanField(default=False)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Preferencias de notificaciones de {self.user.username}"
 
 
 class Notification(models.Model):

@@ -268,6 +268,32 @@ class NotificationCreateSerializer(serializers.ModelSerializer):
         )
 
 
+class NotificationPreferenceSerializer(serializers.ModelSerializer):
+    class Meta:
+        from .models import NotificationPreference
+        model = NotificationPreference
+        fields = (
+            'in_app_follow',
+            'in_app_follow_accepted',
+            'in_app_like',
+            'in_app_comment',
+            'in_app_reply',
+            'in_app_list',
+            'in_app_message',
+            'in_app_recommendation',
+            'email_follow',
+            'email_follow_accepted',
+            'email_like',
+            'email_comment',
+            'email_reply',
+            'email_list',
+            'email_message',
+            'email_recommendation',
+            'push_enabled',
+            'updated_at',
+        )
+        read_only_fields = ('updated_at',)
+
 
 class ActivityBookSerializer(serializers.Serializer):
     id = serializers.IntegerField(read_only=True)
