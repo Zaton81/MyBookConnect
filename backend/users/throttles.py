@@ -1,4 +1,8 @@
-from mybookconnect.throttling import ResilientAnonRateThrottle, ResilientSimpleRateThrottle
+from mybookconnect.throttling import (
+    ResilientAnonRateThrottle,
+    ResilientSimpleRateThrottle,
+    ResilientUserRateThrottle,
+)
 
 
 class AuthAnonRateThrottle(ResilientAnonRateThrottle):
@@ -52,3 +56,30 @@ class PasswordResetRateThrottle(ResilientSimpleRateThrottle):
             'scope': self.scope,
             'ident': ident,
         }
+
+
+# --- Throttles de Seguridad y Moderación Social (Roadmap 21.4) ---
+
+class ReportRateThrottle(ResilientUserRateThrottle):
+    """Evita el spam y abuso de denuncias a moderación (Roadmap 21.4)."""
+    scope = 'reports'
+
+
+class FollowRateThrottle(ResilientUserRateThrottle):
+    """Evita operaciones de follow/unfollow masivas automatizadas (Roadmap 21.4)."""
+    scope = 'follows'
+
+
+class CommentRateThrottle(ResilientUserRateThrottle):
+    """Evita el spam y flood de comentarios en reseñas literarias (Roadmap 21.4)."""
+    scope = 'comments'
+
+
+class LikeRateThrottle(ResilientUserRateThrottle):
+    """Evita la automatización y spam de likes/unlikes en reseñas (Roadmap 21.4)."""
+    scope = 'likes'
+
+
+class MessageRateThrottle(ResilientUserRateThrottle):
+    """Evita el flood y spam masivo de mensajería directa (Roadmap 21.4)."""
+    scope = 'messages'

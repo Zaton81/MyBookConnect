@@ -5,6 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useAuthStore } from '../../../store/auth';
 import { resolveMediaUrl } from '../../../utils/media';
+import { ReportModal } from '../../moderation';
 import { readingListSchema, ReadingListFormData } from '../schemas/listSchemas';
 
 interface BookItem {
@@ -57,6 +58,7 @@ export function ReadingLists() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingList, setEditingList] = useState<ReadingList | null>(null);
   const [savingList, setSavingList] = useState(false);
+  const [reportingList, setReportingList] = useState<ReadingList | null>(null);
 
   const {
     register: registerList,
@@ -457,16 +459,25 @@ export function ReadingLists() {
 
               <div className="flex items-center gap-2">
                 {!isOwner(selectedList) ? (
-                  <button
-                    onClick={() => handleToggleFollow(selectedList)}
-                    className={`text-xs font-bold px-4 py-2 rounded-xl transition-all ${
-                      selectedList.is_following
-                        ? 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-red-50 hover:text-red-600'
-                        : 'bg-teal-600 hover:bg-teal-700 text-white shadow-sm shadow-teal-600/20'
-                    }`}
-                  >
-                    {selectedList.is_following ? 'Siguiendo ✓' : '+ Seguir Lista'}
-                  </button>
+                  <>
+                    <button
+                      onClick={() => handleToggleFollow(selectedList)}
+                      className={`text-xs font-bold px-4 py-2 rounded-xl transition-all ${
+                        selectedList.is_following
+                          ? 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-red-50 hover:text-red-600'
+                          : 'bg-teal-600 hover:bg-teal-700 text-white shadow-sm shadow-teal-600/20'
+                      }`}
+                    >
+                      {selectedList.is_following ? 'Siguiendo ✓' : '+ Seguir Lista'}
+                    </button>
+                    <button
+                      onClick={() => setReportingList(selectedList)}
+                      className="text-xs font-semibold px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors"
+                      title="Denunciar lista a moderación"
+                    >
+                      🚩 Denunciar
+                    </button>
+                  </>
                 ) : (
                   <>
                     <button
@@ -828,6 +839,16 @@ export function ReadingLists() {
             </form>
           </div>
         </div>
+      )}
+
+      {reportingList && (
+        <ReportModal
+          isOpen={!!reportingList}
+          onClose={() => setReportingList(null)}
+          targetType="list"
+          targetId={reportingList.id}
+          targetTitle={`Lista: ${reportingList.name}`}
+        />
       )}
     </div>
   );

@@ -6,6 +6,7 @@ from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 
 from books.pagination import StandardCursorPagination
+from users.throttles import MessageRateThrottle
 
 from .models import Conversation, Message
 from .serializers import ConversationSerializer, MessageSerializer
@@ -76,6 +77,11 @@ class MessageViewSet(
     permission_classes = [permissions.IsAuthenticated, IsParticipant]
     parser_classes = [MultiPartParser, FormParser, JSONParser]
     pagination_class = StandardCursorPagination
+
+    def get_throttles(self):
+        if self.action == 'create' or self.request.method.lower() == 'post':
+            return [MessageRateThrottle()]
+        return super().get_throttles()
 
     def get_queryset(self):
         if getattr(self, 'swagger_fake_view', False) or not self.request.user.is_authenticated:

@@ -50,7 +50,8 @@ Cualquier agente de IA o desarrollador que se incorpore a la base de código **D
 | **13** | Docker y Producción | COMPLETADA | Nginx reverse proxy, aislamiento de redes, sondas `/health/live` y `/health/ready`, graceful shutdown. |
 | **14** | Observabilidad | COMPLETADA | Logs JSON estructurados sin secretos, métricas de backend, KPIs de producto y sistema de alertas. |
 | **15** | Backups y Disaster Recovery | COMPLETADA | Frecuencia de backups PostgreSQL/Media, retención, cifrado AES-256, restore test y RPO/RTO. |
-| **16** | **Moderación y Seguridad Social** | **SIGUIENTE** | Reportes de usuarios/reseñas/mensajes, cola de moderación, acciones de admin y muting. |
+| **16** | Moderación y Seguridad Social | COMPLETADA | Reportes (user, review, comment, message, list), cola admin, acciones con AuditLog, 5 throttles resilientes, política de contenido. |
+| **17** | **Cuenta y Privacidad del Usuario** | **SIGUIENTE** | Cambio de email/password, eliminación/anonimización de cuenta, exportación GDPR de datos. |
 
 ---
 
@@ -86,6 +87,11 @@ Cualquier agente de IA o desarrollador que se incorpore a la base de código **D
 - `/health/live`: Sonda de Liveness para orquestadores. **Nunca debe conectar a la base de datos ni a Redis**; comprueba solo el proceso Django/Daphne.
 - `/health/ready`: Sonda de Readiness. Comprueba conectividad con PostgreSQL y Redis, retornando `503` ante cualquier fallo.
 
+### 4.6. Moderación y Prevención de Abuso (Fase 16)
+- **Throttles Resilientes:** Los limitadores de abuso social (`reports`, `follows`, `comments`, `likes`, `messages`) heredan de `ResilientUserRateThrottle`. Si Redis sufre un microcorte, no bloquean al usuario legítimo con error 500, sino que degradan limpiamente.
+- **Normalización de Estados:** `ReportStatus.normalize(val)` traduce automáticamente entre la nomenclatura de roadmap (`open`, `investigating`, `resolved`, `dismissed`) y los choices de BD (`OPEN`, `UNDER_REVIEW`, `RESOLVED`, `REJECTED`).
+- **Ocultación de Listas:** Al moderar una `ReadingList`, se marca `is_moderated = True`. `PrivacyService.can_view_list` y `filter_visible_reading_lists` excluyen automáticamente las listas moderadas para usuarios no pertenecientes al staff.
+
 ---
 
 ## 5. Ubicación de Documentación Relevante
@@ -96,3 +102,4 @@ Cualquier agente de IA o desarrollador que se incorpore a la base de código **D
 - **CI/CD Pipeline:** [docs/devops/ci_cd_pipeline.md](file:///c:/Users/zaton/Desktop/Escritorio/proyectos/MyBookConnect/docs/devops/ci_cd_pipeline.md)
 - **Despliegue y Docker en Producción:** [docs/devops/production_docker.md](file:///c:/Users/zaton/Desktop/Escritorio/proyectos/MyBookConnect/docs/devops/production_docker.md)
 - **Scripts de Copias de Seguridad:** `scripts/backup/backup_db.sh` y `scripts/backup/restore_db.sh`
+- **Política de Moderación de Contenido:** [docs/security/content_moderation_policy.md](file:///c:/Users/zaton/Desktop/Escritorio/proyectos/MyBookConnect/docs/security/content_moderation_policy.md)

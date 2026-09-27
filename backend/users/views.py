@@ -13,6 +13,7 @@ from mybookconnect.idempotency import idempotent
 
 from . import policies
 from .serializers import UserBasicSerializer, UserCreateSerializer, UserSerializer
+from .throttles import FollowRateThrottle
 
 User = get_user_model()
 
@@ -123,6 +124,7 @@ class UserDetailView(generics.RetrieveAPIView):
 
 class FollowUserView(APIView):
     permission_classes = (permissions.IsAuthenticated,)
+    throttle_classes = [FollowRateThrottle]
 
     @extend_schema(
         summary="Seguir a un usuario",

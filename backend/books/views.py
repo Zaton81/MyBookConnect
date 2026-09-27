@@ -11,6 +11,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from mybookconnect.idempotency import idempotent
+from users.throttles import CommentRateThrottle, LikeRateThrottle
 
 from . import services
 from .cache_utils import TTL_BOOK_DETAIL, book_detail_key
@@ -548,6 +549,7 @@ class ReviewDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 class ReviewLikeToggleView(APIView):
     permission_classes = (permissions.IsAuthenticated,)
+    throttle_classes = [LikeRateThrottle]
 
     @extend_schema(
         summary="Alternar like en una reseña",
@@ -621,6 +623,11 @@ class ReviewLikeToggleView(APIView):
 
 class ReviewCommentListCreateView(APIView):
     permission_classes = (permissions.IsAuthenticatedOrReadOnly,)
+
+    def get_throttles(self):
+        if self.request.method.lower() == 'post':
+            return [CommentRateThrottle()]
+        return super().get_throttles()
 
     @extend_schema(
         summary="Listar comentarios de una reseña",

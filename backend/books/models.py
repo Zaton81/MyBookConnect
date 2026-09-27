@@ -463,6 +463,11 @@ class ReadingList(models.Model):
         default=ReadingListPrivacy.PUBLIC,
         db_index=True,
     )
+    is_moderated = models.BooleanField(
+        default=False,
+        db_index=True,
+        help_text="Indica si la lista ha sido ocultada por el equipo de moderación",
+    )
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -474,6 +479,7 @@ class ReadingList(models.Model):
         indexes = [
             models.Index(fields=['user', '-updated_at'], name='idx_readinglist_user_updated'),
             models.Index(fields=['privacy', '-updated_at'], name='idx_readinglist_priv_updated'),
+            models.Index(fields=['is_moderated', '-updated_at'], name='idx_readinglist_mod_updated'),
         ]
 
     def save(self, *args, **kwargs):

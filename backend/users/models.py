@@ -204,8 +204,26 @@ class Activity(models.Model):
 class ReportStatus(models.TextChoices):
     OPEN = 'OPEN', 'Abierto'
     UNDER_REVIEW = 'UNDER_REVIEW', 'En revisión'
+    INVESTIGATING = 'INVESTIGATING', 'En investigación'
     RESOLVED = 'RESOLVED', 'Resuelto'
     REJECTED = 'REJECTED', 'Rechazado'
+    DISMISSED = 'DISMISSED', 'Desestimado'
+
+    @classmethod
+    def normalize(cls, val: str) -> str:
+        """Normaliza aliases canónicos de estado (Roadmap 21.3)."""
+        if not val:
+            return cls.OPEN
+        norm = str(val).upper().strip()
+        mapping = {
+            'OPEN': cls.OPEN,
+            'UNDER_REVIEW': cls.UNDER_REVIEW,
+            'INVESTIGATING': cls.UNDER_REVIEW,
+            'RESOLVED': cls.RESOLVED,
+            'REJECTED': cls.REJECTED,
+            'DISMISSED': cls.REJECTED,
+        }
+        return mapping.get(norm, norm)
 
 
 class ReportReason(models.TextChoices):
@@ -215,17 +233,20 @@ class ReportReason(models.TextChoices):
     INAPPROPRIATE = 'INAPPROPRIATE', 'Contenido explícito o inapropiado'
     SPOILER = 'SPOILER', 'Spoilers sin advertencia'
     COPYRIGHT = 'COPYRIGHT', 'Infracción de derechos de autor'
+    ILLEGAL_CONTENT = 'ILLEGAL_CONTENT', 'Contenido ilegal o perjudicial'
+    IMPERSONATION = 'IMPERSONATION', 'Suplantación de identidad o engaño'
     OTHER = 'OTHER', 'Otro motivo'
 
 
 class Report(models.Model):
     """
-    Modelo de denuncias y moderación de contenido (Fase 29).
+    Modelo de denuncias y moderación de contenido (Fases 16 y 29).
     Permite registrar denuncias de usuarios sobre:
     - Cuentas de usuario (User)
     - Reseñas (Review)
     - Comentarios en reseñas (ReviewComment)
     - Mensajes de chat (Message)
+    - Listas de lectura (ReadingList)
     """
     reporter = models.ForeignKey(
         User,

@@ -1749,19 +1749,20 @@ RTO: 4 h (tiempo máximo admisible de recuperación total de la plataforma en nu
 
 ---
 
-# 21. FASE 16 — Moderación y seguridad social
+# 21. FASE 16 — Moderación y seguridad social [COMPLETADA]
 
-**Prioridad: P1 antes de beta abierta**
+**Prioridad: P1 antes de beta abierta — COMPLETADA**
 
 ## 21.1. Reportes
 
 Permitir reportar:
 
-- usuario;
-- review;
-- comentario;
-- lista;
-- mensaje si procede.
+- [x] usuario;
+- [x] review;
+- [x] comentario;
+- [x] lista (`ReadingList`);
+- [x] mensaje de chat.
+- [x] Prohibición de auto-denuncias y reportes duplicados pendientes.
 
 ## 21.2. Moderación
 
@@ -1770,44 +1771,63 @@ Modelo:
 ```text
 Report
 ├── reporter
-├── target
-├── reason
+├── target (GenericForeignKey)
+├── reason (ReportReason)
 ├── description
-├── status
-├── moderator
-├── resolution
-└── timestamps
+├── status (ReportStatus)
+├── moderator (resolved_by)
+├── resolution (action_taken, resolution_notes)
+└── timestamps (created_at, resolved_at, updated_at)
 ```
+
+Acciones disciplinarias:
+- [x] Ocultar contenido (`HIDE_CONTENT`): reseña, comentario, mensaje, lista.
+- [x] Restaurar contenido (`RESTORE_CONTENT`): reversión de ocultación.
+- [x] Silenciamiento temporal (`MUTE_USER_24H`, `MUTE_USER_7D` / custom).
+- [x] Baneo de usuario (`BAN_USER` -> `is_active = False`).
+- [x] Registro inmutable en `AuditLog` para todas las acciones.
 
 ## 21.3. Estados
 
 ```text
 open
-investigating
+investigating (alias under_review)
 resolved
-dismissed
+dismissed (alias rejected)
 ```
 
 ## 21.4. Rate limits
 
-Evitar abuso de:
+Evitar abuso mediante limitadores de tasa resilientes (`ResilientUserRateThrottle`):
 
-- reports;
-- follows;
-- comments;
-- likes;
-- messages.
+- [x] `reports`: 10/hora por usuario.
+- [x] `follows`: 60/hora por usuario.
+- [x] `comments`: 30/minuto por usuario.
+- [x] `likes`: 60/minuto por usuario.
+- [x] `messages`: 60/minuto por usuario.
 
 ## 21.5. Contenido
 
-Definir política de:
+Política normativa definida en `docs/security/content_moderation_policy.md`:
 
-- spam;
-- acoso;
-- contenido ilegal;
-- suplantación;
-- copyright;
-- spoilers.
+- [x] spam;
+- [x] acoso (`HARASSMENT`);
+- [x] contenido ilegal (`ILLEGAL_CONTENT`);
+- [x] suplantación (`IMPERSONATION`);
+- [x] copyright (`COPYRIGHT`);
+- [x] spoilers (`SPOILER`).
+
+### Entregable
+`docs/security/content_moderation_policy.md` [COMPLETADO]
+
+### Criterio de salida
+- [x] Soporte completo de reportes para user, review, comment, list y message.
+- [x] Validaciones de auto-reporte y anti-duplicados verificadas.
+- [x] Medidas disciplinarias con persistencia en `AuditLog` y campo `is_moderated` en `ReadingList`.
+- [x] Mapeo flexible de estados (`open`, `investigating`, `resolved`, `dismissed`).
+- [x] 5 limitadores de tasa específicos de seguridad implementados y activos.
+- [x] Integración de reporte de listas y motivos en frontend (`ReportModal.tsx`, `ReadingLists.tsx`).
+- [x] Suite de tests automatizados en `backend/tests/test_phase16_moderation_social_safety.py` (17/17 tests passing, 100%).
 
 ---
 

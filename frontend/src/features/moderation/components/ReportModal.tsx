@@ -5,7 +5,7 @@ import { useAuthStore } from '../../../store/auth';
 export interface ReportModalProps {
   isOpen: boolean;
   onClose: () => void;
-  targetType: 'user' | 'review' | 'comment' | 'message';
+  targetType: 'user' | 'review' | 'comment' | 'message' | 'list';
   targetId: number;
   targetTitle?: string;
   onReportSubmitted?: () => void;
@@ -16,8 +16,10 @@ const REPORT_REASONS = [
   { value: 'HARASSMENT', label: '🛑 Acoso, intimidación o hostigamiento' },
   { value: 'HATE_SPEECH', label: '⛔ Incitación al odio o violencia' },
   { value: 'INAPPROPRIATE', label: '🔞 Contenido explícito o inapropiado' },
+  { value: 'ILLEGAL_CONTENT', label: '⚖️ Contenido ilegal o perjudicial' },
+  { value: 'IMPERSONATION', label: '🎭 Suplantación de identidad o engaño' },
   { value: 'SPOILER', label: '🤫 Spoilers sin advertencia' },
-  { value: 'COPYRIGHT', label: '⚖️ Infracción de derechos de autor' },
+  { value: 'COPYRIGHT', label: '📄 Infracción de derechos de autor' },
   { value: 'OTHER', label: '📝 Otro motivo' },
 ];
 
@@ -44,6 +46,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
       review: 'la reseña',
       comment: 'el comentario',
       message: 'el mensaje',
+      list: 'la lista de lectura',
     }[targetType] || 'el elemento';
 
   const handleSubmit = async (e: React.FormEvent) => {

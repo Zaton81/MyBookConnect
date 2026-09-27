@@ -41,7 +41,9 @@ def sanitize_sensitive_data(data: Any) -> Any:
         for key, value in data.items():
             str_key = str(key)
             if SENSITIVE_KEY_PATTERNS.search(str_key):
-                if isinstance(value, str) and value.strip().lower().startswith('bearer '):
+                if str_key == 'authorization':
+                    sanitized[key] = REDACTED_PLACEHOLDER
+                elif isinstance(value, str) and value.strip().lower().startswith('bearer '):
                     sanitized[key] = f'Bearer {REDACTED_PLACEHOLDER}'
                 else:
                     sanitized[key] = REDACTED_PLACEHOLDER

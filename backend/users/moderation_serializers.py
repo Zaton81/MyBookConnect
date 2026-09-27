@@ -13,18 +13,19 @@ from django.contrib.auth import get_user_model
 from django.contrib.contenttypes.models import ContentType
 from rest_framework import serializers
 
-from books.models import Review, ReviewComment
+from books.models import ReadingList, Review, ReviewComment
 from messages_app.models import Message
 from users.models import Report, ReportStatus
 
 User = get_user_model()
 
-# Mapeo canónico de tipos de contenido denunciables
+# Mapeo canónico de tipos de contenido denunciables (Roadmap 21.1)
 ALLOWED_TARGET_MODELS = {
     'user': User,
     'review': Review,
     'comment': ReviewComment,
     'message': Message,
+    'list': ReadingList,
 }
 
 
@@ -35,7 +36,7 @@ class ReportCreateSerializer(serializers.ModelSerializer):
     target_type = serializers.ChoiceField(
         choices=list(ALLOWED_TARGET_MODELS.keys()),
         write_only=True,
-        help_text="Tipo de contenido denunciado: user, review, comment, message",
+        help_text="Tipo de contenido denunciado: user, review, comment, message, list",
     )
     object_id = serializers.IntegerField(
         help_text="ID primario del elemento denunciado",
@@ -69,7 +70,7 @@ class ReportCreateSerializer(serializers.ModelSerializer):
             is_self = False
             if target_type == 'user' and target_obj.id == user.id:
                 is_self = True
-            elif target_type in ('review', 'comment') and getattr(target_obj, 'user_id', None) == user.id:
+            elif target_type in ('review', 'comment', 'list') and getattr(target_obj, 'user_id', None) == user.id:
                 is_self = True
             elif target_type == 'message' and getattr(target_obj, 'sender_id', None) == user.id:
                 is_self = True
@@ -132,6 +133,8 @@ class ReportListSerializer(serializers.ModelSerializer):
         model_name = obj.content_type.model
         if model_name == 'reviewcomment':
             return 'comment'
+        elif model_name == 'readinglist':
+            return 'list'
         return model_name
 
     def get_target_preview(self, obj) -> dict:
@@ -172,6 +175,16 @@ class ReportListSerializer(serializers.ModelSerializer):
                 "has_image": bool(target.image),
                 "is_moderated": target.is_moderated,
             }
+        elif isinstance(target, ReadingList):
+            return {
+                "type": "list",
+                "name": target.name,
+                "slug": target.slug,
+                "creator": target.user.username,
+                "privacy": target.privacy,
+                "is_moderated": target.is_moderated,
+                "snippet": (target.description[:120] + '...') if target.description and len(target.description) > 120 else target.description,
+            }
         return {"summary": str(target)}
 
 
@@ -185,8 +198,8 @@ class ReportDetailSerializer(ReportListSerializer):
 
 
 class ReportResolveSerializer(serializers.ModelSerializer):
-    """Serializador para resolución y aplicación de medidas disciplinarias."""
-    status = serializers.ChoiceField(choices=[ReportStatus.UNDER_REVIEW, ReportStatus.RESOLVED, ReportStatus.REJECTED])
+    """Serializador para resolución y aplicación de medidas disciplinarias con soporte de aliases (Roadmap 21.3)."""
+    status = serializers.CharField(required=True)
     action_taken = serializers.ChoiceField(
         choices=['HIDE_CONTENT', 'RESTORE_CONTENT', 'BAN_USER', 'MUTE_USER_24H', 'MUTE_USER_7D', 'DISMISS', 'WARNING', ''],
         required=False,
@@ -197,3 +210,17 @@ class ReportResolveSerializer(serializers.ModelSerializer):
     class Meta:
         model = Report
         fields = ('status', 'action_taken', 'resolution_notes')
+
+    def validate_status(self, value):
+        normalized = ReportStatus.normalize(value)
+        valid_statuses = [
+            ReportStatus.OPEN,
+            ReportStatus.UNDER_REVIEW,
+            ReportStatus.INVESTIGATING,
+            ReportStatus.RESOLVED,
+            ReportStatus.REJECTED,
+            ReportStatus.DISMISSED,
+        ]
+        if normalized not in valid_statuses:
+            raise serializers.ValidationError(f"Estado de moderación no válido: '{value}'.")
+        return normalized
