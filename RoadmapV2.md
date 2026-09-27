@@ -1682,52 +1682,70 @@ Implementado motor de evaluación en tiempo real (`SystemAlertsEvaluator`) para:
 
 ---
 
-# 20. FASE 15 — Backups y disaster recovery
+# 20. FASE 15 — Backups y disaster recovery [COMPLETADA]
 
 **Prioridad: P0 para producción**
 
 ## 20.1. PostgreSQL
 
-Definir:
-
-- frecuencia;
-- retención;
-- cifrado;
-- almacenamiento externo.
+Implementado script operacional `scripts/backup/backup_db.sh`:
+- **Frecuencia:** Diaria a las 02:00 UTC con `pg_dump` y compresión `gzip -9`.
+- **Retención:** 7 días de retención rotativa local (`backups_data`) y 30 días en almacenamiento en la nube.
+- **Cifrado:** Soporte de cifrado en reposo AES-256-CBC con salt y PBKDF2 (`openssl enc -aes-256-cbc -salt -pbkdf2`) condicionado a `BACKUP_ENCRYPTION_KEY`.
+- **Manifiesto:** Firma criptográfica SHA-256 generada para cada volcado con manifest JSON de metadatos.
+- **Almacenamiento externo:** Replicación automatizada hacia buckets S3 / MinIO / GCS cuando se configura `BACKUP_S3_BUCKET`.
 
 ## 20.2. Media
 
-Backups independientes.
+Implementado script independiente `scripts/backup/backup_media.sh`:
+- Respaldo empaquetado de `/app/media/` (`backend_media`) en archivo comprimido `tar.gz`.
+- Soporte para cifrado simétrico AES-256 y manifest SHA-256.
+- Retención independiente de 30 días.
 
 ## 20.3. Redis
 
-No tratar Redis como fuente de verdad.
+Validado el principio estricto de que **Redis NO es fuente de verdad**:
+- Redis opera como caché L2 transitoria, layer de mensajería efímero de Channels y broker de Celery.
+- Un vaciado total (`FLUSHALL` o reinicio del contenedor) no altera entidades de base de datos ni invalida sesiones JWT activas firmadas con la `SECRET_KEY`.
 
 ## 20.4. Restore test
 
-Un backup que nunca se restaura no está validado.
-
-Crear procedimiento:
+Implementado procedimiento y script de prueba automatizada:
 
 ```text
-backup
-→ restore
-→ migrate/check
-→ smoke tests
+backup → restore → migrate/check → smoke tests → cleanup
 ```
+
+- Script `scripts/backup/test_restore_cycle.sh` que genera un backup fresco, restaura en una base de datos temporal aislada, valida integridad del esquema y tablas críticas (`users_user`, `books_book`), y purga los recursos temporales.
 
 ## 20.5. RPO/RTO
 
-Definir objetivos antes de producción.
-
-Inicialmente:
+Objetivos formales definidos y documentados:
 
 ```text
-RPO: 24 h
-RTO: 4 h
+RPO: 24 h (máxima pérdida de datos transaccionales admisible entre respaldos diarios)
+RTO: 4 h (tiempo máximo admisible de recuperación total de la plataforma en nuevo host)
 ```
 
-y reducirlos si el producto lo requiere.
+- Runbook paso a paso de recuperación ante desastres elaborado en `docs/devops/backup_and_disaster_recovery.md`.
+
+### Entregables
+- `scripts/backup/backup_db.sh` [COMPLETADO]
+- `scripts/backup/restore_db.sh` [COMPLETADO]
+- `scripts/backup/backup_media.sh` [COMPLETADO]
+- `scripts/backup/restore_media.sh` [COMPLETADO]
+- `scripts/backup/test_restore_cycle.sh` [COMPLETADO]
+- `backend/tests/test_phase15_backup_disaster_recovery.py` [COMPLETADO]
+- `docs/devops/backup_and_disaster_recovery.md` [COMPLETADO]
+
+### Criterio de salida
+- [x] Scripts de backup de PostgreSQL y Media con cifrado AES-256 y manifests SHA-256 implementados.
+- [x] Scripts de restauración con verificación de firma criptográfica y descifrado automático verificados.
+- [x] Principio de no-dependencia de Redis como fuente de verdad validado con pruebas automatizadas.
+- [x] Script de ciclo de prueba de restauración (`test_restore_cycle.sh`) creado y documentado.
+- [x] Objetivos de continuidad RPO (24h) y RTO (4h) formalizados con Runbook paso a paso.
+- [x] Suite de pruebas automatizadas de Fase 15 pasando al 100% (7/7 tests).
+- [x] Documentación técnica en `docs/devops/backup_and_disaster_recovery.md`.
 
 ---
 

@@ -49,7 +49,8 @@ Cualquier agente de IA o desarrollador que se incorpore a la base de código **D
 | **12** | CI/CD Pipelines | COMPLETADA | GitHub Actions modulares (`ci-backend`, `ci-frontend`, `ci-docker`, `security`, `dependabot`). |
 | **13** | Docker y Producción | COMPLETADA | Nginx reverse proxy, aislamiento de redes, sondas `/health/live` y `/health/ready`, graceful shutdown. |
 | **14** | Observabilidad | COMPLETADA | Logs JSON estructurados sin secretos, métricas de backend, KPIs de producto y sistema de alertas. |
-| **15** | **Backups y Disaster Recovery** | **SIGUIENTE** | Frecuencia de backups PostgreSQL/Media, retención, cifrado, restore test automatizado y RPO/RTO. |
+| **15** | Backups y Disaster Recovery | COMPLETADA | Frecuencia de backups PostgreSQL/Media, retención, cifrado AES-256, restore test y RPO/RTO. |
+| **16** | **Moderación y Seguridad Social** | **SIGUIENTE** | Reportes de usuarios/reseñas/mensajes, cola de moderación, acciones de admin y muting. |
 
 ---
 
