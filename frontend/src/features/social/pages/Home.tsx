@@ -83,7 +83,9 @@ export const Home = () => {
   const [trendingLoading, setTrendingLoading] = useState(false);
   const [feed, setFeed] = useState<FeedItem[]>([]);
   const [feedMode, setFeedMode] = useState<'smart' | 'chronological'>('smart');
-  const [feedCategory, setFeedCategory] = useState<'all' | 'reads' | 'reviews' | 'lists' | 'social'>('all');
+  const [feedCategory, setFeedCategory] = useState<
+    'all' | 'reads' | 'reviews' | 'lists' | 'social'
+  >('all');
   const [activeMenuId, setActiveMenuId] = useState<string | number | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [feedLoading, setFeedLoading] = useState(false);
@@ -191,7 +193,7 @@ export const Home = () => {
   // Carga reactiva de elementos del feed según modo y categoría
   const fetchFeedItems = async (
     mode: 'smart' | 'chronological',
-    category: 'all' | 'reads' | 'reviews' | 'lists' | 'social',
+    category: 'all' | 'reads' | 'reviews' | 'lists' | 'social'
   ) => {
     try {
       setFeedLoading(true);
@@ -254,7 +256,9 @@ export const Home = () => {
       });
       if (res.ok) {
         setFeed((prev) => prev.filter((item) => item.user.id !== userId));
-        setToastMessage(`Has silenciado a @${username}. Sus publicaciones no aparecerán en tu feed.`);
+        setToastMessage(
+          `Has silenciado a @${username}. Sus publicaciones no aparecerán en tu feed.`
+        );
         setTimeout(() => setToastMessage(null), 4000);
       }
     } catch (e) {
@@ -282,7 +286,11 @@ export const Home = () => {
 
   const handleBlockUser = async (userId: number, username: string) => {
     setActiveMenuId(null);
-    if (!window.confirm(`¿Estás seguro de que deseas bloquear a @${username}? No podréis interactuar ni ver vuestro contenido mutuamente.`)) {
+    if (
+      !window.confirm(
+        `¿Estás seguro de que deseas bloquear a @${username}? No podréis interactuar ni ver vuestro contenido mutuamente.`
+      )
+    ) {
       return;
     }
     try {
@@ -826,7 +834,9 @@ export const Home = () => {
                                   </button>
                                   <button
                                     type="button"
-                                    onClick={() => handleUnfollowUser(item.user.id, item.user.username)}
+                                    onClick={() =>
+                                      handleUnfollowUser(item.user.id, item.user.username)
+                                    }
                                     className="w-full text-left px-3.5 py-2 hover:bg-gray-50 dark:hover:bg-gray-700/60 text-gray-700 dark:text-gray-200 flex items-center gap-2"
                                   >
                                     <span>👤</span>
@@ -834,7 +844,9 @@ export const Home = () => {
                                   </button>
                                   <button
                                     type="button"
-                                    onClick={() => handleBlockUser(item.user.id, item.user.username)}
+                                    onClick={() =>
+                                      handleBlockUser(item.user.id, item.user.username)
+                                    }
                                     className="w-full text-left px-3.5 py-2 hover:bg-red-50 dark:hover:bg-red-950/40 text-red-600 dark:text-red-400 flex items-center gap-2"
                                   >
                                     <span>🚫</span>

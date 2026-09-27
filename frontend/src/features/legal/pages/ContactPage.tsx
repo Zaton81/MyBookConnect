@@ -62,27 +62,64 @@ export function ContactPage() {
           </h2>
           <div className="grid sm:grid-cols-2 gap-4">
             <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800">
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-1">🛠️ Soporte Técnico</h3>
-              <p className="text-xs text-slate-600 dark:text-slate-400 mb-2">Para incidencias técnicas, errores en la plataforma o problemas de inicio de sesión.</p>
-              <a href="mailto:soporte@mybookconnect.local" className="text-teal-600 dark:text-teal-400 text-xs font-semibold underline">soporte@mybookconnect.local</a>
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-1">
+                🛠️ Soporte Técnico
+              </h3>
+              <p className="text-xs text-slate-600 dark:text-slate-400 mb-2">
+                Para incidencias técnicas, errores en la plataforma o problemas de inicio de sesión.
+              </p>
+              <a
+                href="mailto:soporte@mybookconnect.local"
+                className="text-teal-600 dark:text-teal-400 text-xs font-semibold underline"
+              >
+                soporte@mybookconnect.local
+              </a>
             </div>
 
             <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800">
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-1">🔒 Delegado de Privacidad (DPO)</h3>
-              <p className="text-xs text-slate-600 dark:text-slate-400 mb-2">Para el ejercicio de derechos ARCO/RGPD y dudas sobre el tratamiento de datos personales.</p>
-              <a href="mailto:privacidad@mybookconnect.local" className="text-teal-600 dark:text-teal-400 text-xs font-semibold underline">privacidad@mybookconnect.local</a>
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-1">
+                🔒 Delegado de Privacidad (DPO)
+              </h3>
+              <p className="text-xs text-slate-600 dark:text-slate-400 mb-2">
+                Para el ejercicio de derechos ARCO/RGPD y dudas sobre el tratamiento de datos
+                personales.
+              </p>
+              <a
+                href="mailto:privacidad@mybookconnect.local"
+                className="text-teal-600 dark:text-teal-400 text-xs font-semibold underline"
+              >
+                privacidad@mybookconnect.local
+              </a>
             </div>
 
             <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800">
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-1">🛡️ Moderación y Seguridad (DSA)</h3>
-              <p className="text-xs text-slate-600 dark:text-slate-400 mb-2">Para notificaciones urgentes de contenidos inadecuados o apelaciones de moderación.</p>
-              <a href="mailto:moderacion@mybookconnect.local" className="text-teal-600 dark:text-teal-400 text-xs font-semibold underline">moderacion@mybookconnect.local</a>
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-1">
+                🛡️ Moderación y Seguridad (DSA)
+              </h3>
+              <p className="text-xs text-slate-600 dark:text-slate-400 mb-2">
+                Para notificaciones urgentes de contenidos inadecuados o apelaciones de moderación.
+              </p>
+              <a
+                href="mailto:moderacion@mybookconnect.local"
+                className="text-teal-600 dark:text-teal-400 text-xs font-semibold underline"
+              >
+                moderacion@mybookconnect.local
+              </a>
             </div>
 
             <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800">
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-1">📖 Propiedad Intelectual</h3>
-              <p className="text-xs text-slate-600 dark:text-slate-400 mb-2">Para autores y editoriales sobre derechos de autor o citas bibliográficas.</p>
-              <a href="mailto:copyright@mybookconnect.local" className="text-teal-600 dark:text-teal-400 text-xs font-semibold underline">copyright@mybookconnect.local</a>
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-1">
+                📖 Propiedad Intelectual
+              </h3>
+              <p className="text-xs text-slate-600 dark:text-slate-400 mb-2">
+                Para autores y editoriales sobre derechos de autor o citas bibliográficas.
+              </p>
+              <a
+                href="mailto:copyright@mybookconnect.local"
+                className="text-teal-600 dark:text-teal-400 text-xs font-semibold underline"
+              >
+                copyright@mybookconnect.local
+              </a>
             </div>
           </div>
         </section>
@@ -92,8 +129,9 @@ export function ContactPage() {
             2. Compromiso de Atención
           </h2>
           <p className="text-sm">
-            Nuestro equipo revisa todas las comunicaciones entrantes en días laborables. Las solicitudes de ejercicio de
-            derechos conforme al RGPD se procesan con carácter prioritario dentro del plazo legal máximo de un mes.
+            Nuestro equipo revisa todas las comunicaciones entrantes en días laborables. Las
+            solicitudes de ejercicio de derechos conforme al RGPD se procesan con carácter
+            prioritario dentro del plazo legal máximo de un mes.
           </p>
         </section>
       </div>

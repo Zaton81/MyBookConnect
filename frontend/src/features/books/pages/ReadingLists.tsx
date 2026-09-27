@@ -144,7 +144,9 @@ export function ReadingLists() {
     try {
       const headers: Record<string, string> = {};
       if (token) headers['Authorization'] = `Bearer ${token}`;
-      const res = await fetch(`${apiUrl}/api/v1/books/reading-lists/${listId}/comments/`, { headers });
+      const res = await fetch(`${apiUrl}/api/v1/books/reading-lists/${listId}/comments/`, {
+        headers,
+      });
       if (res.ok) {
         const data = await res.json();
         setComments(Array.isArray(data) ? data : []);
@@ -195,10 +197,13 @@ export function ReadingLists() {
   const handleDeleteComment = async (commentId: number) => {
     if (!selectedList || !token) return;
     try {
-      const res = await fetch(`${apiUrl}/api/v1/books/reading-lists/${selectedList.id}/comments/${commentId}/`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await fetch(
+        `${apiUrl}/api/v1/books/reading-lists/${selectedList.id}/comments/${commentId}/`,
+        {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
       if (res.ok) {
         await fetchComments(selectedList.id);
         await fetchLists();
@@ -582,7 +587,9 @@ export function ReadingLists() {
                 <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500 dark:text-slate-400 mt-3 font-medium">
                   <span>Por @{selectedList.user.username}</span>
                   <span>•</span>
-                  <span>📚 {selectedList.items?.length || selectedList.items_count || 0} libros</span>
+                  <span>
+                    📚 {selectedList.items?.length || selectedList.items_count || 0} libros
+                  </span>
                   <span>•</span>
                   <span>👥 {selectedList.followers_count || 0} seguidores</span>
                   <span>•</span>
@@ -656,8 +663,15 @@ export function ReadingLists() {
             {/* Toast de compartir copiado */}
             {shareToast && (
               <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 text-xs font-bold rounded-2xl flex items-center justify-between">
-                <span>✓ ¡Enlace copiado al portapapeles! Ya puedes compartirlo con otros lectores.</span>
-                <button onClick={() => setShareToast(false)} className="text-emerald-500 font-bold ml-2">✕</button>
+                <span>
+                  ✓ ¡Enlace copiado al portapapeles! Ya puedes compartirlo con otros lectores.
+                </span>
+                <button
+                  onClick={() => setShareToast(false)}
+                  className="text-emerald-500 font-bold ml-2"
+                >
+                  ✕
+                </button>
               </div>
             )}
 

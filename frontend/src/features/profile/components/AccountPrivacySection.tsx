@@ -56,7 +56,10 @@ export const AccountPrivacySection: React.FC = () => {
     e.preventDefault();
     if (!token) return;
 
-    if (deleteConfirmText.trim().toUpperCase() !== 'ELIMINAR' && deleteConfirmText.trim().toUpperCase() !== 'DELETE') {
+    if (
+      deleteConfirmText.trim().toUpperCase() !== 'ELIMINAR' &&
+      deleteConfirmText.trim().toUpperCase() !== 'DELETE'
+    ) {
       setDeleteError('Debes escribir exactamente la palabra "ELIMINAR" para confirmar.');
       return;
     }
@@ -100,7 +103,8 @@ export const AccountPrivacySection: React.FC = () => {
           <span>🛡️</span> Privacidad y Derechos RGPD
         </h3>
         <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-          Ejerce tus derechos de acceso, portabilidad de datos y derecho al olvido conforme al Reglamento General de Protección de Datos.
+          Ejerce tus derechos de acceso, portabilidad de datos y derecho al olvido conforme al
+          Reglamento General de Protección de Datos.
         </p>
       </div>
 
@@ -113,7 +117,8 @@ export const AccountPrivacySection: React.FC = () => {
             Descargar Portabilidad de Datos (JSON)
           </h4>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Recibe un archivo estructurado con tu biblioteca completa, reseñas redactadas, listas de lectura y preferencias.
+            Recibe un archivo estructurado con tu biblioteca completa, reseñas redactadas, listas de
+            lectura y preferencias.
           </p>
         </div>
         <Button
@@ -134,7 +139,8 @@ export const AccountPrivacySection: React.FC = () => {
             Zona de Peligro: Eliminación de Cuenta
           </h4>
           <p className="text-xs text-red-700 dark:text-red-300/80 mt-0.5 max-w-md">
-            Al eliminar tu cuenta, tus datos personales serán anonimizados de forma irreversible, tus sesiones revocadas y tus relaciones sociales desvinculadas.
+            Al eliminar tu cuenta, tus datos personales serán anonimizados de forma irreversible,
+            tus sesiones revocadas y tus relaciones sociales desvinculadas.
           </p>
         </div>
         <Button
@@ -153,7 +159,12 @@ export const AccountPrivacySection: React.FC = () => {
       </div>
 
       {/* Modal de confirmación de eliminación */}
-      <Modal show={deleteModalOpen} size="md" onClose={() => !deleteLoading && setDeleteModalOpen(false)} popup>
+      <Modal
+        show={deleteModalOpen}
+        size="md"
+        onClose={() => !deleteLoading && setDeleteModalOpen(false)}
+        popup
+      >
         <Modal.Header />
         <Modal.Body>
           <form onSubmit={handleDeleteAccount} className="space-y-4">
@@ -163,7 +174,9 @@ export const AccountPrivacySection: React.FC = () => {
                 ¿Eliminar cuenta definitivamente?
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Esta acción es <strong>permanente e irreversible</strong>. Tus reseñas literarias se conservarán de forma disociada, pero tu usuario, correo y relaciones sociales quedarán completamente anonimizados.
+                Esta acción es <strong>permanente e irreversible</strong>. Tus reseñas literarias se
+                conservarán de forma disociada, pero tu usuario, correo y relaciones sociales
+                quedarán completamente anonimizados.
               </p>
             </div>
 
@@ -206,7 +219,11 @@ export const AccountPrivacySection: React.FC = () => {
                 color="failure"
                 size="sm"
                 type="submit"
-                disabled={deleteLoading || !deletePassword || deleteConfirmText.trim().toUpperCase() !== 'ELIMINAR'}
+                disabled={
+                  deleteLoading ||
+                  !deletePassword ||
+                  deleteConfirmText.trim().toUpperCase() !== 'ELIMINAR'
+                }
               >
                 {deleteLoading ? <Spinner size="sm" /> : 'Confirmar baja definitiva'}
               </Button>

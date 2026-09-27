@@ -91,11 +91,12 @@ export function PublicLandingPage() {
   };
 
   // Libros actuales a mostrar
-  const currentBooks: DiscoveryBook[] = selectedGenre && discoveryData?.genre_books && discoveryData.genre_books.length > 0
-    ? discoveryData.genre_books
-    : discoveryData
-    ? discoveryData[activeTab] || []
-    : [];
+  const currentBooks: DiscoveryBook[] =
+    selectedGenre && discoveryData?.genre_books && discoveryData.genre_books.length > 0
+      ? discoveryData.genre_books
+      : discoveryData
+        ? discoveryData[activeTab] || []
+        : [];
 
   return (
     <div className="w-full flex flex-col gap-16 sm:gap-24 pb-16">
@@ -121,8 +122,8 @@ export function PublicLandingPage() {
 
           {/* Subtítulo inspirador */}
           <p className="mt-6 text-base sm:text-lg md:text-xl text-slate-600 dark:text-slate-300 max-w-2xl leading-relaxed">
-            Organiza tus lecturas, descubre tu próximo libro favorito con algoritmos transparentes
-            y comparte notas y reseñas sinceras con una comunidad viva y respetuosa.
+            Organiza tus lecturas, descubre tu próximo libro favorito con algoritmos transparentes y
+            comparte notas y reseñas sinceras con una comunidad viva y respetuosa.
           </p>
 
           {/* Botones de acción principales */}
@@ -344,8 +345,8 @@ export function PublicLandingPage() {
               Estanterías Inteligentes
             </h3>
             <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-              Organiza tus lecturas por "Leyendo", "Leídos" o "Por leer". Importa tu historial de Goodreads
-              o StoryGraph en un clic sin perder ni una reseña.
+              Organiza tus lecturas por "Leyendo", "Leídos" o "Por leer". Importa tu historial de
+              Goodreads o StoryGraph en un clic sin perder ni una reseña.
             </p>
           </div>
 
@@ -358,8 +359,8 @@ export function PublicLandingPage() {
               Privacidad Incondicional
             </h3>
             <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-              Tus datos nunca se venden ni se emplean para entrenar modelos de IA de terceros.
-              Total cumplimiento de RGPD con derecho al olvido y exportación instantánea.
+              Tus datos nunca se venden ni se emplean para entrenar modelos de IA de terceros. Total
+              cumplimiento de RGPD con derecho al olvido y exportación instantánea.
             </p>
           </div>
 
@@ -372,8 +373,8 @@ export function PublicLandingPage() {
               Comunidad Literaria Real
             </h3>
             <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-              Descubre qué leen tus amigos, intercambia impresiones, crea listas colaborativas
-              y conversa en tiempo real sin algoritmos adictivos ni clickbait.
+              Descubre qué leen tus amigos, intercambia impresiones, crea listas colaborativas y
+              conversa en tiempo real sin algoritmos adictivos ni clickbait.
             </p>
           </div>
 
@@ -386,8 +387,8 @@ export function PublicLandingPage() {
               BookAI Asistente Ético
             </h3>
             <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-              Encuentra libros con temáticas complejas, conexiones literarias inesperadas o resúmenes
-              temáticos utilizando inteligencia artificial privada y controlada.
+              Encuentra libros con temáticas complejas, conexiones literarias inesperadas o
+              resúmenes temáticos utilizando inteligencia artificial privada y controlada.
             </p>
           </div>
         </div>
@@ -402,8 +403,8 @@ export function PublicLandingPage() {
             ¿Listo para empezar tu próxima aventura de lectura?
           </h2>
           <p className="mt-4 text-teal-100 text-sm sm:text-base leading-relaxed">
-            Únete a la comunidad de MyBookConnect. Crea tu cuenta en menos de un minuto
-            y organiza tu biblioteca personal hoy mismo.
+            Únete a la comunidad de MyBookConnect. Crea tu cuenta en menos de un minuto y organiza
+            tu biblioteca personal hoy mismo.
           </p>
           <div className="mt-8 flex flex-col sm:flex-row items-center gap-4">
             <button
@@ -423,11 +424,7 @@ export function PublicLandingPage() {
       </section>
 
       {/* MODAL GLOBAL DE LOGIN Y REGISTRO */}
-      <AuthModal
-        isOpen={isAuthOpen}
-        initialMode={authMode}
-        onClose={() => setIsAuthOpen(false)}
-      />
+      <AuthModal isOpen={isAuthOpen} initialMode={authMode} onClose={() => setIsAuthOpen(false)} />
     </div>
   );
 }

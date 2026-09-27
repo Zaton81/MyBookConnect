@@ -61,9 +61,10 @@ export function DeletionPolicy() {
             1. Control y Soberanía sobre tus Datos
           </h2>
           <p className="text-sm">
-            En MyBookConnect creemos que el usuario debe tener control total de su información. Si decides
-            dar de baja tu cuenta, nuestro sistema ejecuta un protocolo de disociación y anonimización
-            atómica conforme al <strong>Artículo 17 del RGPD (Derecho a la Supresión / Derecho al Olvido)</strong>.
+            En MyBookConnect creemos que el usuario debe tener control total de su información. Si
+            decides dar de baja tu cuenta, nuestro sistema ejecuta un protocolo de disociación y
+            anonimización atómica conforme al{' '}
+            <strong>Artículo 17 del RGPD (Derecho a la Supresión / Derecho al Olvido)</strong>.
           </p>
         </section>
 
@@ -73,21 +74,39 @@ export function DeletionPolicy() {
           </h2>
           <p className="text-sm mb-3">
             La baja de la cuenta puede solicitarse en cualquier instante desde{' '}
-            <Link to="/profile/edit" className="text-teal-600 dark:text-teal-400 underline font-medium">
+            <Link
+              to="/profile/edit"
+              className="text-teal-600 dark:text-teal-400 underline font-medium"
+            >
               Ajustes de Perfil &gt; Privacidad &amp; RGPD
-            </Link>:
+            </Link>
+            :
           </p>
           <ul className="list-disc pl-5 space-y-2 text-sm">
-            <li><strong>Reautenticación:</strong> Verificación mediante la contraseña actual.</li>
-            <li><strong>Confirmación explícita:</strong> Introducción del término de seguridad <code>ELIMINAR</code>.</li>
             <li>
-              <strong>Anonimización irreversible:</strong> Tu nombre de usuario y correo electrónico se sustituyen
-              por pseudónimos no trazables (<code>deleted_user_...</code>), se destruye la contraseña y se borran
-              definitivamente biografías, fotos de perfil y fechas personales.
+              <strong>Reautenticación:</strong> Verificación mediante la contraseña actual.
             </li>
-            <li><strong>Desconexión social:</strong> Supresión de amistades, seguidores, personas seguidas y bloqueos.</li>
-            <li><strong>Listas de lectura:</strong> Pasan a modo privado y oculto de forma automática.</li>
-            <li><strong>Revocación de credenciales:</strong> Inmediata invalidación en lista negra de todos los tokens JWT.</li>
+            <li>
+              <strong>Confirmación explícita:</strong> Introducción del término de seguridad{' '}
+              <code>ELIMINAR</code>.
+            </li>
+            <li>
+              <strong>Anonimización irreversible:</strong> Tu nombre de usuario y correo electrónico
+              se sustituyen por pseudónimos no trazables (<code>deleted_user_...</code>), se
+              destruye la contraseña y se borran definitivamente biografías, fotos de perfil y
+              fechas personales.
+            </li>
+            <li>
+              <strong>Desconexión social:</strong> Supresión de amistades, seguidores, personas
+              seguidas y bloqueos.
+            </li>
+            <li>
+              <strong>Listas de lectura:</strong> Pasan a modo privado y oculto de forma automática.
+            </li>
+            <li>
+              <strong>Revocación de credenciales:</strong> Inmediata invalidación en lista negra de
+              todos los tokens JWT.
+            </li>
           </ul>
         </section>
 
@@ -96,10 +115,11 @@ export function DeletionPolicy() {
             3. Reseñas Literarias y Diálogo Comunitario
           </h2>
           <p className="text-sm">
-            Para no quebrar las cadenas de discusión y lecturas colectivas, las reseñas previamente publicadas se
-            mantienen desvinculadas de cualquier dato de carácter personal bajo la autoría anónima de{' '}
-            <code>deleted_user_...</code>. Si deseas que tus reseñas no persistan tras tu baja, puedes eliminarlas
-            manualmente antes de tramitar la cancelación de tu cuenta.
+            Para no quebrar las cadenas de discusión y lecturas colectivas, las reseñas previamente
+            publicadas se mantienen desvinculadas de cualquier dato de carácter personal bajo la
+            autoría anónima de <code>deleted_user_...</code>. Si deseas que tus reseñas no persistan
+            tras tu baja, puedes eliminarlas manualmente antes de tramitar la cancelación de tu
+            cuenta.
           </p>
         </section>
 
@@ -108,9 +128,9 @@ export function DeletionPolicy() {
             4. Plazos Legales de Conservación de Logs
           </h2>
           <p className="text-sm">
-            Los registros técnicos de conexión y auditoría de ciberseguridad se conservan bloqueados durante los
-            períodos estrictamente fijados por la legislación vigente para la depuración de responsabilidades
-            técnicas o judiciales.
+            Los registros técnicos de conexión y auditoría de ciberseguridad se conservan bloqueados
+            durante los períodos estrictamente fijados por la legislación vigente para la depuración
+            de responsabilidades técnicas o judiciales.
           </p>
         </section>
       </div>

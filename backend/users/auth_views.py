@@ -474,7 +474,7 @@ class GoogleOAuthLoginView(APIView):
         try:
             url = f"https://oauth2.googleapis.com/tokeninfo?id_token={token}"
             req = urllib.request.Request(url, headers={'User-Agent': 'MyBookConnect-Backend'})
-            with urllib.request.urlopen(req, timeout=5) as response:
+            with urllib.request.urlopen(req, timeout=5) as response:  # nosec B310
                 if response.status == 200:
                     payload = json.loads(response.read().decode('utf-8'))
                     # Verificar audiencia si está configurada

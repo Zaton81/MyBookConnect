@@ -65,9 +65,13 @@ export function PrivacyPolicy() {
             <strong>MyBookConnect</strong> es el equipo promotor de la plataforma. Para cualquier
             consulta relativa a la privacidad o para el ejercicio de tus derechos, puedes contactar
             directamente con nuestro Delegado de Protección de Datos a través de{' '}
-            <a href="mailto:privacidad@mybookconnect.local" className="text-teal-600 dark:text-teal-400 underline font-medium">
+            <a
+              href="mailto:privacidad@mybookconnect.local"
+              className="text-teal-600 dark:text-teal-400 underline font-medium"
+            >
               privacidad@mybookconnect.local
-            </a>.
+            </a>
+            .
           </p>
         </section>
 
@@ -77,22 +81,27 @@ export function PrivacyPolicy() {
           </h2>
           <ul className="list-disc pl-5 space-y-2 text-sm">
             <li>
-              <strong>Datos de cuenta y autenticación:</strong> Nombre de usuario, email y contraseña
-              cifrada mediante PBKDF2/Argon2. Finalidad: gestión del acceso e inicio de sesión seguro mediante JWT.
+              <strong>Datos de cuenta y autenticación:</strong> Nombre de usuario, email y
+              contraseña cifrada mediante PBKDF2/Argon2. Finalidad: gestión del acceso e inicio de
+              sesión seguro mediante JWT.
             </li>
             <li>
-              <strong>Perfil público y preferencias:</strong> Biografía opcional, avatar y enlaces a redes sociales.
+              <strong>Perfil público y preferencias:</strong> Biografía opcional, avatar y enlaces a
+              redes sociales.
             </li>
             <li>
-              <strong>Actividad literaria:</strong> Biblioteca personal, estados de lectura, progreso de páginas,
-              calificaciones de 1 a 5 estrellas y reseñas públicas redactadas voluntariamente.
+              <strong>Actividad literaria:</strong> Biblioteca personal, estados de lectura,
+              progreso de páginas, calificaciones de 1 a 5 estrellas y reseñas públicas redactadas
+              voluntariamente.
             </li>
             <li>
-              <strong>Interacción comunitaria:</strong> Listas temáticas de lectura, seguimiento social, bloqueos y mensajería en vivo.
+              <strong>Interacción comunitaria:</strong> Listas temáticas de lectura, seguimiento
+              social, bloqueos y mensajería en vivo.
             </li>
             <li>
-              <strong>Registros técnicos de seguridad:</strong> Dirección IP, User-Agent y marcas de tiempo en <code>AuditLog</code>{' '}
-              para prevención de fraude y mitigación de ciberataques.
+              <strong>Registros técnicos de seguridad:</strong> Dirección IP, User-Agent y marcas de
+              tiempo en <code>AuditLog</code> para prevención de fraude y mitigación de
+              ciberataques.
             </li>
           </ul>
         </section>
@@ -102,13 +111,25 @@ export function PrivacyPolicy() {
             3. Proveedores y Encargados del Tratamiento
           </h2>
           <p className="text-sm mb-2">
-            Tus datos se procesan en centros de datos ubicados en la Unión Europea bajo estrictos acuerdos de confidencialidad y DPA:
+            Tus datos se procesan en centros de datos ubicados en la Unión Europea bajo estrictos
+            acuerdos de confidencialidad y DPA:
           </p>
           <ul className="list-disc pl-5 space-y-1.5 text-sm">
-            <li><strong>Alojamiento e Infraestructura:</strong> Servidores en la UE conformes a RGPD.</li>
-            <li><strong>Base de Datos y Caché:</strong> PostgreSQL con soporte vectorizado y Redis aislado en red interna.</li>
-            <li><strong>Fuentes Bibliográficas Públicas:</strong> Google Books API y OpenLibrary para metadatos públicos de libros.</li>
-            <li><strong>Comunicaciones:</strong> Servidores SMTP transaccionales seguros para notificaciones de seguridad.</li>
+            <li>
+              <strong>Alojamiento e Infraestructura:</strong> Servidores en la UE conformes a RGPD.
+            </li>
+            <li>
+              <strong>Base de Datos y Caché:</strong> PostgreSQL con soporte vectorizado y Redis
+              aislado en red interna.
+            </li>
+            <li>
+              <strong>Fuentes Bibliográficas Públicas:</strong> Google Books API y OpenLibrary para
+              metadatos públicos de libros.
+            </li>
+            <li>
+              <strong>Comunicaciones:</strong> Servidores SMTP transaccionales seguros para
+              notificaciones de seguridad.
+            </li>
           </ul>
         </section>
 
@@ -121,9 +142,12 @@ export function PrivacyPolicy() {
               Garantía Estricta sobre tus Datos y la IA:
             </p>
             <p className="text-xs text-teal-900 dark:text-teal-300 leading-relaxed">
-              Las funciones de búsqueda semántica y recomendación personalizada v3 utilizan embeddings matemáticos
-              calculados de forma anónima y aislada. <strong>Tus datos personales, lecturas y textos NUNCA se emplean
-              para entrenar modelos de Inteligencia Artificial de terceros.</strong>
+              Las funciones de búsqueda semántica y recomendación personalizada v3 utilizan
+              embeddings matemáticos calculados de forma anónima y aislada.{' '}
+              <strong>
+                Tus datos personales, lecturas y textos NUNCA se emplean para entrenar modelos de
+                Inteligencia Artificial de terceros.
+              </strong>
             </p>
           </div>
         </section>
@@ -133,9 +157,10 @@ export function PrivacyPolicy() {
             5. Filosofía Analytics Privacy-First
           </h2>
           <p className="text-sm">
-            En MyBookConnect <strong>no introducimos tracking innecesario</strong>. No empleamos herramientas de rastreo
-            invasivo, cookies de perfilado comercial entre sitios ni servicios de publicidad comportamental de terceros.
-            Las estadísticas de la plataforma son agregadas, anónimas y orientadas exclusivamente al rendimiento del servicio.
+            En MyBookConnect <strong>no introducimos tracking innecesario</strong>. No empleamos
+            herramientas de rastreo invasivo, cookies de perfilado comercial entre sitios ni
+            servicios de publicidad comportamental de terceros. Las estadísticas de la plataforma
+            son agregadas, anónimas y orientadas exclusivamente al rendimiento del servicio.
           </p>
         </section>
 
@@ -144,7 +169,8 @@ export function PrivacyPolicy() {
             6. Plazos de Retención y Ejercicio de Derechos (RGPD)
           </h2>
           <p className="text-sm mb-3">
-            Conservamos tus datos mientras mantengas tu cuenta activa. En cualquier momento puedes ejercer tus derechos:
+            Conservamos tus datos mientras mantengas tu cuenta activa. En cualquier momento puedes
+            ejercer tus derechos:
           </p>
           <div className="grid sm:grid-cols-2 gap-3 text-sm">
             <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800">
@@ -152,8 +178,12 @@ export function PrivacyPolicy() {
                 Portabilidad (Art. 20 RGPD)
               </span>
               <span className="text-xs text-slate-600 dark:text-slate-400">
-                Descarga en un clic un informe estructurado JSON con toda tu biblioteca, reseñas y actividad social desde{' '}
-                <Link to="/profile/edit" className="text-teal-600 dark:text-teal-400 underline">Ajustes &gt; Privacidad</Link>.
+                Descarga en un clic un informe estructurado JSON con toda tu biblioteca, reseñas y
+                actividad social desde{' '}
+                <Link to="/profile/edit" className="text-teal-600 dark:text-teal-400 underline">
+                  Ajustes &gt; Privacidad
+                </Link>
+                .
               </span>
             </div>
 
@@ -162,8 +192,12 @@ export function PrivacyPolicy() {
                 Supresión y Olvido (Art. 17 RGPD)
               </span>
               <span className="text-xs text-slate-600 dark:text-slate-400">
-                Elimina tu cuenta de manera permanente y atómica con anonimización irreversible de tus datos desde{' '}
-                <Link to="/profile/edit" className="text-teal-600 dark:text-teal-400 underline">Ajustes &gt; Privacidad</Link>.
+                Elimina tu cuenta de manera permanente y atómica con anonimización irreversible de
+                tus datos desde{' '}
+                <Link to="/profile/edit" className="text-teal-600 dark:text-teal-400 underline">
+                  Ajustes &gt; Privacidad
+                </Link>
+                .
               </span>
             </div>
           </div>

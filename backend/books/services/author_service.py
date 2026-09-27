@@ -149,7 +149,7 @@ def maybe_enrich_author_from_wikidata(author: Author) -> None:
                     img_filename = image_claims[0].get('mainsnak', {}).get('datavalue', {}).get('value')
                     if img_filename:
                         clean_fn = img_filename.replace(' ', '_')
-                        md5_hash = hashlib.md5(clean_fn.encode('utf-8')).hexdigest()
+                        md5_hash = hashlib.md5(clean_fn.encode('utf-8'), usedforsecurity=False).hexdigest()  # nosec B324
                         image_url = f"https://upload.wikimedia.org/wikipedia/commons/{md5_hash[0]}/{md5_hash[0:2]}/{requests.utils.quote(clean_fn)}"
                         download_and_attach_image(
                             instance=author,

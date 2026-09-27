@@ -1,14 +1,6 @@
 import { lazy } from 'react';
 import { BrowserRouter, Navigate, Routes, Route, useParams } from 'react-router-dom';
-import { AuthBox } from '../features/auth';
-import {
-  Logo,
-  PublicLayout,
-  ProtectedLayout,
-  AdminLayout,
-  ScrollToTop,
-} from '../components/layout';
-import { useAuthStore } from '../store/auth';
+import { PublicLayout, ProtectedLayout, AdminLayout, ScrollToTop } from '../components/layout';
 
 const EditProfile = lazy(() =>
   import('../features/profile').then((m) => ({ default: m.EditProfile }))
