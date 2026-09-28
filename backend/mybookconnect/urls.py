@@ -69,6 +69,7 @@ urlpatterns = [
             path('my/', UserReportsListView.as_view(), name='user-reports-list'),
         ])),
         path('analytics/', include('analytics.urls')),
+        path('beta/', include('beta.urls')),
     ])),
 ]
 

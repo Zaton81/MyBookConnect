@@ -50,6 +50,7 @@ INSTALLED_APPS = [
     'messages_app.apps.MessagesConfig',
     'ai.apps.AIConfig',
     'analytics.apps.AnalyticsConfig',
+    'beta.apps.BetaConfig',
 ]
 
 AUTH_USER_MODEL = 'users.User'

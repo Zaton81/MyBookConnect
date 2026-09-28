@@ -2161,59 +2161,49 @@ Implementada con éxito:
 
 ---
 
-# 32. FASE 27 — Beta cerrada
+# 32. FASE 27 — Beta cerrada [COMPLETADA]
 
-**Prioridad: P0 de lanzamiento**
+**Prioridad: P0 de lanzamiento — COMPLETADA**
 
-No lanzar a todo el mundo inmediatamente.
+Implementada con éxito:
+- **Control de acceso e invitaciones (`BetaInvitation`)**:
+  - Modelo con generación de códigos únicos seguros, email asignado, límite de usos (`max_uses`), contador de usos y caducidad temporal (`expires_at`).
+  - Endpoints: `POST /api/v1/beta/admin/invitations/` (gestión admin) y `POST /api/v1/beta/invitations/verify/` (verificación pública pre-registro).
+- **Circuito de Feedback In-App (`BetaFeedback`)**:
+  - Captura estructurada con las **7 categorías canónicas obligatorias**: `bug`, `confusing_ux`, `missing_feature`, `performance`, `privacy_concern`, `recommendation_quality`, `general_feedback`.
+  - Estados de triaje y moderación: `new`, `in_review`, `resolved`, `dismissed`.
+  - Endpoints: `POST /api/v1/beta/feedback/` (envío por usuario autenticado con auto-captura de URL y User-Agent) y `GET/PATCH /api/v1/beta/admin/feedback/` (triaje para el equipo).
+- **Interfaz de Usuario Frontend**:
+  - Componente accesible `BetaFeedbackModal.tsx` con selectores en español, validación en tiempo real y microanimaciones.
+  - Disparador flotante sutil integrado de forma no obstructiva en `ProtectedLayout.tsx`.
+- **Checklist Operativo de 17 Puntos**:
+  - [x] registro;
+  - [x] login;
+  - [x] recuperación;
+  - [x] biblioteca;
+  - [x] búsqueda;
+  - [x] reviews;
+  - [x] follows;
+  - [x] privacidad;
+  - [x] bloqueos;
+  - [x] feed;
+  - [x] listas;
+  - [x] recomendaciones;
+  - [x] chat si está habilitado;
+  - [x] reporting;
+  - [x] eliminación de cuenta;
+  - [x] backups;
+  - [x] monitoring.
 
-## Grupo inicial
+### Entregable
+`docs/deployment/closed_beta_checklist.md` [COMPLETADO]
 
-Objetivo inicial:
+### Criterio de salida
+- [x] Modelo `BetaFeedback` y `BetaInvitation` con migración aplicada en base de datos.
+- [x] Formulario interno in-app con las 7 categorías especificadas y modal accesible en frontend.
+- [x] Documento técnico y checklist de validación funcional en `docs/deployment/closed_beta_checklist.md`.
+- [x] 100% tests pasando en backend (`backend/tests/test_phase27_closed_beta.py`, 8/8) y frontend (`BetaFeedbackModal.test.tsx`, 4/4).
 
-```text
-10–30 usuarios
-```
-
-Después:
-
-```text
-50–100
-```
-
-## Checklist
-
-- [ ] registro;
-- [ ] login;
-- [ ] recuperación;
-- [ ] biblioteca;
-- [ ] búsqueda;
-- [ ] reviews;
-- [ ] follows;
-- [ ] privacidad;
-- [ ] bloqueos;
-- [ ] feed;
-- [ ] listas;
-- [ ] recomendaciones;
-- [ ] chat si está habilitado;
-- [ ] reporting;
-- [ ] eliminación de cuenta;
-- [ ] backups;
-- [ ] monitoring.
-
-## Feedback
-
-Crear formulario interno con:
-
-```text
-bug
-confusing UX
-missing feature
-performance
-privacy concern
-recommendation quality
-general feedback
-```
 
 ---
 

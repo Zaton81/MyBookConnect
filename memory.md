@@ -61,7 +61,8 @@ Cualquier agente de IA o desarrollador que se incorpore a la base de código **D
 | **24** | **IA de producto** | COMPLETADA | Asistente literario interactivo, explicación profunda de obras, comparativas temáticas, unificación 1-5 estrellas y transparencia ética obligatoria. |
 | **25** | **Embeddings y pgvector** | COMPLETADA | Canalización completa: normalización formal, hash SHA256, Celery embedding jobs, aislamiento de modelos y observabilidad. |
 | **26** | **Analytics de producto** | COMPLETADA | 13 eventos canónicos, métricas de embudo/funnel, disociación RGPD (SET_NULL, hash IP SHA-256) y telemetría asíncrona. |
-| **27** | **Beta cerrada y despliegue** | **SIGUIENTE** | Invitaciones, feedback loop de usuarios beta, checklist de lanzamiento y configuración de entorno. |
+| **27** | **Beta cerrada y despliegue** | COMPLETADA | Sistema de invitaciones (`BetaInvitation`), feedback in-app (`BetaFeedback` con 7 categorías), modal accesible y checklist de 17 puntos. |
+| **28** | **Beta abierta** | **SIGUIENTE** | Métricas de retención, tasa de error conocida, moderación activa y soporte antes de apertura masiva. |
 
 ---
 
@@ -130,6 +131,11 @@ Cualquier agente de IA o desarrollador que se incorpore a la base de código **D
 - **Anonimización Criptográfica de IPs:** Toda dirección IP recolectada se procesa y trunca mediante SHA-256 (`hash_ip_address`) a 16 caracteres hexadecimales antes de guardarse, prohibiendo el almacenamiento de direcciones IP en texto plano.
 - **Metadatos Sin PII:** El payload JSON de `metadata` debe contener exclusivamente identificadores relacionales técnicos (`book_id`, `category`, `source`), estando terminantemente prohibido incluir emails o nombres.
 
+### 4.16. Circuito de Feedback de Beta e Invitaciones (Fase 27)
+- **Vinculación Desacoplada de Feedback:** `BetaFeedback.user` vincula opcionalmente al usuario mediante `on_delete=models.SET_NULL`. Si el usuario elimina su cuenta, el feedback técnico persiste para el equipo de desarrollo sin retener datos personales.
+- **Categorías Canónicas Inmutables:** Las 7 categorías de feedback se rigen estrictamente por el roadmap: `bug`, `confusing_ux`, `missing_feature`, `performance`, `privacy_concern`, `recommendation_quality`, `general_feedback`.
+- **Agotamiento Atómico de Invitaciones:** El método `BetaInvitation.use()` verifica vigencia temporal (`expires_at`), estado activo e incrementa `uses_count`, desactivando la invitación automáticamente si `uses_count >= max_uses`.
+
 ---
 
 ## 5. Ubicación de Documentación Relevante
@@ -149,4 +155,6 @@ Cualquier agente de IA o desarrollador que se incorpore a la base de código **D
 - **IA de Producto y Asistente Literario:** [docs/product/ai_product_assistant.md](file:///c:/Users/zaton/Desktop/Escritorio/proyectos/MyBookConnect/docs/product/ai_product_assistant.md)
 - **Embeddings y Búsqueda Vectorial:** [docs/ai/embeddings_and_vector_search.md](file:///c:/Users/zaton/Desktop/Escritorio/proyectos/MyBookConnect/docs/ai/embeddings_and_vector_search.md)
 - **Analytics de Producto y Telemetría:** [docs/product/product_analytics.md](file:///c:/Users/zaton/Desktop/Escritorio/proyectos/MyBookConnect/docs/product/product_analytics.md)
+- **Checklist de Beta Cerrada y Despliegue:** [docs/deployment/closed_beta_checklist.md](file:///c:/Users/zaton/Desktop/Escritorio/proyectos/MyBookConnect/docs/deployment/closed_beta_checklist.md)
+
 
