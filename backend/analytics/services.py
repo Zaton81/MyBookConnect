@@ -204,3 +204,69 @@ class AnalyticsService:
                 "activation_to_reading_completed_pct": round((readers_completed_count / safe_activations) * 100, 2),
             },
         }
+
+    @staticmethod
+    def get_retention_metrics(days: int = 30) -> dict[str, Any]:
+        """
+        Calcula las métricas de retención de cohortes D1, D7 y D30
+        para los usuarios registrados en los últimos `days` días (Fase 28).
+        """
+        now = timezone.now()
+        start_date = now - timedelta(days=days)
+
+        signup_events = ProductAnalyticsEvent.objects.filter(
+            event_type=ProductEventType.SIGNUP,
+            timestamp__gte=start_date,
+            user__isnull=False,
+        )
+        total_signups = signup_events.count()
+
+        d1_active_users = 0
+        d7_active_users = 0
+        d30_active_users = 0
+
+        for event in signup_events.select_related('user'):
+            u = event.user
+            signup_time = event.timestamp
+
+            # D1: actividad entre 1 y 2 días después del registro
+            has_d1 = ProductAnalyticsEvent.objects.filter(
+                user=u,
+                timestamp__gte=signup_time + timedelta(days=1),
+                timestamp__lt=signup_time + timedelta(days=2),
+            ).exclude(id=event.id).exists()
+            if has_d1:
+                d1_active_users += 1
+
+            # D7: actividad entre 6 y 8 días después del registro
+            has_d7 = ProductAnalyticsEvent.objects.filter(
+                user=u,
+                timestamp__gte=signup_time + timedelta(days=6),
+                timestamp__lt=signup_time + timedelta(days=8),
+            ).exclude(id=event.id).exists()
+            if has_d7:
+                d7_active_users += 1
+
+            # D30: actividad entre 27 y 33 días después del registro
+            has_d30 = ProductAnalyticsEvent.objects.filter(
+                user=u,
+                timestamp__gte=signup_time + timedelta(days=27),
+                timestamp__lt=signup_time + timedelta(days=33),
+            ).exclude(id=event.id).exists()
+            if has_d30:
+                d30_active_users += 1
+
+        d1_rate = round(d1_active_users / total_signups, 4) if total_signups > 0 else 0.0
+        d7_rate = round(d7_active_users / total_signups, 4) if total_signups > 0 else 0.0
+        d30_rate = round(d30_active_users / total_signups, 4) if total_signups > 0 else 0.0
+
+        return {
+            "timeframe_days": days,
+            "total_signups": total_signups,
+            "d1_active_users": d1_active_users,
+            "d1_retention_rate": d1_rate,
+            "d7_active_users": d7_active_users,
+            "d7_retention_rate": d7_rate,
+            "d30_active_users": d30_active_users,
+            "d30_retention_rate": d30_rate,
+        }

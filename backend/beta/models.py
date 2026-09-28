@@ -111,3 +111,69 @@ class BetaInvitation(models.Model):
 
     def __str__(self):
         return f"Invitation {self.code} ({self.uses_count}/{self.max_uses})"
+
+
+class SupportTicketCategory(models.TextChoices):
+    ACCOUNT = 'account', 'Cuenta y Acceso'
+    TECHNICAL = 'technical', 'Problema Técnico'
+    CONTENT = 'content', 'Contenido o Catálogo'
+    OTHER = 'other', 'Otro'
+
+
+class SupportTicketStatus(models.TextChoices):
+    OPEN = 'open', 'Abierto'
+    IN_PROGRESS = 'in_progress', 'En Proceso'
+    RESOLVED = 'resolved', 'Resuelto'
+    CLOSED = 'closed', 'Cerrado'
+
+
+class SupportTicketPriority(models.TextChoices):
+    LOW = 'low', 'Baja'
+    MEDIUM = 'medium', 'Media'
+    HIGH = 'high', 'Alta'
+    CRITICAL = 'critical', 'Crítica'
+
+
+class SupportTicket(models.Model):
+    """
+    Canal de soporte formal para los usuarios de la beta abierta (Fase 28).
+    """
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='support_tickets'
+    )
+    subject = models.CharField(max_length=200)
+    message = models.TextField()
+    category = models.CharField(
+        max_length=30,
+        choices=SupportTicketCategory.choices,
+        default=SupportTicketCategory.TECHNICAL,
+        db_index=True
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=SupportTicketStatus.choices,
+        default=SupportTicketStatus.OPEN,
+        db_index=True
+    )
+    priority = models.CharField(
+        max_length=20,
+        choices=SupportTicketPriority.choices,
+        default=SupportTicketPriority.MEDIUM,
+        db_index=True
+    )
+    admin_response = models.TextField(blank=True, default='')
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Support Ticket'
+        verbose_name_plural = 'Support Tickets'
+
+    def __str__(self):
+        user_ident = self.user.username if self.user else 'Anonymous/Deleted'
+        return f"Ticket #{self.id} [{self.category}/{self.status}] {self.subject[:40]} ({user_ident})"

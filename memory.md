@@ -62,7 +62,8 @@ Cualquier agente de IA o desarrollador que se incorpore a la base de código **D
 | **25** | **Embeddings y pgvector** | COMPLETADA | Canalización completa: normalización formal, hash SHA256, Celery embedding jobs, aislamiento de modelos y observabilidad. |
 | **26** | **Analytics de producto** | COMPLETADA | 13 eventos canónicos, métricas de embudo/funnel, disociación RGPD (SET_NULL, hash IP SHA-256) y telemetría asíncrona. |
 | **27** | **Beta cerrada y despliegue** | COMPLETADA | Sistema de invitaciones (`BetaInvitation`), feedback in-app (`BetaFeedback` con 7 categorías), modal accesible y checklist de 17 puntos. |
-| **28** | **Beta abierta** | **SIGUIENTE** | Métricas de retención, tasa de error conocida, moderación activa y soporte antes de apertura masiva. |
+| **28** | **Beta abierta** | COMPLETADA | Métricas de retención D1/D7/D30, tickets de soporte (`SupportTicket`), control de tasa de error y costes conocidos. |
+| **29** | **Preparación de producción** | **SIGUIENTE** | Infraestructura gestionada, endurecimiento de producción, dominio y configuración DNS. |
 
 ---
 
@@ -136,6 +137,10 @@ Cualquier agente de IA o desarrollador que se incorpore a la base de código **D
 - **Categorías Canónicas Inmutables:** Las 7 categorías de feedback se rigen estrictamente por el roadmap: `bug`, `confusing_ux`, `missing_feature`, `performance`, `privacy_concern`, `recommendation_quality`, `general_feedback`.
 - **Agotamiento Atómico de Invitaciones:** El método `BetaInvitation.use()` verifica vigencia temporal (`expires_at`), estado activo e incrementa `uses_count`, desactivando la invitación automáticamente si `uses_count >= max_uses`.
 
+### 4.17. Retención de Cohortes y Sistema de Soporte (Fase 28)
+- **Cálculo de Retención D1/D7/D30:** `AnalyticsService.get_retention_metrics` utiliza ventanas de tiempo relativas al timestamp del evento `signup` (`D1: 1 a 2 días`, `D7: 6 a 8 días`, `D30: 27 a 33 días`), evaluando actividad subsiguiente excluida la propia creación de cuenta para evitar falsos positivos de retención.
+- **Soporte Desacoplado y RGPD:** `SupportTicket.user` utiliza `on_delete=models.SET_NULL`. Al anonimizar o eliminar la cuenta, las respuestas administrativas y el historial técnico persisten para resolución operativa sin conservar datos personales.
+
 ---
 
 ## 5. Ubicación de Documentación Relevante
@@ -156,5 +161,6 @@ Cualquier agente de IA o desarrollador que se incorpore a la base de código **D
 - **Embeddings y Búsqueda Vectorial:** [docs/ai/embeddings_and_vector_search.md](file:///c:/Users/zaton/Desktop/Escritorio/proyectos/MyBookConnect/docs/ai/embeddings_and_vector_search.md)
 - **Analytics de Producto y Telemetría:** [docs/product/product_analytics.md](file:///c:/Users/zaton/Desktop/Escritorio/proyectos/MyBookConnect/docs/product/product_analytics.md)
 - **Checklist de Beta Cerrada y Despliegue:** [docs/deployment/closed_beta_checklist.md](file:///c:/Users/zaton/Desktop/Escritorio/proyectos/MyBookConnect/docs/deployment/closed_beta_checklist.md)
+- **Preparación para Beta Abierta:** [docs/deployment/open_beta_readiness.md](file:///c:/Users/zaton/Desktop/Escritorio/proyectos/MyBookConnect/docs/deployment/open_beta_readiness.md)
 
 

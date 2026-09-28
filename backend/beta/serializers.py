@@ -1,5 +1,11 @@
 from rest_framework import serializers
-from .models import BetaFeedback, BetaFeedbackCategory, BetaFeedbackStatus, BetaInvitation
+from .models import (
+    BetaFeedback,
+    BetaFeedbackCategory,
+    BetaFeedbackStatus,
+    BetaInvitation,
+    SupportTicket,
+)
 
 
 class BetaFeedbackCreateSerializer(serializers.ModelSerializer):
@@ -92,3 +98,70 @@ class VerifyBetaInvitationSerializer(serializers.Serializer):
             raise serializers.ValidationError("Este código de invitación ha expirado o ha alcanzado su límite de usos.")
 
         return cleaned
+
+
+class SupportTicketCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SupportTicket
+        fields = [
+            'id',
+            'subject',
+            'message',
+            'category',
+            'priority',
+            'status',
+            'created_at',
+        ]
+        read_only_fields = ['id', 'status', 'created_at']
+
+    def validate_subject(self, value):
+        cleaned = value.strip()
+        if len(cleaned) < 3:
+            raise serializers.ValidationError("El asunto debe contener al menos 3 caracteres.")
+        return cleaned
+
+    def validate_message(self, value):
+        cleaned = value.strip()
+        if len(cleaned) < 5:
+            raise serializers.ValidationError("El mensaje debe contener al menos 5 caracteres.")
+        return cleaned
+
+
+class SupportTicketDetailSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SupportTicket
+        fields = [
+            'id',
+            'subject',
+            'message',
+            'category',
+            'status',
+            'priority',
+            'admin_response',
+            'created_at',
+            'updated_at',
+        ]
+        read_only_fields = ['id', 'subject', 'message', 'category', 'created_at', 'updated_at']
+
+
+class SupportTicketAdminSerializer(serializers.ModelSerializer):
+    user_username = serializers.CharField(source='user.username', read_only=True, default=None)
+    user_email = serializers.CharField(source='user.email', read_only=True, default=None)
+
+    class Meta:
+        model = SupportTicket
+        fields = [
+            'id',
+            'user',
+            'user_username',
+            'user_email',
+            'subject',
+            'message',
+            'category',
+            'status',
+            'priority',
+            'admin_response',
+            'created_at',
+            'updated_at',
+        ]
+        read_only_fields = ['id', 'user', 'user_username', 'user_email', 'subject', 'message', 'created_at', 'updated_at']

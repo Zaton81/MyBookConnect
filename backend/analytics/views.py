@@ -154,3 +154,45 @@ class AnalyticsSummaryView(APIView):
     def get(self, request):
         data = AnalyticsService.get_event_summary()
         return Response(data, status=status.HTTP_200_OK)
+
+
+class AnalyticsRetentionView(APIView):
+    """
+    Métricas de retención de cohortes D1, D7 y D30 para usuarios registrados (Fase 28).
+    Exclusivo para administradores.
+    """
+    permission_classes = (permissions.IsAdminUser,)
+
+    @extend_schema(
+        summary="Métricas de retención de cohortes",
+        description="Calcula la tasa de retención activa en D1, D7 y D30 para los usuarios registrados en los últimos N días.",
+        parameters=[
+            OpenApiParameter('days', int, description="Ventana de tiempo en días (por defecto 30)", required=False),
+        ],
+        responses={
+            200: inline_serializer(
+                name='AnalyticsRetentionResponse',
+                fields={
+                    'timeframe_days': serializers.IntegerField(),
+                    'total_signups': serializers.IntegerField(),
+                    'd1_active_users': serializers.IntegerField(),
+                    'd1_retention_rate': serializers.FloatField(),
+                    'd7_active_users': serializers.IntegerField(),
+                    'd7_retention_rate': serializers.FloatField(),
+                    'd30_active_users': serializers.IntegerField(),
+                    'd30_retention_rate': serializers.FloatField(),
+                },
+            )
+        },
+        tags=['Analytics'],
+    )
+    def get(self, request):
+        try:
+            days = int(request.query_params.get('days', 30))
+            if days <= 0:
+                days = 30
+        except ValueError:
+            days = 30
+
+        data = AnalyticsService.get_retention_metrics(days=days)
+        return Response(data, status=status.HTTP_200_OK)

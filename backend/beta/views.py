@@ -4,11 +4,14 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.throttling import UserRateThrottle
 
-from .models import BetaFeedback, BetaInvitation
+from .models import BetaFeedback, BetaInvitation, SupportTicket
 from .serializers import (
     BetaFeedbackAdminSerializer,
     BetaFeedbackCreateSerializer,
     BetaInvitationSerializer,
+    SupportTicketAdminSerializer,
+    SupportTicketCreateSerializer,
+    SupportTicketDetailSerializer,
     VerifyBetaInvitationSerializer,
 )
 
@@ -95,3 +98,57 @@ class VerifyBetaInvitationView(APIView):
             'max_uses': invitation.max_uses,
             'uses_remaining': max(0, invitation.max_uses - invitation.uses_count),
         }, status=status.HTTP_200_OK)
+
+
+class SupportTicketCreateView(generics.CreateAPIView):
+    """
+    Creación de tickets de asistencia o soporte formal por usuarios autenticados (Fase 28).
+    """
+    serializer_class = SupportTicketCreateSerializer
+    permission_classes = [IsAuthenticated]
+    throttle_classes = [UserRateThrottle]
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+
+class UserSupportTicketListView(generics.ListAPIView):
+    """
+    Listado de tickets de soporte creados por el usuario autenticado.
+    """
+    serializer_class = SupportTicketDetailSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return SupportTicket.objects.filter(user=self.request.user).order_by('-created_at')
+
+
+class AdminSupportTicketListView(generics.ListAPIView):
+    """
+    Cola global de tickets de soporte para el equipo de administración (Fase 28).
+    """
+    serializer_class = SupportTicketAdminSerializer
+    permission_classes = [IsAdminUser]
+
+    def get_queryset(self):
+        qs = SupportTicket.objects.select_related('user').all()
+        status_val = self.request.query_params.get('status')
+        if status_val:
+            qs = qs.filter(status=status_val)
+        category = self.request.query_params.get('category')
+        if category:
+            qs = qs.filter(category=category)
+        priority = self.request.query_params.get('priority')
+        if priority:
+            qs = qs.filter(priority=priority)
+        return qs
+
+
+class AdminSupportTicketDetailView(generics.RetrieveUpdateAPIView):
+    """
+    Detalle y resolución/respuesta a tickets de soporte por administradores.
+    """
+    queryset = SupportTicket.objects.select_related('user').all()
+    serializer_class = SupportTicketAdminSerializer
+    permission_classes = [IsAdminUser]
+    http_method_names = ['get', 'patch']
