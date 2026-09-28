@@ -2119,31 +2119,18 @@ IA como apoyo a moderadores, no como única decisión para casos importantes.
 
 ---
 
-# 30. FASE 25 — Embeddings y pgvector
+# 30. FASE 25 — Embeddings y pgvector [COMPLETADA]
 
 **Prioridad: P2**
 
-Introducir cuando la búsqueda textual y el sistema híbrido lo justifiquen.
-
-## Arquitectura
-
-```text
-Book
- ↓
-content normalization
- ↓
-embedding job
- ↓
-pgvector
- ↓
-ANN search
- ↓
-hybrid ranking
-```
-
-## Versionado
-
-No mezclar embeddings de modelos incompatibles.
+Implementada con éxito:
+- **Normalización formal de contenido**: Limpieza de HTML, normalización Unicode NFC y huella criptográfica SHA256 (`normalize_book_content_for_embedding`).
+- **Embedding Jobs en Celery**: Tareas asíncronas para vectorización individual (`generate_book_embedding_task`) y por lotes (`batch_reindex_embeddings_task`).
+- **Persistencia vectorial y versionado**: Registro satélite en `BookEmbedding` con modelo, versión (`v1.0`), dimensión y fecha de vectorización.
+- **ANN Vector Search**: Búsqueda por similitud coseno con aislamiento estricto de dimensionalidad y modelo (`search_books_by_embedding`).
+- **Regla estricta de versionado cumplida**: Prohibición explícita de mezclar vectores de modelos o dimensiones incompatibles.
+- **Hybrid Ranking**: Fusión multicanal en `UnifiedSearchEngine` (FTS + Trigram + Embeddings vectoriales).
+- **Observabilidad de catálogo**: Endpoint de métricas de cobertura y modelos (`GET /api/v1/books/ai/embeddings/stats/`) y vectorización bajo demanda (`POST /api/v1/books/<pk>/ai/embeddings/generate/`).
 
 ---
 

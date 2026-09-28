@@ -16,6 +16,7 @@ from django.db.models.functions import Coalesce, Greatest
 from ai.embeddings import cosine_similarity, get_embedding_for_text
 from ai.services import semantic_search_books
 from books.models import Book, BookEmbedding, EmbeddingStatus
+from books.services.embedding_service import search_books_by_embedding
 from books.services.import_service import import_multiple_by_title, import_single_by_query
 
 logger = logging.getLogger(__name__)
@@ -343,7 +344,7 @@ class UnifiedSearchEngine:
         results: list[tuple[Book, float]] = []
         allowed_ids = set(base_qs.values_list('id', flat=True))
 
-        # 1. Intentar cálculo vectorial directo contra BookEmbedding persistido
+        # 1. Intentar cálculo vectorial directo protegido mediante search_books_by_embedding (Fase 25)
         query_emb = None
         try:
             query_emb = get_embedding_for_text(query_str)
@@ -351,18 +352,12 @@ class UnifiedSearchEngine:
             logger.debug("No se pudo obtener embedding para '%s': %s", query_str, exc)
 
         if query_emb and isinstance(query_emb, list) and len(query_emb) > 0:
-            embeddings_qs = (
-                BookEmbedding.objects.filter(
-                    embedding_status=EmbeddingStatus.COMPLETED,
-                    book_id__in=allowed_ids,
-                )
-                .select_related('book')
+            results = search_books_by_embedding(
+                query_vector=query_emb,
+                limit=30,
+                min_similarity=0.15,
+                allowed_book_ids=allowed_ids,
             )
-            for emb_rec in embeddings_qs:
-                if emb_rec.vector and isinstance(emb_rec.vector, list) and len(emb_rec.vector) > 0:
-                    sim = cosine_similarity(query_emb, emb_rec.vector)
-                    if sim > 0.15:
-                        results.append((emb_rec.book, float(sim)))
 
         # 2. Si no hay resultados vectoriales directos, usar expansión conceptual temática
         if not results:

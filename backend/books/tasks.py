@@ -161,9 +161,15 @@ def precompute_user_recommendations_task(self, user_id: int, strategy: str = 'hy
 
 
 @shared_task(bind=True, max_retries=2, default_retry_delay=60)
-def generate_book_embedding_task(self, book_id: int) -> bool:
+def generate_book_embedding_task(
+    self,
+    book_id: int,
+    force: bool = False,
+    model_name: str | None = None,
+) -> bool:
     """
-    Genera y almacena el vector de embedding semántico para una obra literaria.
+    Genera y almacena el vector de embedding semántico para una obra literaria
+    gobernando su ciclo de vida a través de BookEmbedding (Fase 25).
     """
     try:
         book = Book.objects.filter(id=book_id).first()
@@ -171,21 +177,44 @@ def generate_book_embedding_task(self, book_id: int) -> bool:
             logger.warning(f"generate_book_embedding_task: Libro {book_id} no encontrado")
             return False
 
-        from ai.embeddings import get_embedding_for_text
+        from .models import EmbeddingStatus
+        from .services.embedding_service import generate_book_embedding
 
-        author_name = book.author.name if book.author else ''
-        cat_names = ', '.join([c.name for c in book.categories.all()])
-        text_to_embed = f"Título: {book.title}. Autor: {author_name}. Géneros: {cat_names}. Sinopsis: {book.description or ''}"
-
-        emb = get_embedding_for_text(text_to_embed)
-        if emb:
-            book.embedding = emb
-            book.save(update_fields=['embedding'])
-            logger.info(f"generate_book_embedding_task: Embedding guardado con éxito para libro {book_id} ({book.title})")
-            return True
-        return False
+        rec = generate_book_embedding(book=book, force=force, model_name=model_name)
+        success = rec.embedding_status == EmbeddingStatus.COMPLETED
+        if success:
+            logger.info(
+                f"generate_book_embedding_task: Embedding guardado con éxito para libro {book_id} "
+                f"({book.title}) [{rec.embedding_model}, {rec.dimension}d]"
+            )
+        return success
     except Exception as exc:
         logger.warning(f"Error en generate_book_embedding_task para libro {book_id}: {exc}")
+        raise self.retry(exc=exc) from exc
+
+
+@shared_task(bind=True, max_retries=2, default_retry_delay=120)
+def batch_reindex_embeddings_task(
+    self,
+    batch_size: int = 50,
+    force: bool = False,
+    model_name: str | None = None,
+) -> dict:
+    """
+    Tarea Celery para reindexación masiva o selectiva de embeddings del catálogo (Fase 25).
+    """
+    try:
+        from .services.embedding_service import reindex_all_embeddings
+
+        stats = reindex_all_embeddings(
+            batch_size=batch_size,
+            force=force,
+            model_name=model_name,
+        )
+        logger.info(f"batch_reindex_embeddings_task completada: {stats}")
+        return stats
+    except Exception as exc:
+        logger.warning(f"Error en batch_reindex_embeddings_task: {exc}")
         raise self.retry(exc=exc) from exc
 
 

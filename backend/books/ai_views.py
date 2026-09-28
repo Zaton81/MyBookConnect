@@ -495,3 +495,118 @@ class AICompareBooksView(APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
+
+class AIEmbeddingStatsView(APIView):
+    """
+    Observabilidad y métricas de cobertura de embeddings en el catálogo (Fase 25).
+    Informa sobre el estado de vectorización, porcentaje de cobertura y desglose por modelo y versión.
+    """
+    permission_classes = (permissions.IsAuthenticated,)
+
+    @extend_schema(
+        summary="Métricas de cobertura y gobernanza de embeddings",
+        description="Retorna el desglose de cobertura vectorial del catálogo y versionado de modelos activos.",
+        responses={
+            200: inline_serializer(
+                name='AIEmbeddingStatsResponse',
+                fields={
+                    'total_books': serializers.IntegerField(),
+                    'total_embeddings': serializers.IntegerField(),
+                    'completed': serializers.IntegerField(),
+                    'pending': serializers.IntegerField(),
+                    'failed': serializers.IntegerField(),
+                    'stale': serializers.IntegerField(),
+                    'coverage_percentage': serializers.FloatField(),
+                    'active_model': serializers.CharField(),
+                    'models_breakdown': serializers.ListField(child=serializers.DictField()),
+                },
+            )
+        },
+        tags=['AI'],
+    )
+    def get(self, request):
+        """
+        Retorna las estadísticas del catálogo vectorial en tiempo real.
+        """
+        from books.services.embedding_service import get_embedding_catalog_stats
+
+        stats_data = get_embedding_catalog_stats()
+        return Response(stats_data, status=status.HTTP_200_OK)
+
+
+class AIGenerateBookEmbeddingView(APIView):
+    """
+    Endpoint para generar o forzar la actualización del embedding vectorial de un libro (Fase 25).
+    Soporta ejecución síncrona inmediata o asíncrona mediante Celery.
+    """
+    permission_classes = (permissions.IsAuthenticated,)
+
+    @extend_schema(
+        summary="Generar o actualizar embedding de un libro",
+        description="Vectoriza el contenido normalizado del libro y registra su estado y metadatos.",
+        request=inline_serializer(
+            name='AIGenerateBookEmbeddingRequest',
+            fields={
+                'force': serializers.BooleanField(required=False, default=False),
+                'async_mode': serializers.BooleanField(required=False, default=False),
+            },
+        ),
+        responses={
+            200: inline_serializer(
+                name='AIGenerateBookEmbeddingResponse',
+                fields={
+                    'book_id': serializers.IntegerField(),
+                    'status': serializers.CharField(),
+                    'dimension': serializers.IntegerField(),
+                    'model': serializers.CharField(),
+                    'version': serializers.CharField(),
+                },
+            ),
+            202: inline_serializer(
+                name='AIGenerateBookEmbeddingAsyncResponse',
+                fields={
+                    'book_id': serializers.IntegerField(),
+                    'status': serializers.CharField(),
+                    'task_enqueued': serializers.BooleanField(),
+                },
+            ),
+            404: OpenApiResponse(description="Libro no encontrado"),
+        },
+        tags=['AI'],
+    )
+    def post(self, request, pk):
+        """
+        Inicia la generación de embedding para el libro especificado.
+        """
+        book = get_object_or_404(Book, pk=pk)
+        force = bool(request.data.get('force', False))
+        async_mode = bool(request.data.get('async_mode', False))
+
+        if async_mode:
+            from books.tasks import generate_book_embedding_task
+
+            generate_book_embedding_task.delay(book.id, force=force)
+            return Response(
+                {
+                    'book_id': book.id,
+                    'status': 'enqueued',
+                    'task_enqueued': True,
+                },
+                status=status.HTTP_202_ACCEPTED,
+            )
+
+        from books.services.embedding_service import generate_book_embedding
+
+        rec = generate_book_embedding(book=book, force=force)
+        return Response(
+            {
+                'book_id': book.id,
+                'status': rec.embedding_status,
+                'dimension': rec.dimension,
+                'model': rec.embedding_model,
+                'version': rec.embedding_version,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+

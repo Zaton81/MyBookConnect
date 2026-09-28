@@ -59,7 +59,8 @@ Cualquier agente de IA o desarrollador que se incorpore a la base de código **D
 | **22** | Feed Social y Actividad | COMPLETADA | 9 eventos de lectura/reacciones/listas, ocultamiento (`HiddenActivity`), exclusión de silenciados/bloqueados y filtros temáticos. |
 | **23** | Notificaciones | COMPLETADA | Eventos (follow, follow_accepted, likes, comentarios, respuestas, listas, mensajes, recomendaciones), `NotificationPreference` (in-app, email, push), `NotificationService` y centro UI. |
 | **24** | **IA de producto** | COMPLETADA | Asistente literario interactivo, explicación profunda de obras, comparativas temáticas, unificación 1-5 estrellas y transparencia ética obligatoria. |
-| **25** | **Embeddings y pgvector** | **SIGUIENTE** | Introducir cuando la búsqueda textual y el sistema híbrido lo justifiquen. |
+| **25** | **Embeddings y pgvector** | COMPLETADA | Canalización completa: normalización formal, hash SHA256, Celery embedding jobs, aislamiento de modelos y observabilidad. |
+| **26** | **Analytics de producto** | **SIGUIENTE** | Definición y captura de eventos clave (signup, login, book_view, reading, review, follow, list, recommendation). |
 
 ---
 
@@ -121,6 +122,10 @@ Cualquier agente de IA o desarrollador que se incorpore a la base de código **D
 ### 4.13. Transparencia y Etiquetado Obligatorio de IA (Fase 24)
 - **Principio de Confianza:** Cualquier endpoint que entregue análisis, resúmenes o comparativas literarias (`AIExplainBookView`, `AICompareBooksView`, `AIBookSummaryView`) debe devolver inmutablemente `is_ai_generated: True`, `badge: "✨ Generado por IA"` y un disclaimer orientativo/divulgativo visible en la interfaz para el lector.
 
+### 4.14. Aislamiento y Versionado de Embeddings (Fase 25)
+- **Incompatibilidad de Modelos:** El servicio `search_books_by_embedding` filtra obligatoriamente por `embedding_model` y dimensionalidad (`dimension == len(query_vector)`). Queda terminantemente prohibido calcular similitudes coseno entre vectores generados por modelos incompatibles (ej. nomic-embed-text vs text-embedding-3-small).
+- **Normalización e Idempotencia:** Toda vectorización debe pasar previamente por `normalize_book_content_for_embedding`, la cual computa el hash SHA256 del contenido canónico para evitar re-embeddings redundantes en la base de datos.
+
 ---
 
 ## 5. Ubicación de Documentación Relevante
@@ -138,3 +143,4 @@ Cualquier agente de IA o desarrollador que se incorpore a la base de código **D
 - **Feed Social y Actividad:** [docs/product/social_feed.md](file:///c:/Users/zaton/Desktop/Escritorio/proyectos/MyBookConnect/docs/product/social_feed.md)
 - **Sistema de Notificaciones:** [docs/product/notifications_system.md](file:///c:/Users/zaton/Desktop/Escritorio/proyectos/MyBookConnect/docs/product/notifications_system.md)
 - **IA de Producto y Asistente Literario:** [docs/product/ai_product_assistant.md](file:///c:/Users/zaton/Desktop/Escritorio/proyectos/MyBookConnect/docs/product/ai_product_assistant.md)
+- **Embeddings y Búsqueda Vectorial:** [docs/ai/embeddings_and_vector_search.md](file:///c:/Users/zaton/Desktop/Escritorio/proyectos/MyBookConnect/docs/ai/embeddings_and_vector_search.md)
