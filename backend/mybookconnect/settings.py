@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     'books',
     'messages_app.apps.MessagesConfig',
     'ai.apps.AIConfig',
+    'analytics.apps.AnalyticsConfig',
 ]
 
 AUTH_USER_MODEL = 'users.User'

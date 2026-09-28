@@ -2134,43 +2134,30 @@ Implementada con éxito:
 
 ---
 
-# 31. FASE 26 — Analytics de producto
+# 31. FASE 26 — Analytics de producto [COMPLETADA]
 
-**Prioridad: P1/P2**
+**Prioridad: P1/P2 — COMPLETADA**
 
-Definir eventos:
+Implementada con éxito:
+- **13 eventos canónicos**: `signup`, `login`, `book_view`, `book_added`, `reading_started`, `reading_finished`, `review_created`, `follow_created`, `list_created`, `recommendation_shown`, `recommendation_clicked`, `recommendation_dismissed`, `message_sent`.
+- **Embudo de conversión (Funnel)**: cálculo consolidado `visit -> signup -> activation -> reading activity -> social interaction` con tasas de conversión secuenciales.
+- **Privacidad y RGPD Art. 17**: `user on_delete=models.SET_NULL`, sin PII en metadatos contextuales (`metadata`), e IP disociada mediante hash truncado SHA-256 de 16 caracteres (`hash_ip_address`).
+- **Endpoints de telemetría y administración**:
+  - `POST /api/v1/analytics/collect/`: Ingesta de eventos para visitantes anónimos y autenticados.
+  - `GET /api/v1/analytics/funnel/`: Análisis de etapas del embudo con temporalidad configurable.
+  - `GET /api/v1/analytics/summary/`: Resumen consolidado de actividad agregada.
+- **Telemetría asíncrona**: Tarea Celery desacoplada `record_analytics_event_task` con fallback automático.
 
-```text
-signup
-login
-book_view
-book_added
-reading_started
-reading_finished
-review_created
-follow_created
-list_created
-recommendation_shown
-recommendation_clicked
-recommendation_dismissed
-message_sent
-```
+### Entregable
+`docs/product/product_analytics.md` [COMPLETADO]
 
-## Embudo
+### Criterio de salida
+- [x] Modelo `ProductAnalyticsEvent` con los 13 eventos canónicos y migración aplicada en base de datos.
+- [x] `AnalyticsService` con ingestión, cálculo de embudo de conversión y resúmenes agregados.
+- [x] Privacidad por diseño: anonimización de IP por hash y retención de eventos disociados ante borrado de cuenta RGPD Art. 17.
+- [x] Documentación técnica en `docs/product/product_analytics.md`.
+- [x] Cobertura de pruebas completa en `backend/tests/test_phase26_product_analytics.py` (10/10 passed).
 
-```text
-visit
- ↓
-signup
- ↓
-activation
- ↓
-retention
- ↓
-social interaction
- ↓
-reading activity
-```
 
 ---
 

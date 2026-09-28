@@ -60,7 +60,8 @@ Cualquier agente de IA o desarrollador que se incorpore a la base de código **D
 | **23** | Notificaciones | COMPLETADA | Eventos (follow, follow_accepted, likes, comentarios, respuestas, listas, mensajes, recomendaciones), `NotificationPreference` (in-app, email, push), `NotificationService` y centro UI. |
 | **24** | **IA de producto** | COMPLETADA | Asistente literario interactivo, explicación profunda de obras, comparativas temáticas, unificación 1-5 estrellas y transparencia ética obligatoria. |
 | **25** | **Embeddings y pgvector** | COMPLETADA | Canalización completa: normalización formal, hash SHA256, Celery embedding jobs, aislamiento de modelos y observabilidad. |
-| **26** | **Analytics de producto** | **SIGUIENTE** | Definición y captura de eventos clave (signup, login, book_view, reading, review, follow, list, recommendation). |
+| **26** | **Analytics de producto** | COMPLETADA | 13 eventos canónicos, métricas de embudo/funnel, disociación RGPD (SET_NULL, hash IP SHA-256) y telemetría asíncrona. |
+| **27** | **Beta cerrada y despliegue** | **SIGUIENTE** | Invitaciones, feedback loop de usuarios beta, checklist de lanzamiento y configuración de entorno. |
 
 ---
 
@@ -124,7 +125,10 @@ Cualquier agente de IA o desarrollador que se incorpore a la base de código **D
 
 ### 4.14. Aislamiento y Versionado de Embeddings (Fase 25)
 - **Incompatibilidad de Modelos:** El servicio `search_books_by_embedding` filtra obligatoriamente por `embedding_model` y dimensionalidad (`dimension == len(query_vector)`). Queda terminantemente prohibido calcular similitudes coseno entre vectores generados por modelos incompatibles (ej. nomic-embed-text vs text-embedding-3-small).
-- **Normalización e Idempotencia:** Toda vectorización debe pasar previamente por `normalize_book_content_for_embedding`, la cual computa el hash SHA256 del contenido canónico para evitar re-embeddings redundantes en la base de datos.
+### 4.15. Telemetría de Producto y Privacidad RGPD (Fase 26)
+- **Desvinculación Obligatoria (RGPD Art. 17):** `ProductAnalyticsEvent.user` utiliza `on_delete=models.SET_NULL`. Al anonimizar o eliminar la cuenta de un usuario, sus eventos de telemetría histórica persisten con `user_id=null`, asegurando que las métricas agregadas del embudo de conversión sigan siendo coherentes sin retener ningún dato personal identificable.
+- **Anonimización Criptográfica de IPs:** Toda dirección IP recolectada se procesa y trunca mediante SHA-256 (`hash_ip_address`) a 16 caracteres hexadecimales antes de guardarse, prohibiendo el almacenamiento de direcciones IP en texto plano.
+- **Metadatos Sin PII:** El payload JSON de `metadata` debe contener exclusivamente identificadores relacionales técnicos (`book_id`, `category`, `source`), estando terminantemente prohibido incluir emails o nombres.
 
 ---
 
@@ -144,3 +148,5 @@ Cualquier agente de IA o desarrollador que se incorpore a la base de código **D
 - **Sistema de Notificaciones:** [docs/product/notifications_system.md](file:///c:/Users/zaton/Desktop/Escritorio/proyectos/MyBookConnect/docs/product/notifications_system.md)
 - **IA de Producto y Asistente Literario:** [docs/product/ai_product_assistant.md](file:///c:/Users/zaton/Desktop/Escritorio/proyectos/MyBookConnect/docs/product/ai_product_assistant.md)
 - **Embeddings y Búsqueda Vectorial:** [docs/ai/embeddings_and_vector_search.md](file:///c:/Users/zaton/Desktop/Escritorio/proyectos/MyBookConnect/docs/ai/embeddings_and_vector_search.md)
+- **Analytics de Producto y Telemetría:** [docs/product/product_analytics.md](file:///c:/Users/zaton/Desktop/Escritorio/proyectos/MyBookConnect/docs/product/product_analytics.md)
+

@@ -99,7 +99,7 @@ class TestPhase24ProductAI:
         """Verifica el endpoint POST /api/v1/books/<pk>/ai/explain/."""
         self.client.force_authenticate(user=self.user)
 
-        with patch("ai.services.explain_book_ai") as mock_explain:
+        with patch("books.ai_views.explain_book_ai") as mock_explain:
             mock_explain.return_value = {
                 "book_id": self.book_a.id,
                 "book_title": self.book_a.title,
@@ -163,7 +163,7 @@ class TestPhase24ProductAI:
         """Verifica el endpoint POST /api/v1/books/ai/compare/."""
         self.client.force_authenticate(user=self.user)
 
-        with patch("ai.services.compare_books_ai") as mock_compare:
+        with patch("books.ai_views.compare_books_ai") as mock_compare:
             mock_compare.return_value = {
                 "book_a": {"id": self.book_a.id, "title": self.book_a.title},
                 "book_b": {"id": self.book_b.id, "title": self.book_b.title},
