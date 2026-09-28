@@ -58,7 +58,8 @@ Cualquier agente de IA o desarrollador que se incorpore a la base de código **D
 | **21** | Listas Sociales | COMPLETADA | Listas públicas/privadas/seguidores, clonación atómica (`clone`), comentarios (`ReadingListComment`), apertura `views_count`, compartición y métricas. |
 | **22** | Feed Social y Actividad | COMPLETADA | 9 eventos de lectura/reacciones/listas, ocultamiento (`HiddenActivity`), exclusión de silenciados/bloqueados y filtros temáticos. |
 | **23** | Notificaciones | COMPLETADA | Eventos (follow, follow_accepted, likes, comentarios, respuestas, listas, mensajes, recomendaciones), `NotificationPreference` (in-app, email, push), `NotificationService` y centro UI. |
-| **24** | **IA de producto** | **SIGUIENTE** | Asistente literario, explicar libros, comparar temas, recomendaciones semánticas y resúmenes guiados. |
+| **24** | **IA de producto** | COMPLETADA | Asistente literario interactivo, explicación profunda de obras, comparativas temáticas, unificación 1-5 estrellas y transparencia ética obligatoria. |
+| **25** | **Embeddings y pgvector** | **SIGUIENTE** | Introducir cuando la búsqueda textual y el sistema híbrido lo justifiquen. |
 
 ---
 
@@ -113,7 +114,12 @@ Cualquier agente de IA o desarrollador que se incorpore a la base de código **D
 
 ### 4.11. Sistema Centralizado de Notificaciones y Privacidad (Fase 23)
 - **Despacho Exclusivo:** Toda emisión de alertas debe realizarse mediante `NotificationService.send_notification(...)`. Dicho servicio verifica la no auto-notificación (`actor != recipient`), bloqueos bidireccionales (`PrivacyService.are_mutually_blocked`), silencios activos y preferencias granulares de canal (`in_app` y `email`).
-- **Preferencias Granulares:** Se gestionan a través de `NotificationPreference` asociado 1:1 a cada usuario, permitiendo activar o desactivar avisos independientemente para cada canal e interacción social.
+### 4.12. Unificación del Sistema de Calificaciones (Escala 1 a 5 Estrellas)
+- **Alineación Total:** Tanto `UserBook.rating` (nota personal de lectura) como `Review.rating` (opinión pública) se rigen exclusivamente por el rango 1 a 5 estrellas (`validators=[MinValueValidator(1), MaxValueValidator(5)]`).
+- **Normalización de Estrellas en UI:** El componente `StarRating.tsx` asume de forma canónica `maxRating = 5` y no debe dividir el valor por 2 si la escala es 5. Los selectores de `BookDetail.tsx`, `AddBook.tsx` y `Library.tsx` deben iterar siempre sobre `[5, 4, 3, 2, 1]` para evitar que notas sobre 10 distorsionen las estadísticas del usuario (`stats_service.py`).
+
+### 4.13. Transparencia y Etiquetado Obligatorio de IA (Fase 24)
+- **Principio de Confianza:** Cualquier endpoint que entregue análisis, resúmenes o comparativas literarias (`AIExplainBookView`, `AICompareBooksView`, `AIBookSummaryView`) debe devolver inmutablemente `is_ai_generated: True`, `badge: "✨ Generado por IA"` y un disclaimer orientativo/divulgativo visible en la interfaz para el lector.
 
 ---
 
@@ -131,3 +137,4 @@ Cualquier agente de IA o desarrollador que se incorpore a la base de código **D
 - **Listas Sociales y Colecciones:** [docs/product/social_reading_lists.md](file:///c:/Users/zaton/Desktop/Escritorio/proyectos/MyBookConnect/docs/product/social_reading_lists.md)
 - **Feed Social y Actividad:** [docs/product/social_feed.md](file:///c:/Users/zaton/Desktop/Escritorio/proyectos/MyBookConnect/docs/product/social_feed.md)
 - **Sistema de Notificaciones:** [docs/product/notifications_system.md](file:///c:/Users/zaton/Desktop/Escritorio/proyectos/MyBookConnect/docs/product/notifications_system.md)
+- **IA de Producto y Asistente Literario:** [docs/product/ai_product_assistant.md](file:///c:/Users/zaton/Desktop/Escritorio/proyectos/MyBookConnect/docs/product/ai_product_assistant.md)

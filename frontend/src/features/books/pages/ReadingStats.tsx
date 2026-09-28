@@ -332,17 +332,17 @@ export function ReadingStats() {
 
       {/* Grid de Distribución de Notas y Géneros */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Distribución de Calificaciones (1 a 10) */}
+        {/* Distribución de Calificaciones (1 a 5) */}
         <div className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm">
           <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2 mb-1">
             <span>⭐</span> Distribución de Calificaciones
           </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400 mb-6">
-            Frecuencia de puntuaciones otorgadas a tus libros leídos.
+            Frecuencia de puntuaciones otorgadas a tus libros leídos (escala de 1 a 5 estrellas).
           </p>
 
           <div className="space-y-2.5">
-            {[10, 9, 8, 7, 6, 5, 4, 3, 2, 1].map((score) => {
+            {[5, 4, 3, 2, 1].map((score) => {
               const count = stats.ratings_distribution[score] || 0;
               const totalRatings = Object.values(stats.ratings_distribution).reduce(
                 (a, b) => a + b,
@@ -358,7 +358,7 @@ export function ReadingStats() {
                   <div className="flex-1 h-3.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
                     <div
                       className={`h-full rounded-full transition-all duration-500 ${
-                        score >= 8 ? 'bg-amber-400' : score >= 6 ? 'bg-teal-500' : 'bg-slate-400'
+                        score >= 4 ? 'bg-amber-400' : score === 3 ? 'bg-teal-500' : 'bg-slate-400'
                       }`}
                       style={{ width: `${percentage}%` }}
                     />

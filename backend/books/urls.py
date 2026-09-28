@@ -7,6 +7,8 @@ from .admin_views import PublicLegalDocumentListView, PublicLegalDocumentView
 from .ai_views import (
     AIAssistantView,
     AIBookSummaryView,
+    AICompareBooksView,
+    AIExplainBookView,
     AISemanticSearchView,
     AIStatusView,
     AIToolExecuteView,
@@ -72,9 +74,11 @@ urlpatterns = [
     path('ai/status/', AIStatusView.as_view(), name='book-ai-status'),
     path('ai/assistant/', AIAssistantView.as_view(), name='book-ai-assistant'),
     path('ai/semantic-search/', AISemanticSearchView.as_view(), name='book-ai-semantic-search'),
+    path('ai/compare/', AICompareBooksView.as_view(), name='book-ai-compare'),
     path('ai/tools/', AIToolsListView.as_view(), name='book-ai-tools'),
     path('ai/tools/execute/', AIToolExecuteView.as_view(), name='book-ai-tools-execute'),
     path('<int:pk>/ai/summary/', AIBookSummaryView.as_view(), name='book-ai-summary'),
+    path('<int:pk>/ai/explain/', AIExplainBookView.as_view(), name='book-ai-explain'),
 
     path('<int:pk>/', BookDetailView.as_view(), name='books-detail-root'),
     path('<int:pk>/recommendations/', RecommendationView.as_view(), name='book-recommendations-root'),

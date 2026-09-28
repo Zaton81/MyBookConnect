@@ -626,9 +626,9 @@ export function AddBook() {
                   className="w-full text-xs font-semibold rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700 py-2 px-3"
                 >
                   <option value="">Sin puntuación inicial</option>
-                  {[10, 9, 8, 7, 6, 5, 4, 3, 2, 1].map((n) => (
+                  {[5, 4, 3, 2, 1].map((n) => (
                     <option key={n} value={n}>
-                      ⭐ {n}/10
+                      ⭐ {n}/5
                     </option>
                   ))}
                 </select>

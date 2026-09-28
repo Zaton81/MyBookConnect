@@ -94,3 +94,75 @@ def build_book_summary_prompt(
         f"2. **Tono y Estilo Literario** (2 oraciones concisas)\n"
         f"3. **Para quién es ideal esta lectura** (1 recomendación clave)"
     )
+
+
+def build_explain_book_prompt(
+    title: str,
+    author_name: str,
+    description: str | None,
+    categories: list[str] | None = None,
+) -> str:
+    """
+    Construye el prompt para la explicación exhaustiva de una obra:
+    contexto histórico, claves temáticas, estilo narrativo y recomendación de lectura.
+    """
+    safe_title = sanitize_untrusted_input(title)
+    safe_author = sanitize_untrusted_input(author_name)
+    desc_clean = sanitize_untrusted_input(description) if description else 'No disponible'
+    cats_str = ', '.join([sanitize_untrusted_input(c) for c in categories]) if categories else 'Literatura'
+
+    return (
+        f"Explica en profundidad y de forma accesible la siguiente obra literaria:\n"
+        f"<book_reference>\n"
+        f"Título: {safe_title}\n"
+        f"Autor: {safe_author}\n"
+        f"Géneros: {cats_str}\n"
+        f"Sinopsis: {desc_clean}\n"
+        f"</book_reference>\n\n"
+        f"Estructura tu respuesta exactamente con estas secciones en Markdown:\n"
+        f"### 🏛️ Contexto Histórico y de Creación\n"
+        f"(Explica la época, circunstancias del autor o momento cultural de la obra)\n\n"
+        f"### 🔑 Claves Temáticas Fundamentales\n"
+        f"(Enumera los 3 o 4 ejes conceptuales principales con una breve explicación de cada uno)\n\n"
+        f"### 🖋️ Estilo Narrativo y Voz del Autor\n"
+        f"(Describe el ritmo, punto de vista, técnicas y tono empleado)\n\n"
+        f"### 💡 Guía de Lectura y A Quién se Recomienda\n"
+        f"(Consejos para disfrutar la lectura y perfil del lector idóneo)"
+    )
+
+
+def build_compare_books_prompt(
+    book_a: dict[str, Any],
+    book_b: dict[str, Any],
+) -> str:
+    """
+    Construye el prompt para realizar una comparativa temática y estilística entre dos obras literarias.
+    """
+    title_a = sanitize_untrusted_input(book_a.get('title', 'Libro A'))
+    author_a = sanitize_untrusted_input(book_a.get('author_name', 'Autor A'))
+    desc_a = sanitize_untrusted_input(book_a.get('description', '')[:300])
+
+    title_b = sanitize_untrusted_input(book_b.get('title', 'Libro B'))
+    author_b = sanitize_untrusted_input(book_b.get('author_name', 'Autor B'))
+    desc_b = sanitize_untrusted_input(book_b.get('description', '')[:300])
+
+    return (
+        f"Realiza una comparativa literaria perspicaz y fundamentada entre estas dos obras:\n\n"
+        f"<obra_a>\n"
+        f"Título: {title_a}\n"
+        f"Autor: {author_a}\n"
+        f"Sinopsis: {desc_a}\n"
+        f"</obra_a>\n\n"
+        f"<obra_b>\n"
+        f"Título: {title_b}\n"
+        f"Autor: {author_b}\n"
+        f"Sinopsis: {desc_b}\n"
+        f"</obra_b>\n\n"
+        f"Estructura la comparativa en Markdown con los siguientes apartados:\n"
+        f"### 🔗 Puntos de Convergencia (Paralelismos)\n"
+        f"(Temas compartidos, sensibilidades o inquietudes comunes)\n\n"
+        f"### ⚡ Contrastes y Enfoques Distintivos\n"
+        f"(Diferencias en estilo, ritmo, visión del mundo o tono)\n\n"
+        f"### 🧭 Cuál Leer Primero y Experiencia Lectora\n"
+        f"(Orientación personalizada sobre cuál elegir según el momento lector)"
+    )

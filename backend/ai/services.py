@@ -19,7 +19,12 @@ from ai.policies import (
     sanitize_book_context,
     validate_and_sanitize_chat_messages,
 )
-from ai.prompts import build_assistant_system_prompt, build_book_summary_prompt
+from ai.prompts import (
+    build_assistant_system_prompt,
+    build_book_summary_prompt,
+    build_compare_books_prompt,
+    build_explain_book_prompt,
+)
 from ai.tools import execute_tool, get_tools_definitions
 from books.models import Book, UserBook
 
@@ -240,6 +245,9 @@ def get_book_ai_summary(book: Book, request_id: str | None = None) -> dict[str, 
             "ai_online": True,
             "provider": provider.name,
             "request_id": req_id,
+            "is_ai_generated": True,
+            "badge": "✨ Generado por IA",
+            "disclaimer": "✨ Contenido generado por Inteligencia Artificial con fines orientativos y divulgativos.",
         }
 
     # Fallback determinista
@@ -255,6 +263,213 @@ def get_book_ai_summary(book: Book, request_id: str | None = None) -> dict[str, 
         "ai_online": False,
         "provider": "rule-based",
         "request_id": req_id,
+        "is_ai_generated": True,
+        "badge": "✨ Generado por IA (Modo determinista)",
+        "disclaimer": "✨ Contenido estructurado de referencia con fines orientativos.",
+    }
+
+
+def explain_book_ai(book: Book, user: Any = None, request_id: str | None = None) -> dict[str, Any]:
+    """
+    Genera una explicación estructurada en profundidad (contexto histórico, claves temáticas,
+    estilo narrativo y guía de lectura) etiquetada explícitamente con badge y disclaimer de IA.
+    """
+    req_id = request_id or str(uuid.uuid4())
+
+    if user and getattr(user, 'is_authenticated', False):
+        if not check_ai_rate_limit(user):
+            _, window_name, retry_after = check_ai_rate_limit_detailed(user)
+            win = window_name or 'minute'
+            ttl = retry_after or 60
+            raise AIRateLimitExceededError(
+                f"Has superado el límite de consultas permitidas ({win}). Por favor, espera antes de reintentar.",
+                window=win,
+                retry_after=ttl,
+            )
+
+    author_name = book.author.name if book.author else 'Desconocido'
+    clean_desc = sanitize_book_context(book.description or '')
+    categories = [c.name for c in book.categories.all()]
+
+    prompt = build_explain_book_prompt(
+        title=book.title,
+        author_name=author_name,
+        description=clean_desc,
+        categories=categories,
+    )
+
+    provider = get_ai_provider()
+    response = provider.chat_completion(
+        messages=[{"role": "user", "content": prompt}],
+        system_prompt="Eres un historiador y analista literario de élite. Responde siempre en español con formato Markdown.",
+        temperature=0.4,
+        max_tokens=800,
+    )
+
+    p_tokens = response.get("prompt_tokens", 0)
+    c_tokens = response.get("completion_tokens", 0)
+    dur_ms = response.get("duration_ms", 0)
+    success = response.get("success", False)
+
+    try:
+        AIUsageLog.log_usage(
+            user=user if (user and getattr(user, 'is_authenticated', False)) else None,
+            request_id=req_id,
+            provider=response.get("provider", provider.name),
+            model=response.get("model", provider.model_chat),
+            prompt_tokens=p_tokens,
+            completion_tokens=c_tokens,
+            duration_ms=dur_ms,
+            success=success,
+            error=response.get("error", ""),
+        )
+    except Exception as log_exc:
+        logger.error("Error al registrar auditoría de explicación de IA: %s", log_exc)
+
+    if success:
+        return {
+            "book_id": book.id,
+            "book_title": book.title,
+            "explanation": response["content"],
+            "ai_online": True,
+            "provider": provider.name,
+            "model": provider.model_chat,
+            "request_id": req_id,
+            "is_ai_generated": True,
+            "badge": "✨ Generado por IA",
+            "disclaimer": "✨ Contenido generado por Inteligencia Artificial con fines orientativos y divulgativos. La interpretación literaria puede variar.",
+        }
+
+    # Fallback determinista
+    categories_str = ', '.join(categories) or 'Literatura General'
+    fallback_content = (
+        f"### 🏛️ Contexto Histórico y de Creación\n"
+        f"Obra destacada dentro de la categoría de {categories_str}, escrita por {author_name}.\n\n"
+        f"### 🔑 Claves Temáticas Fundamentales\n"
+        f"- **Exploración conceptual**: Reflexiona sobre la condición humana y sus encrucijadas a través de su trama.\n"
+        f"- **Desarrollo de personajes**: Presenta dilemas éticos y psicológicos representativos del género {categories_str}.\n"
+        f"- **Impacto social**: Cuestiona convenciones a través de los temas abordados en su argumento.\n\n"
+        f"### 🖋️ Estilo Narrativo y Voz del Autor\n"
+        f"La narrativa de {author_name} destaca por un tono evocador y una cadencia envolvente que sumerge al lector en su atmósfera.\n\n"
+        f"### 💡 Guía de Lectura y A Quién se Recomienda\n"
+        f"Ideal para lectores apasionados por {categories_str} que buscan una experiencia reflexiva y transformadora."
+    )
+    return {
+        "book_id": book.id,
+        "book_title": book.title,
+        "explanation": fallback_content,
+        "ai_online": False,
+        "provider": "rule-based",
+        "request_id": req_id,
+        "is_ai_generated": True,
+        "badge": "✨ Generado por IA (Modo determinista)",
+        "disclaimer": "✨ Contenido de referencia estructurado con fines orientativos.",
+    }
+
+
+def compare_books_ai(
+    book_a: Book,
+    book_b: Book,
+    user: Any = None,
+    request_id: str | None = None,
+) -> dict[str, Any]:
+    """
+    Genera una comparativa temática y estilística entre dos obras literarias
+    etiquetada explícitamente con badge y disclaimer de transparencia.
+    """
+    req_id = request_id or str(uuid.uuid4())
+
+    if user and getattr(user, 'is_authenticated', False):
+        if not check_ai_rate_limit(user):
+            _, window_name, retry_after = check_ai_rate_limit_detailed(user)
+            win = window_name or 'minute'
+            ttl = retry_after or 60
+            raise AIRateLimitExceededError(
+                f"Has superado el límite de consultas permitidas ({win}). Por favor, espera antes de reintentar.",
+                window=win,
+                retry_after=ttl,
+            )
+
+    info_a = {
+        'title': book_a.title,
+        'author_name': book_a.author.name if book_a.author else 'Desconocido',
+        'description': sanitize_book_context(book_a.description or ''),
+    }
+    info_b = {
+        'title': book_b.title,
+        'author_name': book_b.author.name if book_b.author else 'Desconocido',
+        'description': sanitize_book_context(book_b.description or ''),
+    }
+
+    prompt = build_compare_books_prompt(book_a=info_a, book_b=info_b)
+
+    provider = get_ai_provider()
+    response = provider.chat_completion(
+        messages=[{"role": "user", "content": prompt}],
+        system_prompt="Eres un ensayista y crítico literario comparativo. Responde siempre en español con formato Markdown.",
+        temperature=0.4,
+        max_tokens=900,
+    )
+
+    p_tokens = response.get("prompt_tokens", 0)
+    c_tokens = response.get("completion_tokens", 0)
+    dur_ms = response.get("duration_ms", 0)
+    success = response.get("success", False)
+
+    try:
+        AIUsageLog.log_usage(
+            user=user if (user and getattr(user, 'is_authenticated', False)) else None,
+            request_id=req_id,
+            provider=response.get("provider", provider.name),
+            model=response.get("model", provider.model_chat),
+            prompt_tokens=p_tokens,
+            completion_tokens=c_tokens,
+            duration_ms=dur_ms,
+            success=success,
+            error=response.get("error", ""),
+        )
+    except Exception as log_exc:
+        logger.error("Error al registrar auditoría de comparativa de IA: %s", log_exc)
+
+    if success:
+        return {
+            "book_a": {"id": book_a.id, "title": book_a.title},
+            "book_b": {"id": book_b.id, "title": book_b.title},
+            "comparison": response["content"],
+            "ai_online": True,
+            "provider": provider.name,
+            "model": provider.model_chat,
+            "request_id": req_id,
+            "is_ai_generated": True,
+            "badge": "✨ Generado por IA",
+            "disclaimer": "✨ Contenido generado por Inteligencia Artificial con fines orientativos y divulgativos.",
+        }
+
+    # Fallback determinista
+    cat_a = ', '.join([c.name for c in book_a.categories.all()]) or 'Literatura'
+    cat_b = ', '.join([c.name for c in book_b.categories.all()]) or 'Literatura'
+    fallback_content = (
+        f"### 🔗 Puntos de Convergencia (Paralelismos)\n"
+        f"Tanto *{book_a.title}* de {info_a['author_name']} como *{book_b.title}* de {info_b['author_name']} "
+        f"abordan dilemas centrales de sus géneros ({cat_a} y {cat_b}) indagando en las motivaciones humanas "
+        f"y la construcción de mundos cautivadores.\n\n"
+        f"### ⚡ Contrastes y Enfoques Distintivos\n"
+        f"- **{book_a.title}**: Apuesta por una perspectiva particular dentro de {cat_a}.\n"
+        f"- **{book_b.title}**: Ofrece una mirada complementaria desde {cat_b}, con un ritmo y ambientación singulares.\n\n"
+        f"### 🧭 Cuál Leer Primero y Experiencia Lectora\n"
+        f"Si buscas sumergirte en el universo de {info_a['author_name']}, comienza por *{book_a.title}*. "
+        f"Para una lectura reflexiva alternativa, explora *{book_b.title}* de {info_b['author_name']}."
+    )
+    return {
+        "book_a": {"id": book_a.id, "title": book_a.title},
+        "book_b": {"id": book_b.id, "title": book_b.title},
+        "comparison": fallback_content,
+        "ai_online": False,
+        "provider": "rule-based",
+        "request_id": req_id,
+        "is_ai_generated": True,
+        "badge": "✨ Generado por IA (Modo determinista)",
+        "disclaimer": "✨ Contenido estructurado de referencia con fines orientativos.",
     }
 
 

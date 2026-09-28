@@ -2092,21 +2092,18 @@ Por usuario y tipo.
 
 ---
 
-# 29. FASE 24 — IA de producto
+# 29. FASE 24 — IA de producto [COMPLETADA]
 
 **Prioridad: P2**
 
 Solo después de tener IA segura.
 
-Posibilidades:
-
-### Asistente literario
-
-- explicar libros;
-- comparar temas;
-- recomendar;
-- generar resúmenes;
-- ayudar a descubrir.
+Implementada con éxito:
+- **Asistente literario interactivo**: contextualizado con la biblioteca del usuario y disponible vía modal (`AIAssistantModal.tsx`).
+- **Explicación de libros**: análisis en profundidad con contexto histórico, claves temáticas, estilo narrativo y recomendación (`POST /api/v1/books/<pk>/ai/explain/`).
+- **Comparativas temáticas**: contraste conceptual y estilístico entre 2 obras con recomendaciones de lectura (`POST /api/v1/books/ai/compare/`).
+- **Resúmenes estructurados**: análisis temático y síntesis con badge `✨ Generado por IA` y disclaimer obligatorio de transparencia.
+- **Unificación de calificaciones**: eliminación total de escalas sobre 10; estandarizado a 1-5 estrellas en toda la plataforma (`StarRating`, `BookDetail`, `AddBook`, `Library`, `ReadingStats`).
 
 ### Resúmenes
 
