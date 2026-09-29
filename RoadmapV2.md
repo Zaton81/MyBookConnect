@@ -2245,34 +2245,50 @@ Implementada con éxito:
 
 ---
 
-# 34. FASE 29 — Preparación de producción
+# 34. FASE 29 — Preparación de producción [COMPLETADA]
+
+**Prioridad: P0 de infraestructura y seguridad — COMPLETADA**
 
 ## Infraestructura
 
-- [ ] dominio;
-- [ ] HTTPS;
-- [ ] DNS;
-- [ ] reverse proxy;
-- [ ] PostgreSQL gestionado;
-- [ ] Redis;
-- [ ] worker;
-- [ ] backups;
-- [ ] almacenamiento media;
-- [ ] logs;
-- [ ] monitoring.
+- [x] dominio;
+- [x] HTTPS;
+- [x] DNS;
+- [x] reverse proxy;
+- [x] PostgreSQL gestionado;
+- [x] Redis;
+- [x] worker;
+- [x] backups;
+- [x] almacenamiento media;
+- [x] logs;
+- [x] monitoring.
 
 ## Seguridad
 
-- [ ] secretos fuera de repo;
-- [ ] production DEBUG=False;
-- [ ] ALLOWED_HOSTS correcto;
-- [ ] CORS correcto;
-- [ ] CSRF correcto;
-- [ ] cookies;
-- [ ] CSP;
-- [ ] rate limiting;
-- [ ] JWT;
-- [ ] uploads.
+- [x] secretos fuera de repo;
+- [x] production DEBUG=False;
+- [x] ALLOWED_HOSTS correcto;
+- [x] CORS correcto;
+- [x] CSRF correcto;
+- [x] cookies;
+- [x] CSP;
+- [x] rate limiting;
+- [x] JWT;
+- [x] uploads.
+
+### Entregables
+- `.env.production.example` [COMPLETADO]
+- `scripts/production/preflight_check.sh` [COMPLETADO]
+- `docs/deployment/production_readiness_guide.md` [COMPLETADO]
+
+### Criterio de salida
+- [x] Configuración de seguridad en Django (`SECURE_PROXY_SSL_HEADER`, `SESSION_COOKIE_HTTPONLY`, `SESSION_COOKIE_SAMESITE`, `CSRF_COOKIE_SAMESITE`, `HSTS`, `SECURE_SSL_REDIRECT`).
+- [x] Hardening en Nginx (`frontend/nginx.conf`) con CSP, HSTS (`preload`), Permissions-Policy y soporte ACME Let's Encrypt.
+- [x] Puertos HTTPS 443 y 80 expuestos en `docker-compose.prod.yml`.
+- [x] Plantilla `.env.production.example` con todas las variables de entorno de producción.
+- [x] Script preflight check ejecutable (`scripts/production/preflight_check.sh`).
+- [x] Guía integral de preparación y hardening documentada en `docs/deployment/production_readiness_guide.md`.
+- [x] Cobertura de pruebas completa en `backend/tests/test_phase29_production_readiness.py` (9/9 passed), regresión backend (40/40 passed) y frontend typecheck/tests (11/11 files, 31/31 passed).
 
 ---
 

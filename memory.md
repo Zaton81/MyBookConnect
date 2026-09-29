@@ -62,8 +62,8 @@ Cualquier agente de IA o desarrollador que se incorpore a la base de código **D
 | **25** | **Embeddings y pgvector** | COMPLETADA | Canalización completa: normalización formal, hash SHA256, Celery embedding jobs, aislamiento de modelos y observabilidad. |
 | **26** | **Analytics de producto** | COMPLETADA | 13 eventos canónicos, métricas de embudo/funnel, disociación RGPD (SET_NULL, hash IP SHA-256) y telemetría asíncrona. |
 | **27** | **Beta cerrada y despliegue** | COMPLETADA | Sistema de invitaciones (`BetaInvitation`), feedback in-app (`BetaFeedback` con 7 categorías), modal accesible y checklist de 17 puntos. |
-| **28** | **Beta abierta** | COMPLETADA | Métricas de retención D1/D7/D30, tickets de soporte (`SupportTicket`), control de tasa de error y costes conocidos. |
-| **29** | **Preparación de producción** | **SIGUIENTE** | Infraestructura gestionada, endurecimiento de producción, dominio y configuración DNS. |
+| **29** | **Preparación de producción** | COMPLETADA | Endurecimiento de seguridad (`SECURE_PROXY_SSL_HEADER`, cookies, CSP, HSTS), plantilla de producción `.env.production.example`, script preflight y guía integral `docs/deployment/production_readiness_guide.md`. |
+| **30** | **Escalabilidad** | **SIGUIENTE** | Etapa 1 a Etapa 4, métricas de saturación, réplicas de lectura y escalado horizontal. |
 
 ---
 
@@ -141,6 +141,11 @@ Cualquier agente de IA o desarrollador que se incorpore a la base de código **D
 - **Cálculo de Retención D1/D7/D30:** `AnalyticsService.get_retention_metrics` utiliza ventanas de tiempo relativas al timestamp del evento `signup` (`D1: 1 a 2 días`, `D7: 6 a 8 días`, `D30: 27 a 33 días`), evaluando actividad subsiguiente excluida la propia creación de cuenta para evitar falsos positivos de retención.
 - **Soporte Desacoplado y RGPD:** `SupportTicket.user` utiliza `on_delete=models.SET_NULL`. Al anonimizar o eliminar la cuenta, las respuestas administrativas y el historial técnico persisten para resolución operativa sin conservar datos personales.
 
+### 4.18. Terminación SSL en Reverse Proxy y Hardening (Fase 29)
+- **`SECURE_PROXY_SSL_HEADER`:** Con Nginx realizando la terminación SSL y reenviando las peticiones a Daphne por HTTP (puerto 8000), Django requiere `SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')` y que Nginx envíe `proxy_set_header X-Forwarded-Proto $scheme;`. Sin esto, `request.is_secure()` retorna `False`, provocando bucles de redirección 301 infinitos con `SECURE_SSL_REDIRECT = True` o problemas de rechazo de cookies seguras.
+- **Manejo de `DisallowedHost`:** Django captura `DisallowedHost` internamente en la capa de middleware/handlers retornando un `HttpResponseBadRequest` (HTTP 400). En pruebas automáticas con `APIClient` o `Client`, se debe asertar `response.status_code == 400` o verificar `request.get_host()` usando `RequestFactory` si se evalúa la excepción directa.
+- **Cabeceras HSTS y CSP en Nginx:** La directiva `Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" always;` y `Content-Security-Policy` protegen a los clientes de ataques Man-in-the-Middle y XSS permitiendo de forma explícita proveedores confiables de autenticación (Google OAuth) y fuentes tipográficas.
+
 ---
 
 ## 5. Ubicación de Documentación Relevante
@@ -162,5 +167,6 @@ Cualquier agente de IA o desarrollador que se incorpore a la base de código **D
 - **Analytics de Producto y Telemetría:** [docs/product/product_analytics.md](file:///c:/Users/zaton/Desktop/Escritorio/proyectos/MyBookConnect/docs/product/product_analytics.md)
 - **Checklist de Beta Cerrada y Despliegue:** [docs/deployment/closed_beta_checklist.md](file:///c:/Users/zaton/Desktop/Escritorio/proyectos/MyBookConnect/docs/deployment/closed_beta_checklist.md)
 - **Preparación para Beta Abierta:** [docs/deployment/open_beta_readiness.md](file:///c:/Users/zaton/Desktop/Escritorio/proyectos/MyBookConnect/docs/deployment/open_beta_readiness.md)
+- **Guía de Preparación de Producción y Hardening:** [docs/deployment/production_readiness_guide.md](file:///c:/Users/zaton/Desktop/Escritorio/proyectos/MyBookConnect/docs/deployment/production_readiness_guide.md)
 
 
