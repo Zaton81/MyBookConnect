@@ -48,6 +48,7 @@ from .views import (
     UserProfileView,
     UserRegistrationView,
     UserSearchListView,
+    UserSubscriptionView,
     UserUpdateView,
     toggle_editor,
 )
@@ -101,6 +102,7 @@ urlpatterns = [
     path('feed/', FeedView.as_view(), name='social-feed'),
     path('feed/<int:activity_id>/hide/', FeedActivityHideView.as_view(), name='feed-activity-hide'),
     path('feed/<int:activity_id>/unhide/', FeedActivityUnhideView.as_view(), name='feed-activity-unhide'),
+    path('subscription/', UserSubscriptionView.as_view(), name='user-subscription'),
     *user_action_patterns,
     path('users/', include(user_action_patterns)),
 ] + router.urls

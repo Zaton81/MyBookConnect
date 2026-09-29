@@ -4,6 +4,8 @@ from rest_framework import serializers
 
 from .models import (
     Author,
+    AuthorAnnouncement,
+    AuthorProfile,
     Book,
     Category,
     Errata,
@@ -493,6 +495,58 @@ class UnifiedSearchResponseSerializer(serializers.Serializer):
     page = serializers.IntegerField()
     page_size = serializers.IntegerField()
     results = UnifiedSearchResultSerializer(many=True)
+
+
+class AuthorProfileSerializer(serializers.ModelSerializer):
+    user_username = serializers.CharField(source='user.username', read_only=True)
+    author_name = serializers.CharField(source='author.name', read_only=True, allow_null=True)
+
+    class Meta:
+        model = AuthorProfile
+        fields = (
+            'id',
+            'user',
+            'user_username',
+            'author',
+            'author_name',
+            'pen_name',
+            'bio',
+            'website',
+            'twitter',
+            'instagram',
+            'is_verified',
+            'verification_notes',
+            'created_at',
+            'updated_at',
+        )
+        read_only_fields = ('id', 'user', 'user_username', 'is_verified', 'created_at', 'updated_at')
+
+
+class AuthorAnnouncementSerializer(serializers.ModelSerializer):
+    author_name = serializers.SerializerMethodField()
+    book_title = serializers.CharField(source='book.title', read_only=True, allow_null=True)
+
+    class Meta:
+        model = AuthorAnnouncement
+        fields = (
+            'id',
+            'author_profile',
+            'author_name',
+            'book',
+            'book_title',
+            'title',
+            'content',
+            'is_pinned',
+            'created_at',
+        )
+        read_only_fields = ('id', 'author_profile', 'author_name', 'book_title', 'created_at')
+
+    def get_author_name(self, obj) -> str:
+        if obj.author_profile.pen_name:
+            return obj.author_profile.pen_name
+        if obj.author_profile.author:
+            return obj.author_profile.author.name
+        return obj.author_profile.user.username
 
 
 

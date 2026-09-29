@@ -672,6 +672,127 @@ class BookEmbedding(models.Model):
         return f"Embedding [{self.embedding_status}] - {self.book.title} ({self.dimension}d)"
 
 
+
+# ==============================================================================
+# Plataforma de Autores y Monetización (Fase 31 — RoadmapV2)
+# ==============================================================================
+
+class AuthorProfile(models.Model):
+    """
+    Perfil oficial de un autor en la plataforma, vinculado a su cuenta de usuario
+    y opcionalmente enlazado con la entidad Author del catálogo de libros.
+    """
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='author_profile',
+        verbose_name='Cuenta de usuario',
+    )
+    author = models.ForeignKey(
+        Author,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='profiles',
+        verbose_name='Autor del catálogo',
+        help_text='Registro del catálogo de autores reclamado y verificado',
+    )
+    pen_name = models.CharField(
+        max_length=200,
+        blank=True,
+        verbose_name='Nombre de pluma / artístico',
+    )
+    bio = models.TextField(blank=True, verbose_name='Biografía profesional')
+    website = models.URLField(blank=True, verbose_name='Sitio web oficial')
+    twitter = models.CharField(max_length=100, blank=True, verbose_name='Usuario de Twitter/X')
+    instagram = models.CharField(max_length=100, blank=True, verbose_name='Usuario de Instagram')
+    is_verified = models.BooleanField(
+        default=False,
+        db_index=True,
+        verbose_name='Autor verificado',
+    )
+    verification_notes = models.TextField(
+        blank=True,
+        verbose_name='Notas de verificación o pruebas de autoría',
+    )
+    created_at = models.DateTimeField(default=timezone.now, verbose_name='Fecha de creación')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='Última actualización')
+
+    class Meta:
+        verbose_name = 'Perfil de Autor'
+        verbose_name_plural = 'Perfiles de Autores'
+
+    def __str__(self) -> str:
+        name = self.pen_name or (self.author.name if self.author else self.user.username)
+        return f"Perfil de Autor: {name} ({'Verificado' if self.is_verified else 'Pendiente'})"
+
+
+class AuthorAnnouncement(models.Model):
+    """
+    Comunicado oficial o novedad publicada por un autor verificado para sus lectores.
+    """
+    author_profile = models.ForeignKey(
+        AuthorProfile,
+        on_delete=models.CASCADE,
+        related_name='announcements',
+        verbose_name='Perfil de autor',
+    )
+    book = models.ForeignKey(
+        Book,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='author_announcements',
+        verbose_name='Libro relacionado',
+    )
+    title = models.CharField(max_length=200, verbose_name='Título del comunicado')
+    content = models.TextField(verbose_name='Contenido del comunicado')
+    is_pinned = models.BooleanField(default=False, verbose_name='Fijado en el perfil')
+    created_at = models.DateTimeField(default=timezone.now, db_index=True, verbose_name='Fecha de publicación')
+
+    class Meta:
+        verbose_name = 'Comunicado de Autor'
+        verbose_name_plural = 'Comunicados de Autores'
+        ordering = ['-is_pinned', '-created_at']
+
+    def __str__(self) -> str:
+        return f"[{self.author_profile.pen_name or self.author_profile.user.username}] {self.title}"
+
+
+class AffiliateClick(models.Model):
+    """
+    Registro anónimo de clics en enlaces de afiliados para telemetría y métricas de conversión.
+    No almacena PII para cumplir estrictamente con el RGPD.
+    """
+    class FormatChoices(models.TextChoices):
+        PAPERBACK = 'paperback', 'Libro Físico'
+        EBOOK = 'ebook', 'Ebook Kindle'
+        AUDIOBOOK = 'audiobook', 'Audiolibro Audible'
+
+    book = models.ForeignKey(
+        Book,
+        on_delete=models.CASCADE,
+        related_name='affiliate_clicks',
+        verbose_name='Libro consultado',
+    )
+    format = models.CharField(
+        max_length=20,
+        choices=FormatChoices.choices,
+        default=FormatChoices.PAPERBACK,
+        db_index=True,
+        verbose_name='Formato de compra',
+    )
+    created_at = models.DateTimeField(default=timezone.now, db_index=True, verbose_name='Fecha del clic')
+
+    class Meta:
+        verbose_name = 'Clic de Afiliado'
+        verbose_name_plural = 'Clics de Afiliados'
+        ordering = ['-created_at']
+
+    def __str__(self) -> str:
+        return f"Clic [{self.format}] - {self.book.title} ({self.created_at.strftime('%Y-%m-%d %H:%M')})"
+
+
 # Modelos de gamificación opcional (Fase 54)
 from .gamification_models import (  # noqa: E402, F401
     Badge,

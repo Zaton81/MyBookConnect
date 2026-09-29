@@ -484,3 +484,42 @@ class AuditLog(models.Model):
         actor_name = self.actor.username if self.actor else "Sistema"
         return f"[{self.created_at:%Y-%m-%d %H:%M:%S}] {actor_name} -> {self.action} ({self.target_repr})"
 
+
+# ==============================================================================
+# Base de Suscripción Premium y Mecenazgo (Fase 31 — RoadmapV2)
+# ==============================================================================
+
+class SubscriptionTier(models.TextChoices):
+    FREE = 'free', 'Gratuito'
+    PREMIUM = 'premium', 'Premium / Mecenas'
+
+
+class UserSubscription(models.Model):
+    """
+    Suscripción de usuario para soporte de mecenazgo y funciones premium avanzadas (Fase 31).
+    Garantiza que el núcleo de la red social sea 100% gratuito.
+    """
+    user = models.OneToOneField(
+        'users.User',
+        on_delete=models.CASCADE,
+        related_name='subscription',
+        verbose_name='Usuario',
+    )
+    tier = models.CharField(
+        max_length=20,
+        choices=SubscriptionTier.choices,
+        default=SubscriptionTier.FREE,
+        db_index=True,
+        verbose_name='Nivel de suscripción',
+    )
+    is_active = models.BooleanField(default=True, verbose_name='Activa')
+    created_at = models.DateTimeField(default=timezone.now, verbose_name='Fecha de inicio')
+    expires_at = models.DateTimeField(null=True, blank=True, verbose_name='Fecha de vencimiento')
+
+    class Meta:
+        verbose_name = 'Suscripción de Usuario'
+        verbose_name_plural = 'Suscripciones de Usuarios'
+
+    def __str__(self) -> str:
+        return f"{self.user.username} - Tier: {self.tier} ({'Activo' if self.is_active else 'Inactivo'})"
+

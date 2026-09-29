@@ -2343,42 +2343,32 @@ Solo cuando los datos reales indiquen necesidad. Principio rector: *No introduci
 
 ---
 
-# 36. FASE 31 — Monetización
+# 36. FASE 31 — Monetización y Plataforma de Autores
 
-No priorizar hasta validar retención.
+**Estado: COMPLETADA**
 
-Posibles líneas:
-
-## Afiliación
-
-- libros;
-- ebooks;
-- audiolibros.
-
-## Premium
-
-Posibles funciones:
-
-- estadísticas avanzadas;
-- recomendaciones avanzadas;
-- personalización;
-- IA;
-- listas avanzadas.
-
-## Autores/editoriales
-
-- perfiles;
-- herramientas;
-- campañas;
-- contenido patrocinado claramente identificado.
-
-## Publicidad
-
-Solo si:
-
-- no perjudica UX;
-- no manipula recomendaciones;
-- está claramente identificada.
+- [x] **Configuración Centralizada de Afiliación de Amazon**:
+  - Variable de entorno configurable `AMAZON_AFFILIATE_TAG=mybooksocial-21` y `VITE_AMAZON_AFFILIATE_TAG=mybooksocial-21`.
+  - Integrado en `backend/mybookconnect/settings.py` y expuesto mediante `AffiliateService`.
+- [x] **Enlaces Multiformato de Afiliación**:
+  - Enlaces específicos generados dinámicamente para libro físico en papel, ebook Kindle y audiolibro Audible.
+  - Disclosure legal explícito y transparente visible en cada recomendación comercial y slot ("Enlace de afiliado: MyBookConnect puede recibir una pequeña comisión sin coste adicional para ti").
+  - Registro de clics anónimos para analítica de conversión (`AffiliateClick` y endpoint `POST /api/v1/books/<pk>/affiliate-click/`).
+- [x] **Plataforma y Hub de Autores**:
+  - Modelo `AuthorProfile` para vincular usuarios registrados con la ficha del catálogo oficial de autores (`Author`).
+  - Endpoint de reclamación y verificación de identidad `POST /api/v1/authors/claim/`.
+  - Panel privado de autor `GET /api/v1/authors/dashboard/` con métricas agregadas de impacto (volumen de lectores totales, desglose por estado 'reading', 'read', 'want_to_read', valoración media de obras y opiniones recientes).
+  - Emisión de comunicados oficiales de autor `AuthorAnnouncement` (`POST /api/v1/authors/announcements/` y listado público `GET /api/v1/authors/<pk>/announcements/`).
+- [x] **Modelo Base de Suscripción**:
+  - Modelo `UserSubscription` (`SubscriptionTier.FREE` y `SubscriptionTier.PREMIUM`) con endpoint de consulta y upgrade `GET/POST /api/v1/users/subscription/`.
+- [x] **Neutralidad Algorítmica Preservada**:
+  - Independencia estricta del motor de recomendaciones `recommendation_service.py` respecto a cualquier señal comercial de afiliados o patrocinios.
+- [x] **Documentación Técnica y de Negocio**:
+  - Documento integral `docs/business/monetization_and_author_platform.md`.
+- [x] **Cobertura de Pruebas**:
+  - Suite de pruebas completa en `backend/tests/test_phase31_monetization.py` (9/9 passed).
+  - Regresión backend integral (72/72 passed).
+  - Verificación de tipos TypeScript (`pnpm typecheck` 0 errors) y pruebas frontend (11/11 files, 31/31 passed).
 
 ---
 

@@ -417,3 +417,8 @@ AI_RATE_LIMIT_PER_MINUTE = int(os.environ.get('AI_RATE_LIMIT_PER_MINUTE', '20'))
 AI_RATE_LIMIT_PER_HOUR = int(os.environ.get('AI_RATE_LIMIT_PER_HOUR', '100'))
 AI_RATE_LIMIT_PER_DAY = int(os.environ.get('AI_RATE_LIMIT_PER_DAY', '500'))
 
+# ─── Monetización y Afiliados (Fase 31 — RoadmapV2) ───
+AMAZON_AFFILIATE_TAG = os.getenv('AMAZON_AFFILIATE_TAG', 'mybooksocial-21')
+AMAZON_AFFILIATE_BASE_URL = os.getenv('AMAZON_AFFILIATE_BASE_URL', 'https://www.amazon.es/dp/')
+AMAZON_AFFILIATE_SEARCH_URL = os.getenv('AMAZON_AFFILIATE_SEARCH_URL', 'https://www.amazon.es/s')
+

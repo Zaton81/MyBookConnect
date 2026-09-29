@@ -854,11 +854,13 @@ export function BookDetail() {
         </div>
       </div>
 
-      {/* ── Recomendación / Compra en Amazon (Afiliados) ── */}
+      {/* ── Recomendación / Compra en Amazon (Afiliados Multiformato: Papel, Kindle, Audible) ── */}
       <AmazonAdSlot
         bookTitle={book.title}
+        authorName={book.author?.name}
         searchQuery={`${book.title} ${book.author?.name || ''}`}
-        variant="banner"
+        asin={book.isbn}
+        variant="multiformat"
       />
 
       {/* ── Sección de Reseñas Públicas de la Comunidad ── */}

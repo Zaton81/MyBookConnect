@@ -2029,5 +2029,155 @@ class UnifiedBookSearchView(APIView):
         return Response(response_data, status=status.HTTP_200_OK)
 
 
+# ==============================================================================
+# Vistas de Monetización, Afiliados y Plataforma de Autores (Fase 31 — RoadmapV2)
+# ==============================================================================
+
+class BookAffiliateLinksView(APIView):
+    """
+    Entrega enlaces canónicos de compra en Amazon para el libro en sus diferentes formatos
+    (libro físico, ebook Kindle, audiolibro Audible) junto con la declaración legal de afiliado.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request, pk):
+        book = get_object_or_404(Book.objects.select_related('author'), pk=pk)
+        from .services.affiliate_service import AffiliateService
+        data = AffiliateService.generate_affiliate_links(book)
+        return Response(data, status=status.HTTP_200_OK)
+
+
+class BookAffiliateClickView(APIView):
+    """
+    Registra un clic de afiliado anonimizado para telemetría y conversión.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request, pk):
+        book = get_object_or_404(Book, pk=pk)
+        format_type = request.data.get('format', 'paperback')
+        from .services.affiliate_service import AffiliateService
+        click = AffiliateService.record_click(book, format_type)
+        return Response(
+            {'status': 'recorded', 'click_id': click.id, 'format': click.format},
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class AuthorProfileMeView(APIView):
+    """
+    Consulta y actualización del perfil de autor del usuario autenticado.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        from .services.author_service import AuthorService
+        from .serializers import AuthorProfileSerializer
+        profile = AuthorService.get_or_create_profile(request.user)
+        serializer = AuthorProfileSerializer(profile, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def patch(self, request):
+        from .services.author_service import AuthorService
+        from .serializers import AuthorProfileSerializer
+        profile = AuthorService.get_or_create_profile(request.user)
+        for field in ('pen_name', 'bio', 'website', 'twitter', 'instagram'):
+            if field in request.data:
+                setattr(profile, field, request.data[field])
+        profile.save()
+        serializer = AuthorProfileSerializer(profile, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class AuthorClaimView(APIView):
+    """
+    Permite a un usuario solicitar la verificación o reclamo de un autor del catálogo.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        author_id = request.data.get('author_id')
+        if not author_id:
+            return Response({'detail': 'El campo author_id es obligatorio.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        pen_name = request.data.get('pen_name', '')
+        verification_notes = request.data.get('verification_notes', '')
+
+        from .services.author_service import AuthorService
+        from .serializers import AuthorProfileSerializer
+        try:
+            profile = AuthorService.claim_author(
+                user=request.user,
+                author_id=int(author_id),
+                pen_name=pen_name,
+                verification_notes=verification_notes,
+            )
+            serializer = AuthorProfileSerializer(profile, context={'request': request})
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except ValueError as err:
+            return Response({'detail': str(err)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class AuthorDashboardView(APIView):
+    """
+    Panel analítico privado con métricas consolidadas de las obras del autor.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        from .services.author_service import AuthorService
+        profile = AuthorService.get_or_create_profile(request.user)
+        metrics = AuthorService.get_author_dashboard_metrics(profile)
+        return Response(metrics, status=status.HTTP_200_OK)
+
+
+class AuthorAnnouncementCreateView(APIView):
+    """
+    Publicación de comunicados oficiales por parte de un autor.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        from .services.author_service import AuthorService
+        from .serializers import AuthorAnnouncementSerializer
+
+        profile = AuthorService.get_or_create_profile(request.user)
+        title = request.data.get('title', '').strip()
+        content = request.data.get('content', '').strip()
+        book_id = request.data.get('book_id')
+        is_pinned = bool(request.data.get('is_pinned', False))
+
+        if not title or not content:
+            return Response(
+                {'detail': 'Título y contenido son obligatorios.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        announcement = AuthorService.create_announcement(
+            author_profile=profile,
+            title=title,
+            content=content,
+            book_id=int(book_id) if book_id else None,
+            is_pinned=is_pinned,
+        )
+        serializer = AuthorAnnouncementSerializer(announcement, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+class AuthorAnnouncementListView(APIView):
+    """
+    Listado público de comunicados emitidos para un autor del catálogo.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request, pk):
+        from .services.author_service import AuthorService
+        from .serializers import AuthorAnnouncementSerializer
+
+        announcements = AuthorService.get_announcements_for_author(author_id=pk)
+        serializer = AuthorAnnouncementSerializer(announcements, many=True, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
 
 

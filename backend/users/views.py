@@ -812,4 +812,44 @@ class FeedActivityUnhideView(APIView):
         )
 
 
+class UserSubscriptionView(APIView):
+    """
+    Gestión del estado de suscripción Premium / Mecenazgo del usuario (Fase 31).
+    """
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get(self, request):
+        from .models import UserSubscription, SubscriptionTier
+        sub, _ = UserSubscription.objects.get_or_create(user=request.user)
+        return Response({
+            'username': request.user.username,
+            'tier': sub.tier,
+            'is_active': sub.is_active,
+            'is_premium': sub.tier == SubscriptionTier.PREMIUM and sub.is_active,
+            'created_at': sub.created_at.isoformat() if sub.created_at else None,
+            'expires_at': sub.expires_at.isoformat() if sub.expires_at else None,
+            'features': {
+                'advanced_reading_stats': True,
+                'patron_badge': sub.tier == SubscriptionTier.PREMIUM,
+                'priority_author_tools': sub.tier == SubscriptionTier.PREMIUM,
+            }
+        }, status=status.HTTP_200_OK)
+
+    def post(self, request):
+        from .models import UserSubscription, SubscriptionTier
+        sub, _ = UserSubscription.objects.get_or_create(user=request.user)
+        target_tier = request.data.get('tier', SubscriptionTier.PREMIUM)
+        if target_tier not in (SubscriptionTier.FREE, SubscriptionTier.PREMIUM):
+            target_tier = SubscriptionTier.PREMIUM
+        sub.tier = target_tier
+        sub.is_active = True
+        sub.save()
+        return Response({
+            'detail': f'Suscripción actualizada a {sub.tier}',
+            'tier': sub.tier,
+            'is_active': sub.is_active,
+            'is_premium': sub.tier == SubscriptionTier.PREMIUM,
+        }, status=status.HTTP_200_OK)
+
+
 

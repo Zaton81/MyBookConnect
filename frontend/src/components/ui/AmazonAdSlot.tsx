@@ -4,22 +4,24 @@ import { getStoredCookieConsent, CookiePreferences } from './CookieBanner';
 interface AmazonAdSlotProps {
   title?: string;
   bookTitle?: string;
+  authorName?: string;
   asin?: string;
   searchQuery?: string;
-  variant?: 'banner' | 'card' | 'compact';
+  variant?: 'banner' | 'card' | 'compact' | 'multiformat';
   className?: string;
 }
 
 export function AmazonAdSlot({
   title = 'Descubre en Amazon',
   bookTitle,
+  authorName,
   asin,
   searchQuery,
   variant = 'banner',
   className = '',
 }: AmazonAdSlotProps) {
   const [hasAdConsent, setHasAdConsent] = useState(true);
-  const affiliateTag = import.meta.env.VITE_AMAZON_AFFILIATE_TAG || 'mybookconnect-21';
+  const affiliateTag = import.meta.env.VITE_AMAZON_AFFILIATE_TAG || 'mybooksocial-21';
 
   useEffect(() => {
     const checkConsent = () => {
@@ -39,17 +41,28 @@ export function AmazonAdSlot({
       window.removeEventListener('mbc:cookie-consent-updated', handleUpdate as EventListener);
   }, []);
 
-  // Build appropriate Amazon destination link
-  const amazonUrl = asin
+  const query = searchQuery || (bookTitle ? `${bookTitle} ${authorName || ''}`.trim() : '');
+  const encodedQuery = encodeURIComponent(query);
+
+  // Enlaces por formato para compras cualificadas
+  const paperbackUrl = asin
     ? `https://www.amazon.es/dp/${asin}?tag=${affiliateTag}`
-    : searchQuery || bookTitle
-      ? `https://www.amazon.es/s?k=${encodeURIComponent(searchQuery || bookTitle || '')}&i=stripbooks&tag=${affiliateTag}`
-      : `https://www.amazon.es/gp/browse.html?node=599364031&tag=${affiliateTag}`; // Default books category in Amazon ES
+    : query
+      ? `https://www.amazon.es/s?k=${encodedQuery}&i=stripbooks&tag=${affiliateTag}`
+      : `https://www.amazon.es/gp/browse.html?node=599364031&tag=${affiliateTag}`;
+
+  const kindleUrl = query
+    ? `https://www.amazon.es/s?k=${encodedQuery}&i=digital-text&tag=${affiliateTag}`
+    : `https://www.amazon.es/kindle-dbs/storefront?tag=${affiliateTag}`;
+
+  const audibleUrl = query
+    ? `https://www.amazon.es/s?k=${encodedQuery}&i=audible&tag=${affiliateTag}`
+    : `https://www.amazon.es/hz/audible/mlp?tag=${affiliateTag}`;
 
   if (variant === 'compact') {
     return (
       <a
-        href={amazonUrl}
+        href={paperbackUrl}
         target="_blank"
         rel="noopener noreferrer sponsored"
         className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800/80 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors shadow-xs ${className}`}
@@ -64,44 +77,64 @@ export function AmazonAdSlot({
     );
   }
 
-  if (variant === 'card') {
+  if (variant === 'card' || variant === 'multiformat') {
     return (
       <aside
         role="complementary"
-        aria-label="Recomendación patrocinada de Amazon"
+        aria-label="Opciones de compra y afiliación en Amazon"
         className={`p-4 rounded-2xl bg-gradient-to-br from-amber-50/70 via-white to-amber-50/40 dark:from-slate-900 dark:via-slate-900/90 dark:to-amber-950/20 border border-amber-200/80 dark:border-amber-800/60 shadow-sm ${className}`}
       >
         <div className="flex items-center justify-between text-[11px] font-medium text-amber-700 dark:text-amber-400 mb-2">
           <span className="flex items-center gap-1">
             <span className="text-sm">📦</span>
-            Recomendado en Amazon
+            Comprar o escuchar en Amazon
           </span>
           <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-950 border border-amber-300 dark:border-amber-800 text-amber-800 dark:text-amber-300">
-            Patrocinado
+            Afiliado
           </span>
         </div>
 
         <h4 className="text-sm font-bold text-slate-900 dark:text-white">
-          {bookTitle ? `Consigue «${bookTitle}» en papel o Kindle` : title}
+          {bookTitle ? `Consigue «${bookTitle}» en tu formato favorito` : title}
         </h4>
         <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
-          Envíos rápidos con Amazon Prime y catálogo completo de lectura digital con Kindle
-          Unlimited.
+          Elige entre edición física, formato digital Kindle o audiolibro narrado en Audible.
         </p>
 
-        <div className="mt-3 flex items-center justify-between gap-2">
-          <span className="text-[10px] text-slate-400 dark:text-slate-500">
-            {hasAdConsent ? 'Enlace de afiliación' : 'Cookies publicitarias pausadas'}
-          </span>
+        {/* Botones de formato múltiple */}
+        <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2">
           <a
-            href={amazonUrl}
+            href={paperbackUrl}
             target="_blank"
             rel="noopener noreferrer sponsored"
-            className="px-3 py-1.5 text-xs font-semibold bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-lg shadow-sm transition-all flex items-center gap-1 cursor-pointer"
+            className="px-3 py-2 text-xs font-semibold bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-xl shadow-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer text-center"
           >
-            <span>Buscar en Amazon</span>
-            <span aria-hidden="true">→</span>
+            <span>📖</span>
+            <span>Libro Papel</span>
           </a>
+          <a
+            href={kindleUrl}
+            target="_blank"
+            rel="noopener noreferrer sponsored"
+            className="px-3 py-2 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-white dark:bg-slate-700 dark:hover:bg-slate-600 rounded-xl shadow-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer text-center"
+          >
+            <span>📱</span>
+            <span>Ebook Kindle</span>
+          </a>
+          <a
+            href={audibleUrl}
+            target="_blank"
+            rel="noopener noreferrer sponsored"
+            className="px-3 py-2 text-xs font-semibold bg-amber-100 hover:bg-amber-200 text-amber-950 dark:bg-amber-900/50 dark:hover:bg-amber-900/70 dark:text-amber-200 border border-amber-300/80 dark:border-amber-700 rounded-xl shadow-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer text-center"
+          >
+            <span>🎧</span>
+            <span>Audiolibro</span>
+          </a>
+        </div>
+
+        <div className="mt-3 pt-2 border-t border-amber-100 dark:border-slate-800 flex items-center justify-between text-[10px] text-slate-400 dark:text-slate-500">
+          <span>{hasAdConsent ? 'Enlace de afiliación transparente' : 'Cookies pausadas'}</span>
+          <span>MyBookConnect puede percibir comisión</span>
         </div>
       </aside>
     );
@@ -138,7 +171,7 @@ export function AmazonAdSlot({
         </div>
 
         <a
-          href={amazonUrl}
+          href={paperbackUrl}
           target="_blank"
           rel="noopener noreferrer sponsored"
           className="whitespace-nowrap px-4 py-2 text-xs font-bold bg-amber-500 hover:bg-amber-600 active:scale-95 text-slate-950 rounded-xl shadow-sm transition-all flex items-center gap-1.5 shrink-0 cursor-pointer"

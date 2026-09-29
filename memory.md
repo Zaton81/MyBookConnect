@@ -65,7 +65,8 @@ Cualquier agente de IA o desarrollador que se incorpore a la base de código **D
 | **28** | **Beta abierta** | COMPLETADA | Métricas de retención D1/D7/D30, tickets de soporte (`SupportTicket`), control de tasa de error y costes conocidos. |
 | **29** | **Preparación de producción** | COMPLETADA | Endurecimiento de seguridad (`SECURE_PROXY_SSL_HEADER`, cookies, CSP, HSTS), plantilla de producción `.env.production.example`, script preflight y guía integral `docs/deployment/production_readiness_guide.md`. |
 | **30** | **Escalabilidad** | COMPLETADA | Escalabilidad en 4 etapas: enrutamiento de 5 colas Celery (`default`, `books`, `ai`, `recommendations`, `emails`), tareas asíncronas de email, `PrimaryReplicaRouter` para PostgreSQL, upstream `django_cluster` en Nginx y guía técnica `scalability_and_performance_tuning.md`. |
-| **31** | **Monetización** | **SIGUIENTE** | Afiliación (libros, ebooks, audiolibros) y funciones Premium tras validar retención. |
+| **31** | **Monetización y Plataforma de Autores** | COMPLETADA | Tag de afiliación de Amazon configurable (`mybooksocial-21`), enlaces multiformato (papel, ebook, audiolibro) con disclosure legal transparente, plataforma de autores (`AuthorProfile`, `AuthorAnnouncement`, `/claim/`, `/dashboard/`), modelo base de suscripciones (`UserSubscription`) y neutralidad algorítmica garantizada. |
+| **32** | **Escalabilidad de recomendaciones** | **SIGUIENTE** | Evolución del pipeline (rules -> hybrid -> collaborative filtering -> semantic -> learning-to-rank). |
 
 ---
 
@@ -152,6 +153,12 @@ Cualquier agente de IA o desarrollador que se incorpore a la base de código **D
 - **Aislamiento de Colas:** Al separar en 5 colas especializadas (`default`, `books`, `ai`, `recommendations`, `emails`), el worker polivalente de desarrollo/etapa 1 debe escuchar con `-Q default,books,ai,recommendations,emails`. En escalado de producción (Etapa 3), se despliegan workers independientes dedicados por cola, evitando que la inferencia de IA o la latencia SMTP bloqueen el enriquecimiento de libros.
 - **`PrimaryReplicaRouter`:** Cuando `DATABASES` no incluye `replica` (entorno local o etapa 1), `db_for_read` devuelve elegantemente `default` sin generar errores de conexión. Las migraciones siempre se ejecutan en `default`.
 
+### 4.20. Afiliación Transparente y Plataforma de Autores (Fase 31)
+- **Tag de Afiliado Configurable:** El tag oficial de Amazon está establecido en `mybooksocial-21` mediante la variable de entorno `AMAZON_AFFILIATE_TAG` (backend) y `VITE_AMAZON_AFFILIATE_TAG` (frontend), permitiendo su modificación sin desplegar nuevo código.
+- **Transparencia y Disclosure Obligatorio:** Todos los enlaces comerciales a libros físicos, ebooks (Kindle) y audiolibros (Audible) incluyen el disclosure legal explícito ("Enlace de afiliado: MyBookConnect puede recibir una pequeña comisión sin coste adicional para ti").
+- **Neutralidad Algorítmica Inviolable:** Queda estrictamente prohibido que las compras, clics o enlaces de afiliación alteren el ranking o cálculo de afinidad de `recommendation_service.py`. Las recomendaciones son 100% orgánicas y guiadas por los gustos y lecturas de la comunidad.
+- **Plataforma de Autores Desacoplada:** El modelo `AuthorProfile` vincula cuentas de usuario (`User`) con fichas del catálogo (`Author`). Los autores verificados disponen de panel de analítica agregada (`/dashboard/`) y publicación de comunicados oficiales (`AuthorAnnouncement`), accesibles en `/api/v1/authors/...`.
+
 ---
 
 ## 5. Ubicación de Documentación Relevante
@@ -175,5 +182,7 @@ Cualquier agente de IA o desarrollador que se incorpore a la base de código **D
 - **Checklist de Beta Cerrada y Despliegue:** [docs/deployment/closed_beta_checklist.md](file:///c:/Users/zaton/Desktop/Escritorio/proyectos/MyBookConnect/docs/deployment/closed_beta_checklist.md)
 - **Preparación para Beta Abierta:** [docs/deployment/open_beta_readiness.md](file:///c:/Users/zaton/Desktop/Escritorio/proyectos/MyBookConnect/docs/deployment/open_beta_readiness.md)
 - **Guía de Preparación de Producción y Hardening:** [docs/deployment/production_readiness_guide.md](file:///c:/Users/zaton/Desktop/Escritorio/proyectos/MyBookConnect/docs/deployment/production_readiness_guide.md)
+- **Monetización y Plataforma de Autores:** [docs/business/monetization_and_author_platform.md](file:///c:/Users/zaton/Desktop/Escritorio/proyectos/MyBookConnect/docs/business/monetization_and_author_platform.md)
+
 
 
