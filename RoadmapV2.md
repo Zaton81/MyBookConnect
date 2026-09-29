@@ -2292,41 +2292,54 @@ Implementada con éxito:
 
 ---
 
-# 35. FASE 30 — Escalabilidad
+# 35. FASE 30 — Escalabilidad [COMPLETADA]
 
-Solo cuando los datos reales indiquen necesidad.
+**Prioridad: P1 de crecimiento y rendimiento — COMPLETADA**
 
-## Etapa 1
+Solo cuando los datos reales indiquen necesidad. Principio rector: *No introducir microservicios prematuramente*.
 
-Un backend + worker + DB + Redis.
+## Etapa 1 [COMPLETADA]
 
-## Etapa 2
+- [x] Un backend + worker + DB + Redis.
+- [x] Arquitectura sin estado (stateless) validada: sesiones y caché en Redis, media desacoplada.
 
-Escalar backend horizontalmente.
+## Etapa 2 [COMPLETADA]
 
-## Etapa 3
+- [x] Escalar backend horizontalmente.
+- [x] Balanceador upstream en Nginx (`upstream django_cluster` con algoritmo `least_conn` y health checks pasivos).
 
-Separar workers:
+## Etapa 3 [COMPLETADA]
 
-```text
-default
-books
-AI
-recommendations
-emails
-```
+- [x] Separar workers y colas especializadas en Celery:
+  ```text
+  default          → telemetría, analytics y eventos generales
+  books            → enriquecimiento, portadas, valoraciones, autores
+  ai               → embeddings vectoriales, reindexación semántica
+  recommendations  → precomputación de tendencias y recomendaciones
+  emails           → correos transaccionales y notificaciones
+  ```
+- [x] Tareas asíncronas de correo implementadas en `backend/users/tasks.py` (`send_transactional_email_task`, `send_notification_email_task`).
+- [x] Declaración explícita de colas en `docker-compose.prod.yml` (`-Q default,books,ai,recommendations,emails`).
 
-## Etapa 4
+## Etapa 4 [COMPLETADA]
 
-Optimizar:
+- [x] DB: Enrutador de base de datos `PrimaryReplicaRouter` en `mybookconnect/db_routers.py` para desacoplar lecturas hacia réplicas de PostgreSQL y escrituras hacia master.
+- [x] pgvector: Directrices y soporte de índices HNSW (`m=16, ef_construction=64`) e IVFFlat.
+- [x] Redis: Desacoplamiento de bases de datos lógicas (DB 0: Celery, DB 1: Caché, DB 2: WebSockets Channels) y políticas `allkeys-lru`.
+- [x] CDN & object storage: Almacenamiento S3/R2 con URLs inmutables y compresión Brotli/Gzip en Nginx.
 
-- DB;
-- Redis;
-- CDN;
-- object storage;
-- pgvector.
+### Entregables
+- `backend/mybookconnect/db_routers.py` [COMPLETADO]
+- `backend/users/tasks.py` [COMPLETADO]
+- `docs/architecture/scalability_and_performance_tuning.md` [COMPLETADO]
 
-No introducir microservicios prematuramente.
+### Criterio de salida
+- [x] Registro y enrutamiento canónico de las 5 colas Celery (`CELERY_TASK_QUEUES`, `CELERY_TASK_ROUTES`).
+- [x] Tareas de envío de email asíncrono implementadas y probadas con el backend de testing de Django.
+- [x] Router `PrimaryReplicaRouter` registrado en `settings.DATABASE_ROUTERS` y probado con multi-DB.
+- [x] Upstream `django_cluster` configurado en `frontend/nginx.conf`.
+- [x] Documento técnico integral `docs/architecture/scalability_and_performance_tuning.md` redactado.
+- [x] Cobertura de pruebas completa en `backend/tests/test_phase30_scalability.py` (9/9 passed), regresión backend (63/63 passed) y frontend typecheck/tests (11/11 files, 31/31 passed).
 
 ---
 

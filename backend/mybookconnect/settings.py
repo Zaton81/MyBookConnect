@@ -111,6 +111,9 @@ DATABASES = {
     }
 }
 
+# ─── Enrutador de Base de Datos para Escalado con Réplicas de Lectura (Fase 30) ───
+DATABASE_ROUTERS = ['mybookconnect.db_routers.PrimaryReplicaRouter']
+
 AUTH_PASSWORD_VALIDATORS = [
     {
         'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
@@ -304,6 +307,54 @@ CELERY_TIMEZONE = TIME_ZONE
 CELERY_TASK_TRACK_STARTED = True
 CELERY_TASK_TIME_LIMIT = 30 * 60
 CELERY_TASK_ALWAYS_EAGER = os.getenv('CELERY_TASK_ALWAYS_EAGER', 'false').lower() in ('true', '1', 'yes')
+
+# ─── Colas Especializadas Celery (Fase 30 — Escalabilidad) ───
+CELERY_TASK_QUEUES = {
+    'default': {
+        'exchange': 'default',
+        'routing_key': 'default',
+    },
+    'books': {
+        'exchange': 'books',
+        'routing_key': 'books',
+    },
+    'ai': {
+        'exchange': 'ai',
+        'routing_key': 'ai',
+    },
+    'recommendations': {
+        'exchange': 'recommendations',
+        'routing_key': 'recommendations',
+    },
+    'emails': {
+        'exchange': 'emails',
+        'routing_key': 'emails',
+    },
+}
+CELERY_TASK_DEFAULT_QUEUE = 'default'
+CELERY_TASK_ROUTES = {
+    # Cola 'books': operaciones de catálogo y sincronización
+    'books.tasks.enrich_book_task': {'queue': 'books'},
+    'books.tasks.download_cover_task': {'queue': 'books'},
+    'books.tasks.refresh_author_task': {'queue': 'books'},
+    'books.tasks.recalculate_book_rating_task': {'queue': 'books'},
+    'books.tasks.import_books_by_author_task': {'queue': 'books'},
+
+    # Cola 'ai': tareas pesadas de IA y embeddings vectoriales
+    'books.tasks.generate_book_embedding_task': {'queue': 'ai'},
+    'books.tasks.batch_reindex_embeddings_task': {'queue': 'ai'},
+
+    # Cola 'recommendations': precomputación de tendencias y recomendaciones personalizadas
+    'books.tasks.precompute_trending_task': {'queue': 'recommendations'},
+    'books.tasks.precompute_user_recommendations_task': {'queue': 'recommendations'},
+
+    # Cola 'emails': envío desacoplado de correos transaccionales y notificaciones
+    'users.tasks.send_transactional_email_task': {'queue': 'emails'},
+    'users.tasks.send_notification_email_task': {'queue': 'emails'},
+
+    # Cola 'default': telemetría, analytics y eventos generales
+    'analytics.tasks.record_analytics_event_task': {'queue': 'default'},
+}
 
 # ─── Configuración de Caché Redis ───
 CACHES = {

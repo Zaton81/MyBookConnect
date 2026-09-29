@@ -77,7 +77,7 @@ services:
       target: production
     container_name: booksocial-celery-worker-prod
     restart: always
-    command: celery -A mybookconnect worker -l INFO --concurrency=2
+    command: celery -A mybookconnect worker -l INFO --concurrency=2 -Q default,books,ai,recommendations,emails
     networks:
       - backend_net
     env_file:

@@ -62,8 +62,10 @@ Cualquier agente de IA o desarrollador que se incorpore a la base de código **D
 | **25** | **Embeddings y pgvector** | COMPLETADA | Canalización completa: normalización formal, hash SHA256, Celery embedding jobs, aislamiento de modelos y observabilidad. |
 | **26** | **Analytics de producto** | COMPLETADA | 13 eventos canónicos, métricas de embudo/funnel, disociación RGPD (SET_NULL, hash IP SHA-256) y telemetría asíncrona. |
 | **27** | **Beta cerrada y despliegue** | COMPLETADA | Sistema de invitaciones (`BetaInvitation`), feedback in-app (`BetaFeedback` con 7 categorías), modal accesible y checklist de 17 puntos. |
+| **28** | **Beta abierta** | COMPLETADA | Métricas de retención D1/D7/D30, tickets de soporte (`SupportTicket`), control de tasa de error y costes conocidos. |
 | **29** | **Preparación de producción** | COMPLETADA | Endurecimiento de seguridad (`SECURE_PROXY_SSL_HEADER`, cookies, CSP, HSTS), plantilla de producción `.env.production.example`, script preflight y guía integral `docs/deployment/production_readiness_guide.md`. |
-| **30** | **Escalabilidad** | **SIGUIENTE** | Etapa 1 a Etapa 4, métricas de saturación, réplicas de lectura y escalado horizontal. |
+| **30** | **Escalabilidad** | COMPLETADA | Escalabilidad en 4 etapas: enrutamiento de 5 colas Celery (`default`, `books`, `ai`, `recommendations`, `emails`), tareas asíncronas de email, `PrimaryReplicaRouter` para PostgreSQL, upstream `django_cluster` en Nginx y guía técnica `scalability_and_performance_tuning.md`. |
+| **31** | **Monetización** | **SIGUIENTE** | Afiliación (libros, ebooks, audiolibros) y funciones Premium tras validar retención. |
 
 ---
 
@@ -146,11 +148,16 @@ Cualquier agente de IA o desarrollador que se incorpore a la base de código **D
 - **Manejo de `DisallowedHost`:** Django captura `DisallowedHost` internamente en la capa de middleware/handlers retornando un `HttpResponseBadRequest` (HTTP 400). En pruebas automáticas con `APIClient` o `Client`, se debe asertar `response.status_code == 400` o verificar `request.get_host()` usando `RequestFactory` si se evalúa la excepción directa.
 - **Cabeceras HSTS y CSP en Nginx:** La directiva `Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" always;` y `Content-Security-Policy` protegen a los clientes de ataques Man-in-the-Middle y XSS permitiendo de forma explícita proveedores confiables de autenticación (Google OAuth) y fuentes tipográficas.
 
+### 4.19. Enrutamiento de Colas Celery y Enrutador de Bases de Datos (Fase 30)
+- **Aislamiento de Colas:** Al separar en 5 colas especializadas (`default`, `books`, `ai`, `recommendations`, `emails`), el worker polivalente de desarrollo/etapa 1 debe escuchar con `-Q default,books,ai,recommendations,emails`. En escalado de producción (Etapa 3), se despliegan workers independientes dedicados por cola, evitando que la inferencia de IA o la latencia SMTP bloqueen el enriquecimiento de libros.
+- **`PrimaryReplicaRouter`:** Cuando `DATABASES` no incluye `replica` (entorno local o etapa 1), `db_for_read` devuelve elegantemente `default` sin generar errores de conexión. Las migraciones siempre se ejecutan en `default`.
+
 ---
 
 ## 5. Ubicación de Documentación Relevante
 
 - **Arquitectura y Rendimiento:** [docs/architecture/database_performance.md](file:///c:/Users/zaton/Desktop/Escritorio/proyectos/MyBookConnect/docs/architecture/database_performance.md)
+- **Estrategia de Escalabilidad y Performance Tuning:** [docs/architecture/scalability_and_performance_tuning.md](file:///c:/Users/zaton/Desktop/Escritorio/proyectos/MyBookConnect/docs/architecture/scalability_and_performance_tuning.md)
 - **Estrategia de Pruebas Backend:** [docs/backend/testing_strategy.md](file:///c:/Users/zaton/Desktop/Escritorio/proyectos/MyBookConnect/docs/backend/testing_strategy.md)
 - **Calidad de Frontend:** [docs/frontend/quality_and_testing.md](file:///c:/Users/zaton/Desktop/Escritorio/proyectos/MyBookConnect/docs/frontend/quality_and_testing.md)
 - **CI/CD Pipeline:** [docs/devops/ci_cd_pipeline.md](file:///c:/Users/zaton/Desktop/Escritorio/proyectos/MyBookConnect/docs/devops/ci_cd_pipeline.md)
