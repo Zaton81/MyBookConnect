@@ -876,8 +876,8 @@ class UserPostListCreateView(APIView):
 
         posts = (
             UserPost.objects.filter(target_user=target_user)
-            .select_related('author', 'target_user', 'book')
-            .prefetch_related('likes', 'comments__user')
+            .select_related('author', 'target_user', 'book', 'book__author')
+            .prefetch_related('likes', 'comments__user', 'book__authors')
             .order_by('-is_pinned', '-created_at')
         )
         from .serializers import UserPostSerializer

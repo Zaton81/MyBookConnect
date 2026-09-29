@@ -67,7 +67,8 @@ Cualquier agente de IA o desarrollador que se incorpore a la base de código **D
 | **30** | **Escalabilidad** | COMPLETADA | Escalabilidad en 4 etapas: enrutamiento de 5 colas Celery (`default`, `books`, `ai`, `recommendations`, `emails`), tareas asíncronas de email, `PrimaryReplicaRouter` para PostgreSQL, upstream `django_cluster` en Nginx y guía técnica `scalability_and_performance_tuning.md`. |
 | **31** | **Monetización y Plataforma de Autores** | COMPLETADA | Tag de afiliación de Amazon configurable (`mybooksocial-21`), enlaces multiformato (papel, ebook, audiolibro) con disclosure legal transparente, plataforma de autores (`AuthorProfile`, `AuthorAnnouncement`, `/claim/`, `/dashboard/`), modelo base de suscripciones (`UserSubscription`) y neutralidad algorítmica garantizada. |
 | **32** | **Multi-autor, Muro Social y Recomendaciones** | COMPLETADA | Soporte de múltiples autores por libro (`Book.authors`), visualización integral de reseñas en el perfil de usuario, muro interactivo (`UserPost`, likes, comentarios, feed `POST_CREATED`) y ponderación de afinidad multi-autor en el motor híbrido. |
-| **33** | **Calidad avanzada** | **SIGUIENTE** | Contract tests, E2E y pruebas avanzadas de resiliencia. |
+| **33** | **Calidad avanzada** | COMPLETADA | Contratos OpenAPI 3.0 validados con `drf-spectacular`, flujo de integración E2E completo (registro a feed), suite de seguridad IDOR/XSS/JWT, erradicación de consultas N+1 con complejidad $O(1)$ en muro, reseñas y feed, y script de carga concurrente y SLAs (`load_test_benchmark.py`). |
+| **34** | **Consolidación y Release Candidate (RC1)** | **SIGUIENTE** | Preparación final de versión candidate para despliegue de beta cerrada. |
 
 ---
 
@@ -83,6 +84,39 @@ Cualquier agente de IA o desarrollador que se incorpore a la base de código **D
 
 ### 4.2. Bloqueos Sociales y Visibilidad de Perfil
 - Cuando el usuario Alice bloquea a Bob (o existe bloqueo mutuo), la política estricta de seguridad ([backend/users/views.py](file:///c:/Users/zaton/Desktop/Escritorio/proyectos/MyBookConnect/backend/users/views.py)) devuelve **`404 NOT FOUND`** ("Usuario no encontrado") para no filtrar la existencia de la cuenta al acosador/bloqueado. En pruebas de acceso, esperar `status.HTTP_404_NOT_FOUND` o `status.HTTP_403_FORBIDDEN`.
+
+### 4.3. Importación CSV de Goodreads
+- El servicio [CSVImportService](file:///c:/Users/zaton/Desktop/Escritorio/proyectos/MyBookConnect/backend/books/services/csv_import_service.py) devuelve un payload estructurado compatible tanto con `preview_items` como con `raw_items_payload`.
+- El componente `ImportBooksModal.tsx` tolera ambas claves:
+  ```typescript
+  const items = previewData?.raw_items_payload || previewData?.preview_items || [];
+  ```
+
+### 4.4. Aislamiento de Embeddings en Entorno de Pruebas
+- Si se ejecutan pruebas de búsqueda que usan `mode='hybrid'`, asegurarse de mockear `OllamaProvider.get_embedding` y `get_embedding_for_text`:
+  ```python
+  with patch('ai.clients.ollama_client.OllamaProvider.get_embedding', return_value=None), \
+       patch('ai.embeddings.get_embedding_for_text', return_value=None):
+      # Petición de búsqueda sin demoras de red contra Ollama inexistente en tests
+  ```
+
+### 4.5. `Book.get_author_names()` y Prefetch Cache en Relaciones ManyToMany
+- **Problema:** En Django ORM, llamar a `self.authors.values_list('name', flat=True)` ignora el cache de `prefetch_related` y lanza una consulta `SELECT` directa a PostgreSQL por cada entidad renderizada, provocando N+1 en listados masivos.
+- **Solución Canónica:** Inspeccionar `_prefetched_objects_cache` e iterar sobre `.all()` en memoria si ya fue prefetcheado:
+  ```python
+  if hasattr(self, '_prefetched_objects_cache') and 'authors' in self._prefetched_objects_cache:
+      names = [a.name for a in self.authors.all()]
+  else:
+      names = list(self.authors.values_list('name', flat=True))
+  ```
+
+### 4.6. Caching en Ciclo de Vida del Request para Serializers Anidados
+- **Problema:** Al renderizar listados que anidan entidades complejas (ej. `ReviewSerializer` serializando `BookSerializer` con `get_rating_distribution` y `get_reviews_count`), se disparaban consultas repetidas para el mismo libro.
+- **Solución Canónica:** Cachear el cálculo en el objeto `request` (`request._rating_dist_{obj.id}`) y reutilizarlo durante la serialización del payload actual.
+
+### 4.7. Throttling de Autenticación en Pruebas
+- **Problema:** Ejecutar repetidamente `POST /api/v1/auth/token/` en los métodos de `setup` de suites con múltiples tests activa el `LoginRateThrottle` (retornando `429 Too Many Requests`).
+- **Solución Canónica:** Usar `RefreshToken.for_user(user)` directamente en los setups de tests que requieran tokens sin pretender probar la vista de login.
 
 ### 4.3. Importación CSV de Goodreads
 - El servicio [CSVImportService](file:///c:/Users/zaton/Desktop/Escritorio/proyectos/MyBookConnect/backend/books/services/csv_import_service.py) devuelve un payload estructurado compatible tanto con `preview_items` como con `raw_items_payload`.

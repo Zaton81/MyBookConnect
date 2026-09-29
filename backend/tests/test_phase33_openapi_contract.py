@@ -50,7 +50,7 @@ class TestPhase33OpenAPIContract:
         data = yaml.safe_load(response.content.decode('utf-8'))
         paths = data.get('paths', {})
 
-        # Dominios clave
+        # Dominios clave ampliados con Fase 31 y 32
         expected_paths = [
             '/api/v1/books/',
             '/api/v1/books/{id}/',
@@ -64,6 +64,10 @@ class TestPhase33OpenAPIContract:
             '/api/v1/books/ai/assistant/',
             '/api/v1/books/ai/status/',
             '/api/v1/auth/messages/',
+            '/api/v1/books/authors/',
+            '/api/v1/books/authors/claim/',
+            '/api/v1/books/authors/dashboard/',
+            '/api/v1/books/{id}/affiliate-links/',
         ]
 
         for expected_path in expected_paths:
@@ -98,3 +102,74 @@ class TestPhase33OpenAPIContract:
         call_command('spectacular', file=str(target_file))
         assert target_file.exists()
         assert target_file.stat().st_size > 10000
+
+    def test_book_api_response_adheres_to_contract(self):
+        """Verifica que la respuesta real de /api/v1/books/ cumpla el contrato de campos esenciales."""
+        from books.models import Book, Author
+        author = Author.objects.create(name="Gabriel García Márquez", biography="Premio Nobel")
+        book = Book.objects.create(
+            title="Cien años de soledad",
+            author=author,
+            isbn="9780307474728",
+            description="La historia de la familia Buendía en Macondo."
+        )
+        book.authors.add(author)
+
+        response = self.client.get('/api/v1/books/')
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert 'results' in data or isinstance(data, list)
+        items = data['results'] if 'results' in data else data
+        assert len(items) >= 1
+
+        first_book = next(b for b in items if b['id'] == book.id)
+        assert first_book['title'] == "Cien años de soledad"
+        assert first_book['author']['name'] == "Gabriel García Márquez"
+        assert 'authors' in first_book
+        assert isinstance(first_book['authors'], list)
+        assert len(first_book['authors']) == 1
+        assert first_book['authors'][0]['name'] == "Gabriel García Márquez"
+
+        # Validar contrato del endpoint dedicado de afiliación (Fase 31)
+        res_affiliate = self.client.get(f'/api/v1/books/{book.id}/affiliate-links/')
+        assert res_affiliate.status_code == status.HTTP_200_OK
+        affiliate_data = res_affiliate.json()
+        assert affiliate_data.get('affiliate_tag') == 'mybooksocial-21'
+        assert 'links' in affiliate_data
+        assert 'paperback' in affiliate_data['links']
+        assert 'tag=mybooksocial-21' in affiliate_data['links']['paperback']['url']
+
+    def test_user_post_api_response_adheres_to_contract(self):
+        """Verifica que la respuesta de /api/v1/users/<id>/posts/ cumpla el contrato de muro social."""
+        from django.contrib.auth import get_user_model
+        from books.models import Book, Author
+        from users.models import UserPost
+
+        User = get_user_model()
+        user = User.objects.create_user(username="contract_user", email="contract@example.com", password="Pass123!SafePassword")
+        author = Author.objects.create(name="Gabriel García Márquez")
+        book = Book.objects.create(title="El amor en los tiempos del cólera", author=author)
+        post = UserPost.objects.create(
+            author=user,
+            target_user=user,
+            content="¡Empezando una maravillosa lectura!",
+            book=book
+        )
+
+        response = self.client.get(f'/api/v1/users/{user.id}/posts/')
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        items = data['results'] if 'results' in data else data
+        assert len(items) >= 1
+
+        first_post = next(p for p in items if p['id'] == post.id)
+        assert first_post['id'] == post.id
+        assert first_post['content'] == "¡Empezando una maravillosa lectura!"
+        assert first_post['author']['id'] == user.id
+        assert first_post['author']['username'] == "contract_user"
+        assert first_post['book']['id'] == book.id
+        assert first_post['book']['title'] == "El amor en los tiempos del cólera"
+        assert 'likes_count' in first_post
+        assert 'comments_count' in first_post
+        assert 'user_has_liked' in first_post
+

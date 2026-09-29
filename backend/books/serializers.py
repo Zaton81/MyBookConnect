@@ -201,6 +201,11 @@ class BookSerializer(serializers.ModelSerializer):
 
     @extend_schema_field(serializers.DictField)
     def get_rating_distribution(self, obj):
+        request = self.context.get('request')
+        cache_key = f'_rating_dist_{obj.id}'
+        if request and hasattr(request, cache_key):
+            return getattr(request, cache_key)
+
         from django.db.models import Count
         distribution = dict.fromkeys(range(1, 6), 0)
         reviews = Review.objects.filter(
@@ -210,13 +215,23 @@ class BookSerializer(serializers.ModelSerializer):
             val = r['rating']
             if 1 <= val <= 5:
                 distribution[val] = r['count']
+        if request:
+            setattr(request, cache_key, distribution)
         return distribution
 
     @extend_schema_field(serializers.IntegerField)
     def get_reviews_count(self, obj):
         if hasattr(obj, 'annotated_reviews_count'):
             return obj.annotated_reviews_count
-        return Review.objects.filter(book=obj, deleted_at__isnull=True, is_moderated=False).count()
+        request = self.context.get('request')
+        cache_key = f'_reviews_count_{obj.id}'
+        if request and hasattr(request, cache_key):
+            return getattr(request, cache_key)
+
+        count = Review.objects.filter(book=obj, deleted_at__isnull=True, is_moderated=False).count()
+        if request:
+            setattr(request, cache_key, count)
+        return count
 
     def validate_cover(self, value):
         """
@@ -338,7 +353,9 @@ class ReviewSerializer(serializers.ModelSerializer):
             return obj.is_friend
         request = self.context.get('request')
         if request and request.user.is_authenticated:
-            return request.user.following.filter(id=obj.user.id).exists()
+            if not hasattr(request, '_cached_following_ids'):
+                request._cached_following_ids = set(request.user.following.values_list('id', flat=True))
+            return obj.user_id in request._cached_following_ids
         return False
 
     @extend_schema_field(serializers.IntegerField())

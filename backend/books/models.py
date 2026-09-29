@@ -92,7 +92,10 @@ class Book(models.Model):
 
     def get_author_names(self) -> str:
         """Devuelve los nombres de todos los autores concatenados por comas."""
-        author_names = list(self.authors.values_list('name', flat=True))
+        if hasattr(self, '_prefetched_objects_cache') and 'authors' in self._prefetched_objects_cache:
+            author_names = [a.name for a in self.authors.all()]
+        else:
+            author_names = list(self.authors.values_list('name', flat=True))
         if author_names:
             return ", ".join(author_names)
         if self.author:

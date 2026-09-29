@@ -467,6 +467,8 @@ class UserPostSerializer(serializers.ModelSerializer):
     def get_user_has_liked(self, obj):
         request = self.context.get('request')
         if request and request.user.is_authenticated:
+            if hasattr(obj, '_prefetched_objects_cache') and 'likes' in obj._prefetched_objects_cache:
+                return any(like.user_id == request.user.id for like in obj.likes.all())
             return obj.likes.filter(user=request.user).exists()
         return False
 
