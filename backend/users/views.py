@@ -852,4 +852,152 @@ class UserSubscriptionView(APIView):
         }, status=status.HTTP_200_OK)
 
 
+# ─── Muro Social y Publicaciones de Usuario ───
+
+class UserPostListCreateView(APIView):
+    """
+    Muro social de usuario: lista publicaciones recibidas o crea una nueva.
+    """
+    def get_permissions(self):
+        if self.request.method == 'POST':
+            return [permissions.IsAuthenticated()]
+        return [permissions.AllowAny()]
+
+    def get(self, request, user_id):
+        from .models import User, UserPost
+        from .policies import PrivacyService
+
+        target_user = get_object_or_404(User, id=user_id, deleted_at__isnull=True)
+        if request.user.is_authenticated and PrivacyService.are_mutually_blocked(request.user, target_user):
+            return Response({'detail': 'Usuario no encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if not PrivacyService.can_view_profile(request.user, target_user):
+            return Response({'detail': 'Este perfil es privado.'}, status=status.HTTP_403_FORBIDDEN)
+
+        posts = (
+            UserPost.objects.filter(target_user=target_user)
+            .select_related('author', 'target_user', 'book')
+            .prefetch_related('likes', 'comments__user')
+            .order_by('-is_pinned', '-created_at')
+        )
+        from .serializers import UserPostSerializer
+        serializer = UserPostSerializer(posts, many=True, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def post(self, request, user_id):
+        from .models import User, UserPost, Activity, ActivityType
+        from .policies import PrivacyService
+        from .serializers import UserPostSerializer
+
+        if getattr(request.user, 'is_disciplinary_muted', False):
+            return Response(
+                {'detail': f"Tu cuenta se encuentra silenciada temporalmente por moderación hasta {request.user.muted_until}."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        target_user = get_object_or_404(User, id=user_id, deleted_at__isnull=True)
+        if PrivacyService.are_mutually_blocked(request.user, target_user):
+            return Response({'detail': 'No puedes publicar en este muro.'}, status=status.HTTP_403_FORBIDDEN)
+
+        if not PrivacyService.can_view_profile(request.user, target_user) and request.user.id != target_user.id:
+            return Response({'detail': 'No puedes publicar en un perfil privado.'}, status=status.HTTP_403_FORBIDDEN)
+
+        serializer = UserPostSerializer(data=request.data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        post = serializer.save(author=request.user, target_user=target_user)
+
+        # Generar actividad social para el feed global
+        try:
+            Activity.objects.create(
+                user=request.user,
+                type=ActivityType.POST_CREATED,
+                post=post,
+                book=post.book,
+                target_user=target_user,
+            )
+        except Exception as exc:
+            logger.warning("No se pudo registrar Activity para UserPost #%s: %s", post.id, exc)
+
+        return Response(UserPostSerializer(post, context={'request': request}).data, status=status.HTTP_201_CREATED)
+
+
+class UserPostDetailDeleteView(APIView):
+    """
+    Elimina una publicación del muro (permitido al autor del post o al dueño del muro).
+    """
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def delete(self, request, pk):
+        from .models import UserPost
+        post = get_object_or_404(UserPost, pk=pk)
+        if request.user.id not in (post.author_id, post.target_user_id) and not request.user.is_staff:
+            return Response({'detail': 'No tienes permiso para eliminar esta publicación.'}, status=status.HTTP_403_FORBIDDEN)
+
+        post.delete()
+        return Response({'detail': 'Publicación eliminada correctamente.'}, status=status.HTTP_204_NO_CONTENT)
+
+
+class UserPostLikeToggleView(APIView):
+    """
+    Alterna el me gusta (like/unlike) en una publicación del muro.
+    """
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def post(self, request, pk):
+        from .models import UserPost, UserPostLike
+        post = get_object_or_404(UserPost, pk=pk)
+
+        like_obj = UserPostLike.objects.filter(post=post, user=request.user).first()
+        if like_obj:
+            like_obj.delete()
+            post.likes_count = max(0, post.likes_count - 1)
+            post.save(update_fields=['likes_count'])
+            return Response({'liked': False, 'likes_count': post.likes_count}, status=status.HTTP_200_OK)
+        else:
+            UserPostLike.objects.create(post=post, user=request.user)
+            post.likes_count = post.likes_count + 1
+            post.save(update_fields=['likes_count'])
+            return Response({'liked': True, 'likes_count': post.likes_count}, status=status.HTTP_200_OK)
+
+
+class UserPostCommentListCreateView(APIView):
+    """
+    Listado y adición de comentarios en una publicación del muro.
+    """
+    def get_permissions(self):
+        if self.request.method == 'POST':
+            return [permissions.IsAuthenticated()]
+        return [permissions.AllowAny()]
+
+    def get(self, request, pk):
+        from .models import UserPost, UserPostComment
+        from .serializers import UserPostCommentSerializer
+
+        post = get_object_or_404(UserPost, pk=pk)
+        comments = UserPostComment.objects.filter(post=post).select_related('user').order_by('created_at')
+        serializer = UserPostCommentSerializer(comments, many=True, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def post(self, request, pk):
+        from .models import UserPost
+        from .serializers import UserPostCommentSerializer
+
+        if getattr(request.user, 'is_disciplinary_muted', False):
+            return Response(
+                {'detail': f"Tu cuenta se encuentra silenciada temporalmente por moderación hasta {request.user.muted_until}."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        post = get_object_or_404(UserPost, pk=pk)
+        serializer = UserPostCommentSerializer(data=request.data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        comment = serializer.save(post=post, user=request.user)
+
+        post.comments_count = post.comments.count()
+        post.save(update_fields=['comments_count'])
+
+        return Response(UserPostCommentSerializer(comment, context={'request': request}).data, status=status.HTTP_201_CREATED)
+
+
+
 

@@ -2372,33 +2372,32 @@ Solo cuando los datos reales indiquen necesidad. Principio rector: *No introduci
 
 ---
 
-# 37. FASE 32 — Escalabilidad de recomendaciones
+# 37. FASE 32 — Escalabilidad de recomendaciones, Soporte Multi-autor y Muro Social
 
-Cuando exista suficiente feedback:
+**Estado: COMPLETADA**
 
-```text
-rules
- ↓
-hybrid
- ↓
-collaborative filtering
- ↓
-semantic
- ↓
-learning-to-rank
-```
-
-Variables:
-
-- historial;
-- ratings;
-- géneros;
-- autores;
-- similitud;
-- contexto;
-- feedback.
-
-Evitar usar atributos sensibles.
+- [x] **Soporte Multi-autor en Libros**:
+  - Relación Many-to-Many `authors` en [Book](file:///c:/Users/zaton/Desktop/Escritorio/proyectos/MyBookConnect/backend/books/models.py) con compatibilidad retroactiva con `author` (autor principal).
+  - Migración de esquema y datos aplicada (`books.0029_book_authors`).
+  - Serialización ampliada (`authors`, `author_ids`, `author_names`) en `BookSerializer`.
+  - Visualización de todos los autores con enlaces en `BookDetail.tsx`.
+- [x] **Visualización de Reseñas en el Perfil de Usuario**:
+  - Filtrado de opiniones por usuario (`GET /api/v1/reviews/?user=<id>` y `GET /api/v1/users/<id>/reviews/`) respetando niveles de privacidad.
+  - Pestaña interactiva **"Reseñas"** en `Profile.tsx` con portada de libro, estrellas 1-5, texto, likes y fecha.
+- [x] **Muro Social y Publicaciones de Usuario**:
+  - Modelos `UserPost`, `UserPostLike` y `UserPostComment` en `users/models.py`.
+  - Migración de base de datos aplicada (`users.0026_alter_activity_type_userpost_activity_post_and_more`).
+  - Sincronización automática de publicaciones en el muro con el feed de actividades (`ActivityType.POST_CREATED`).
+  - Pestaña **"Muro"** en `Profile.tsx` con compositor de publicaciones, me gusta interactivo, comentarios y eliminación por el autor/dueño del muro.
+- [x] **Escalabilidad de Recomendaciones**:
+  - Ponderación de afinidad multi-autor en `_calculate_user_affinity`.
+  - Coautoría y descubrimiento expandido en recomendaciones contextuales Item-to-Item (`get_book_recommendations`).
+- [x] **Calidad y Tests**:
+  - Suite de pruebas completa en `backend/tests/test_phase32_multiauthor_profile_and_wall.py` (5/5 passed).
+  - Suite de regresión integral backend (77/77 passed, 0 fallos).
+  - Verificación de tipos TypeScript (`pnpm typecheck` 0 errors) y pruebas frontend (11/11 files, 31/31 passed).
+- [x] **Documentación**:
+  - Guía técnica y funcional detallada en `docs/product/wall_posts_and_multiauthor_platform.md`.
 
 ---
 

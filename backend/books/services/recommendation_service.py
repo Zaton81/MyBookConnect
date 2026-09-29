@@ -76,9 +76,11 @@ def _calculate_user_affinity(user) -> tuple[dict[int, float], dict[int, float], 
         for cat in entry.book.categories.all():
             category_affinity[cat.id] += weight
 
-        # Ponderar autor
+        # Ponderar autor principal y coautores (Fase 32)
         if entry.book.author_id:
             author_affinity[entry.book.author_id] += weight
+        for coauthor_id in entry.book.authors.values_list('id', flat=True):
+            author_affinity[coauthor_id] += weight
 
         # Si fue muy valorado, recolectar palabras clave del título y sinopsis
         if (entry.rating and entry.rating >= 4) or entry.status == ReadingStatus.READ:
@@ -186,7 +188,7 @@ def get_user_recommendations(
     candidate_qs = (
         Book.objects.exclude(id__in=excluded_book_ids)
         .select_related('author')
-        .prefetch_related('categories')
+        .prefetch_related('categories', 'authors')
     )
 
     # Puntuación de cada candidato
@@ -208,9 +210,12 @@ def get_user_recommendations(
             if cid in cat_affinity:
                 score_genre = max(score_genre, cat_affinity[cid])
 
-        # Puntuación por autor
+        # Puntuación por autor y coautores (Fase 32)
         if book.author_id and book.author_id in auth_affinity:
-            score_author = auth_affinity[book.author_id]
+            score_author = max(score_author, auth_affinity[book.author_id])
+        for coauthor_id in book.authors.values_list('id', flat=True):
+            if coauthor_id in auth_affinity:
+                score_author = max(score_author, auth_affinity[coauthor_id])
 
         # Puntuación semántica / coincidencia de palabras clave
         if fav_keywords:
@@ -364,18 +369,20 @@ def get_book_recommendations(
     )
     co_read_map = {item['book_id']: item['co_count'] for item in co_read_books}
 
-    # 2. Candidatos por autor y categorías
+    # 2. Candidatos por autor, coautores y categorías
     source_cat_ids = list(source_book.categories.values_list('id', flat=True))
+    source_author_ids = set(filter(None, [source_book.author_id] + list(source_book.authors.values_list('id', flat=True))))
     candidates = (
         Book.objects.exclude(id__in=excluded_ids)
         .filter(
-            Q(author_id=source_book.author_id)
+            Q(author_id__in=source_author_ids)
+            | Q(authors__in=source_author_ids)
             | Q(categories__in=source_cat_ids)
             | Q(id__in=list(co_read_map.keys()))
         )
         .distinct()
         .select_related('author')
-        .prefetch_related('categories')[:50]
+        .prefetch_related('categories', 'authors')[:50]
     )
 
     scored_items = []
@@ -388,11 +395,12 @@ def get_book_recommendations(
             score += 3.0 * co_read_map[candidate.id]
             reason = "Lectores de este libro también disfrutaron este título"
 
-        # Mismo autor
-        if source_book.author_id and candidate.author_id == source_book.author_id:
+        # Mismo autor o coautoría
+        cand_author_ids = set(filter(None, [candidate.author_id] + list(candidate.authors.values_list('id', flat=True))))
+        if source_author_ids.intersection(cand_author_ids):
             score += 2.5
             if score < 4.0:
-                reason = f"Del mismo autor ({source_book.author.name})"
+                reason = f"Del mismo autor o coautor ({source_book.get_author_names()})"
 
         # Categorías compartidas
         cand_cats = set(candidate.categories.values_list('id', flat=True))
@@ -419,7 +427,7 @@ def get_book_recommendations(
         results.append({
             'id': b.id,
             'title': b.title,
-            'author_name': b.author.name if b.author else 'Autor desconocido',
+            'author_name': b.get_author_names(),
             'cover': build_media_url(b.cover.name if b.cover else None, request=request),
             'average_rating': b.average_rating,
             'score': round(float(item['score']), 2),

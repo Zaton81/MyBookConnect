@@ -59,6 +59,7 @@ class Category(models.Model):
 class Book(models.Model):
     title = models.CharField(max_length=300)
     author = models.ForeignKey(Author, null=True, blank=True, on_delete=models.SET_NULL, related_name='books')
+    authors = models.ManyToManyField(Author, related_name='all_books', blank=True)
     isbn = models.CharField(max_length=30, blank=True, null=True, db_index=True)
     google_volume_id = models.CharField(max_length=50, null=True, blank=True, db_index=True)
     openlibrary_work_id = models.CharField(max_length=50, null=True, blank=True, db_index=True)
@@ -89,10 +90,21 @@ class Book(models.Model):
             GinIndex(fields=['description'], name='idx_book_desc_trgm', opclasses=['gin_trgm_ops']),
         ]
 
+    def get_author_names(self) -> str:
+        """Devuelve los nombres de todos los autores concatenados por comas."""
+        author_names = list(self.authors.values_list('name', flat=True))
+        if author_names:
+            return ", ".join(author_names)
+        if self.author:
+            return self.author.name
+        return "Autor desconocido"
+
     def save(self, *args, **kwargs):
         if self.isbn:
             self.isbn = normalize_isbn(self.isbn)
         super().save(*args, **kwargs)
+        if self.author_id:
+            self.authors.add(self.author)
 
     def __str__(self):
         return f"{self.title}"

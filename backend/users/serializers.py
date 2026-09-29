@@ -401,3 +401,94 @@ class GoogleOAuthSerializer(serializers.Serializer):
     id_token = serializers.CharField(required=True, help_text="Token JWT provisto por Google Sign-In SDK")
 
 
+from books.models import Book
+from users.models import UserPost, UserPostComment
+
+
+class UserPostCommentSerializer(serializers.ModelSerializer):
+    user = UserBasicSerializer(read_only=True)
+    is_owner = serializers.SerializerMethodField()
+
+    class Meta:
+        model = UserPostComment
+        fields = ('id', 'post', 'user', 'text', 'created_at', 'is_owner')
+        read_only_fields = ('id', 'post', 'user', 'created_at', 'is_owner')
+
+    @extend_schema_field(serializers.BooleanField())
+    def get_is_owner(self, obj):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            return obj.user_id == request.user.id or request.user.is_staff
+        return False
+
+    def validate_text(self, value):
+        from mybookconnect.html_sanitizer import sanitize_plain_text
+        cleaned = sanitize_plain_text(value).strip()
+        if not cleaned:
+            raise serializers.ValidationError("El comentario no puede estar vacío.")
+        return cleaned
+
+
+class UserPostSerializer(serializers.ModelSerializer):
+    author = UserBasicSerializer(read_only=True)
+    target_user = UserBasicSerializer(read_only=True)
+    book_id = serializers.PrimaryKeyRelatedField(
+        queryset=Book.objects.all(), source='book', write_only=True, required=False, allow_null=True
+    )
+    book = serializers.SerializerMethodField()
+    user_has_liked = serializers.SerializerMethodField()
+    is_owner = serializers.SerializerMethodField()
+    comments = UserPostCommentSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = UserPost
+        fields = (
+            'id', 'author', 'target_user', 'content', 'book', 'book_id',
+            'likes_count', 'comments_count', 'is_pinned', 'user_has_liked',
+            'is_owner', 'comments', 'created_at', 'updated_at'
+        )
+        read_only_fields = ('id', 'author', 'target_user', 'likes_count', 'comments_count', 'created_at', 'updated_at')
+
+    @extend_schema_field(serializers.DictField)
+    def get_book(self, obj):
+        if not obj.book:
+            return None
+        from books.media_utils import build_media_url
+        request = self.context.get('request')
+        cover_url = build_media_url(obj.book.cover, request=request) if obj.book.cover else None
+        return {
+            'id': obj.book.id,
+            'title': obj.book.title,
+            'author': obj.book.get_author_names(),
+            'cover': cover_url,
+        }
+
+    @extend_schema_field(serializers.BooleanField())
+    def get_user_has_liked(self, obj):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            return obj.likes.filter(user=request.user).exists()
+        return False
+
+    @extend_schema_field(serializers.BooleanField())
+    def get_is_owner(self, obj):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            return (
+                obj.author_id == request.user.id
+                or obj.target_user_id == request.user.id
+                or request.user.is_staff
+            )
+        return False
+
+    def validate_content(self, value):
+        from mybookconnect.html_sanitizer import sanitize_plain_text
+        cleaned = sanitize_plain_text(value).strip()
+        if not cleaned:
+            raise serializers.ValidationError("La publicación no puede estar vacía.")
+        if len(cleaned) > 2000:
+            raise serializers.ValidationError("La publicación no puede exceder los 2000 caracteres.")
+        return cleaned
+
+
+

@@ -123,6 +123,13 @@ class BookSerializer(serializers.ModelSerializer):
     author_id = serializers.PrimaryKeyRelatedField(
         queryset=Author.objects.all(), source='author', write_only=True, required=False, allow_null=True
     )
+    authors = AuthorBasicSerializer(many=True, read_only=True)
+    author_ids = serializers.PrimaryKeyRelatedField(
+        queryset=Author.objects.all(), many=True, write_only=True, required=False
+    )
+    author_names = serializers.ListField(
+        child=serializers.CharField(), write_only=True, required=False
+    )
     categories = CategorySerializer(many=True, read_only=True)
     category_ids = serializers.PrimaryKeyRelatedField(
         queryset=Category.objects.all(), many=True, source='categories', write_only=True, required=False
@@ -133,11 +140,64 @@ class BookSerializer(serializers.ModelSerializer):
     class Meta:
         model = Book
         fields = (
-            'id', 'title', 'author', 'author_id', 'isbn',
+            'id', 'title', 'author', 'author_id', 'authors', 'author_ids', 'author_names', 'isbn',
             'google_volume_id', 'openlibrary_work_id', 'openlibrary_edition_id',
             'cover', 'description', 'published_date', 'average_rating', 'created_at',
             'categories', 'category_ids', 'rating_distribution', 'reviews_count'
         )
+
+    def create(self, validated_data):
+        author_ids = validated_data.pop('author_ids', None)
+        author_names = validated_data.pop('author_names', None)
+        category_ids = validated_data.pop('categories', None)
+
+        book = super().create(validated_data)
+
+        if category_ids is not None:
+            book.categories.set(category_ids)
+
+        if author_ids is not None:
+            book.authors.set(author_ids)
+            if not book.author and author_ids:
+                book.author = author_ids[0]
+                book.save(update_fields=['author'])
+        elif book.author_id:
+            book.authors.add(book.author)
+
+        if author_names:
+            for name in author_names:
+                clean_name = str(name).strip()
+                if clean_name:
+                    author_obj, _ = Author.objects.get_or_create(name=clean_name)
+                    book.authors.add(author_obj)
+            if not book.author and book.authors.exists():
+                book.author = book.authors.first()
+                book.save(update_fields=['author'])
+
+        return book
+
+    def update(self, instance, validated_data):
+        author_ids = validated_data.pop('author_ids', None)
+        author_names = validated_data.pop('author_names', None)
+
+        book = super().update(instance, validated_data)
+
+        if author_ids is not None:
+            book.authors.set(author_ids)
+            if author_ids and not book.author:
+                book.author = author_ids[0]
+                book.save(update_fields=['author'])
+        if author_names is not None:
+            for name in author_names:
+                clean_name = str(name).strip()
+                if clean_name:
+                    author_obj, _ = Author.objects.get_or_create(name=clean_name)
+                    book.authors.add(author_obj)
+            if not book.author and book.authors.exists():
+                book.author = book.authors.first()
+                book.save(update_fields=['author'])
+
+        return book
 
     @extend_schema_field(serializers.DictField)
     def get_rating_distribution(self, obj):

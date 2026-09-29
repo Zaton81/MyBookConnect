@@ -244,6 +244,63 @@ class ActivityType(models.TextChoices):
     LIST_CREATED = 'LIST_CREATED', 'Creó una lista'
     REVIEW_LIKED = 'REVIEW_LIKED', 'Le gustó una reseña'
     COMMENT_ADDED = 'COMMENT_ADDED', 'Comentó en una reseña'
+    POST_CREATED = 'POST_CREATED', 'Publicó en el muro'
+
+
+class UserPost(models.Model):
+    """Publicación en el muro social del usuario."""
+    author = models.ForeignKey(User, related_name='wall_posts_authored', on_delete=models.CASCADE)
+    target_user = models.ForeignKey(User, related_name='wall_posts', on_delete=models.CASCADE)
+    content = models.TextField(help_text="Contenido de la publicación en el muro (máx 2000 caracteres)")
+    book = models.ForeignKey('books.Book', null=True, blank=True, on_delete=models.SET_NULL, related_name='wall_posts')
+    likes_count = models.PositiveIntegerField(default=0)
+    comments_count = models.PositiveIntegerField(default=0)
+    is_pinned = models.BooleanField(default=False)
+    created_at = models.DateTimeField(default=timezone.now, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-is_pinned', '-created_at']
+        indexes = [
+            models.Index(fields=['target_user', '-created_at'], name='idx_post_target_created'),
+            models.Index(fields=['author', '-created_at'], name='idx_post_author_created'),
+        ]
+
+    def __str__(self):
+        return f"Post #{self.pk} de @{self.author.username} en muro de @{self.target_user.username}"
+
+
+class UserPostLike(models.Model):
+    post = models.ForeignKey(UserPost, on_delete=models.CASCADE, related_name='likes')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='post_likes')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['post', 'user'], name='unique_user_post_like'),
+        ]
+        indexes = [
+            models.Index(fields=['post', 'user'], name='idx_post_like_user'),
+        ]
+
+    def __str__(self):
+        return f"@{self.user.username} liked post #{self.post_id}"
+
+
+class UserPostComment(models.Model):
+    post = models.ForeignKey(UserPost, on_delete=models.CASCADE, related_name='comments')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='post_comments')
+    text = models.TextField(max_length=1000)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['created_at']
+        indexes = [
+            models.Index(fields=['post', 'created_at'], name='idx_post_comment_created'),
+        ]
+
+    def __str__(self):
+        return f"Comentario de @{self.user.username} en post #{self.post_id}"
 
 
 class Activity(models.Model):
@@ -251,6 +308,7 @@ class Activity(models.Model):
     type = models.CharField(max_length=30, choices=ActivityType.choices, db_index=True)
     book = models.ForeignKey('books.Book', null=True, blank=True, on_delete=models.CASCADE, related_name='activities')
     review = models.ForeignKey('books.Review', null=True, blank=True, on_delete=models.CASCADE, related_name='activities')
+    post = models.ForeignKey(UserPost, null=True, blank=True, on_delete=models.CASCADE, related_name='activities')
     target_user = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE, related_name='target_activities')
     metadata = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)

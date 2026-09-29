@@ -649,10 +649,24 @@ export function BookDetail() {
               </h1>
 
               <div className="flex flex-wrap items-center gap-2 mt-2">
-                {book.author ? (
+                {book.authors && book.authors.length > 0 ? (
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {book.authors.map((auth: any, idx: number) => (
+                      <span key={auth.id || idx} className="inline-flex items-center">
+                        <Link
+                          to={`/authors/${auth.id}`}
+                          className="text-base font-semibold text-teal-600 dark:text-teal-400 hover:text-teal-700 hover:underline"
+                        >
+                          {auth.name}
+                        </Link>
+                        {idx < book.authors.length - 1 && <span className="text-slate-400 mr-1">,</span>}
+                      </span>
+                    ))}
+                  </div>
+                ) : book.author ? (
                   <Link
                     to={`/authors/${book.author.id}`}
-                    className="text-base font-semibold text-teal-600 hover:text-teal-700 hover:underline"
+                    className="text-base font-semibold text-teal-600 dark:text-teal-400 hover:text-teal-700 hover:underline"
                   >
                     {book.author.name}
                   </Link>
@@ -857,8 +871,8 @@ export function BookDetail() {
       {/* ── Recomendación / Compra en Amazon (Afiliados Multiformato: Papel, Kindle, Audible) ── */}
       <AmazonAdSlot
         bookTitle={book.title}
-        authorName={book.author?.name}
-        searchQuery={`${book.title} ${book.author?.name || ''}`}
+        authorName={book.authors?.map((a: any) => a.name).join(', ') || book.author?.name}
+        searchQuery={`${book.title} ${book.authors?.map((a: any) => a.name).join(' ') || book.author?.name || ''}`}
         asin={book.isbn}
         variant="multiformat"
       />

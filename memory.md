@@ -66,7 +66,8 @@ Cualquier agente de IA o desarrollador que se incorpore a la base de código **D
 | **29** | **Preparación de producción** | COMPLETADA | Endurecimiento de seguridad (`SECURE_PROXY_SSL_HEADER`, cookies, CSP, HSTS), plantilla de producción `.env.production.example`, script preflight y guía integral `docs/deployment/production_readiness_guide.md`. |
 | **30** | **Escalabilidad** | COMPLETADA | Escalabilidad en 4 etapas: enrutamiento de 5 colas Celery (`default`, `books`, `ai`, `recommendations`, `emails`), tareas asíncronas de email, `PrimaryReplicaRouter` para PostgreSQL, upstream `django_cluster` en Nginx y guía técnica `scalability_and_performance_tuning.md`. |
 | **31** | **Monetización y Plataforma de Autores** | COMPLETADA | Tag de afiliación de Amazon configurable (`mybooksocial-21`), enlaces multiformato (papel, ebook, audiolibro) con disclosure legal transparente, plataforma de autores (`AuthorProfile`, `AuthorAnnouncement`, `/claim/`, `/dashboard/`), modelo base de suscripciones (`UserSubscription`) y neutralidad algorítmica garantizada. |
-| **32** | **Escalabilidad de recomendaciones** | **SIGUIENTE** | Evolución del pipeline (rules -> hybrid -> collaborative filtering -> semantic -> learning-to-rank). |
+| **32** | **Multi-autor, Muro Social y Recomendaciones** | COMPLETADA | Soporte de múltiples autores por libro (`Book.authors`), visualización integral de reseñas en el perfil de usuario, muro interactivo (`UserPost`, likes, comentarios, feed `POST_CREATED`) y ponderación de afinidad multi-autor en el motor híbrido. |
+| **33** | **Calidad avanzada** | **SIGUIENTE** | Contract tests, E2E y pruebas avanzadas de resiliencia. |
 
 ---
 
@@ -161,6 +162,13 @@ Cualquier agente de IA o desarrollador que se incorpore a la base de código **D
 
 ---
 
+### 4.21. Soporte Multi-autor, Reseñas en Perfil y Muro Social (Fase 32)
+- **Coexistencia Many-to-Many y ForeignKey en `Book`:** `Book.authors` (relación `all_books`) coexiste con `Book.author` (autor principal) para mantener compatibilidad total hacia atrás. En el `save()`, el autor principal se añade siempre a `authors`.
+- **Filtro de Reseñas por Usuario:** Tanto `/api/v1/reviews/?user=<id>` como `/api/v1/users/<id>/reviews/` permiten consultar las opiniones del lector, aplicando filtros de privacidad y bloqueos mutuos mediante `filter_visible_reviews`.
+- **Muro Social y Feed (`ActivityType.POST_CREATED`):** Las publicaciones en el muro (`UserPost`) se propagan al feed de actividades (`Activity`) de los seguidores para máxima interacción social comunitaria.
+
+---
+
 ## 5. Ubicación de Documentación Relevante
 
 - **Arquitectura y Rendimiento:** [docs/architecture/database_performance.md](file:///c:/Users/zaton/Desktop/Escritorio/proyectos/MyBookConnect/docs/architecture/database_performance.md)
@@ -183,6 +191,7 @@ Cualquier agente de IA o desarrollador que se incorpore a la base de código **D
 - **Preparación para Beta Abierta:** [docs/deployment/open_beta_readiness.md](file:///c:/Users/zaton/Desktop/Escritorio/proyectos/MyBookConnect/docs/deployment/open_beta_readiness.md)
 - **Guía de Preparación de Producción y Hardening:** [docs/deployment/production_readiness_guide.md](file:///c:/Users/zaton/Desktop/Escritorio/proyectos/MyBookConnect/docs/deployment/production_readiness_guide.md)
 - **Monetización y Plataforma de Autores:** [docs/business/monetization_and_author_platform.md](file:///c:/Users/zaton/Desktop/Escritorio/proyectos/MyBookConnect/docs/business/monetization_and_author_platform.md)
+- **Multi-autor, Reseñas en Perfil y Muro Social:** [docs/product/wall_posts_and_multiauthor_platform.md](file:///c:/Users/zaton/Desktop/Escritorio/proyectos/MyBookConnect/docs/product/wall_posts_and_multiauthor_platform.md)
 
 
 

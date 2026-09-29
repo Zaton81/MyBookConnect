@@ -57,7 +57,7 @@ class BookListCreateView(generics.ListCreateAPIView):
     permission_classes = (permissions.IsAuthenticatedOrReadOnly,)
 
     def get_queryset(self):
-        queryset = Book.objects.select_related('author').prefetch_related('categories')
+        queryset = Book.objects.select_related('author').prefetch_related('categories', 'authors')
         q = self.request.query_params.get('q') or self.request.query_params.get('search')
         if not q:
             return queryset
@@ -180,7 +180,7 @@ class BookDetailView(generics.RetrieveAPIView):
     Detecta automáticamente si falta portada, autor, sinopsis o categorías,
     disparando el enriquecimiento asíncrono para mantener el catálogo completo.
     """
-    queryset = Book.objects.select_related('author').prefetch_related('categories')
+    queryset = Book.objects.select_related('author').prefetch_related('categories', 'authors')
     serializer_class = BookSerializer
     permission_classes = (permissions.AllowAny,)
 
@@ -417,7 +417,7 @@ class ReviewListCreateView(generics.ListCreateAPIView):
 
         queryset = (
             Review.objects.select_related('user', 'book', 'book__author')
-            .prefetch_related('book__categories')
+            .prefetch_related('book__categories', 'book__authors')
             .annotate(
                 annotated_likes_count=Count('likes', distinct=True),
                 annotated_comments_count=Count('comments', filter=Q(comments__deleted_at__isnull=True), distinct=True),
@@ -428,6 +428,14 @@ class ReviewListCreateView(generics.ListCreateAPIView):
         book_id = self.request.query_params.get('book')
         if book_id:
             queryset = queryset.filter(book_id=book_id)
+
+        user_filter = self.kwargs.get('user_id') or self.request.query_params.get('user') or self.request.query_params.get('user_id')
+        if user_filter:
+            queryset = queryset.filter(user_id=user_filter)
+
+        username_filter = self.request.query_params.get('username')
+        if username_filter:
+            queryset = queryset.filter(user__username__iexact=username_filter.strip())
 
         user = self.request.user
         if user.is_authenticated:
