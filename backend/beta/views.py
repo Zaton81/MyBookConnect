@@ -33,11 +33,13 @@ class BetaFeedbackCreateView(generics.CreateAPIView):
         if not device_info:
             device_info = self.request.META.get('HTTP_USER_AGENT', '')[:255]
 
-        serializer.save(
+        feedback = serializer.save(
             user=self.request.user,
             page_url=page_url,
             device_info=device_info,
         )
+        from .alerts_service import BetaAlertsService
+        BetaAlertsService.process_feedback_submission(feedback)
 
 
 class BetaFeedbackAdminListView(generics.ListAPIView):
@@ -109,7 +111,9 @@ class SupportTicketCreateView(generics.CreateAPIView):
     throttle_classes = [UserRateThrottle]
 
     def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
+        ticket = serializer.save(user=self.request.user)
+        from .alerts_service import BetaAlertsService
+        BetaAlertsService.process_support_ticket_submission(ticket)
 
 
 class UserSupportTicketListView(generics.ListAPIView):
@@ -152,3 +156,26 @@ class AdminSupportTicketDetailView(generics.RetrieveUpdateAPIView):
     serializer_class = SupportTicketAdminSerializer
     permission_classes = [IsAdminUser]
     http_method_names = ['get', 'patch']
+
+
+class BetaCohortMetricsAdminView(APIView):
+    """
+    Telemetría agregada y métricas de activación de la cohorte beta para administradores (Fase 36).
+    """
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        from .metrics_service import BetaMetricsService
+        return Response(BetaMetricsService.get_cohort_summary_metrics(), status=status.HTTP_200_OK)
+
+
+class AdminBetaAlertsView(APIView):
+    """
+    Listado de alertas operativas e incidencias críticas sin resolver para el equipo de guardia (Fase 36).
+    """
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        from .alerts_service import BetaAlertsService
+        alerts = BetaAlertsService.get_active_alerts()
+        return Response({'count': len(alerts), 'alerts': alerts}, status=status.HTTP_200_OK)
