@@ -37,6 +37,11 @@ y este proyecto se adhiere a [Semantic Versioning 2.0.0](https://semver.org/lang
   - Suite de validación de Release Candidate (`test_phase34_release_candidate.py`).
   - Verificación automatizada de DoD y script de preflight.
   - Guía completa de congelación de código (*code freeze*) y despliegue de RC1 (`docs/deployment/release_candidate_guide.md`).
+- **Despliegue y Validación en Staging (Beta Cerrada) (Fase 35)**:
+  - Script de smoke testing automatizado de staging (`scripts/staging/smoke_test_staging.py` y `.sh`) validando sondas de liveness, readiness, versión, catálogo y códigos de invitación beta.
+  - Script de auditoría pre-despliegue de staging (`scripts/staging/preflight_staging.sh`) con validación de PostgreSQL, Redis, migraciones y Django deploy checks.
+  - Suite de pruebas de integración de ciclo de vida beta (`test_phase35_staging_validation.py`) para validación de invitaciones (`BetaInvitation`), feedback in-app (`BetaFeedback`) y soporte (`SupportTicket`).
+  - Guía operativa de despliegue en staging (`docs/deployment/staging_deployment_guide.md`).
 
 ---
 
