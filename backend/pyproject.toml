@@ -1,6 +1,6 @@
 [project]
 name = "mybookconnect"
-version = "1.0.0"
+version = "1.0.0-rc1"
 description = "MyBookConnect - Social Book Cataloging and Community Platform"
 
 [tool.ruff]

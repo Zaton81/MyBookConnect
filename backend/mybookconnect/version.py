@@ -4,7 +4,7 @@ Esquema: MAJOR.MINOR.PATCH[-PRERELEASE][+BUILD]
 """
 
 VERSION = (1, 0, 0)
-PRERELEASE = None  # ej. 'rc1', 'beta', etc.
+PRERELEASE = "rc1"  # Release Candidate 1
 API_VERSION = "v1"
 
 

@@ -13,6 +13,33 @@ y este proyecto se adhiere a [Semantic Versioning 2.0.0](https://semver.org/lang
 
 ---
 
+## [1.0.0-rc1] - 2026-09-30
+
+### Added
+- **Monetización Ética y Plataforma de Autores (Fase 31)**:
+  - Tag de afiliación de Amazon configurable (`AMAZON_AFFILIATE_TAG` con fallback `mybooksocial-21`).
+  - Enlaces multiformato transparentes (papel, Kindle ebook, Audible audiolibro) con aviso legal obligatorio y endpoint dedicado `/api/v1/books/<id>/affiliate-links/`.
+  - Plataforma de Autores: modelo `AuthorProfile`, comunicados oficiales (`AuthorAnnouncement`), solicitud de reclamo (`/claim/`) y panel de control (`/dashboard/`).
+  - Modelo base de suscripciones (`UserSubscription`) y neutralidad algorítmica garantizada en recomendaciones.
+- **Soporte Multi-autor, Muro Social y Reseñas en Perfil (Fase 32)**:
+  - Compatibilidad completa de múltiples autores por libro (`Book.authors` ManyToMany) manteniendo retrocompatibilidad transparente con `Book.author`.
+  - Pestaña de reseñas en el perfil de usuario con endpoints `/api/v1/reviews/?user=<id>` y `/api/v1/users/<id>/reviews/`.
+  - Muro interactivo de publicaciones (`UserPost`), comentarios sanitizados (`UserPostComment`), likes (`UserPostLike`) y actividad social `POST_CREATED` en el feed.
+  - Ponderación de afinidad multi-autor en el motor híbrido de recomendaciones.
+- **Calidad Avanzada y Prevención de N+1 (Fase 33)**:
+  - Validación formal de contratos OpenAPI 3.0 con `drf-spectacular` frente a modelos y respuestas reales.
+  - Flujo de integración continuo de extremo a extremo (E2E User Journey de 7 pasos).
+  - Guardrails de seguridad contra IDOR, inyecciones de script/XSS y revocación de tokens JWT en blacklist.
+  - Erradicación de consultas N+1 con complejidad estrictamente $O(1)$ en muro social, listado de reseñas y feed mediante optimización de prefetch cache y ciclo de vida de petición.
+  - Script reproducible de prueba de carga concurrente y SLAs (`scripts/load_testing/load_test_benchmark.py`).
+- **Consolidación y Release Candidate 1 (Fase 34)**:
+  - Sincronización formal de versión SemVer 2.0.0 `1.0.0-rc1` en backend y frontend.
+  - Suite de validación de Release Candidate (`test_phase34_release_candidate.py`).
+  - Verificación automatizada de DoD y script de preflight.
+  - Guía completa de congelación de código (*code freeze*) y despliegue de RC1 (`docs/deployment/release_candidate_guide.md`).
+
+---
+
 ## [1.0.0] - 2026-09-20
 
 ### Added

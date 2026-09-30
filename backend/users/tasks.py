@@ -4,6 +4,7 @@ Enrutadas a la cola dedicada 'emails' para evitar bloqueos en el hilo HTTP y ais
 los tiempos de respuesta de servidores SMTP externos.
 """
 import logging
+
 from celery import shared_task
 from django.conf import settings
 from django.core.mail import send_mail

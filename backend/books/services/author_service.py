@@ -268,6 +268,7 @@ class AuthorService:
         Genera el resumen de métricas e impacto de las obras del autor para su panel privado.
         """
         from django.db.models import Avg, Count
+
         from books.models import Book, Review, UserBook
 
         author = author_profile.author
@@ -355,6 +356,7 @@ class AuthorService:
     ):
         """Crea un comunicado oficial emitido por el autor."""
         from django.utils import timezone
+
         from books.models import AuthorAnnouncement, Book
 
         book = Book.objects.filter(id=book_id).first() if book_id else None

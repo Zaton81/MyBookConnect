@@ -5,9 +5,10 @@ con el identificador de afiliado configurado, cumpliendo con las directrices de 
 y no manipulación de recomendaciones.
 """
 import urllib.parse
-from django.conf import settings
-from books.models import AffiliateClick, Book
 
+from django.conf import settings
+
+from books.models import AffiliateClick, Book
 
 DISCLOSURE_TEXT = (
     "Enlace de afiliado: MyBookConnect puede recibir una comisión por compras "

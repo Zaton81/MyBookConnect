@@ -4,7 +4,9 @@ from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 from rest_framework.validators import UniqueValidator
 
+from books.models import Book
 from mybookconnect.html_sanitizer import sanitize_html, sanitize_plain_text
+from users.models import UserPost, UserPostComment
 
 User = get_user_model()
 
@@ -399,10 +401,6 @@ class EmailVerifyConfirmSerializer(serializers.Serializer):
 class GoogleOAuthSerializer(serializers.Serializer):
     """Serializador para autenticación social con credenciales de Google OAuth."""
     id_token = serializers.CharField(required=True, help_text="Token JWT provisto por Google Sign-In SDK")
-
-
-from books.models import Book
-from users.models import UserPost, UserPostComment
 
 
 class UserPostCommentSerializer(serializers.ModelSerializer):

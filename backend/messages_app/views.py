@@ -123,7 +123,7 @@ class MessageViewSet(
     def perform_create(self, serializer):
         from rest_framework.exceptions import PermissionDenied
 
-        from users.models import Notification, NotificationType
+        from users.models import NotificationType
         from users.policies import can_access_conversation, can_message
 
         if getattr(self.request.user, 'is_disciplinary_muted', False):
@@ -142,7 +142,6 @@ class MessageViewSet(
         msg = serializer.save(sender=self.request.user, conversation=conv, client_message_id=client_message_id)
 
         # Generar notificación para los demás participantes que no hayan silenciado al remitente
-        from users.models import NotificationType
         from users.notification_service import NotificationService
 
         for participant in conv.participants.exclude(id=self.request.user.id):

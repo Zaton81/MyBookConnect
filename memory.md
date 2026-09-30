@@ -68,7 +68,8 @@ Cualquier agente de IA o desarrollador que se incorpore a la base de código **D
 | **31** | **Monetización y Plataforma de Autores** | COMPLETADA | Tag de afiliación de Amazon configurable (`mybooksocial-21`), enlaces multiformato (papel, ebook, audiolibro) con disclosure legal transparente, plataforma de autores (`AuthorProfile`, `AuthorAnnouncement`, `/claim/`, `/dashboard/`), modelo base de suscripciones (`UserSubscription`) y neutralidad algorítmica garantizada. |
 | **32** | **Multi-autor, Muro Social y Recomendaciones** | COMPLETADA | Soporte de múltiples autores por libro (`Book.authors`), visualización integral de reseñas en el perfil de usuario, muro interactivo (`UserPost`, likes, comentarios, feed `POST_CREATED`) y ponderación de afinidad multi-autor en el motor híbrido. |
 | **33** | **Calidad avanzada** | COMPLETADA | Contratos OpenAPI 3.0 validados con `drf-spectacular`, flujo de integración E2E completo (registro a feed), suite de seguridad IDOR/XSS/JWT, erradicación de consultas N+1 con complejidad $O(1)$ en muro, reseñas y feed, y script de carga concurrente y SLAs (`load_test_benchmark.py`). |
-| **34** | **Consolidación y Release Candidate (RC1)** | **SIGUIENTE** | Preparación final de versión candidate para despliegue de beta cerrada. |
+| **34** | **Consolidación y Release Candidate (RC1)** | COMPLETADA | Versionado formal SemVer 2.0.0 (`1.0.0-rc1`) sincronizado en backend, frontend, CHANGELOG y scripts de release, suite de pruebas de release candidate (`test_phase34_release_candidate.py`, 6 tests pasando), sondas de salud `/health/live` y `/health/ready` operativas, 0 migraciones pendientes, OpenAPI 3.0 validado, y guía técnica `docs/deployment/release_candidate_guide.md`. |
+| **35** | **Despliegue y Validación en Staging (Beta Cerrada)** | **SIGUIENTE** | Ejecución de smoke testing en staging, provisión de secretos reales y apertura formal de invitaciones beta. |
 
 ---
 

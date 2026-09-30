@@ -98,6 +98,8 @@ from .unified_search_service import (
 
 __all__ = [
     # Funciones públicas principales
+    'AffiliateService',
+    'AuthorService',
     'UnifiedSearchEngine',
     'SearchResultItem',
     'unified_book_search',

@@ -13,9 +13,9 @@ from django.db import connection
 from django.db.models import Case, FloatField, IntegerField, Q, QuerySet, When
 from django.db.models.functions import Coalesce, Greatest
 
-from ai.embeddings import cosine_similarity, get_embedding_for_text
+from ai.embeddings import get_embedding_for_text
 from ai.services import semantic_search_books
-from books.models import Book, BookEmbedding, EmbeddingStatus
+from books.models import Book
 from books.services.embedding_service import search_books_by_embedding
 from books.services.import_service import import_multiple_by_title, import_single_by_query
 

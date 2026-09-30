@@ -1,8 +1,7 @@
 from rest_framework import serializers
+
 from .models import (
     BetaFeedback,
-    BetaFeedbackCategory,
-    BetaFeedbackStatus,
     BetaInvitation,
     SupportTicket,
 )
@@ -92,7 +91,7 @@ class VerifyBetaInvitationSerializer(serializers.Serializer):
         try:
             invitation = BetaInvitation.objects.get(code=cleaned)
         except BetaInvitation.DoesNotExist:
-            raise serializers.ValidationError("Código de invitación inválido o inexistente.")
+            raise serializers.ValidationError("Código de invitación inválido o inexistente.") from None
 
         if not invitation.is_valid():
             raise serializers.ValidationError("Este código de invitación ha expirado o ha alcanzado su límite de usos.")

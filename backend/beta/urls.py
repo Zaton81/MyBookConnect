@@ -1,14 +1,15 @@
 from django.urls import path
+
 from .views import (
+    AdminSupportTicketDetailView,
+    AdminSupportTicketListView,
     BetaFeedbackAdminDetailView,
     BetaFeedbackAdminListView,
     BetaFeedbackCreateView,
     BetaInvitationAdminView,
-    VerifyBetaInvitationView,
     SupportTicketCreateView,
     UserSupportTicketListView,
-    AdminSupportTicketListView,
-    AdminSupportTicketDetailView,
+    VerifyBetaInvitationView,
 )
 
 urlpatterns = [

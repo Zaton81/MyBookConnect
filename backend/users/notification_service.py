@@ -1,8 +1,8 @@
 import logging
-from typing import Any
 
-from django.core.mail import send_mail
 from django.conf import settings
+from django.core.mail import send_mail
+
 from .models import Notification, NotificationPreference, NotificationType
 from .privacy_service import PrivacyService
 

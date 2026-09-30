@@ -582,7 +582,7 @@ class ReviewLikeToggleView(APIView):
     def post(self, request, review_id):
         from rest_framework.exceptions import PermissionDenied
 
-        from users.models import Notification, NotificationType
+        from users.models import NotificationType
         from users.policies import can_view_review
 
         review = get_object_or_404(Review.objects.select_related('user', 'book'), id=review_id)
@@ -701,7 +701,7 @@ class ReviewCommentListCreateView(APIView):
         from rest_framework import status
         from rest_framework.exceptions import PermissionDenied
 
-        from users.models import Notification, NotificationType
+        from users.models import NotificationType
         from users.policies import can_view_review
 
         if not request.user.is_authenticated:
@@ -2079,15 +2079,15 @@ class AuthorProfileMeView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        from .services.author_service import AuthorService
         from .serializers import AuthorProfileSerializer
+        from .services.author_service import AuthorService
         profile = AuthorService.get_or_create_profile(request.user)
         serializer = AuthorProfileSerializer(profile, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def patch(self, request):
-        from .services.author_service import AuthorService
         from .serializers import AuthorProfileSerializer
+        from .services.author_service import AuthorService
         profile = AuthorService.get_or_create_profile(request.user)
         for field in ('pen_name', 'bio', 'website', 'twitter', 'instagram'):
             if field in request.data:
@@ -2111,8 +2111,8 @@ class AuthorClaimView(APIView):
         pen_name = request.data.get('pen_name', '')
         verification_notes = request.data.get('verification_notes', '')
 
-        from .services.author_service import AuthorService
         from .serializers import AuthorProfileSerializer
+        from .services.author_service import AuthorService
         try:
             profile = AuthorService.claim_author(
                 user=request.user,
@@ -2146,8 +2146,8 @@ class AuthorAnnouncementCreateView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
-        from .services.author_service import AuthorService
         from .serializers import AuthorAnnouncementSerializer
+        from .services.author_service import AuthorService
 
         profile = AuthorService.get_or_create_profile(request.user)
         title = request.data.get('title', '').strip()
@@ -2179,8 +2179,8 @@ class AuthorAnnouncementListView(APIView):
     permission_classes = [permissions.AllowAny]
 
     def get(self, request, pk):
-        from .services.author_service import AuthorService
         from .serializers import AuthorAnnouncementSerializer
+        from .services.author_service import AuthorService
 
         announcements = AuthorService.get_announcements_for_author(author_id=pk)
         serializer = AuthorAnnouncementSerializer(announcements, many=True, context={'request': request})

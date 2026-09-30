@@ -1,6 +1,7 @@
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
+from books.views import ReviewListCreateView
 from messages_app.views import ConversationViewSet, MessageViewSet
 
 from .account_views import (
@@ -60,8 +61,6 @@ from .views import (
 router = DefaultRouter()
 router.register(r'conversations', ConversationViewSet, basename='conversation')
 router.register(r'messages', MessageViewSet, basename='message')
-
-from books.views import ReviewListCreateView
 
 # Alias para /api/v1/auth/users/<id>/ (el mismo urls.py se incluye también en /api/v1/users/).
 user_action_patterns = [

@@ -9,6 +9,7 @@ from rest_framework.test import APIClient
 import mybookconnect
 from mybookconnect.version import (
     API_VERSION,
+    PRERELEASE,
     VERSION,
     __version__,
     get_version,
@@ -36,28 +37,28 @@ class TestPhase68Versioning:
         assert API_VERSION == "v1"
 
         # Formateo por defecto
-        assert get_version() == "1.0.0"
-        assert __version__ == "1.0.0"
+        assert get_version() == ("1.0.0-rc1" if PRERELEASE == "rc1" else "1.0.0")
+        assert __version__ == get_version()
 
         # Formateo personalizado
-        assert get_version((2, 5, 1)) == "2.5.1"
+        assert get_version((2, 5, 1)) == ("2.5.1-rc1" if PRERELEASE == "rc1" else "2.5.1")
 
         # Estructura del diccionario de metadatos
         info = get_version_info()
-        assert info["version"] == "1.0.0"
+        assert info["version"] == get_version()
         assert info["major"] == 1
         assert info["minor"] == 0
         assert info["patch"] == 0
-        assert info["prerelease"] is None
+        assert info["prerelease"] == PRERELEASE
         assert info["api_version"] == "v1"
         assert info["semver"] is True
 
     def test_version_exported_in_package_root(self):
         """Verifica que mybookconnect.__version__ esté disponible en la raíz del paquete."""
         assert hasattr(mybookconnect, "__version__")
-        assert mybookconnect.__version__ == "1.0.0"
+        assert mybookconnect.__version__ == get_version()
         assert hasattr(mybookconnect, "get_version")
-        assert mybookconnect.get_version() == "1.0.0"
+        assert mybookconnect.get_version() == get_version()
 
     def test_api_version_endpoint(self, api_client):
         """Verifica que GET /api/v1/version/ devuelva los metadatos de versión SemVer."""
@@ -65,7 +66,7 @@ class TestPhase68Versioning:
         assert response.status_code == status.HTTP_200_OK
 
         data = response.json()
-        assert data["version"] == "1.0.0"
+        assert data["version"] == get_version()
         assert data["major"] == 1
         assert data["minor"] == 0
         assert data["patch"] == 0
@@ -80,7 +81,7 @@ class TestPhase68Versioning:
         data = response.json()
         assert data["status"] == "healthy"
         assert data["process"] == "alive"
-        assert data["version"] == "1.0.0"
+        assert data["version"] == get_version()
 
     def test_pyproject_version_consistency(self):
         """Verifica que backend/pyproject.toml contenga la versión 1.0.0."""

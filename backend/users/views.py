@@ -1,3 +1,5 @@
+import logging
+
 from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.db.models import Count, Exists, OuterRef, Q
@@ -15,6 +17,7 @@ from . import policies
 from .serializers import UserBasicSerializer, UserCreateSerializer, UserSerializer
 from .throttles import FollowRateThrottle
 
+logger = logging.getLogger(__name__)
 User = get_user_model()
 
 
@@ -819,7 +822,7 @@ class UserSubscriptionView(APIView):
     permission_classes = (permissions.IsAuthenticated,)
 
     def get(self, request):
-        from .models import UserSubscription, SubscriptionTier
+        from .models import SubscriptionTier, UserSubscription
         sub, _ = UserSubscription.objects.get_or_create(user=request.user)
         return Response({
             'username': request.user.username,
@@ -836,7 +839,7 @@ class UserSubscriptionView(APIView):
         }, status=status.HTTP_200_OK)
 
     def post(self, request):
-        from .models import UserSubscription, SubscriptionTier
+        from .models import SubscriptionTier, UserSubscription
         sub, _ = UserSubscription.objects.get_or_create(user=request.user)
         target_tier = request.data.get('tier', SubscriptionTier.PREMIUM)
         if target_tier not in (SubscriptionTier.FREE, SubscriptionTier.PREMIUM):
@@ -885,7 +888,7 @@ class UserPostListCreateView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def post(self, request, user_id):
-        from .models import User, UserPost, Activity, ActivityType
+        from .models import Activity, ActivityType, User
         from .policies import PrivacyService
         from .serializers import UserPostSerializer
 

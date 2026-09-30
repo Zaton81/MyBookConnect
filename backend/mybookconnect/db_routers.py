@@ -4,6 +4,7 @@ Permite la segregación de lecturas y escrituras hacia réplicas de PostgreSQL
 manteniendo la consistencia y transaccionalidad con la base de datos primaria.
 """
 from typing import Any
+
 from django.conf import settings
 
 
