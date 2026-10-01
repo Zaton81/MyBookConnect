@@ -2,7 +2,9 @@
 Servicios modulares de importación, enriquecimiento y gestión de proveedores para libros y autores.
 """
 
+from .affiliate_service import AffiliateService
 from .author_service import (
+    AuthorService,
     maybe_enrich_author,
     maybe_enrich_author_from_openlibrary,
     maybe_enrich_author_from_wikidata,
@@ -96,6 +98,8 @@ from .unified_search_service import (
 
 __all__ = [
     # Funciones públicas principales
+    'AffiliateService',
+    'AuthorService',
     'UnifiedSearchEngine',
     'SearchResultItem',
     'unified_book_search',

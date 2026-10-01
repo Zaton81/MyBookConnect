@@ -209,7 +209,21 @@ export function Header() {
                           }`}
                         >
                           <div className="text-base flex-shrink-0 mt-0.5">
-                            {n.type === 'FOLLOW' ? '👤' : n.type === 'MESSAGE' ? '💬' : '📢'}
+                            {n.type === 'FOLLOW' || n.type === 'FOLLOW_ACCEPTED'
+                              ? '👤'
+                              : n.type === 'LIKE'
+                                ? '❤️'
+                                : n.type === 'COMMENT'
+                                  ? '💬'
+                                  : n.type === 'REPLY'
+                                    ? '↩️'
+                                    : n.type === 'LIST_FOLLOW'
+                                      ? '📚'
+                                      : n.type === 'RECOMMENDATION'
+                                        ? '✨'
+                                        : n.type === 'MESSAGE'
+                                          ? '✉️'
+                                          : '📢'}
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="font-semibold text-gray-900 dark:text-white truncate">
@@ -230,6 +244,15 @@ export function Header() {
                         </div>
                       ))
                     )}
+                  </div>
+                  <div className="p-2.5 bg-gray-50 dark:bg-slate-800 border-t border-gray-100 dark:border-gray-700 text-center">
+                    <Link
+                      to="/notifications"
+                      onClick={() => setIsNotifOpen(false)}
+                      className="text-xs font-semibold text-teal-600 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-300 hover:underline"
+                    >
+                      Ver todas las notificaciones →
+                    </Link>
                   </div>
                 </div>
               )}

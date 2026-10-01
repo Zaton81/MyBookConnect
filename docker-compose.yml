@@ -21,6 +21,7 @@ services:
       - ./.github:/app/.github:ro
       - ./docker-compose.prod.yml:/repo/docker-compose.prod.yml:ro
       - ./frontend/nginx.conf:/repo/frontend_nginx.conf:ro
+      - ./.env.production.example:/repo/.env.production.example:ro
 
   celery_worker:
     build:

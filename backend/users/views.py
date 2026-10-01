@@ -1,3 +1,5 @@
+import logging
+
 from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.db.models import Count, Exists, OuterRef, Q
@@ -15,6 +17,7 @@ from . import policies
 from .serializers import UserBasicSerializer, UserCreateSerializer, UserSerializer
 from .throttles import FollowRateThrottle
 
+logger = logging.getLogger(__name__)
 User = get_user_model()
 
 
@@ -156,12 +159,13 @@ class FollowUserView(APIView):
             request.user.following.add(user_to_follow)
 
             from .activity_service import record_activity
-            from .models import ActivityType, Notification, NotificationType
+            from .models import ActivityType, NotificationType
+            from .notification_service import NotificationService
 
-            Notification.objects.create(
+            NotificationService.send_notification(
                 recipient=user_to_follow,
                 actor=request.user,
-                type=NotificationType.FOLLOW,
+                notif_type=NotificationType.FOLLOW,
                 title='Nuevo seguidor',
                 message=f'{request.user.username} ha comenzado a seguirte.',
                 link=f'/users/{request.user.id}',
@@ -513,6 +517,9 @@ class NotificationListView(generics.ListCreateAPIView):
         unread_only = self.request.query_params.get('unread') in ('1', 'true', 'True')
         if unread_only:
             queryset = queryset.filter(read=False)
+        notif_type = self.request.query_params.get('type')
+        if notif_type:
+            queryset = queryset.filter(type=notif_type.upper().strip())
         return queryset
 
     @idempotent(required=False)
@@ -522,6 +529,76 @@ class NotificationListView(generics.ListCreateAPIView):
 
 
 NotificationCreateView = NotificationListView
+
+
+class NotificationDetailView(APIView):
+    """Permite consultar o eliminar una notificación individual."""
+    permission_classes = (permissions.IsAuthenticated,)
+
+    @extend_schema(
+        summary="Eliminar notificación individual",
+        responses={204: None, 404: OpenApiResponse(description="Notificación no encontrada")},
+        tags=['Notifications'],
+    )
+    def delete(self, request, notification_id):
+        from .models import Notification
+        notif = get_object_or_404(Notification, id=notification_id, recipient=request.user)
+        with transaction.atomic():
+            notif.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class NotificationClearReadView(APIView):
+    """Elimina en bloque todas las notificaciones ya leídas del usuario."""
+    permission_classes = (permissions.IsAuthenticated,)
+
+    @extend_schema(
+        summary="Eliminar notificaciones leídas",
+        responses={
+            200: inline_serializer(
+                name='NotificationClearReadResponse',
+                fields={'status': serializers.CharField(), 'deleted_count': serializers.IntegerField()},
+            ),
+        },
+        tags=['Notifications'],
+    )
+    def post(self, request):
+        from .models import Notification
+        with transaction.atomic():
+            deleted_count, _ = Notification.objects.filter(recipient=request.user, read=True).delete()
+        return Response({'status': 'cleared_read', 'deleted_count': deleted_count}, status=status.HTTP_200_OK)
+
+
+class NotificationPreferenceView(APIView):
+    """Consulta y actualiza las preferencias de notificación del usuario (Fase 23)."""
+    permission_classes = (permissions.IsAuthenticated,)
+
+    @extend_schema(
+        summary="Obtener preferencias de notificación",
+        responses={200: 'NotificationPreferenceSerializer'},
+        tags=['Notifications'],
+    )
+    def get(self, request):
+        from .notification_service import NotificationService
+        from .serializers import NotificationPreferenceSerializer
+        prefs = NotificationService.get_or_create_preferences(request.user)
+        serializer = NotificationPreferenceSerializer(prefs)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @extend_schema(
+        summary="Actualizar preferencias de notificación",
+        request='NotificationPreferenceSerializer',
+        responses={200: 'NotificationPreferenceSerializer'},
+        tags=['Notifications'],
+    )
+    def patch(self, request):
+        from .notification_service import NotificationService
+        from .serializers import NotificationPreferenceSerializer
+        prefs = NotificationService.get_or_create_preferences(request.user)
+        serializer = NotificationPreferenceSerializer(prefs, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 class NotificationMarkReadView(APIView):
@@ -736,6 +813,194 @@ class FeedActivityUnhideView(APIView):
             {'detail': 'Actividad restaurada en tu feed.', 'hidden': False},
             status=status.HTTP_200_OK,
         )
+
+
+class UserSubscriptionView(APIView):
+    """
+    Gestión del estado de suscripción Premium / Mecenazgo del usuario (Fase 31).
+    """
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get(self, request):
+        from .models import SubscriptionTier, UserSubscription
+        sub, _ = UserSubscription.objects.get_or_create(user=request.user)
+        return Response({
+            'username': request.user.username,
+            'tier': sub.tier,
+            'is_active': sub.is_active,
+            'is_premium': sub.tier == SubscriptionTier.PREMIUM and sub.is_active,
+            'created_at': sub.created_at.isoformat() if sub.created_at else None,
+            'expires_at': sub.expires_at.isoformat() if sub.expires_at else None,
+            'features': {
+                'advanced_reading_stats': True,
+                'patron_badge': sub.tier == SubscriptionTier.PREMIUM,
+                'priority_author_tools': sub.tier == SubscriptionTier.PREMIUM,
+            }
+        }, status=status.HTTP_200_OK)
+
+    def post(self, request):
+        from .models import SubscriptionTier, UserSubscription
+        sub, _ = UserSubscription.objects.get_or_create(user=request.user)
+        target_tier = request.data.get('tier', SubscriptionTier.PREMIUM)
+        if target_tier not in (SubscriptionTier.FREE, SubscriptionTier.PREMIUM):
+            target_tier = SubscriptionTier.PREMIUM
+        sub.tier = target_tier
+        sub.is_active = True
+        sub.save()
+        return Response({
+            'detail': f'Suscripción actualizada a {sub.tier}',
+            'tier': sub.tier,
+            'is_active': sub.is_active,
+            'is_premium': sub.tier == SubscriptionTier.PREMIUM,
+        }, status=status.HTTP_200_OK)
+
+
+# ─── Muro Social y Publicaciones de Usuario ───
+
+class UserPostListCreateView(APIView):
+    """
+    Muro social de usuario: lista publicaciones recibidas o crea una nueva.
+    """
+    def get_permissions(self):
+        if self.request.method == 'POST':
+            return [permissions.IsAuthenticated()]
+        return [permissions.AllowAny()]
+
+    def get(self, request, user_id):
+        from .models import User, UserPost
+        from .policies import PrivacyService
+
+        target_user = get_object_or_404(User, id=user_id, deleted_at__isnull=True)
+        if request.user.is_authenticated and PrivacyService.are_mutually_blocked(request.user, target_user):
+            return Response({'detail': 'Usuario no encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if not PrivacyService.can_view_profile(request.user, target_user):
+            return Response({'detail': 'Este perfil es privado.'}, status=status.HTTP_403_FORBIDDEN)
+
+        posts = (
+            UserPost.objects.filter(target_user=target_user)
+            .select_related('author', 'target_user', 'book', 'book__author')
+            .prefetch_related('likes', 'comments__user', 'book__authors')
+            .order_by('-is_pinned', '-created_at')
+        )
+        from .serializers import UserPostSerializer
+        serializer = UserPostSerializer(posts, many=True, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def post(self, request, user_id):
+        from .models import Activity, ActivityType, User
+        from .policies import PrivacyService
+        from .serializers import UserPostSerializer
+
+        if getattr(request.user, 'is_disciplinary_muted', False):
+            return Response(
+                {'detail': f"Tu cuenta se encuentra silenciada temporalmente por moderación hasta {request.user.muted_until}."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        target_user = get_object_or_404(User, id=user_id, deleted_at__isnull=True)
+        if PrivacyService.are_mutually_blocked(request.user, target_user):
+            return Response({'detail': 'No puedes publicar en este muro.'}, status=status.HTTP_403_FORBIDDEN)
+
+        if not PrivacyService.can_view_profile(request.user, target_user) and request.user.id != target_user.id:
+            return Response({'detail': 'No puedes publicar en un perfil privado.'}, status=status.HTTP_403_FORBIDDEN)
+
+        serializer = UserPostSerializer(data=request.data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        post = serializer.save(author=request.user, target_user=target_user)
+
+        # Generar actividad social para el feed global
+        try:
+            Activity.objects.create(
+                user=request.user,
+                type=ActivityType.POST_CREATED,
+                post=post,
+                book=post.book,
+                target_user=target_user,
+            )
+        except Exception as exc:
+            logger.warning("No se pudo registrar Activity para UserPost #%s: %s", post.id, exc)
+
+        return Response(UserPostSerializer(post, context={'request': request}).data, status=status.HTTP_201_CREATED)
+
+
+class UserPostDetailDeleteView(APIView):
+    """
+    Elimina una publicación del muro (permitido al autor del post o al dueño del muro).
+    """
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def delete(self, request, pk):
+        from .models import UserPost
+        post = get_object_or_404(UserPost, pk=pk)
+        if request.user.id not in (post.author_id, post.target_user_id) and not request.user.is_staff:
+            return Response({'detail': 'No tienes permiso para eliminar esta publicación.'}, status=status.HTTP_403_FORBIDDEN)
+
+        post.delete()
+        return Response({'detail': 'Publicación eliminada correctamente.'}, status=status.HTTP_204_NO_CONTENT)
+
+
+class UserPostLikeToggleView(APIView):
+    """
+    Alterna el me gusta (like/unlike) en una publicación del muro.
+    """
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def post(self, request, pk):
+        from .models import UserPost, UserPostLike
+        post = get_object_or_404(UserPost, pk=pk)
+
+        like_obj = UserPostLike.objects.filter(post=post, user=request.user).first()
+        if like_obj:
+            like_obj.delete()
+            post.likes_count = max(0, post.likes_count - 1)
+            post.save(update_fields=['likes_count'])
+            return Response({'liked': False, 'likes_count': post.likes_count}, status=status.HTTP_200_OK)
+        else:
+            UserPostLike.objects.create(post=post, user=request.user)
+            post.likes_count = post.likes_count + 1
+            post.save(update_fields=['likes_count'])
+            return Response({'liked': True, 'likes_count': post.likes_count}, status=status.HTTP_200_OK)
+
+
+class UserPostCommentListCreateView(APIView):
+    """
+    Listado y adición de comentarios en una publicación del muro.
+    """
+    def get_permissions(self):
+        if self.request.method == 'POST':
+            return [permissions.IsAuthenticated()]
+        return [permissions.AllowAny()]
+
+    def get(self, request, pk):
+        from .models import UserPost, UserPostComment
+        from .serializers import UserPostCommentSerializer
+
+        post = get_object_or_404(UserPost, pk=pk)
+        comments = UserPostComment.objects.filter(post=post).select_related('user').order_by('created_at')
+        serializer = UserPostCommentSerializer(comments, many=True, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def post(self, request, pk):
+        from .models import UserPost
+        from .serializers import UserPostCommentSerializer
+
+        if getattr(request.user, 'is_disciplinary_muted', False):
+            return Response(
+                {'detail': f"Tu cuenta se encuentra silenciada temporalmente por moderación hasta {request.user.muted_until}."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        post = get_object_or_404(UserPost, pk=pk)
+        serializer = UserPostCommentSerializer(data=request.data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        comment = serializer.save(post=post, user=request.user)
+
+        post.comments_count = post.comments.count()
+        post.save(update_fields=['comments_count'])
+
+        return Response(UserPostCommentSerializer(comment, context={'request': request}).data, status=status.HTTP_201_CREATED)
+
 
 
 

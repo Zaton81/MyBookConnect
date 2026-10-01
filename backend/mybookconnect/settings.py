@@ -49,6 +49,8 @@ INSTALLED_APPS = [
     'books',
     'messages_app.apps.MessagesConfig',
     'ai.apps.AIConfig',
+    'analytics.apps.AnalyticsConfig',
+    'beta.apps.BetaConfig',
 ]
 
 AUTH_USER_MODEL = 'users.User'
@@ -108,6 +110,9 @@ DATABASES = {
         'CONN_MAX_AGE': 60,
     }
 }
+
+# ─── Enrutador de Base de Datos para Escalado con Réplicas de Lectura (Fase 30) ───
+DATABASE_ROUTERS = ['mybookconnect.db_routers.PrimaryReplicaRouter']
 
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -255,7 +260,12 @@ EMAIL_BACKEND = os.getenv(
 )
 REQUIRE_EMAIL_VERIFICATION = _env_bool('REQUIRE_EMAIL_VERIFICATION', '0' if DEBUG else '1')
 
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = 'Lax'
+CSRF_COOKIE_SAMESITE = 'Lax'
+
 if not DEBUG:
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
     SECURE_SSL_REDIRECT = _env_bool('SECURE_SSL_REDIRECT', '0')
     SESSION_COOKIE_SECURE = _env_bool('SESSION_COOKIE_SECURE', '1')
     CSRF_COOKIE_SECURE = _env_bool('CSRF_COOKIE_SECURE', '1')
@@ -263,6 +273,8 @@ if not DEBUG:
     SECURE_HSTS_INCLUDE_SUBDOMAINS = _env_bool('SECURE_HSTS_INCLUDE_SUBDOMAINS', '1')
     SECURE_HSTS_PRELOAD = _env_bool('SECURE_HSTS_PRELOAD', '1')
 else:
+    if _env_bool('USE_X_FORWARDED_PROTO', '0'):
+        SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
     SECURE_SSL_REDIRECT = False
     SESSION_COOKIE_SECURE = False
     CSRF_COOKIE_SECURE = False
@@ -295,6 +307,54 @@ CELERY_TIMEZONE = TIME_ZONE
 CELERY_TASK_TRACK_STARTED = True
 CELERY_TASK_TIME_LIMIT = 30 * 60
 CELERY_TASK_ALWAYS_EAGER = os.getenv('CELERY_TASK_ALWAYS_EAGER', 'false').lower() in ('true', '1', 'yes')
+
+# ─── Colas Especializadas Celery (Fase 30 — Escalabilidad) ───
+CELERY_TASK_QUEUES = {
+    'default': {
+        'exchange': 'default',
+        'routing_key': 'default',
+    },
+    'books': {
+        'exchange': 'books',
+        'routing_key': 'books',
+    },
+    'ai': {
+        'exchange': 'ai',
+        'routing_key': 'ai',
+    },
+    'recommendations': {
+        'exchange': 'recommendations',
+        'routing_key': 'recommendations',
+    },
+    'emails': {
+        'exchange': 'emails',
+        'routing_key': 'emails',
+    },
+}
+CELERY_TASK_DEFAULT_QUEUE = 'default'
+CELERY_TASK_ROUTES = {
+    # Cola 'books': operaciones de catálogo y sincronización
+    'books.tasks.enrich_book_task': {'queue': 'books'},
+    'books.tasks.download_cover_task': {'queue': 'books'},
+    'books.tasks.refresh_author_task': {'queue': 'books'},
+    'books.tasks.recalculate_book_rating_task': {'queue': 'books'},
+    'books.tasks.import_books_by_author_task': {'queue': 'books'},
+
+    # Cola 'ai': tareas pesadas de IA y embeddings vectoriales
+    'books.tasks.generate_book_embedding_task': {'queue': 'ai'},
+    'books.tasks.batch_reindex_embeddings_task': {'queue': 'ai'},
+
+    # Cola 'recommendations': precomputación de tendencias y recomendaciones personalizadas
+    'books.tasks.precompute_trending_task': {'queue': 'recommendations'},
+    'books.tasks.precompute_user_recommendations_task': {'queue': 'recommendations'},
+
+    # Cola 'emails': envío desacoplado de correos transaccionales y notificaciones
+    'users.tasks.send_transactional_email_task': {'queue': 'emails'},
+    'users.tasks.send_notification_email_task': {'queue': 'emails'},
+
+    # Cola 'default': telemetría, analytics y eventos generales
+    'analytics.tasks.record_analytics_event_task': {'queue': 'default'},
+}
 
 # ─── Configuración de Caché Redis ───
 CACHES = {
@@ -356,4 +416,13 @@ AI_TIMEOUT = int(os.environ.get('AI_TIMEOUT', '15'))
 AI_RATE_LIMIT_PER_MINUTE = int(os.environ.get('AI_RATE_LIMIT_PER_MINUTE', '20'))
 AI_RATE_LIMIT_PER_HOUR = int(os.environ.get('AI_RATE_LIMIT_PER_HOUR', '100'))
 AI_RATE_LIMIT_PER_DAY = int(os.environ.get('AI_RATE_LIMIT_PER_DAY', '500'))
+
+# ─── Monetización y Afiliados (Fase 31 — RoadmapV2) ───
+AMAZON_AFFILIATE_TAG = os.getenv('AMAZON_AFFILIATE_TAG', 'mybooksocial-21')
+AMAZON_AFFILIATE_BASE_URL = os.getenv('AMAZON_AFFILIATE_BASE_URL', 'https://www.amazon.es/dp/')
+AMAZON_AFFILIATE_SEARCH_URL = os.getenv('AMAZON_AFFILIATE_SEARCH_URL', 'https://www.amazon.es/s')
+
+# ─── Configuración Beta Pública y Adopción (Fase 37) ───
+PUBLIC_REGISTRATION_ENABLED = os.getenv('PUBLIC_REGISTRATION_ENABLED', 'true').lower() in ('true', '1', 'yes')
+REQUIRE_BETA_INVITATION = os.getenv('REQUIRE_BETA_INVITATION', 'false').lower() in ('true', '1', 'yes')
 

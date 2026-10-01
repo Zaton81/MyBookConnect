@@ -16,8 +16,8 @@ export interface AIAssistantModalProps {
 
 const PROMPT_SUGGESTIONS = [
   '¿Qué libro me recomiendas según mi historial?',
-  'Recomiéndame novelas cortas y adictivas',
-  '¿Qué leer si me encantó Cien Años de Soledad?',
+  'Explícame el contexto histórico y claves de lectura',
+  'Compara dos obras destacadas de este autor o género',
   'Novelas de misterio con giros inesperados',
 ];
 
@@ -157,6 +157,9 @@ export function AIAssistantModal({
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-lg font-bold">BookAI Assistant</h3>
+                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-white/20 text-teal-100 border border-white/20">
+                  ✨ Generado por IA
+                </span>
                 <span
                   className={`text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full ${
                     isAiOnline
@@ -164,7 +167,7 @@ export function AIAssistantModal({
                       : 'bg-amber-400/30 text-amber-100 border border-amber-300/40'
                   }`}
                 >
-                  {isAiOnline ? 'Neuronal Online' : 'Modo Asistido'}
+                  {isAiOnline ? 'Online' : 'Reglas'}
                 </span>
               </div>
               <p className="text-xs text-white/80">
@@ -268,6 +271,13 @@ export function AIAssistantModal({
               Enviar
             </Button>
           </form>
+          <p className="text-[10px] text-gray-500 dark:text-gray-400 text-center mt-2 flex items-center justify-center gap-1">
+            <span>ℹ️</span>
+            <span>
+              BookAI es una inteligencia artificial literaria. Las respuestas son orientativas y
+              pueden contener interpretaciones subjetivas.
+            </span>
+          </p>
         </div>
       </div>
     </Modal>

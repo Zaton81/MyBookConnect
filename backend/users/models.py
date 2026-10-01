@@ -30,6 +30,13 @@ class UserRole(models.TextChoices):
     ADMIN = 'ADMIN', 'Administrador'
 
 
+class AccountType(models.TextChoices):
+    """Modos de cuenta en la comunidad: Lector, Escritor/Autor, o Ambos."""
+    READER = 'reader', 'Lector'
+    AUTHOR = 'author', 'Escritor / Autor'
+    BOTH = 'both', 'Lector y Escritor'
+
+
 class User(AbstractUser):
     bio = models.TextField(max_length=500, blank=True)
     avatar = models.ImageField(
@@ -61,6 +68,14 @@ class User(AbstractUser):
         db_index=True,
         help_text="Jerarquía y rol del usuario (USER, EDITOR, MODERATOR, ADMIN)",
     )
+    account_type = models.CharField(
+        max_length=20,
+        choices=AccountType.choices,
+        default=AccountType.READER,
+        db_index=True,
+        help_text="Modalidad de cuenta en la plataforma: lector, escritor/autor o ambos.",
+    )
+
 
     birth_date = models.DateField(null=True, blank=True,
         validators=[MinValueValidator(limit_value=date(1900, 1, 1))])
@@ -138,6 +153,11 @@ class User(AbstractUser):
         return self.role in (UserRole.MODERATOR, UserRole.ADMIN) or self.is_staff or self.is_superuser
 
     @property
+    def is_author(self) -> bool:
+        """Determina si el usuario está registrado o configurado con modalidad de escritor/autor."""
+        return self.account_type in (AccountType.AUTHOR, AccountType.BOTH)
+
+    @property
     def is_editor_user(self) -> bool:
         """Determina si el usuario tiene privilegios editoriales o superiores."""
         return self.is_editor or self.role in (UserRole.EDITOR, UserRole.MODERATOR, UserRole.ADMIN) or self.is_staff or self.is_superuser
@@ -169,11 +189,48 @@ class User(AbstractUser):
 
 class NotificationType(models.TextChoices):
     FOLLOW = 'FOLLOW', 'Nuevo seguidor'
+    FOLLOW_ACCEPTED = 'FOLLOW_ACCEPTED', 'Solicitud de seguimiento aceptada'
     MESSAGE = 'MESSAGE', 'Nuevo mensaje'
     REVIEW = 'REVIEW', 'Nueva reseña'
     LIKE = 'LIKE', 'Me gusta en reseña'
-    COMMENT = 'COMMENT', 'Comentario en reseña'
+    COMMENT = 'COMMENT', 'Comentario'
+    REPLY = 'REPLY', 'Respuesta a comentario'
+    LIST_FOLLOW = 'LIST_FOLLOW', 'Interacción en lista social'
+    RECOMMENDATION = 'RECOMMENDATION', 'Nueva recomendación'
     SYSTEM = 'SYSTEM', 'Sistema'
+
+
+class NotificationPreference(models.Model):
+    user = models.OneToOneField(User, related_name='notification_preferences', on_delete=models.CASCADE)
+
+    # Preferencias In-App
+    in_app_follow = models.BooleanField(default=True)
+    in_app_follow_accepted = models.BooleanField(default=True)
+    in_app_like = models.BooleanField(default=True)
+    in_app_comment = models.BooleanField(default=True)
+    in_app_reply = models.BooleanField(default=True)
+    in_app_list = models.BooleanField(default=True)
+    in_app_message = models.BooleanField(default=True)
+    in_app_recommendation = models.BooleanField(default=True)
+
+    # Preferencias Email
+    email_follow = models.BooleanField(default=False)
+    email_follow_accepted = models.BooleanField(default=False)
+    email_like = models.BooleanField(default=False)
+    email_comment = models.BooleanField(default=True)
+    email_reply = models.BooleanField(default=True)
+    email_list = models.BooleanField(default=False)
+    email_message = models.BooleanField(default=True)
+    email_recommendation = models.BooleanField(default=True)
+
+    # Preferencia Push (diseño preparado para PWA / Web Push futuro)
+    push_enabled = models.BooleanField(default=False)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Preferencias de notificaciones de {self.user.username}"
 
 
 class Notification(models.Model):
@@ -207,6 +264,63 @@ class ActivityType(models.TextChoices):
     LIST_CREATED = 'LIST_CREATED', 'Creó una lista'
     REVIEW_LIKED = 'REVIEW_LIKED', 'Le gustó una reseña'
     COMMENT_ADDED = 'COMMENT_ADDED', 'Comentó en una reseña'
+    POST_CREATED = 'POST_CREATED', 'Publicó en el muro'
+
+
+class UserPost(models.Model):
+    """Publicación en el muro social del usuario."""
+    author = models.ForeignKey(User, related_name='wall_posts_authored', on_delete=models.CASCADE)
+    target_user = models.ForeignKey(User, related_name='wall_posts', on_delete=models.CASCADE)
+    content = models.TextField(help_text="Contenido de la publicación en el muro (máx 2000 caracteres)")
+    book = models.ForeignKey('books.Book', null=True, blank=True, on_delete=models.SET_NULL, related_name='wall_posts')
+    likes_count = models.PositiveIntegerField(default=0)
+    comments_count = models.PositiveIntegerField(default=0)
+    is_pinned = models.BooleanField(default=False)
+    created_at = models.DateTimeField(default=timezone.now, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-is_pinned', '-created_at']
+        indexes = [
+            models.Index(fields=['target_user', '-created_at'], name='idx_post_target_created'),
+            models.Index(fields=['author', '-created_at'], name='idx_post_author_created'),
+        ]
+
+    def __str__(self):
+        return f"Post #{self.pk} de @{self.author.username} en muro de @{self.target_user.username}"
+
+
+class UserPostLike(models.Model):
+    post = models.ForeignKey(UserPost, on_delete=models.CASCADE, related_name='likes')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='post_likes')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['post', 'user'], name='unique_user_post_like'),
+        ]
+        indexes = [
+            models.Index(fields=['post', 'user'], name='idx_post_like_user'),
+        ]
+
+    def __str__(self):
+        return f"@{self.user.username} liked post #{self.post_id}"
+
+
+class UserPostComment(models.Model):
+    post = models.ForeignKey(UserPost, on_delete=models.CASCADE, related_name='comments')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='post_comments')
+    text = models.TextField(max_length=1000)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['created_at']
+        indexes = [
+            models.Index(fields=['post', 'created_at'], name='idx_post_comment_created'),
+        ]
+
+    def __str__(self):
+        return f"Comentario de @{self.user.username} en post #{self.post_id}"
 
 
 class Activity(models.Model):
@@ -214,6 +328,7 @@ class Activity(models.Model):
     type = models.CharField(max_length=30, choices=ActivityType.choices, db_index=True)
     book = models.ForeignKey('books.Book', null=True, blank=True, on_delete=models.CASCADE, related_name='activities')
     review = models.ForeignKey('books.Review', null=True, blank=True, on_delete=models.CASCADE, related_name='activities')
+    post = models.ForeignKey(UserPost, null=True, blank=True, on_delete=models.CASCADE, related_name='activities')
     target_user = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE, related_name='target_activities')
     metadata = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
@@ -446,4 +561,43 @@ class AuditLog(models.Model):
     def __str__(self):
         actor_name = self.actor.username if self.actor else "Sistema"
         return f"[{self.created_at:%Y-%m-%d %H:%M:%S}] {actor_name} -> {self.action} ({self.target_repr})"
+
+
+# ==============================================================================
+# Base de Suscripción Premium y Mecenazgo (Fase 31 — RoadmapV2)
+# ==============================================================================
+
+class SubscriptionTier(models.TextChoices):
+    FREE = 'free', 'Gratuito'
+    PREMIUM = 'premium', 'Premium / Mecenas'
+
+
+class UserSubscription(models.Model):
+    """
+    Suscripción de usuario para soporte de mecenazgo y funciones premium avanzadas (Fase 31).
+    Garantiza que el núcleo de la red social sea 100% gratuito.
+    """
+    user = models.OneToOneField(
+        'users.User',
+        on_delete=models.CASCADE,
+        related_name='subscription',
+        verbose_name='Usuario',
+    )
+    tier = models.CharField(
+        max_length=20,
+        choices=SubscriptionTier.choices,
+        default=SubscriptionTier.FREE,
+        db_index=True,
+        verbose_name='Nivel de suscripción',
+    )
+    is_active = models.BooleanField(default=True, verbose_name='Activa')
+    created_at = models.DateTimeField(default=timezone.now, verbose_name='Fecha de inicio')
+    expires_at = models.DateTimeField(null=True, blank=True, verbose_name='Fecha de vencimiento')
+
+    class Meta:
+        verbose_name = 'Suscripción de Usuario'
+        verbose_name_plural = 'Suscripciones de Usuarios'
+
+    def __str__(self) -> str:
+        return f"{self.user.username} - Tier: {self.tier} ({'Activo' if self.is_active else 'Inactivo'})"
 

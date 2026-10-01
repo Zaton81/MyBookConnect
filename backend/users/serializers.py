@@ -4,7 +4,9 @@ from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 from rest_framework.validators import UniqueValidator
 
+from books.models import Book
 from mybookconnect.html_sanitizer import sanitize_html, sanitize_plain_text
+from users.models import UserPost, UserPostComment
 
 User = get_user_model()
 
@@ -36,6 +38,7 @@ class UserSerializer(serializers.ModelSerializer):
     am_i_blocked = serializers.SerializerMethodField()
     is_muted = serializers.SerializerMethodField()
     is_disciplinary_muted = serializers.SerializerMethodField()
+    is_author = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -45,11 +48,28 @@ class UserSerializer(serializers.ModelSerializer):
             'reading_privacy_level', 'activity_privacy_level', 'allow_messages_from',
             'show_email', 'show_birth_date', 'show_location', 'show_bio',
             'following', 'followers', 'is_editor', 'is_staff', 'is_superuser', 'role',
+            'account_type', 'is_author',
             'reviews_count', 'books_read_count', 'following_count', 'followers_count',
             'is_following', 'is_blocked', 'am_i_blocked', 'is_muted', 'is_disciplinary_muted', 'muted_until',
             'onboarding_completed', 'favorite_categories',
         )
-        read_only_fields = ('id', 'followers', 'is_editor', 'is_staff', 'is_superuser', 'role', 'is_email_verified', 'muted_until')
+        read_only_fields = ('id', 'followers', 'is_editor', 'is_staff', 'is_superuser', 'role', 'is_email_verified', 'muted_until', 'is_author')
+
+    @extend_schema_field(serializers.BooleanField)
+    def get_is_author(self, obj):
+        return getattr(obj, 'account_type', 'reader') in ('author', 'both')
+
+    def update(self, instance, validated_data):
+        account_type = validated_data.get('account_type')
+        user = super().update(instance, validated_data)
+        if account_type in ('author', 'both') or instance.account_type in ('author', 'both'):
+            try:
+                from books.models import AuthorProfile
+                AuthorProfile.objects.get_or_create(user=user)
+            except Exception:
+                pass
+        return user
+
 
     def validate_avatar(self, value):
         """
@@ -181,14 +201,53 @@ class UserSerializer(serializers.ModelSerializer):
 class UserCreateSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=True, validators=[validate_password])
     password2 = serializers.CharField(write_only=True, required=True)
+    invitation_code = serializers.CharField(
+        write_only=True,
+        required=False,
+        allow_blank=True,
+        default='',
+        help_text="Código de invitación opcional o requerido según la fase de la beta."
+    )
+    account_type = serializers.ChoiceField(
+        choices=[('reader', 'Lector'), ('author', 'Escritor / Autor'), ('both', 'Lector y Escritor')],
+        default='reader',
+        required=False,
+        help_text="Modalidad de cuenta en la plataforma: lector, escritor/autor o ambos."
+    )
 
     class Meta:
         model = User
-        fields = ('username', 'password', 'password2', 'email', 'bio', 'first_name', 'last_name')
+        fields = ('username', 'password', 'password2', 'email', 'bio', 'first_name', 'last_name', 'invitation_code', 'account_type')
 
     email = serializers.EmailField(required=True, validators=[UniqueValidator(queryset=User.objects.all())])
 
     def validate(self, attrs):
+        from django.conf import settings
+
+        # Control de acceso a la Beta / Registro Público (Fase 37)
+        public_reg_enabled = getattr(settings, 'PUBLIC_REGISTRATION_ENABLED', True)
+        require_invitation = getattr(settings, 'REQUIRE_BETA_INVITATION', False)
+        invitation_code = (attrs.get('invitation_code') or '').strip()
+
+        if not public_reg_enabled and not require_invitation:
+            raise serializers.ValidationError({
+                "non_field_errors": ["El registro de nuevos usuarios se encuentra deshabilitado temporalmente."]
+            })
+
+        if require_invitation and not invitation_code:
+            raise serializers.ValidationError({
+                "invitation_code": ["Se requiere un código de invitación válido para acceder a la beta privada."]
+            })
+
+        if invitation_code:
+            from beta.models import BetaInvitation
+            invitation = BetaInvitation.objects.filter(code__iexact=invitation_code).first()
+            if not invitation or not invitation.is_valid():
+                raise serializers.ValidationError({
+                    "invitation_code": ["El código de invitación no es válido, ha expirado o ha alcanzado su límite de usos."]
+                })
+            attrs['_beta_invitation'] = invitation
+
         if attrs['password'] != attrs['password2']:
             raise serializers.ValidationError({"password": "Las contraseñas no coinciden"})
         temp_user = User(
@@ -211,7 +270,18 @@ class UserCreateSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         validated_data.pop('password2')
+        invitation = validated_data.pop('_beta_invitation', None)
+        validated_data.pop('invitation_code', None)
+        account_type = validated_data.get('account_type', 'reader')
         user = User.objects.create_user(**validated_data)
+        if invitation:
+            invitation.use()
+        if account_type in ('author', 'both'):
+            try:
+                from books.models import AuthorProfile
+                AuthorProfile.objects.get_or_create(user=user)
+            except Exception:
+                pass
         return user
 
 
@@ -267,6 +337,32 @@ class NotificationCreateSerializer(serializers.ModelSerializer):
             link=validated_data.get('link', ''),
         )
 
+
+class NotificationPreferenceSerializer(serializers.ModelSerializer):
+    class Meta:
+        from .models import NotificationPreference
+        model = NotificationPreference
+        fields = (
+            'in_app_follow',
+            'in_app_follow_accepted',
+            'in_app_like',
+            'in_app_comment',
+            'in_app_reply',
+            'in_app_list',
+            'in_app_message',
+            'in_app_recommendation',
+            'email_follow',
+            'email_follow_accepted',
+            'email_like',
+            'email_comment',
+            'email_reply',
+            'email_list',
+            'email_message',
+            'email_recommendation',
+            'push_enabled',
+            'updated_at',
+        )
+        read_only_fields = ('updated_at',)
 
 
 class ActivityBookSerializer(serializers.Serializer):
@@ -373,5 +469,94 @@ class EmailVerifyConfirmSerializer(serializers.Serializer):
 class GoogleOAuthSerializer(serializers.Serializer):
     """Serializador para autenticación social con credenciales de Google OAuth."""
     id_token = serializers.CharField(required=True, help_text="Token JWT provisto por Google Sign-In SDK")
+
+
+class UserPostCommentSerializer(serializers.ModelSerializer):
+    user = UserBasicSerializer(read_only=True)
+    is_owner = serializers.SerializerMethodField()
+
+    class Meta:
+        model = UserPostComment
+        fields = ('id', 'post', 'user', 'text', 'created_at', 'is_owner')
+        read_only_fields = ('id', 'post', 'user', 'created_at', 'is_owner')
+
+    @extend_schema_field(serializers.BooleanField())
+    def get_is_owner(self, obj):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            return obj.user_id == request.user.id or request.user.is_staff
+        return False
+
+    def validate_text(self, value):
+        from mybookconnect.html_sanitizer import sanitize_plain_text
+        cleaned = sanitize_plain_text(value).strip()
+        if not cleaned:
+            raise serializers.ValidationError("El comentario no puede estar vacío.")
+        return cleaned
+
+
+class UserPostSerializer(serializers.ModelSerializer):
+    author = UserBasicSerializer(read_only=True)
+    target_user = UserBasicSerializer(read_only=True)
+    book_id = serializers.PrimaryKeyRelatedField(
+        queryset=Book.objects.all(), source='book', write_only=True, required=False, allow_null=True
+    )
+    book = serializers.SerializerMethodField()
+    user_has_liked = serializers.SerializerMethodField()
+    is_owner = serializers.SerializerMethodField()
+    comments = UserPostCommentSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = UserPost
+        fields = (
+            'id', 'author', 'target_user', 'content', 'book', 'book_id',
+            'likes_count', 'comments_count', 'is_pinned', 'user_has_liked',
+            'is_owner', 'comments', 'created_at', 'updated_at'
+        )
+        read_only_fields = ('id', 'author', 'target_user', 'likes_count', 'comments_count', 'created_at', 'updated_at')
+
+    @extend_schema_field(serializers.DictField)
+    def get_book(self, obj):
+        if not obj.book:
+            return None
+        from books.media_utils import build_media_url
+        request = self.context.get('request')
+        cover_url = build_media_url(obj.book.cover, request=request) if obj.book.cover else None
+        return {
+            'id': obj.book.id,
+            'title': obj.book.title,
+            'author': obj.book.get_author_names(),
+            'cover': cover_url,
+        }
+
+    @extend_schema_field(serializers.BooleanField())
+    def get_user_has_liked(self, obj):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            if hasattr(obj, '_prefetched_objects_cache') and 'likes' in obj._prefetched_objects_cache:
+                return any(like.user_id == request.user.id for like in obj.likes.all())
+            return obj.likes.filter(user=request.user).exists()
+        return False
+
+    @extend_schema_field(serializers.BooleanField())
+    def get_is_owner(self, obj):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            return (
+                obj.author_id == request.user.id
+                or obj.target_user_id == request.user.id
+                or request.user.is_staff
+            )
+        return False
+
+    def validate_content(self, value):
+        from mybookconnect.html_sanitizer import sanitize_plain_text
+        cleaned = sanitize_plain_text(value).strip()
+        if not cleaned:
+            raise serializers.ValidationError("La publicación no puede estar vacía.")
+        if len(cleaned) > 2000:
+            raise serializers.ValidationError("La publicación no puede exceder los 2000 caracteres.")
+        return cleaned
+
 
 

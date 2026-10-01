@@ -22,6 +22,7 @@ export const Register = () => {
       username: '',
       email: '',
       password: '',
+      account_type: 'reader',
     },
   });
 
@@ -41,7 +42,7 @@ export const Register = () => {
   const onSubmit = async (data: RegisterFormData) => {
     setServerError(null);
     try {
-      await registerAction(data.username, data.email, data.password);
+      await registerAction(data.username, data.email, data.password, data.account_type);
       navigate('/profile/edit');
     } catch (err) {
       setServerError(err instanceof Error ? err.message : 'Error en el registro');
@@ -55,6 +56,68 @@ export const Register = () => {
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">Crea tu cuenta</h2>
         </div>
         <form className="mt-8 space-y-5" onSubmit={handleSubmit(onSubmit)} noValidate>
+          {/* Modalidad de Cuenta / Modo Autor */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              ¿Cómo deseas participar en MyBookSocial?
+            </label>
+            <div className="grid grid-cols-3 gap-2 sm:gap-3">
+              <label
+                className={`p-2.5 rounded-xl border text-center transition-all cursor-pointer flex flex-col items-center justify-center ${
+                  watch('account_type') === 'reader'
+                    ? 'border-indigo-600 bg-indigo-50/50 text-indigo-900 font-bold shadow-sm ring-2 ring-indigo-500/20'
+                    : 'border-gray-200 hover:border-gray-300 text-gray-700'
+                }`}
+              >
+                <input
+                  type="radio"
+                  value="reader"
+                  {...register('account_type')}
+                  className="sr-only"
+                />
+                <span className="text-xl mb-0.5">📖</span>
+                <span className="text-xs font-semibold">Lector</span>
+                <span className="text-[10px] text-gray-500 font-normal">Descubrir libros</span>
+              </label>
+
+              <label
+                className={`p-2.5 rounded-xl border text-center transition-all cursor-pointer flex flex-col items-center justify-center ${
+                  watch('account_type') === 'author'
+                    ? 'border-indigo-600 bg-indigo-50/50 text-indigo-900 font-bold shadow-sm ring-2 ring-indigo-500/20'
+                    : 'border-gray-200 hover:border-gray-300 text-gray-700'
+                }`}
+              >
+                <input
+                  type="radio"
+                  value="author"
+                  {...register('account_type')}
+                  className="sr-only"
+                />
+                <span className="text-xl mb-0.5">✍️</span>
+                <span className="text-xs font-semibold">Escritor</span>
+                <span className="text-[10px] text-gray-500 font-normal">Mis obras</span>
+              </label>
+
+              <label
+                className={`p-2.5 rounded-xl border text-center transition-all cursor-pointer flex flex-col items-center justify-center ${
+                  watch('account_type') === 'both'
+                    ? 'border-indigo-600 bg-indigo-50/50 text-indigo-900 font-bold shadow-sm ring-2 ring-indigo-500/20'
+                    : 'border-gray-200 hover:border-gray-300 text-gray-700'
+                }`}
+              >
+                <input
+                  type="radio"
+                  value="both"
+                  {...register('account_type')}
+                  className="sr-only"
+                />
+                <span className="text-xl mb-0.5">🌟</span>
+                <span className="text-xs font-semibold">Ambos</span>
+                <span className="text-[10px] text-gray-500 font-normal">Lector y escritor</span>
+              </label>
+            </div>
+          </div>
+
           <div>
             <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-1">
               Nombre de usuario

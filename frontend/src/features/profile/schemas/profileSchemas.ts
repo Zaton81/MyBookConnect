@@ -20,6 +20,7 @@ export const editProfileSchema = z.object({
   show_location: z.boolean(),
   show_bio: z.boolean(),
   gamification_enabled: z.boolean().optional(),
+  account_type: z.enum(['reader', 'author', 'both']).optional(),
 });
 
 export type EditProfileFormData = z.infer<typeof editProfileSchema>;

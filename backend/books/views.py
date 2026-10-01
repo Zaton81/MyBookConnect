@@ -57,7 +57,7 @@ class BookListCreateView(generics.ListCreateAPIView):
     permission_classes = (permissions.IsAuthenticatedOrReadOnly,)
 
     def get_queryset(self):
-        queryset = Book.objects.select_related('author').prefetch_related('categories')
+        queryset = Book.objects.select_related('author').prefetch_related('categories', 'authors')
         q = self.request.query_params.get('q') or self.request.query_params.get('search')
         if not q:
             return queryset
@@ -180,7 +180,7 @@ class BookDetailView(generics.RetrieveAPIView):
     Detecta automáticamente si falta portada, autor, sinopsis o categorías,
     disparando el enriquecimiento asíncrono para mantener el catálogo completo.
     """
-    queryset = Book.objects.select_related('author').prefetch_related('categories')
+    queryset = Book.objects.select_related('author').prefetch_related('categories', 'authors')
     serializer_class = BookSerializer
     permission_classes = (permissions.AllowAny,)
 
@@ -417,7 +417,7 @@ class ReviewListCreateView(generics.ListCreateAPIView):
 
         queryset = (
             Review.objects.select_related('user', 'book', 'book__author')
-            .prefetch_related('book__categories')
+            .prefetch_related('book__categories', 'book__authors')
             .annotate(
                 annotated_likes_count=Count('likes', distinct=True),
                 annotated_comments_count=Count('comments', filter=Q(comments__deleted_at__isnull=True), distinct=True),
@@ -428,6 +428,14 @@ class ReviewListCreateView(generics.ListCreateAPIView):
         book_id = self.request.query_params.get('book')
         if book_id:
             queryset = queryset.filter(book_id=book_id)
+
+        user_filter = self.kwargs.get('user_id') or self.request.query_params.get('user') or self.request.query_params.get('user_id')
+        if user_filter:
+            queryset = queryset.filter(user_id=user_filter)
+
+        username_filter = self.request.query_params.get('username')
+        if username_filter:
+            queryset = queryset.filter(user__username__iexact=username_filter.strip())
 
         user = self.request.user
         if user.is_authenticated:
@@ -466,6 +474,18 @@ class ReviewListCreateView(generics.ListCreateAPIView):
 
         title = sanitize_plain_text(request.data.get('title', ''))
         text = sanitize_html(request.data.get('text', ''))
+        image_file = request.FILES.get('image')
+
+        if image_file:
+            from django.core.exceptions import ValidationError as DjangoValidationError
+
+            from mybookconnect.media_security import COVER_PRESET, sanitize_image, validate_cover_image
+            try:
+                validate_cover_image(image_file)
+                image_file = sanitize_image(image_file, max_dimensions=COVER_PRESET)
+            except DjangoValidationError as err:
+                msg = err.messages if hasattr(err, 'messages') else str(err)
+                return Response({'image': [msg]}, status=status.HTTP_400_BAD_REQUEST)
 
         with transaction.atomic():
             active_review = Review.objects.select_for_update().filter(
@@ -476,6 +496,8 @@ class ReviewListCreateView(generics.ListCreateAPIView):
                 active_review.rating = rating_val
                 active_review.title = title
                 active_review.text = text
+                if image_file is not None:
+                    active_review.image = image_file
                 active_review.save()
                 review = active_review
                 created = False
@@ -488,6 +510,7 @@ class ReviewListCreateView(generics.ListCreateAPIView):
                             rating=rating_val,
                             title=title,
                             text=text,
+                            image=image_file,
                         )
                     created = True
                 except IntegrityError:
@@ -499,11 +522,14 @@ class ReviewListCreateView(generics.ListCreateAPIView):
                         active_review.rating = rating_val
                         active_review.title = title
                         active_review.text = text
+                        if image_file is not None:
+                            active_review.image = image_file
                         active_review.save()
                         review = active_review
                         created = False
                     else:
                         raise
+
 
             if created:
                 try:
@@ -574,7 +600,7 @@ class ReviewLikeToggleView(APIView):
     def post(self, request, review_id):
         from rest_framework.exceptions import PermissionDenied
 
-        from users.models import Notification, NotificationType
+        from users.models import NotificationType
         from users.policies import can_view_review
 
         review = get_object_or_404(Review.objects.select_related('user', 'book'), id=review_id)
@@ -602,22 +628,17 @@ class ReviewLikeToggleView(APIView):
                     liked = True
 
                 if liked and review.user_id != request.user.id:
-                    from users.models import Notification, NotificationType
-                    notif_exists = Notification.objects.filter(
+                    from users.models import NotificationType
+                    from users.notification_service import NotificationService
+
+                    NotificationService.send_notification(
                         recipient=review.user,
                         actor=request.user,
-                        type=NotificationType.LIKE,
+                        notif_type=NotificationType.LIKE,
+                        title=f"{request.user.username} le dio me gusta a tu reseña",
+                        message=f"A {request.user.username} le gustó tu reseña de '{review.book.title}'",
                         link=f"/books/{review.book_id}?review={review.id}",
-                    ).exists()
-                    if not notif_exists:
-                        Notification.objects.create(
-                            recipient=review.user,
-                            actor=request.user,
-                            type=NotificationType.LIKE,
-                            title=f"{request.user.username} le dio me gusta a tu reseña",
-                            message=f"A {request.user.username} le gustó tu reseña de '{review.book.title}'",
-                            link=f"/books/{review.book_id}?review={review.id}",
-                        )
+                    )
 
                 if liked:
                     try:
@@ -698,7 +719,7 @@ class ReviewCommentListCreateView(APIView):
         from rest_framework import status
         from rest_framework.exceptions import PermissionDenied
 
-        from users.models import Notification, NotificationType
+        from users.models import NotificationType
         from users.policies import can_view_review
 
         if not request.user.is_authenticated:
@@ -736,17 +757,32 @@ class ReviewCommentListCreateView(APIView):
                 content=content,
             )
 
-            if review.user_id != request.user.id:
-                # No enviar notificación si el receptor ha silenciado al autor
-                if not review.user.muted_users.filter(id=request.user.id).exists():
-                    Notification.objects.create(
-                        recipient=review.user,
-                        actor=request.user,
-                        type=NotificationType.COMMENT,
-                        title=f"{request.user.username} comentó en tu reseña",
-                        message=content[:120],
-                        link=f"/books/{review.book_id}?review={review.id}",
-                    )
+            from users.models import NotificationType
+            from users.notification_service import NotificationService
+
+            parent_id = request.data.get('parent_id') or request.data.get('parent')
+            parent_comment = None
+            if parent_id:
+                parent_comment = ReviewComment.objects.filter(id=parent_id, review=review).first()
+
+            if parent_comment and parent_comment.user_id != request.user.id:
+                NotificationService.send_notification(
+                    recipient=parent_comment.user,
+                    actor=request.user,
+                    notif_type=NotificationType.REPLY,
+                    title=f"{request.user.username} respondió a tu comentario",
+                    message=content[:120],
+                    link=f"/books/{review.book_id}?review={review.id}",
+                )
+            elif review.user_id != request.user.id:
+                NotificationService.send_notification(
+                    recipient=review.user,
+                    actor=request.user,
+                    notif_type=NotificationType.COMMENT,
+                    title=f"{request.user.username} comentó en tu reseña",
+                    message=content[:120],
+                    link=f"/books/{review.book_id}?review={review.id}",
+                )
 
             try:
                 from users.activity_service import record_activity
@@ -1672,6 +1708,18 @@ class ReadingListViewSet(viewsets.ModelViewSet):
                 user=request.user,
                 reading_list=reading_list,
             )
+            if created and reading_list.user_id != request.user.id:
+                from users.models import NotificationType
+                from users.notification_service import NotificationService
+
+                NotificationService.send_notification(
+                    recipient=reading_list.user,
+                    actor=request.user,
+                    notif_type=NotificationType.LIST_FOLLOW,
+                    title='Nuevo seguidor en tu lista',
+                    message=f"{request.user.username} ha comenzado a seguir tu lista '{reading_list.name}'.",
+                    link=f"/reading-lists?id={reading_list.id}",
+                )
         return Response({'detail': 'Ahora sigues esta lista.', 'created': created}, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=['delete', 'post'], url_path='unfollow', permission_classes=[permissions.IsAuthenticated])
@@ -1708,6 +1756,19 @@ class ReadingListViewSet(viewsets.ModelViewSet):
             if items_to_create:
                 ReadingListItem.objects.bulk_create(items_to_create)
 
+            if source_list.user_id != request.user.id:
+                from users.models import NotificationType
+                from users.notification_service import NotificationService
+
+                NotificationService.send_notification(
+                    recipient=source_list.user,
+                    actor=request.user,
+                    notif_type=NotificationType.LIST_FOLLOW,
+                    title='Alguien ha guardado tu lista',
+                    message=f"{request.user.username} ha guardado una copia de tu lista '{source_list.name}'.",
+                    link=f"/reading-lists?id={source_list.id}",
+                )
+
         serializer = self.get_serializer(new_list)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
@@ -1732,11 +1793,24 @@ class ReadingListViewSet(viewsets.ModelViewSet):
             return Response({'detail': 'El contenido del comentario es obligatorio.'}, status=status.HTTP_400_BAD_REQUEST)
 
         clean_content = sanitize_plain_text(raw_content).strip()
-        comment = ReadingListComment.objects.create(
-            user=request.user,
-            reading_list=reading_list,
-            content=clean_content,
-        )
+        with transaction.atomic():
+            comment = ReadingListComment.objects.create(
+                user=request.user,
+                reading_list=reading_list,
+                content=clean_content,
+            )
+            if reading_list.user_id != request.user.id:
+                from users.models import NotificationType
+                from users.notification_service import NotificationService
+
+                NotificationService.send_notification(
+                    recipient=reading_list.user,
+                    actor=request.user,
+                    notif_type=NotificationType.COMMENT,
+                    title=f"{request.user.username} comentó en tu lista",
+                    message=f"Nuevo comentario en '{reading_list.name}': {clean_content[:100]}",
+                    link=f"/reading-lists?id={reading_list.id}",
+                )
         return Response(
             ReadingListCommentSerializer(comment, context={'request': request}).data,
             status=status.HTTP_201_CREATED,
@@ -1979,6 +2053,156 @@ class UnifiedBookSearchView(APIView):
             'results': serializer.data,
         }
         return Response(response_data, status=status.HTTP_200_OK)
+
+
+# ==============================================================================
+# Vistas de Monetización, Afiliados y Plataforma de Autores (Fase 31 — RoadmapV2)
+# ==============================================================================
+
+class BookAffiliateLinksView(APIView):
+    """
+    Entrega enlaces canónicos de compra en Amazon para el libro en sus diferentes formatos
+    (libro físico, ebook Kindle, audiolibro Audible) junto con la declaración legal de afiliado.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request, pk):
+        book = get_object_or_404(Book.objects.select_related('author'), pk=pk)
+        from .services.affiliate_service import AffiliateService
+        data = AffiliateService.generate_affiliate_links(book)
+        return Response(data, status=status.HTTP_200_OK)
+
+
+class BookAffiliateClickView(APIView):
+    """
+    Registra un clic de afiliado anonimizado para telemetría y conversión.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request, pk):
+        book = get_object_or_404(Book, pk=pk)
+        format_type = request.data.get('format', 'paperback')
+        from .services.affiliate_service import AffiliateService
+        click = AffiliateService.record_click(book, format_type)
+        return Response(
+            {'status': 'recorded', 'click_id': click.id, 'format': click.format},
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class AuthorProfileMeView(APIView):
+    """
+    Consulta y actualización del perfil de autor del usuario autenticado.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        from .serializers import AuthorProfileSerializer
+        from .services.author_service import AuthorService
+        profile = AuthorService.get_or_create_profile(request.user)
+        serializer = AuthorProfileSerializer(profile, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def patch(self, request):
+        from .serializers import AuthorProfileSerializer
+        from .services.author_service import AuthorService
+        profile = AuthorService.get_or_create_profile(request.user)
+        for field in ('pen_name', 'bio', 'website', 'twitter', 'instagram'):
+            if field in request.data:
+                setattr(profile, field, request.data[field])
+        profile.save()
+        serializer = AuthorProfileSerializer(profile, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class AuthorClaimView(APIView):
+    """
+    Permite a un usuario solicitar la verificación o reclamo de un autor del catálogo.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        author_id = request.data.get('author_id')
+        if not author_id:
+            return Response({'detail': 'El campo author_id es obligatorio.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        pen_name = request.data.get('pen_name', '')
+        verification_notes = request.data.get('verification_notes', '')
+
+        from .serializers import AuthorProfileSerializer
+        from .services.author_service import AuthorService
+        try:
+            profile = AuthorService.claim_author(
+                user=request.user,
+                author_id=int(author_id),
+                pen_name=pen_name,
+                verification_notes=verification_notes,
+            )
+            serializer = AuthorProfileSerializer(profile, context={'request': request})
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except ValueError as err:
+            return Response({'detail': str(err)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class AuthorDashboardView(APIView):
+    """
+    Panel analítico privado con métricas consolidadas de las obras del autor.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        from .services.author_service import AuthorService
+        profile = AuthorService.get_or_create_profile(request.user)
+        metrics = AuthorService.get_author_dashboard_metrics(profile)
+        return Response(metrics, status=status.HTTP_200_OK)
+
+
+class AuthorAnnouncementCreateView(APIView):
+    """
+    Publicación de comunicados oficiales por parte de un autor.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        from .serializers import AuthorAnnouncementSerializer
+        from .services.author_service import AuthorService
+
+        profile = AuthorService.get_or_create_profile(request.user)
+        title = request.data.get('title', '').strip()
+        content = request.data.get('content', '').strip()
+        book_id = request.data.get('book_id')
+        is_pinned = bool(request.data.get('is_pinned', False))
+
+        if not title or not content:
+            return Response(
+                {'detail': 'Título y contenido son obligatorios.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        announcement = AuthorService.create_announcement(
+            author_profile=profile,
+            title=title,
+            content=content,
+            book_id=int(book_id) if book_id else None,
+            is_pinned=is_pinned,
+        )
+        serializer = AuthorAnnouncementSerializer(announcement, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+class AuthorAnnouncementListView(APIView):
+    """
+    Listado público de comunicados emitidos para un autor del catálogo.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request, pk):
+        from .serializers import AuthorAnnouncementSerializer
+        from .services.author_service import AuthorService
+
+        announcements = AuthorService.get_announcements_for_author(author_id=pk)
+        serializer = AuthorAnnouncementSerializer(announcements, many=True, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 

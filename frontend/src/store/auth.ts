@@ -9,7 +9,7 @@ import { queryKeys } from '../api/queryKeys';
 interface AuthStore extends AuthState {
   login: (username: string, password: string) => Promise<void>;
   loginWithGoogle: (idToken: string) => Promise<void>;
-  register: (username: string, email: string, password: string) => Promise<void>;
+  register: (username: string, email: string, password: string, account_type?: string) => Promise<void>;
   logout: () => void;
   updateProfile: (data: FormData | Partial<User>) => Promise<void>;
   followUser: (userId: number) => Promise<void>;
@@ -85,9 +85,9 @@ export const useAuthStore = create<AuthStore>()(
         }
       },
 
-      register: async (username: string, email: string, password: string) => {
+      register: async (username: string, email: string, password: string, account_type: string = 'reader') => {
         try {
-          await authApi.register(username, email, password, password);
+          await authApi.register(username, email, password, password, account_type);
           const loginData = await authApi.login(username, password);
 
           const token = loginData.access;

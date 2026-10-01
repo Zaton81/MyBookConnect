@@ -15,7 +15,15 @@ if [[ ! -f "${VERSION_PY}" ]]; then
     echo "ERROR: No se encontró ${VERSION_PY}"
     exit 1
 fi
-BACKEND_VER=$(grep -E "^VERSION\s*=" "${VERSION_PY}" | sed -E 's/.*VERSION\s*=\s*\(([0-9]+),\s*([0-9]+),\s*([0-9]+)\).*/\1.\2.\3/')
+BASE_VER=$(grep -E "^VERSION\s*=" "${VERSION_PY}" | sed -E 's/.*VERSION\s*=\s*\(([0-9]+),\s*([0-9]+),\s*([0-9]+)\).*/\1.\2.\3/')
+PRERELEASE_LINE=$(grep -E "^PRERELEASE\s*=" "${VERSION_PY}")
+if [[ "${PRERELEASE_LINE}" =~ \"([^\"]+)\" ]]; then
+    BACKEND_VER="${BASE_VER}-${BASH_REMATCH[1]}"
+elif [[ "${PRERELEASE_LINE}" =~ \'([^\']+)\' ]]; then
+    BACKEND_VER="${BASE_VER}-${BASH_REMATCH[1]}"
+else
+    BACKEND_VER="${BASE_VER}"
+fi
 echo "-> Versión en backend/mybookconnect/version.py: ${BACKEND_VER}"
 
 # 2. Extraer versión de backend/pyproject.toml

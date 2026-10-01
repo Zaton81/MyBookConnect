@@ -7,6 +7,10 @@ from .admin_views import PublicLegalDocumentListView, PublicLegalDocumentView
 from .ai_views import (
     AIAssistantView,
     AIBookSummaryView,
+    AICompareBooksView,
+    AIEmbeddingStatsView,
+    AIExplainBookView,
+    AIGenerateBookEmbeddingView,
     AISemanticSearchView,
     AIStatusView,
     AIToolExecuteView,
@@ -15,10 +19,17 @@ from .ai_views import (
 from .discovery_views import BookDiscoveryView
 from .import_views import CSVImportConfirmView, CSVImportPreviewView
 from .views import (
+    AuthorAnnouncementCreateView,
+    AuthorAnnouncementListView,
     AuthorBookRefreshView,
     AuthorBooksView,
+    AuthorClaimView,
+    AuthorDashboardView,
     AuthorDetailView,
     AuthorListCreateView,
+    AuthorProfileMeView,
+    BookAffiliateClickView,
+    BookAffiliateLinksView,
     BookDetailView,
     BookListCreateView,
     BookRecommendationExplainView,
@@ -72,9 +83,13 @@ urlpatterns = [
     path('ai/status/', AIStatusView.as_view(), name='book-ai-status'),
     path('ai/assistant/', AIAssistantView.as_view(), name='book-ai-assistant'),
     path('ai/semantic-search/', AISemanticSearchView.as_view(), name='book-ai-semantic-search'),
+    path('ai/compare/', AICompareBooksView.as_view(), name='book-ai-compare'),
+    path('ai/embeddings/stats/', AIEmbeddingStatsView.as_view(), name='book-ai-embeddings-stats'),
     path('ai/tools/', AIToolsListView.as_view(), name='book-ai-tools'),
     path('ai/tools/execute/', AIToolExecuteView.as_view(), name='book-ai-tools-execute'),
     path('<int:pk>/ai/summary/', AIBookSummaryView.as_view(), name='book-ai-summary'),
+    path('<int:pk>/ai/explain/', AIExplainBookView.as_view(), name='book-ai-explain'),
+    path('<int:pk>/ai/embeddings/generate/', AIGenerateBookEmbeddingView.as_view(), name='book-ai-embeddings-generate'),
 
     path('<int:pk>/', BookDetailView.as_view(), name='books-detail-root'),
     path('<int:pk>/recommendations/', RecommendationView.as_view(), name='book-recommendations-root'),
@@ -95,4 +110,17 @@ urlpatterns = [
     path('reviews/', include('books.review_urls')),
     path('erratas/', ErrataListCreateView.as_view(), name='erratas-list-create'),
     path('erratas/<int:pk>/', ErrataDetailUpdateView.as_view(), name='erratas-detail-update'),
+
+    # Afiliación y Monetización (Fase 31)
+    path('<int:pk>/affiliate-links/', BookAffiliateLinksView.as_view(), name='book-affiliate-links'),
+    path('<int:pk>/affiliate-click/', BookAffiliateClickView.as_view(), name='book-affiliate-click'),
+    path('books/<int:pk>/affiliate-links/', BookAffiliateLinksView.as_view(), name='book-affiliate-links-legacy'),
+    path('books/<int:pk>/affiliate-click/', BookAffiliateClickView.as_view(), name='book-affiliate-click-legacy'),
+
+    # Plataforma de Autores (Fase 31)
+    path('authors/me/', AuthorProfileMeView.as_view(), name='authors-me'),
+    path('authors/claim/', AuthorClaimView.as_view(), name='authors-claim'),
+    path('authors/dashboard/', AuthorDashboardView.as_view(), name='authors-dashboard'),
+    path('authors/announcements/', AuthorAnnouncementCreateView.as_view(), name='authors-announcement-create'),
+    path('authors/<int:pk>/announcements/', AuthorAnnouncementListView.as_view(), name='authors-announcements'),
 ] + router.urls

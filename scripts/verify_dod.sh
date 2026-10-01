@@ -33,9 +33,16 @@ check_fail() {
     FAILED_CHECKS=$((FAILED_CHECKS + 1))
 }
 
+# Detectar comando docker (en entornos Windows Git Bash se requiere docker.exe)
+if command -v docker.exe >/dev/null 2>&1; then
+    DOCKER_CMD="docker.exe"
+else
+    DOCKER_CMD="docker"
+fi
+
 # 1. DoD Criterio 2: Comprobación de Migraciones (sin migraciones pendientes)
 echo -e "\n${BLUE}--- [Criterio 2] Modelos y Migraciones Limpias ---${NC}"
-if docker compose exec -T backend python manage.py makemigrations --check --dry-run > /dev/null 2>&1; then
+if ${DOCKER_CMD} compose exec -T backend python manage.py makemigrations --check --dry-run > /dev/null 2>&1; then
     check_pass "No hay modelos con migraciones pendientes de generar"
 else
     check_fail "Existen cambios en modelos sin migración asociada (ejecutar makemigrations)"
@@ -43,7 +50,7 @@ fi
 
 # 2. DoD Criterio 11: Validación del Esquema OpenAPI
 echo -e "\n${BLUE}--- [Criterio 11] Validación de Esquema OpenAPI / Swagger ---${NC}"
-if docker compose exec -T backend python manage.py spectacular --validate > /dev/null 2>&1; then
+if ${DOCKER_CMD} compose exec -T backend python manage.py spectacular --validate > /dev/null 2>&1; then
     check_pass "Esquema OpenAPI validado sin errores de especificación"
 else
     check_fail "El esquema OpenAPI presenta errores de especificación"
@@ -51,7 +58,7 @@ fi
 
 # 3. DoD Criterio 12: Linter de Backend (ruff)
 echo -e "\n${BLUE}--- [Criterio 12] Linter y Calidad Backend (ruff) ---${NC}"
-if docker compose exec -T backend ruff check > /dev/null 2>&1; then
+if ${DOCKER_CMD} compose exec -T backend ruff check > /dev/null 2>&1; then
     check_pass "Linters de Python limpios (ruff check)"
 else
     check_fail "Errores de formato o linter detectados en backend"

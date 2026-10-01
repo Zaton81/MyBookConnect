@@ -16,6 +16,7 @@ export const reviewSchema = z.object({
     .max(5000, 'La reseña no puede superar 5000 caracteres')
     .optional()
     .or(z.literal('')),
+  image: z.any().optional(),
 });
 
 export type ReviewFormData = z.infer<typeof reviewSchema>;

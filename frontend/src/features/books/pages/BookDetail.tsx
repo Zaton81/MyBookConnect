@@ -45,9 +45,13 @@ export function BookDetail() {
   const [isEditing, setIsEditing] = useState(false);
   const [savingShelf, setSavingShelf] = useState(false);
 
-  // Análisis de BookAI
+  // Análisis y Explicación de BookAI (Fase 24)
   const [aiSummary, setAiSummary] = useState<string | null>(null);
+  const [aiExplanation, setAiExplanation] = useState<string | null>(null);
+  const [aiDisclaimer, setAiDisclaimer] = useState<string | null>(null);
   const [loadingAi, setLoadingAi] = useState(false);
+  const [loadingExplain, setLoadingExplain] = useState(false);
+  const [activeAiTab, setActiveAiTab] = useState<'summary' | 'explain'>('summary');
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
 
   // Reporte de Erratas
@@ -241,6 +245,7 @@ export function BookDetail() {
   const handleFetchAiSummary = async () => {
     if (!token || !id) return;
     setLoadingAi(true);
+    setActiveAiTab('summary');
     try {
       const res = await fetch(`${apiUrl}/api/v1/books/${id}/ai/summary/`, {
         method: 'POST',
@@ -249,11 +254,33 @@ export function BookDetail() {
       if (res.ok) {
         const data = await res.json();
         setAiSummary(data.summary);
+        if (data.disclaimer) setAiDisclaimer(data.disclaimer);
       }
     } catch (e) {
       console.error(e);
     } finally {
       setLoadingAi(false);
+    }
+  };
+
+  const handleFetchAiExplain = async () => {
+    if (!token || !id) return;
+    setLoadingExplain(true);
+    setActiveAiTab('explain');
+    try {
+      const res = await fetch(`${apiUrl}/api/v1/books/${id}/ai/explain/`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setAiExplanation(data.explanation);
+        if (data.disclaimer) setAiDisclaimer(data.disclaimer);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoadingExplain(false);
     }
   };
 
@@ -400,7 +427,7 @@ export function BookDetail() {
                       <div className="pt-1 border-t border-slate-200/60 dark:border-slate-600">
                         <p>
                           <strong>Mi nota privada:</strong>{' '}
-                          {rating ? `⭐ ${rating}/10` : 'Sin puntuar'}
+                          {rating ? `⭐ ${rating}/5` : 'Sin puntuar'}
                         </p>
                         {notes && (
                           <p className="pt-1 italic text-slate-500 dark:text-slate-400 line-clamp-2">
@@ -530,9 +557,9 @@ export function BookDetail() {
                           className="w-full text-xs rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 py-1.5 px-2"
                         >
                           <option value="">Sin puntuar</option>
-                          {[10, 9, 8, 7, 6, 5, 4, 3, 2, 1].map((n) => (
+                          {[5, 4, 3, 2, 1].map((n) => (
                             <option key={n} value={n}>
-                              ⭐ {n}/10
+                              ⭐ {n} de 5 estrellas
                             </option>
                           ))}
                         </select>
@@ -622,10 +649,24 @@ export function BookDetail() {
               </h1>
 
               <div className="flex flex-wrap items-center gap-2 mt-2">
-                {book.author ? (
+                {book.authors && book.authors.length > 0 ? (
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {book.authors.map((auth: any, idx: number) => (
+                      <span key={auth.id || idx} className="inline-flex items-center">
+                        <Link
+                          to={`/authors/${auth.id}`}
+                          className="text-base font-semibold text-teal-600 dark:text-teal-400 hover:text-teal-700 hover:underline"
+                        >
+                          {auth.name}
+                        </Link>
+                        {idx < book.authors.length - 1 && <span className="text-slate-400 mr-1">,</span>}
+                      </span>
+                    ))}
+                  </div>
+                ) : book.author ? (
                   <Link
                     to={`/authors/${book.author.id}`}
-                    className="text-base font-semibold text-teal-600 hover:text-teal-700 hover:underline"
+                    className="text-base font-semibold text-teal-600 dark:text-teal-400 hover:text-teal-700 hover:underline"
                   >
                     {book.author.name}
                   </Link>
@@ -655,7 +696,7 @@ export function BookDetail() {
               <div className="pt-2">
                 <StarRating
                   rating={book.average_rating}
-                  maxRating={10}
+                  maxRating={5}
                   totalReviews={book.reviews_count}
                   distribution={book.rating_distribution}
                   size="md"
@@ -694,53 +735,146 @@ export function BookDetail() {
               )}
             </div>
 
-            {/* Tarjeta de Análisis con BookAI */}
-            <div className="p-5 rounded-2xl bg-gradient-to-br from-teal-900 to-slate-900 text-white shadow-md space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="text-xl">✨</span>
-                  <h4 className="text-sm font-bold">Análisis Literario BookAI</h4>
+            {/* Tarjeta de Análisis y Explicación con BookAI (Fase 24) */}
+            <div className="p-5 rounded-2xl bg-gradient-to-br from-teal-950 via-slate-900 to-emerald-950 text-white shadow-xl border border-teal-500/20 space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <span className="text-2xl animate-pulse">✨</span>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h4 className="text-sm font-bold tracking-tight">
+                        Asistente Literario BookAI
+                      </h4>
+                      <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-teal-500/20 text-teal-300 border border-teal-400/30">
+                        ✨ Generado por IA
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-teal-200/70">
+                      Contexto histórico, claves temáticas y análisis de lectura personalizado.
+                    </p>
+                  </div>
                 </div>
-                {!aiSummary && (
+
+                <div className="flex items-center gap-2">
                   <button
                     onClick={handleFetchAiSummary}
-                    disabled={loadingAi}
-                    className="bg-white/20 hover:bg-white/30 text-white text-xs font-bold px-3 py-1.5 rounded-xl transition-colors backdrop-blur-sm flex items-center gap-1"
+                    disabled={loadingAi || loadingExplain}
+                    className={`text-xs font-bold px-3 py-1.5 rounded-xl transition-all backdrop-blur-sm flex items-center gap-1.5 ${
+                      activeAiTab === 'summary' && aiSummary
+                        ? 'bg-teal-500 text-white shadow-md shadow-teal-500/30'
+                        : 'bg-white/10 hover:bg-white/20 text-teal-100'
+                    }`}
                   >
-                    {loadingAi ? 'Analizando...' : 'Generar análisis'}
+                    {loadingAi ? 'Generando resumen...' : 'Resumen temático'}
                   </button>
-                )}
+                  <button
+                    onClick={handleFetchAiExplain}
+                    disabled={loadingAi || loadingExplain}
+                    className={`text-xs font-bold px-3 py-1.5 rounded-xl transition-all backdrop-blur-sm flex items-center gap-1.5 ${
+                      activeAiTab === 'explain' && aiExplanation
+                        ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/30'
+                        : 'bg-white/10 hover:bg-white/20 text-emerald-100'
+                    }`}
+                  >
+                    {loadingExplain ? 'Analizando contexto...' : 'Explicación en profundidad'}
+                  </button>
+                </div>
               </div>
 
-              {loadingAi && (
-                <div className="flex items-center gap-2 text-xs text-teal-200 py-2">
+              {/* Pestañas cuando ambos contenidos han sido solicitados */}
+              {(aiSummary || aiExplanation) && (
+                <div className="flex gap-2 border-b border-white/10 pb-2 text-xs font-semibold">
+                  {aiSummary && (
+                    <button
+                      onClick={() => setActiveAiTab('summary')}
+                      className={`pb-1 transition-colors ${
+                        activeAiTab === 'summary'
+                          ? 'text-teal-300 border-b-2 border-teal-400 font-bold'
+                          : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      Resumen temático
+                    </button>
+                  )}
+                  {aiExplanation && (
+                    <button
+                      onClick={() => setActiveAiTab('explain')}
+                      className={`pb-1 transition-colors ${
+                        activeAiTab === 'explain'
+                          ? 'text-emerald-300 border-b-2 border-emerald-400 font-bold'
+                          : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      Explicación y claves
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {/* Indicador de carga */}
+              {(loadingAi || loadingExplain) && (
+                <div className="flex items-center gap-2.5 text-xs text-teal-200 py-3 bg-white/5 rounded-xl px-4 border border-white/5">
                   <Spinner size="sm" color="info" />
-                  <span>Explorando temas y estilo de la obra...</span>
+                  <span>
+                    {loadingExplain
+                      ? 'Analizando contexto histórico, estilo de autor y claves temáticas...'
+                      : 'Sintetizando ideas principales y ejes conceptuales de la obra...'}
+                  </span>
                 </div>
               )}
 
-              {aiSummary && (
-                <div className="text-xs sm:text-sm text-teal-100/90 leading-relaxed whitespace-pre-line pt-2 border-t border-white/10">
-                  {aiSummary}
-                </div>
+              {/* Contenido según pestaña activa */}
+              {!loadingAi && !loadingExplain && (
+                <>
+                  {activeAiTab === 'summary' && aiSummary && (
+                    <div className="text-xs sm:text-sm text-teal-50/90 leading-relaxed whitespace-pre-line pt-1">
+                      {aiSummary}
+                    </div>
+                  )}
+
+                  {activeAiTab === 'explain' && aiExplanation && (
+                    <div className="text-xs sm:text-sm text-emerald-50/90 leading-relaxed whitespace-pre-line pt-1">
+                      {aiExplanation}
+                    </div>
+                  )}
+
+                  {!aiSummary && !aiExplanation && (
+                    <p className="text-xs text-teal-200/70">
+                      Pulsa cualquiera de los botones superiores para que BookAI te revele el
+                      contexto histórico, claves de lectura y recomendaciones de esta obra.
+                    </p>
+                  )}
+                </>
               )}
 
-              {!aiSummary && !loadingAi && (
-                <p className="text-xs text-teal-200/70">
-                  Descubre los temas centrales, estilo narrativo y a quién va recomendada esta obra
-                  con inteligencia artificial.
-                </p>
-              )}
+              {/* Disclaimer de Transparencia de IA */}
+              <div className="pt-2 border-t border-white/10 flex items-center justify-between text-[11px] text-teal-300/70">
+                <span className="flex items-center gap-1.5">
+                  <span>ℹ️</span>
+                  <span>
+                    {aiDisclaimer ||
+                      'Contenido generado por Inteligencia Artificial con fines orientativos y de divulgación literaria.'}
+                  </span>
+                </span>
+                <button
+                  onClick={() => setIsAiModalOpen(true)}
+                  className="underline hover:text-teal-100 font-medium ml-2 shrink-0"
+                >
+                  Abrir chat interactivo →
+                </button>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* ── Recomendación / Compra en Amazon (Afiliados) ── */}
+      {/* ── Recomendación / Compra en Amazon (Afiliados Multiformato: Papel, Kindle, Audible) ── */}
       <AmazonAdSlot
         bookTitle={book.title}
-        searchQuery={`${book.title} ${book.author?.name || ''}`}
-        variant="banner"
+        authorName={book.authors?.map((a: any) => a.name).join(', ') || book.author?.name}
+        searchQuery={`${book.title} ${book.authors?.map((a: any) => a.name).join(' ') || book.author?.name || ''}`}
+        asin={book.isbn}
+        variant="multiformat"
       />
 
       {/* ── Sección de Reseñas Públicas de la Comunidad ── */}

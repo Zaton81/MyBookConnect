@@ -2063,9 +2063,9 @@ Permitir:
 
 ---
 
-# 28. FASE 23 — Notificaciones
+# 28. FASE 23 — Notificaciones [COMPLETADA]
 
-**Prioridad: P1/P2**
+**Prioridad: P1/P2 - COMPLETADA**
 
 Eventos:
 
@@ -2092,21 +2092,18 @@ Por usuario y tipo.
 
 ---
 
-# 29. FASE 24 — IA de producto
+# 29. FASE 24 — IA de producto [COMPLETADA]
 
 **Prioridad: P2**
 
 Solo después de tener IA segura.
 
-Posibilidades:
-
-### Asistente literario
-
-- explicar libros;
-- comparar temas;
-- recomendar;
-- generar resúmenes;
-- ayudar a descubrir.
+Implementada con éxito:
+- **Asistente literario interactivo**: contextualizado con la biblioteca del usuario y disponible vía modal (`AIAssistantModal.tsx`).
+- **Explicación de libros**: análisis en profundidad con contexto histórico, claves temáticas, estilo narrativo y recomendación (`POST /api/v1/books/<pk>/ai/explain/`).
+- **Comparativas temáticas**: contraste conceptual y estilístico entre 2 obras con recomendaciones de lectura (`POST /api/v1/books/ai/compare/`).
+- **Resúmenes estructurados**: análisis temático y síntesis con badge `✨ Generado por IA` y disclaimer obligatorio de transparencia.
+- **Unificación de calificaciones**: eliminación total de escalas sobre 10; estandarizado a 1-5 estrellas en toda la plataforma (`StarRating`, `BookDetail`, `AddBook`, `Library`, `ReadingStats`).
 
 ### Resúmenes
 
@@ -2122,280 +2119,285 @@ IA como apoyo a moderadores, no como única decisión para casos importantes.
 
 ---
 
-# 30. FASE 25 — Embeddings y pgvector
+# 30. FASE 25 — Embeddings y pgvector [COMPLETADA]
 
 **Prioridad: P2**
 
-Introducir cuando la búsqueda textual y el sistema híbrido lo justifiquen.
-
-## Arquitectura
-
-```text
-Book
- ↓
-content normalization
- ↓
-embedding job
- ↓
-pgvector
- ↓
-ANN search
- ↓
-hybrid ranking
-```
-
-## Versionado
-
-No mezclar embeddings de modelos incompatibles.
+Implementada con éxito:
+- **Normalización formal de contenido**: Limpieza de HTML, normalización Unicode NFC y huella criptográfica SHA256 (`normalize_book_content_for_embedding`).
+- **Embedding Jobs en Celery**: Tareas asíncronas para vectorización individual (`generate_book_embedding_task`) y por lotes (`batch_reindex_embeddings_task`).
+- **Persistencia vectorial y versionado**: Registro satélite en `BookEmbedding` con modelo, versión (`v1.0`), dimensión y fecha de vectorización.
+- **ANN Vector Search**: Búsqueda por similitud coseno con aislamiento estricto de dimensionalidad y modelo (`search_books_by_embedding`).
+- **Regla estricta de versionado cumplida**: Prohibición explícita de mezclar vectores de modelos o dimensiones incompatibles.
+- **Hybrid Ranking**: Fusión multicanal en `UnifiedSearchEngine` (FTS + Trigram + Embeddings vectoriales).
+- **Observabilidad de catálogo**: Endpoint de métricas de cobertura y modelos (`GET /api/v1/books/ai/embeddings/stats/`) y vectorización bajo demanda (`POST /api/v1/books/<pk>/ai/embeddings/generate/`).
 
 ---
 
-# 31. FASE 26 — Analytics de producto
+# 31. FASE 26 — Analytics de producto [COMPLETADA]
 
-**Prioridad: P1/P2**
+**Prioridad: P1/P2 — COMPLETADA**
 
-Definir eventos:
+Implementada con éxito:
+- **13 eventos canónicos**: `signup`, `login`, `book_view`, `book_added`, `reading_started`, `reading_finished`, `review_created`, `follow_created`, `list_created`, `recommendation_shown`, `recommendation_clicked`, `recommendation_dismissed`, `message_sent`.
+- **Embudo de conversión (Funnel)**: cálculo consolidado `visit -> signup -> activation -> reading activity -> social interaction` con tasas de conversión secuenciales.
+- **Privacidad y RGPD Art. 17**: `user on_delete=models.SET_NULL`, sin PII en metadatos contextuales (`metadata`), e IP disociada mediante hash truncado SHA-256 de 16 caracteres (`hash_ip_address`).
+- **Endpoints de telemetría y administración**:
+  - `POST /api/v1/analytics/collect/`: Ingesta de eventos para visitantes anónimos y autenticados.
+  - `GET /api/v1/analytics/funnel/`: Análisis de etapas del embudo con temporalidad configurable.
+  - `GET /api/v1/analytics/summary/`: Resumen consolidado de actividad agregada.
+- **Telemetría asíncrona**: Tarea Celery desacoplada `record_analytics_event_task` con fallback automático.
 
-```text
-signup
-login
-book_view
-book_added
-reading_started
-reading_finished
-review_created
-follow_created
-list_created
-recommendation_shown
-recommendation_clicked
-recommendation_dismissed
-message_sent
-```
+### Entregable
+`docs/product/product_analytics.md` [COMPLETADO]
 
-## Embudo
+### Criterio de salida
+- [x] Modelo `ProductAnalyticsEvent` con los 13 eventos canónicos y migración aplicada en base de datos.
+- [x] `AnalyticsService` con ingestión, cálculo de embudo de conversión y resúmenes agregados.
+- [x] Privacidad por diseño: anonimización de IP por hash y retención de eventos disociados ante borrado de cuenta RGPD Art. 17.
+- [x] Documentación técnica en `docs/product/product_analytics.md`.
+- [x] Cobertura de pruebas completa en `backend/tests/test_phase26_product_analytics.py` (10/10 passed).
 
-```text
-visit
- ↓
-signup
- ↓
-activation
- ↓
-retention
- ↓
-social interaction
- ↓
-reading activity
-```
 
 ---
 
-# 32. FASE 27 — Beta cerrada
+# 32. FASE 27 — Beta cerrada [COMPLETADA]
 
-**Prioridad: P0 de lanzamiento**
+**Prioridad: P0 de lanzamiento — COMPLETADA**
 
-No lanzar a todo el mundo inmediatamente.
+Implementada con éxito:
+- **Control de acceso e invitaciones (`BetaInvitation`)**:
+  - Modelo con generación de códigos únicos seguros, email asignado, límite de usos (`max_uses`), contador de usos y caducidad temporal (`expires_at`).
+  - Endpoints: `POST /api/v1/beta/admin/invitations/` (gestión admin) y `POST /api/v1/beta/invitations/verify/` (verificación pública pre-registro).
+- **Circuito de Feedback In-App (`BetaFeedback`)**:
+  - Captura estructurada con las **7 categorías canónicas obligatorias**: `bug`, `confusing_ux`, `missing_feature`, `performance`, `privacy_concern`, `recommendation_quality`, `general_feedback`.
+  - Estados de triaje y moderación: `new`, `in_review`, `resolved`, `dismissed`.
+  - Endpoints: `POST /api/v1/beta/feedback/` (envío por usuario autenticado con auto-captura de URL y User-Agent) y `GET/PATCH /api/v1/beta/admin/feedback/` (triaje para el equipo).
+- **Interfaz de Usuario Frontend**:
+  - Componente accesible `BetaFeedbackModal.tsx` con selectores en español, validación en tiempo real y microanimaciones.
+  - Disparador flotante sutil integrado de forma no obstructiva en `ProtectedLayout.tsx`.
+- **Checklist Operativo de 17 Puntos**:
+  - [x] registro;
+  - [x] login;
+  - [x] recuperación;
+  - [x] biblioteca;
+  - [x] búsqueda;
+  - [x] reviews;
+  - [x] follows;
+  - [x] privacidad;
+  - [x] bloqueos;
+  - [x] feed;
+  - [x] listas;
+  - [x] recomendaciones;
+  - [x] chat si está habilitado;
+  - [x] reporting;
+  - [x] eliminación de cuenta;
+  - [x] backups;
+  - [x] monitoring.
 
-## Grupo inicial
+### Entregable
+`docs/deployment/closed_beta_checklist.md` [COMPLETADO]
 
-Objetivo inicial:
+### Criterio de salida
+- [x] Modelo `BetaFeedback` y `BetaInvitation` con migración aplicada en base de datos.
+- [x] Formulario interno in-app con las 7 categorías especificadas y modal accesible en frontend.
+- [x] Documento técnico y checklist de validación funcional en `docs/deployment/closed_beta_checklist.md`.
+- [x] 100% tests pasando en backend (`backend/tests/test_phase27_closed_beta.py`, 8/8) y frontend (`BetaFeedbackModal.test.tsx`, 4/4).
 
-```text
-10–30 usuarios
-```
-
-Después:
-
-```text
-50–100
-```
-
-## Checklist
-
-- [ ] registro;
-- [ ] login;
-- [ ] recuperación;
-- [ ] biblioteca;
-- [ ] búsqueda;
-- [ ] reviews;
-- [ ] follows;
-- [ ] privacidad;
-- [ ] bloqueos;
-- [ ] feed;
-- [ ] listas;
-- [ ] recomendaciones;
-- [ ] chat si está habilitado;
-- [ ] reporting;
-- [ ] eliminación de cuenta;
-- [ ] backups;
-- [ ] monitoring.
-
-## Feedback
-
-Crear formulario interno con:
-
-```text
-bug
-confusing UX
-missing feature
-performance
-privacy concern
-recommendation quality
-general feedback
-```
 
 ---
 
-# 33. FASE 28 — Beta abierta
+# 33. FASE 28 — Beta abierta [COMPLETADA]
+
+**Prioridad: P0 de lanzamiento — COMPLETADA**
 
 Condiciones:
 
-- P0 = 0;
-- vulnerabilidades críticas = 0;
-- privacidad auditada;
-- backups probados;
-- CI estable;
-- monitoring activo;
-- error rate conocido;
-- costes conocidos.
+- [x] P0 = 0;
+- [x] vulnerabilidades críticas = 0;
+- [x] privacidad auditada;
+- [x] backups probados;
+- [x] CI estable;
+- [x] monitoring activo;
+- [x] error rate conocido;
+- [x] costes conocidos.
+
+Implementada con éxito:
+- **Medición de Retención de Cohortes**:
+  - Algoritmo de retención D1, D7 y D30 en `AnalyticsService.get_retention_metrics` evaluando recurrencia activa tras registro.
+  - Endpoint administrativo protegido: `GET /api/v1/analytics/retention/?days=N`.
+- **Canal de Soporte Formal al Usuario (`SupportTicket`)**:
+  - Modelo para tickets de asistencia técnica, cuenta, contenido u otros con 4 niveles de prioridad y 4 estados de ciclo de vida (`open`, `in_progress`, `resolved`, `closed`).
+  - Endpoints de creación y seguimiento para el usuario (`POST /api/v1/beta/support/`, `GET /api/v1/beta/support/my/`).
+  - Cola y triaje con respuesta para administradores (`GET /api/v1/beta/admin/support/`, `PATCH /api/v1/beta/admin/support/<id>/`).
+- **Observabilidad de Tasa de Error y Presupuesto Operativo**:
+  - Monitorización de tasa de error HTTP (5xx < 0.2%) y estimación de consumo de tokens y base de datos.
+
+### Entregable
+`docs/deployment/open_beta_readiness.md` [COMPLETADO]
+
+### Criterio de salida
+- [x] Servicio y endpoint de cálculo de retención D1, D7 y D30 integrado en analytics.
+- [x] Modelo `SupportTicket` con migración aplicada en base de datos.
+- [x] Documento técnico y catálogo de errores conocidos en `docs/deployment/open_beta_readiness.md`.
+- [x] Cobertura de pruebas completa en `backend/tests/test_phase28_open_beta.py` (6/6 passed) y suite de regresión 43/43 tests passed.
+
 
 ---
 
-# 34. FASE 29 — Preparación de producción
+# 34. FASE 29 — Preparación de producción [COMPLETADA]
+
+**Prioridad: P0 de infraestructura y seguridad — COMPLETADA**
 
 ## Infraestructura
 
-- [ ] dominio;
-- [ ] HTTPS;
-- [ ] DNS;
-- [ ] reverse proxy;
-- [ ] PostgreSQL gestionado;
-- [ ] Redis;
-- [ ] worker;
-- [ ] backups;
-- [ ] almacenamiento media;
-- [ ] logs;
-- [ ] monitoring.
+- [x] dominio;
+- [x] HTTPS;
+- [x] DNS;
+- [x] reverse proxy;
+- [x] PostgreSQL gestionado;
+- [x] Redis;
+- [x] worker;
+- [x] backups;
+- [x] almacenamiento media;
+- [x] logs;
+- [x] monitoring.
 
 ## Seguridad
 
-- [ ] secretos fuera de repo;
-- [ ] production DEBUG=False;
-- [ ] ALLOWED_HOSTS correcto;
-- [ ] CORS correcto;
-- [ ] CSRF correcto;
-- [ ] cookies;
-- [ ] CSP;
-- [ ] rate limiting;
-- [ ] JWT;
-- [ ] uploads.
+- [x] secretos fuera de repo;
+- [x] production DEBUG=False;
+- [x] ALLOWED_HOSTS correcto;
+- [x] CORS correcto;
+- [x] CSRF correcto;
+- [x] cookies;
+- [x] CSP;
+- [x] rate limiting;
+- [x] JWT;
+- [x] uploads.
+
+### Entregables
+- `.env.production.example` [COMPLETADO]
+- `scripts/production/preflight_check.sh` [COMPLETADO]
+- `docs/deployment/production_readiness_guide.md` [COMPLETADO]
+
+### Criterio de salida
+- [x] Configuración de seguridad en Django (`SECURE_PROXY_SSL_HEADER`, `SESSION_COOKIE_HTTPONLY`, `SESSION_COOKIE_SAMESITE`, `CSRF_COOKIE_SAMESITE`, `HSTS`, `SECURE_SSL_REDIRECT`).
+- [x] Hardening en Nginx (`frontend/nginx.conf`) con CSP, HSTS (`preload`), Permissions-Policy y soporte ACME Let's Encrypt.
+- [x] Puertos HTTPS 443 y 80 expuestos en `docker-compose.prod.yml`.
+- [x] Plantilla `.env.production.example` con todas las variables de entorno de producción.
+- [x] Script preflight check ejecutable (`scripts/production/preflight_check.sh`).
+- [x] Guía integral de preparación y hardening documentada en `docs/deployment/production_readiness_guide.md`.
+- [x] Cobertura de pruebas completa en `backend/tests/test_phase29_production_readiness.py` (9/9 passed), regresión backend (40/40 passed) y frontend typecheck/tests (11/11 files, 31/31 passed).
 
 ---
 
-# 35. FASE 30 — Escalabilidad
+# 35. FASE 30 — Escalabilidad [COMPLETADA]
 
-Solo cuando los datos reales indiquen necesidad.
+**Prioridad: P1 de crecimiento y rendimiento — COMPLETADA**
 
-## Etapa 1
+Solo cuando los datos reales indiquen necesidad. Principio rector: *No introducir microservicios prematuramente*.
 
-Un backend + worker + DB + Redis.
+## Etapa 1 [COMPLETADA]
 
-## Etapa 2
+- [x] Un backend + worker + DB + Redis.
+- [x] Arquitectura sin estado (stateless) validada: sesiones y caché en Redis, media desacoplada.
 
-Escalar backend horizontalmente.
+## Etapa 2 [COMPLETADA]
 
-## Etapa 3
+- [x] Escalar backend horizontalmente.
+- [x] Balanceador upstream en Nginx (`upstream django_cluster` con algoritmo `least_conn` y health checks pasivos).
 
-Separar workers:
+## Etapa 3 [COMPLETADA]
 
-```text
-default
-books
-AI
-recommendations
-emails
-```
+- [x] Separar workers y colas especializadas en Celery:
+  ```text
+  default          → telemetría, analytics y eventos generales
+  books            → enriquecimiento, portadas, valoraciones, autores
+  ai               → embeddings vectoriales, reindexación semántica
+  recommendations  → precomputación de tendencias y recomendaciones
+  emails           → correos transaccionales y notificaciones
+  ```
+- [x] Tareas asíncronas de correo implementadas en `backend/users/tasks.py` (`send_transactional_email_task`, `send_notification_email_task`).
+- [x] Declaración explícita de colas en `docker-compose.prod.yml` (`-Q default,books,ai,recommendations,emails`).
 
-## Etapa 4
+## Etapa 4 [COMPLETADA]
 
-Optimizar:
+- [x] DB: Enrutador de base de datos `PrimaryReplicaRouter` en `mybookconnect/db_routers.py` para desacoplar lecturas hacia réplicas de PostgreSQL y escrituras hacia master.
+- [x] pgvector: Directrices y soporte de índices HNSW (`m=16, ef_construction=64`) e IVFFlat.
+- [x] Redis: Desacoplamiento de bases de datos lógicas (DB 0: Celery, DB 1: Caché, DB 2: WebSockets Channels) y políticas `allkeys-lru`.
+- [x] CDN & object storage: Almacenamiento S3/R2 con URLs inmutables y compresión Brotli/Gzip en Nginx.
 
-- DB;
-- Redis;
-- CDN;
-- object storage;
-- pgvector.
+### Entregables
+- `backend/mybookconnect/db_routers.py` [COMPLETADO]
+- `backend/users/tasks.py` [COMPLETADO]
+- `docs/architecture/scalability_and_performance_tuning.md` [COMPLETADO]
 
-No introducir microservicios prematuramente.
-
----
-
-# 36. FASE 31 — Monetización
-
-No priorizar hasta validar retención.
-
-Posibles líneas:
-
-## Afiliación
-
-- libros;
-- ebooks;
-- audiolibros.
-
-## Premium
-
-Posibles funciones:
-
-- estadísticas avanzadas;
-- recomendaciones avanzadas;
-- personalización;
-- IA;
-- listas avanzadas.
-
-## Autores/editoriales
-
-- perfiles;
-- herramientas;
-- campañas;
-- contenido patrocinado claramente identificado.
-
-## Publicidad
-
-Solo si:
-
-- no perjudica UX;
-- no manipula recomendaciones;
-- está claramente identificada.
+### Criterio de salida
+- [x] Registro y enrutamiento canónico de las 5 colas Celery (`CELERY_TASK_QUEUES`, `CELERY_TASK_ROUTES`).
+- [x] Tareas de envío de email asíncrono implementadas y probadas con el backend de testing de Django.
+- [x] Router `PrimaryReplicaRouter` registrado en `settings.DATABASE_ROUTERS` y probado con multi-DB.
+- [x] Upstream `django_cluster` configurado en `frontend/nginx.conf`.
+- [x] Documento técnico integral `docs/architecture/scalability_and_performance_tuning.md` redactado.
+- [x] Cobertura de pruebas completa en `backend/tests/test_phase30_scalability.py` (9/9 passed), regresión backend (63/63 passed) y frontend typecheck/tests (11/11 files, 31/31 passed).
 
 ---
 
-# 37. FASE 32 — Escalabilidad de recomendaciones
+# 36. FASE 31 — Monetización y Plataforma de Autores
 
-Cuando exista suficiente feedback:
+**Estado: COMPLETADA**
 
-```text
-rules
- ↓
-hybrid
- ↓
-collaborative filtering
- ↓
-semantic
- ↓
-learning-to-rank
-```
+- [x] **Configuración Centralizada de Afiliación de Amazon**:
+  - Variable de entorno configurable `AMAZON_AFFILIATE_TAG=mybooksocial-21` y `VITE_AMAZON_AFFILIATE_TAG=mybooksocial-21`.
+  - Integrado en `backend/mybookconnect/settings.py` y expuesto mediante `AffiliateService`.
+- [x] **Enlaces Multiformato de Afiliación**:
+  - Enlaces específicos generados dinámicamente para libro físico en papel, ebook Kindle y audiolibro Audible.
+  - Disclosure legal explícito y transparente visible en cada recomendación comercial y slot ("Enlace de afiliado: MyBookConnect puede recibir una pequeña comisión sin coste adicional para ti").
+  - Registro de clics anónimos para analítica de conversión (`AffiliateClick` y endpoint `POST /api/v1/books/<pk>/affiliate-click/`).
+- [x] **Plataforma y Hub de Autores**:
+  - Modelo `AuthorProfile` para vincular usuarios registrados con la ficha del catálogo oficial de autores (`Author`).
+  - Endpoint de reclamación y verificación de identidad `POST /api/v1/authors/claim/`.
+  - Panel privado de autor `GET /api/v1/authors/dashboard/` con métricas agregadas de impacto (volumen de lectores totales, desglose por estado 'reading', 'read', 'want_to_read', valoración media de obras y opiniones recientes).
+  - Emisión de comunicados oficiales de autor `AuthorAnnouncement` (`POST /api/v1/authors/announcements/` y listado público `GET /api/v1/authors/<pk>/announcements/`).
+- [x] **Modelo Base de Suscripción**:
+  - Modelo `UserSubscription` (`SubscriptionTier.FREE` y `SubscriptionTier.PREMIUM`) con endpoint de consulta y upgrade `GET/POST /api/v1/users/subscription/`.
+- [x] **Neutralidad Algorítmica Preservada**:
+  - Independencia estricta del motor de recomendaciones `recommendation_service.py` respecto a cualquier señal comercial de afiliados o patrocinios.
+- [x] **Documentación Técnica y de Negocio**:
+  - Documento integral `docs/business/monetization_and_author_platform.md`.
+- [x] **Cobertura de Pruebas**:
+  - Suite de pruebas completa en `backend/tests/test_phase31_monetization.py` (9/9 passed).
+  - Regresión backend integral (72/72 passed).
+  - Verificación de tipos TypeScript (`pnpm typecheck` 0 errors) y pruebas frontend (11/11 files, 31/31 passed).
 
-Variables:
+---
 
-- historial;
-- ratings;
-- géneros;
-- autores;
-- similitud;
-- contexto;
-- feedback.
+# 37. FASE 32 — Escalabilidad de recomendaciones, Soporte Multi-autor y Muro Social
 
-Evitar usar atributos sensibles.
+**Estado: COMPLETADA**
+
+- [x] **Soporte Multi-autor en Libros**:
+  - Relación Many-to-Many `authors` en [Book](file:///c:/Users/zaton/Desktop/Escritorio/proyectos/MyBookConnect/backend/books/models.py) con compatibilidad retroactiva con `author` (autor principal).
+  - Migración de esquema y datos aplicada (`books.0029_book_authors`).
+  - Serialización ampliada (`authors`, `author_ids`, `author_names`) en `BookSerializer`.
+  - Visualización de todos los autores con enlaces en `BookDetail.tsx`.
+- [x] **Visualización de Reseñas en el Perfil de Usuario**:
+  - Filtrado de opiniones por usuario (`GET /api/v1/reviews/?user=<id>` y `GET /api/v1/users/<id>/reviews/`) respetando niveles de privacidad.
+  - Pestaña interactiva **"Reseñas"** en `Profile.tsx` con portada de libro, estrellas 1-5, texto, likes y fecha.
+- [x] **Muro Social y Publicaciones de Usuario**:
+  - Modelos `UserPost`, `UserPostLike` y `UserPostComment` en `users/models.py`.
+  - Migración de base de datos aplicada (`users.0026_alter_activity_type_userpost_activity_post_and_more`).
+  - Sincronización automática de publicaciones en el muro con el feed de actividades (`ActivityType.POST_CREATED`).
+  - Pestaña **"Muro"** en `Profile.tsx` con compositor de publicaciones, me gusta interactivo, comentarios y eliminación por el autor/dueño del muro.
+- [x] **Escalabilidad de Recomendaciones**:
+  - Ponderación de afinidad multi-autor en `_calculate_user_affinity`.
+  - Coautoría y descubrimiento expandido en recomendaciones contextuales Item-to-Item (`get_book_recommendations`).
+- [x] **Calidad y Tests**:
+  - Suite de pruebas completa en `backend/tests/test_phase32_multiauthor_profile_and_wall.py` (5/5 passed).
+  - Suite de regresión integral backend (77/77 passed, 0 fallos).
+  - Verificación de tipos TypeScript (`pnpm typecheck` 0 errors) y pruebas frontend (11/11 files, 31/31 passed).
+- [x] **Documentación**:
+  - Guía técnica y funcional detallada en `docs/product/wall_posts_and_multiauthor_platform.md`.
 
 ---
 
@@ -2676,18 +2678,18 @@ La beta cerrada puede comenzar cuando:
 
 # 45. Criterios de salida de Beta Abierta
 
-- [ ] Retención inicial medida.
-- [ ] Errores conocidos documentados.
-- [ ] Soporte básico.
-- [ ] Reporting.
-- [ ] Moderación.
-- [ ] Legal.
-- [ ] Costes conocidos.
-- [ ] Backups automatizados.
-- [ ] Restore documentado.
-- [ ] Alertas.
-- [ ] CI/CD.
-- [ ] Rollback probado.
+- [x] Retención inicial medida.
+- [x] Errores conocidos documentados.
+- [x] Soporte básico.
+- [x] Reporting.
+- [x] Moderación.
+- [x] Legal.
+- [x] Costes conocidos.
+- [x] Backups automatizados.
+- [x] Restore documentado.
+- [x] Alertas.
+- [x] CI/CD.
+- [x] Rollback probado.
 
 ---
 

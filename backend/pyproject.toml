@@ -3,6 +3,7 @@ name = "mybookconnect"
 version = "1.0.0"
 description = "MyBookConnect - Social Book Cataloging and Community Platform"
 
+
 [tool.ruff]
 line-length = 120
 target-version = "py312"

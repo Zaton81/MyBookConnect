@@ -1,8 +1,9 @@
-import { Suspense } from 'react';
+import { Suspense, useState } from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { Header } from './Header';
 import { FooterSection } from './Footer';
 import { CookieBanner } from '../ui/CookieBanner';
+import { BetaFeedbackModal } from '../ui/BetaFeedbackModal';
 import { useAuthStore } from '../../store/auth';
 
 function PageLoadingFallback() {
@@ -19,6 +20,7 @@ function PageLoadingFallback() {
 export function ProtectedLayout() {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const location = useLocation();
+  const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
 
   if (!isAuthenticated) {
     return <Navigate to="/" state={{ from: location }} replace />;
@@ -34,6 +36,23 @@ export function ProtectedLayout() {
       </main>
       <FooterSection />
       <CookieBanner />
+
+      {/* Botón flotante accesible para feedback de la beta cerrada */}
+      <button
+        type="button"
+        onClick={() => setIsFeedbackModalOpen(true)}
+        title="Enviar feedback sobre la beta cerrada"
+        aria-label="Enviar feedback sobre la beta"
+        className="fixed bottom-5 right-5 z-40 flex items-center gap-2 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white text-xs font-semibold px-3 py-2 rounded-full shadow-lg hover:shadow-xl transition-all duration-200 cursor-pointer backdrop-blur-sm"
+      >
+        <span className="text-sm">🚀</span>
+        <span className="hidden sm:inline">Beta Feedback</span>
+      </button>
+
+      <BetaFeedbackModal
+        isOpen={isFeedbackModalOpen}
+        onClose={() => setIsFeedbackModalOpen(false)}
+      />
     </div>
   );
 }

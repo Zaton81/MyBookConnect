@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
 
 interface StarRatingProps {
-  rating: number | null | undefined; // 0 to 10 or 0 to 5. We standardize display as 5 stars (rating/2 if > 5)
-  maxRating?: number; // default 10 (backend is 1-10)
+  rating: number | null | undefined; // 1 a 5 estrellas (o 0/null para sin valoraciones)
+  maxRating?: number; // default 5 (escala estándar unificada)
   totalReviews?: number;
   distribution?: Record<string | number, number>;
   size?: 'sm' | 'md' | 'lg';
@@ -13,7 +13,7 @@ interface StarRatingProps {
 
 export function StarRating({
   rating,
-  maxRating = 10,
+  maxRating = 5,
   totalReviews = 0,
   distribution,
   size = 'md',
@@ -27,8 +27,8 @@ export function StarRating({
 
   // Normalizar la nota a escala 1 - 5 para las estrellas
   const numericRating = typeof rating === 'number' && !isNaN(rating) ? rating : 0;
-  // Si maxRating es 10, escalamos a 5 estrellas:
-  const normalized5 = maxRating === 10 ? numericRating / 2 : numericRating;
+  // Si viniera un valor legacy mayor a 5 en una escala de 10, normalizamos a 5:
+  const normalized5 = maxRating === 10 || numericRating > 5 ? numericRating / 2 : numericRating;
 
   // Cerrar popover al hacer clic fuera
   useEffect(() => {
@@ -51,13 +51,12 @@ export function StarRating({
   const distCounts = [5, 4, 3, 2, 1].map((stars) => {
     let count = 0;
     if (distribution) {
-      if (maxRating === 10) {
-        // Star 5: 9, 10; Star 4: 7, 8; Star 3: 5, 6; Star 2: 3, 4; Star 1: 1, 2
+      if (distribution[stars] !== undefined) {
+        count = distribution[stars] || 0;
+      } else if (maxRating === 10) {
         const upper = stars * 2;
         const lower = upper - 1;
         count = (distribution[upper] || 0) + (distribution[lower] || 0);
-      } else {
-        count = distribution[stars] || 0;
       }
     }
     return { stars, count };
@@ -77,7 +76,7 @@ export function StarRating({
       <div
         className={`inline-flex items-center cursor-pointer select-none ${sizeClasses[size]}`}
         onClick={() => !interactive && setIsOpen(!isOpen)}
-        title={numericRating ? `${numericRating.toFixed(1)} / ${maxRating}` : 'Sin valoraciones'}
+        title={normalized5 ? `${normalized5.toFixed(1)} / 5` : 'Sin valoraciones'}
       >
         {[1, 2, 3, 4, 5].map((starIndex) => {
           const currentVal = hoverRating !== null ? hoverRating : normalized5;
@@ -87,11 +86,9 @@ export function StarRating({
           return (
             <span
               key={starIndex}
-              onMouseEnter={() => interactive && setHoverRating(starIndex * (maxRating / 5))}
+              onMouseEnter={() => interactive && setHoverRating(starIndex)}
               onMouseLeave={() => interactive && setHoverRating(null)}
-              onClick={() =>
-                interactive && onRatingChange && onRatingChange(starIndex * (maxRating / 5))
-              }
+              onClick={() => interactive && onRatingChange && onRatingChange(starIndex)}
               className={`transition-transform duration-150 ${
                 interactive ? 'hover:scale-125 cursor-pointer text-amber-400' : ''
               } ${

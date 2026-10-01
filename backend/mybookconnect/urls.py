@@ -56,6 +56,7 @@ urlpatterns = [
             path('', include('users.urls')),
         ])),
         path('books/', include('books.urls')),
+        path('authors/', include('books.author_urls')),
         path('gamification/', include('books.gamification_urls')),
         path('users/', include('users.urls')),
         path('notifications/', include('users.urls')),
@@ -68,6 +69,8 @@ urlpatterns = [
             path('', ReportCreateView.as_view(), name='report-create'),
             path('my/', UserReportsListView.as_view(), name='user-reports-list'),
         ])),
+        path('analytics/', include('analytics.urls')),
+        path('beta/', include('beta.urls')),
     ])),
 ]
 

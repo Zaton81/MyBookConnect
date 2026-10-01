@@ -15,11 +15,122 @@ interface ReviewItem {
   rating: number;
   title?: string | null;
   text?: string | null;
+  image?: string | null;
   created_at: string;
   updated_at: string;
   likes_count?: number;
   user_has_liked?: boolean;
   comments_count?: number;
+}
+
+function renderFormattedInline(
+  content: string,
+  keyPrefix: string | number,
+  revealedSpoilers: Record<string, boolean>,
+  toggleSpoiler: (spoilerId: string) => void
+): React.ReactNode {
+  const tokens = content.split(/(\[spoiler\].*?\[\/spoiler\]|\*\*.*?\*\*|\*.*?\*)/g);
+
+  return tokens.map((part, i) => {
+    if (!part) return null;
+    const tokenKey = `${keyPrefix}-${i}`;
+
+    if (part.startsWith('[spoiler]') && part.endsWith('[/spoiler]')) {
+      const inner = part.slice(9, -10);
+      const isRevealed = !!revealedSpoilers[tokenKey];
+      return (
+        <span
+          key={tokenKey}
+          onClick={() => toggleSpoiler(tokenKey)}
+          className={`cursor-pointer inline-block rounded px-1.5 py-0.5 text-xs font-medium transition-all ${
+            isRevealed
+              ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-700/50'
+              : 'bg-slate-300 dark:bg-slate-700 text-transparent select-none hover:bg-slate-400 dark:hover:bg-slate-600'
+          }`}
+          title={isRevealed ? 'Haz clic para ocultar spoiler' : 'Spoiler oculto - Haz clic para ver'}
+        >
+          {isRevealed ? `⚠️ ${inner}` : '⚠️ SPOILER (Click para ver)'}
+        </span>
+      );
+    }
+
+    if (part.startsWith('**') && part.endsWith('**') && part.length >= 4) {
+      return (
+        <strong key={tokenKey} className="font-semibold text-slate-900 dark:text-white">
+          {part.slice(2, -2)}
+        </strong>
+      );
+    }
+
+    if (part.startsWith('*') && part.endsWith('*') && part.length >= 2) {
+      return (
+        <em key={tokenKey} className="italic text-slate-800 dark:text-slate-200">
+          {part.slice(1, -1)}
+        </em>
+      );
+    }
+
+    return <React.Fragment key={tokenKey}>{part}</React.Fragment>;
+  });
+}
+
+function RichReviewText({ text }: { text: string }) {
+  const [revealedSpoilers, setRevealedSpoilers] = useState<Record<string, boolean>>({});
+
+  const toggleSpoiler = (id: string) => {
+    setRevealedSpoilers((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  if (!text) return null;
+
+  const lines = text.split('\n');
+
+  return (
+    <div className="text-xs text-slate-700 dark:text-slate-200 leading-relaxed space-y-1.5">
+      {lines.map((line, idx) => {
+        const trimmed = line.trim();
+        if (!trimmed) {
+          return <div key={idx} className="h-1.5" />;
+        }
+
+        if (line.startsWith('> ')) {
+          return (
+            <blockquote
+              key={idx}
+              className="border-l-4 border-teal-500 pl-3 py-1 italic text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/60 rounded-r-lg my-1"
+            >
+              {renderFormattedInline(line.slice(2), idx, revealedSpoilers, toggleSpoiler)}
+            </blockquote>
+          );
+        }
+
+        if (line.startsWith('### ')) {
+          return (
+            <h5 key={idx} className="font-bold text-sm text-slate-900 dark:text-white pt-1">
+              {renderFormattedInline(line.slice(4), idx, revealedSpoilers, toggleSpoiler)}
+            </h5>
+          );
+        }
+
+        if (line.startsWith('- ') || line.startsWith('* ')) {
+          return (
+            <div key={idx} className="flex items-start gap-2 pl-2">
+              <span className="text-teal-500 font-bold">•</span>
+              <span>
+                {renderFormattedInline(line.slice(2), idx, revealedSpoilers, toggleSpoiler)}
+              </span>
+            </div>
+          );
+        }
+
+        return (
+          <p key={idx}>
+            {renderFormattedInline(line, idx, revealedSpoilers, toggleSpoiler)}
+          </p>
+        );
+      })}
+    </div>
+  );
 }
 
 interface CommentItem {
@@ -71,6 +182,11 @@ export function BookReviewsSection({
 
   // Formulario de reseña con React Hook Form y Zod
   const [myExistingReview, setMyExistingReview] = useState<ReviewItem | null>(null);
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [activeEditorTab, setActiveEditorTab] = useState<'write' | 'preview'>('write');
+  const fileInputRef = React.useRef<HTMLInputElement | null>(null);
+  const textareaRef = React.useRef<HTMLTextAreaElement | null>(null);
 
   const {
     register: registerReview,
@@ -89,8 +205,61 @@ export function BookReviewsSection({
   });
 
   const currentRating = watchReview('rating');
+  const watchedText = watchReview('text') || '';
 
   const apiUrl = (import.meta as any).env.VITE_API_URL || 'http://localhost:8000';
+
+  const insertFormatting = (prefix: string, suffix: string = '') => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const current = textarea.value || '';
+    const selected = current.substring(start, end);
+
+    const replacement = selected ? `${prefix}${selected}${suffix}` : `${prefix}${suffix}`;
+    const nextVal = current.substring(0, start) + replacement + current.substring(end);
+
+    setReviewValue('text', nextVal, { shouldValidate: true });
+
+    setTimeout(() => {
+      textarea.focus();
+      const cursor = selected
+        ? start + prefix.length + selected.length + suffix.length
+        : start + prefix.length;
+      textarea.setSelectionRange(cursor, cursor);
+    }, 10);
+  };
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      setErrorMessage('La fotografía no puede superar 5 MB.');
+      return;
+    }
+    if (!file.type.startsWith('image/')) {
+      setErrorMessage('Por favor selecciona una imagen válida (JPG, PNG o WebP).');
+      return;
+    }
+
+    setSelectedImage(file);
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setImagePreview(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemoveImage = () => {
+    setSelectedImage(null);
+    setImagePreview(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
 
   const fetchReviews = async () => {
     try {
@@ -116,6 +285,11 @@ export function BookReviewsSection({
             setReviewValue('rating', found.rating);
             setReviewValue('title', found.title || '');
             setReviewValue('text', found.text || '');
+            if (found.image) {
+              setImagePreview(
+                found.image.startsWith('http') ? found.image : `${apiUrl}${found.image}`
+              );
+            }
           }
         }
       }
@@ -260,27 +434,49 @@ export function BookReviewsSection({
     setErrorMessage(null);
 
     try {
-      const res = await fetch(`${apiUrl}/api/v1/reviews/`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          book_id: Number(bookId),
-          book: Number(bookId),
-          rating: data.rating,
-          title: data.title?.trim() || null,
-          text: data.text?.trim() || null,
-        }),
-      });
+      let res: Response;
+      if (selectedImage) {
+        const formData = new FormData();
+        formData.append('book_id', String(bookId));
+        formData.append('book', String(bookId));
+        formData.append('rating', String(data.rating));
+        if (data.title?.trim()) formData.append('title', data.title.trim());
+        if (data.text?.trim()) formData.append('text', data.text.trim());
+        formData.append('image', selectedImage);
+
+        res = await fetch(`${apiUrl}/api/v1/reviews/`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          body: formData,
+        });
+      } else {
+        res = await fetch(`${apiUrl}/api/v1/reviews/`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            book_id: Number(bookId),
+            book: Number(bookId),
+            rating: data.rating,
+            title: data.title?.trim() || null,
+            text: data.text?.trim() || null,
+          }),
+        });
+      }
 
       if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.detail || 'No se pudo guardar la reseña.');
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || (err.image && err.image[0]) || 'No se pudo guardar la reseña.');
       }
 
       setShowForm(false);
+      setSelectedImage(null);
+      setImagePreview(null);
+      setActiveEditorTab('write');
       resetReview({
         rating: 5,
         title: '',
@@ -296,6 +492,8 @@ export function BookReviewsSection({
       setSubmitting(false);
     }
   };
+
+  const { ref: textFormRef, ...textFormProps } = registerReview('text');
 
   return (
     <section className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-200/80 dark:border-slate-700 p-6 sm:p-8 shadow-sm space-y-6">
@@ -318,7 +516,13 @@ export function BookReviewsSection({
 
         {token && (
           <button
-            onClick={() => setShowForm(!showForm)}
+            onClick={() => {
+              if (showForm) {
+                handleRemoveImage();
+                setActiveEditorTab('write');
+              }
+              setShowForm(!showForm);
+            }}
             className="self-start sm:self-auto inline-flex items-center gap-2 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold px-4 py-2.5 rounded-2xl transition-all shadow-sm"
           >
             <span>✍️</span>
@@ -392,26 +596,178 @@ export function BookReviewsSection({
             )}
           </div>
 
-          {/* Texto de la reseña */}
+          {/* Editor de texto enriquecido */}
           <div>
-            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-              Tu opinión o crítica literaria:
-            </label>
-            <textarea
-              rows={4}
-              {...registerReview('text')}
-              placeholder="¿Qué te ha parecido la trama, el desarrollo de personajes o la prosa del autor?..."
-              className="w-full text-xs rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 p-3 focus:ring-2 focus:ring-teal-500 focus:outline-none leading-relaxed"
-            />
+            <div className="flex items-center justify-between pb-1">
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                Tu opinión o crítica literaria:
+              </label>
+              <div className="flex items-center gap-1 bg-slate-200/70 dark:bg-slate-800/80 p-0.5 rounded-lg text-[11px] font-semibold">
+                <button
+                  type="button"
+                  onClick={() => setActiveEditorTab('write')}
+                  className={`px-2.5 py-1 rounded-md transition-all ${
+                    activeEditorTab === 'write'
+                      ? 'bg-white dark:bg-slate-700 text-teal-600 dark:text-teal-300 shadow-xs'
+                      : 'text-slate-500 hover:text-slate-800 dark:text-slate-400'
+                  }`}
+                >
+                  ✏️ Escribir
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveEditorTab('preview')}
+                  className={`px-2.5 py-1 rounded-md transition-all ${
+                    activeEditorTab === 'preview'
+                      ? 'bg-white dark:bg-slate-700 text-teal-600 dark:text-teal-300 shadow-xs'
+                      : 'text-slate-500 hover:text-slate-800 dark:text-slate-400'
+                  }`}
+                >
+                  👁️ Vista previa
+                </button>
+              </div>
+            </div>
+
+            {/* Barra de herramientas para formatear */}
+            {activeEditorTab === 'write' && (
+              <div className="flex flex-wrap items-center gap-1 p-1.5 mb-1.5 bg-slate-100 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-600 text-xs">
+                <button
+                  type="button"
+                  onClick={() => insertFormatting('**', '**')}
+                  className="px-2 py-1 font-bold rounded-lg hover:bg-white dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors"
+                  title="Negrita (**texto**)"
+                >
+                  B
+                </button>
+                <button
+                  type="button"
+                  onClick={() => insertFormatting('*', '*')}
+                  className="px-2 py-1 italic rounded-lg hover:bg-white dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors"
+                  title="Cursiva (*texto*)"
+                >
+                  I
+                </button>
+                <button
+                  type="button"
+                  onClick={() => insertFormatting('### ')}
+                  className="px-2 py-1 font-bold text-xs rounded-lg hover:bg-white dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors"
+                  title="Encabezado (### Título)"
+                >
+                  H
+                </button>
+                <button
+                  type="button"
+                  onClick={() => insertFormatting('> ')}
+                  className="px-2 py-1 rounded-lg hover:bg-white dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors"
+                  title="Cita literaria (> Cita)"
+                >
+                  ❝ Cita
+                </button>
+                <button
+                  type="button"
+                  onClick={() => insertFormatting('- ')}
+                  className="px-2 py-1 rounded-lg hover:bg-white dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors"
+                  title="Elemento de lista (- Item)"
+                >
+                  • Lista
+                </button>
+                <button
+                  type="button"
+                  onClick={() => insertFormatting('[spoiler]', '[/spoiler]')}
+                  className="px-2.5 py-1 font-semibold rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-900 dark:bg-amber-950/60 dark:hover:bg-amber-900/80 dark:text-amber-200 transition-colors text-[11px]"
+                  title="Ocultar spoiler para otros lectores"
+                >
+                  ⚠️ Spoiler
+                </button>
+                <div className="ml-auto text-[10px] text-slate-400 font-mono pr-1">
+                  {watchedText.length}/5000
+                </div>
+              </div>
+            )}
+
+            {/* Pestaña de escritura */}
+            {activeEditorTab === 'write' ? (
+              <textarea
+                rows={5}
+                ref={(el) => {
+                  textFormRef(el);
+                  textareaRef.current = el;
+                }}
+                {...textFormProps}
+                placeholder="Comparte tus impresiones detalladas, reflexiones sobre los personajes, citas favoritas o advertencias de spoiler..."
+                className="w-full text-xs rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 p-3 focus:ring-2 focus:ring-teal-500 focus:outline-none leading-relaxed"
+              />
+            ) : (
+              /* Pestaña de vista previa */
+              <div className="min-h-[120px] p-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800">
+                {watchedText.trim() ? (
+                  <RichReviewText text={watchedText} />
+                ) : (
+                  <p className="text-xs italic text-slate-400 text-center py-4">
+                    Tu vista previa aparecerá aquí cuando escribas tu reseña...
+                  </p>
+                )}
+              </div>
+            )}
+
             {reviewErrors.text && (
               <p className="text-xs text-rose-500 mt-1">{reviewErrors.text.message}</p>
+            )}
+          </div>
+
+          {/* Subida de foto o imagen de la reseña */}
+          <div className="space-y-2 pt-1 border-t border-slate-200/60 dark:border-slate-600/60">
+            <div className="flex items-center justify-between">
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                📸 Adjuntar fotografía (opcional):
+              </label>
+              <span className="text-[10px] text-slate-400">JPG, PNG o WebP hasta 5 MB</span>
+            </div>
+
+            <input
+              type="file"
+              ref={fileInputRef}
+              accept="image/*"
+              onChange={handleImageChange}
+              className="hidden"
+            />
+
+            {!imagePreview ? (
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="w-full py-3 px-4 border border-dashed border-slate-300 dark:border-slate-600 hover:border-teal-500 rounded-xl bg-white dark:bg-slate-800 text-xs text-slate-600 dark:text-slate-300 font-medium flex items-center justify-center gap-2 hover:bg-teal-50/50 dark:hover:bg-slate-700/50 transition-colors"
+              >
+                <span>📷</span>
+                <span>Haz clic para añadir una foto de tu ejemplar, cita o ilustración</span>
+              </button>
+            ) : (
+              <div className="relative inline-block border border-slate-200 dark:border-slate-600 rounded-xl p-1 bg-white dark:bg-slate-800">
+                <img
+                  src={imagePreview}
+                  alt="Vista previa de la fotografía"
+                  className="h-28 w-auto rounded-lg object-cover"
+                />
+                <button
+                  type="button"
+                  onClick={handleRemoveImage}
+                  className="absolute -top-2 -right-2 bg-rose-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold shadow-md hover:bg-rose-700 transition-colors"
+                  title="Eliminar imagen"
+                >
+                  ✕
+                </button>
+              </div>
             )}
           </div>
 
           <div className="flex justify-end gap-2 pt-2">
             <button
               type="button"
-              onClick={() => setShowForm(false)}
+              onClick={() => {
+                handleRemoveImage();
+                setActiveEditorTab('write');
+                setShowForm(false);
+              }}
               className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-200 dark:text-slate-300 dark:hover:bg-slate-600"
             >
               Cancelar
@@ -525,9 +881,27 @@ export function BookReviewsSection({
                 )}
 
                 {rev.text && (
-                  <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-line">
-                    {rev.text}
-                  </p>
+                  <div className="pt-1">
+                    <RichReviewText text={rev.text} />
+                  </div>
+                )}
+
+                {rev.image && (
+                  <div className="pt-2">
+                    <a
+                      href={rev.image.startsWith('http') ? rev.image : `${apiUrl}${rev.image}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-block"
+                    >
+                      <img
+                        src={rev.image.startsWith('http') ? rev.image : `${apiUrl}${rev.image}`}
+                        alt={`Fotografía adjunta por ${authorName}`}
+                        className="max-h-72 w-auto max-w-full rounded-2xl object-cover border border-slate-200 dark:border-slate-700 shadow-xs hover:opacity-95 transition-opacity"
+                        loading="lazy"
+                      />
+                    </a>
+                  </div>
                 )}
 
                 {/* Barra de interacción social: Likes y Comentarios */}

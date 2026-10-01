@@ -480,9 +480,9 @@ export function Library() {
                       className="text-xs font-semibold rounded-lg border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700 py-1 px-2"
                     >
                       <option value="">Sin nota</option>
-                      {[10, 9, 8, 7, 6, 5, 4, 3, 2, 1].map((n) => (
+                      {[5, 4, 3, 2, 1].map((n) => (
                         <option key={n} value={n}>
-                          ⭐ {n}/10
+                          ⭐ {n}/5
                         </option>
                       ))}
                     </select>

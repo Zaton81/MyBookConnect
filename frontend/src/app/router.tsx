@@ -43,6 +43,9 @@ const ReadingLists = lazy(() =>
 const ReadingStats = lazy(() =>
   import('../features/books').then((m) => ({ default: m.ReadingStats }))
 );
+const NotificationsPage = lazy(() =>
+  import('../features/social').then((m) => ({ default: m.NotificationsPage }))
+);
 const OnboardingPage = lazy(() =>
   import('../features/onboarding').then((m) => ({ default: m.OnboardingPage }))
 );
@@ -90,10 +93,12 @@ export function AppRouter() {
           <Route path="/users/:id/statistics" element={<ReadingStats />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/profile/edit" element={<EditProfile />} />
+          <Route path="/settings" element={<Navigate to="/profile/edit" replace />} />
           <Route path="/profile/:id" element={<ProfileIdRedirect />} />
           <Route path="/users/:userId" element={<Profile />} />
           <Route path="/chat" element={<Chat />} />
           <Route path="/friends" element={<Friends />} />
+          <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="/onboarding" element={<OnboardingPage />} />
         </Route>
 

@@ -41,6 +41,7 @@ export function EditProfileForm() {
       show_location: user?.show_location ?? false,
       show_bio: user?.show_bio ?? false,
       gamification_enabled: user?.gamification_enabled ?? true,
+      account_type: (user?.account_type as 'reader' | 'author' | 'both') || 'reader',
     },
   });
 
@@ -146,6 +147,18 @@ export function EditProfileForm() {
           color={errors.location ? 'failure' : undefined}
           helperText={errors.location?.message}
         />
+      </div>
+
+      <div className="mb-4">
+        <Label htmlFor="account_type" value="Modalidad de cuenta en la comunidad (Modo Autor)" />
+        <Select id="account_type" {...register('account_type')}>
+          <option value="reader">📖 Lector (Descubrir, leer y reseñar libros)</option>
+          <option value="author">✍️ Escritor / Autor (Publicar obras y comunicados oficiales)</option>
+          <option value="both">🌟 Ambos (Lector voraz y escritor literario)</option>
+        </Select>
+        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+          Si activas el modo escritor o ambos, habilitarás tu perfil oficial de autor y herramientas de autoría.
+        </p>
       </div>
 
       <div className="mb-4">

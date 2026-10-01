@@ -4,6 +4,8 @@ from rest_framework import serializers
 
 from .models import (
     Author,
+    AuthorAnnouncement,
+    AuthorProfile,
     Book,
     Category,
     Errata,
@@ -121,6 +123,13 @@ class BookSerializer(serializers.ModelSerializer):
     author_id = serializers.PrimaryKeyRelatedField(
         queryset=Author.objects.all(), source='author', write_only=True, required=False, allow_null=True
     )
+    authors = AuthorBasicSerializer(many=True, read_only=True)
+    author_ids = serializers.PrimaryKeyRelatedField(
+        queryset=Author.objects.all(), many=True, write_only=True, required=False
+    )
+    author_names = serializers.ListField(
+        child=serializers.CharField(), write_only=True, required=False
+    )
     categories = CategorySerializer(many=True, read_only=True)
     category_ids = serializers.PrimaryKeyRelatedField(
         queryset=Category.objects.all(), many=True, source='categories', write_only=True, required=False
@@ -131,14 +140,72 @@ class BookSerializer(serializers.ModelSerializer):
     class Meta:
         model = Book
         fields = (
-            'id', 'title', 'author', 'author_id', 'isbn',
+            'id', 'title', 'author', 'author_id', 'authors', 'author_ids', 'author_names', 'isbn',
             'google_volume_id', 'openlibrary_work_id', 'openlibrary_edition_id',
             'cover', 'description', 'published_date', 'average_rating', 'created_at',
             'categories', 'category_ids', 'rating_distribution', 'reviews_count'
         )
 
+    def create(self, validated_data):
+        author_ids = validated_data.pop('author_ids', None)
+        author_names = validated_data.pop('author_names', None)
+        category_ids = validated_data.pop('categories', None)
+
+        book = super().create(validated_data)
+
+        if category_ids is not None:
+            book.categories.set(category_ids)
+
+        if author_ids is not None:
+            book.authors.set(author_ids)
+            if not book.author and author_ids:
+                book.author = author_ids[0]
+                book.save(update_fields=['author'])
+        elif book.author_id:
+            book.authors.add(book.author)
+
+        if author_names:
+            for name in author_names:
+                clean_name = str(name).strip()
+                if clean_name:
+                    author_obj, _ = Author.objects.get_or_create(name=clean_name)
+                    book.authors.add(author_obj)
+            if not book.author and book.authors.exists():
+                book.author = book.authors.first()
+                book.save(update_fields=['author'])
+
+        return book
+
+    def update(self, instance, validated_data):
+        author_ids = validated_data.pop('author_ids', None)
+        author_names = validated_data.pop('author_names', None)
+
+        book = super().update(instance, validated_data)
+
+        if author_ids is not None:
+            book.authors.set(author_ids)
+            if author_ids and not book.author:
+                book.author = author_ids[0]
+                book.save(update_fields=['author'])
+        if author_names is not None:
+            for name in author_names:
+                clean_name = str(name).strip()
+                if clean_name:
+                    author_obj, _ = Author.objects.get_or_create(name=clean_name)
+                    book.authors.add(author_obj)
+            if not book.author and book.authors.exists():
+                book.author = book.authors.first()
+                book.save(update_fields=['author'])
+
+        return book
+
     @extend_schema_field(serializers.DictField)
     def get_rating_distribution(self, obj):
+        request = self.context.get('request')
+        cache_key = f'_rating_dist_{obj.id}'
+        if request and hasattr(request, cache_key):
+            return getattr(request, cache_key)
+
         from django.db.models import Count
         distribution = dict.fromkeys(range(1, 6), 0)
         reviews = Review.objects.filter(
@@ -148,13 +215,23 @@ class BookSerializer(serializers.ModelSerializer):
             val = r['rating']
             if 1 <= val <= 5:
                 distribution[val] = r['count']
+        if request:
+            setattr(request, cache_key, distribution)
         return distribution
 
     @extend_schema_field(serializers.IntegerField)
     def get_reviews_count(self, obj):
         if hasattr(obj, 'annotated_reviews_count'):
             return obj.annotated_reviews_count
-        return Review.objects.filter(book=obj, deleted_at__isnull=True, is_moderated=False).count()
+        request = self.context.get('request')
+        cache_key = f'_reviews_count_{obj.id}'
+        if request and hasattr(request, cache_key):
+            return getattr(request, cache_key)
+
+        count = Review.objects.filter(book=obj, deleted_at__isnull=True, is_moderated=False).count()
+        if request:
+            setattr(request, cache_key, count)
+        return count
 
     def validate_cover(self, value):
         """
@@ -261,12 +338,13 @@ class ReviewSerializer(serializers.ModelSerializer):
     likes_count = serializers.SerializerMethodField()
     user_has_liked = serializers.SerializerMethodField()
     comments_count = serializers.SerializerMethodField()
+    image = serializers.ImageField(required=False, allow_null=True)
 
     class Meta:
         model = Review
         fields = (
             'id', 'user', 'username', 'user_id', 'user_avatar', 'avatar', 'privacy_level', 'is_friend',
-            'book', 'book_id', 'rating', 'title', 'text', 'created_at', 'updated_at',
+            'book', 'book_id', 'rating', 'title', 'text', 'image', 'created_at', 'updated_at',
             'likes_count', 'user_has_liked', 'comments_count'
         )
 
@@ -276,7 +354,9 @@ class ReviewSerializer(serializers.ModelSerializer):
             return obj.is_friend
         request = self.context.get('request')
         if request and request.user.is_authenticated:
-            return request.user.following.filter(id=obj.user.id).exists()
+            if not hasattr(request, '_cached_following_ids'):
+                request._cached_following_ids = set(request.user.following.values_list('id', flat=True))
+            return obj.user_id in request._cached_following_ids
         return False
 
     @extend_schema_field(serializers.IntegerField())
@@ -314,6 +394,28 @@ class ReviewSerializer(serializers.ModelSerializer):
     def validate_text(self, value):
         from mybookconnect.html_sanitizer import sanitize_html
         return sanitize_html(value)
+
+    def validate_image(self, value):
+        if not value:
+            return value
+        from django.core.exceptions import ValidationError as DjangoValidationError
+
+        from mybookconnect.media_security import COVER_PRESET, sanitize_image, validate_cover_image
+        try:
+            validate_cover_image(value)
+            return sanitize_image(value, max_dimensions=COVER_PRESET)
+        except DjangoValidationError as err:
+            msg = err.messages if hasattr(err, 'messages') else str(err)
+            raise serializers.ValidationError(msg) from err
+
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        request = self.context.get('request') if hasattr(self, 'context') else None
+        from .media_utils import build_media_url
+        if instance.image:
+            ret['image'] = build_media_url(instance.image, request=request)
+        return ret
+
 
 
 class ErrataSerializer(serializers.ModelSerializer):
@@ -493,6 +595,58 @@ class UnifiedSearchResponseSerializer(serializers.Serializer):
     page = serializers.IntegerField()
     page_size = serializers.IntegerField()
     results = UnifiedSearchResultSerializer(many=True)
+
+
+class AuthorProfileSerializer(serializers.ModelSerializer):
+    user_username = serializers.CharField(source='user.username', read_only=True)
+    author_name = serializers.CharField(source='author.name', read_only=True, allow_null=True)
+
+    class Meta:
+        model = AuthorProfile
+        fields = (
+            'id',
+            'user',
+            'user_username',
+            'author',
+            'author_name',
+            'pen_name',
+            'bio',
+            'website',
+            'twitter',
+            'instagram',
+            'is_verified',
+            'verification_notes',
+            'created_at',
+            'updated_at',
+        )
+        read_only_fields = ('id', 'user', 'user_username', 'is_verified', 'created_at', 'updated_at')
+
+
+class AuthorAnnouncementSerializer(serializers.ModelSerializer):
+    author_name = serializers.SerializerMethodField()
+    book_title = serializers.CharField(source='book.title', read_only=True, allow_null=True)
+
+    class Meta:
+        model = AuthorAnnouncement
+        fields = (
+            'id',
+            'author_profile',
+            'author_name',
+            'book',
+            'book_title',
+            'title',
+            'content',
+            'is_pinned',
+            'created_at',
+        )
+        read_only_fields = ('id', 'author_profile', 'author_name', 'book_title', 'created_at')
+
+    def get_author_name(self, obj) -> str:
+        if obj.author_profile.pen_name:
+            return obj.author_profile.pen_name
+        if obj.author_profile.author:
+            return obj.author_profile.author.name
+        return obj.author_profile.user.username
 
 
 

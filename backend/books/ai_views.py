@@ -20,7 +20,9 @@ from ai.policies import (
     validate_forbidden_client_parameters,
 )
 from ai.services import (
+    compare_books_ai,
     execute_assistant_tool,
+    explain_book_ai,
     get_ai_status,
     get_assistant_reply,
     get_available_assistant_tools,
@@ -334,3 +336,277 @@ class AIToolExecuteView(APIView):
                 {'detail': f"Error interno al ejecutar la herramienta: {str(exc)}"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
+
+
+class AIExplainBookView(APIView):
+    """
+    Explicación literaria estructurada en profundidad (contexto histórico,
+    claves temáticas, estilo narrativo y guía de lectura) con disclaimer obligatorio de IA.
+    """
+    permission_classes = (permissions.IsAuthenticated,)
+
+    @extend_schema(
+        summary="Explicación analítica de una obra generada por IA",
+        description="Genera contexto histórico, claves de lectura, estilo narrativo y recomendación personalizada.",
+        responses={
+            200: inline_serializer(
+                name='AIExplainBookResponse',
+                fields={
+                    'book_id': serializers.IntegerField(),
+                    'book_title': serializers.CharField(),
+                    'explanation': serializers.CharField(),
+                    'ai_online': serializers.BooleanField(),
+                    'provider': serializers.CharField(),
+                    'is_ai_generated': serializers.BooleanField(),
+                    'badge': serializers.CharField(),
+                    'disclaimer': serializers.CharField(),
+                },
+            ),
+            404: OpenApiResponse(description="Libro no encontrado"),
+            429: OpenApiResponse(description="Límite de tasa excedido"),
+        },
+        tags=['AI'],
+    )
+    def post(self, request, pk):
+        """
+        Genera la explicación literaria completa del libro especificado.
+
+        :param request: Objeto HttpRequest autenticado.
+        :param pk: Identificador del libro a analizar.
+        :return: Response con explicación estructurada, badge y disclaimer transparente.
+        """
+        book = get_object_or_404(Book, pk=pk)
+        req_id = request.headers.get('X-Request-ID')
+
+        try:
+            result = explain_book_ai(book=book, user=request.user, request_id=req_id)
+            response = Response(result, status=status.HTTP_200_OK)
+            if 'request_id' in result:
+                response['X-Request-ID'] = result['request_id']
+            return response
+        except AIRateLimitExceededError as rate_err:
+            response = Response(
+                {
+                    'detail': str(rate_err),
+                    'window': getattr(rate_err, 'window', 'minute'),
+                    'retry_after': getattr(rate_err, 'retry_after', 60),
+                },
+                status=status.HTTP_429_TOO_MANY_REQUESTS,
+            )
+            response['Retry-After'] = str(getattr(rate_err, 'retry_after', 60))
+            return response
+        except Exception as exc:
+            logger.exception("Error al generar explicación literaria con IA: %s", exc)
+            return Response(
+                {'detail': 'Error interno al generar la explicación literaria de la obra.'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+
+class AICompareBooksView(APIView):
+    """
+    Comparativa literaria estructurada entre dos obras (convergencias, divergencias,
+    estilos y guía de elección) explícitamente etiquetada con transparencia de IA.
+    """
+    permission_classes = (permissions.IsAuthenticated,)
+
+    @extend_schema(
+        summary="Comparativa temática entre dos obras generada por IA",
+        description="Analiza y compara dos libros en paralelismos temáticos, contrastes de tono y recomendación.",
+        request=inline_serializer(
+            name='AICompareBooksRequest',
+            fields={
+                'book_a_id': serializers.IntegerField(),
+                'book_b_id': serializers.IntegerField(),
+            },
+        ),
+        responses={
+            200: inline_serializer(
+                name='AICompareBooksResponse',
+                fields={
+                    'book_a': serializers.DictField(),
+                    'book_b': serializers.DictField(),
+                    'comparison': serializers.CharField(),
+                    'ai_online': serializers.BooleanField(),
+                    'provider': serializers.CharField(),
+                    'is_ai_generated': serializers.BooleanField(),
+                    'badge': serializers.CharField(),
+                    'disclaimer': serializers.CharField(),
+                },
+            ),
+            400: OpenApiResponse(description="Parámetros inválidos"),
+            404: OpenApiResponse(description="Uno o ambos libros no existen"),
+            429: OpenApiResponse(description="Límite de tasa excedido"),
+        },
+        tags=['AI'],
+    )
+    def post(self, request):
+        """
+        Compara temáticamente dos libros del catálogo.
+
+        :param request: Objeto HttpRequest con book_a_id y book_b_id en el payload.
+        :return: Response con análisis comparativo en Markdown, badge y disclaimer.
+        """
+        book_a_id = request.data.get('book_a_id')
+        book_b_id = request.data.get('book_b_id')
+
+        if not book_a_id or not book_b_id:
+            return Response(
+                {'detail': "Los campos 'book_a_id' y 'book_b_id' son requeridos."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if book_a_id == book_b_id:
+            return Response(
+                {'detail': "Debes seleccionar dos libros distintos para compararlos."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        book_a = get_object_or_404(Book, pk=book_a_id)
+        book_b = get_object_or_404(Book, pk=book_b_id)
+        req_id = request.headers.get('X-Request-ID')
+
+        try:
+            result = compare_books_ai(
+                book_a=book_a,
+                book_b=book_b,
+                user=request.user,
+                request_id=req_id,
+            )
+            response = Response(result, status=status.HTTP_200_OK)
+            if 'request_id' in result:
+                response['X-Request-ID'] = result['request_id']
+            return response
+        except AIRateLimitExceededError as rate_err:
+            response = Response(
+                {
+                    'detail': str(rate_err),
+                    'window': getattr(rate_err, 'window', 'minute'),
+                    'retry_after': getattr(rate_err, 'retry_after', 60),
+                },
+                status=status.HTTP_429_TOO_MANY_REQUESTS,
+            )
+            response['Retry-After'] = str(getattr(rate_err, 'retry_after', 60))
+            return response
+        except Exception as exc:
+            logger.exception("Error al comparar obras con IA: %s", exc)
+            return Response(
+                {'detail': 'Error interno al generar la comparativa temática de las obras.'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+
+class AIEmbeddingStatsView(APIView):
+    """
+    Observabilidad y métricas de cobertura de embeddings en el catálogo (Fase 25).
+    Informa sobre el estado de vectorización, porcentaje de cobertura y desglose por modelo y versión.
+    """
+    permission_classes = (permissions.IsAuthenticated,)
+
+    @extend_schema(
+        summary="Métricas de cobertura y gobernanza de embeddings",
+        description="Retorna el desglose de cobertura vectorial del catálogo y versionado de modelos activos.",
+        responses={
+            200: inline_serializer(
+                name='AIEmbeddingStatsResponse',
+                fields={
+                    'total_books': serializers.IntegerField(),
+                    'total_embeddings': serializers.IntegerField(),
+                    'completed': serializers.IntegerField(),
+                    'pending': serializers.IntegerField(),
+                    'failed': serializers.IntegerField(),
+                    'stale': serializers.IntegerField(),
+                    'coverage_percentage': serializers.FloatField(),
+                    'active_model': serializers.CharField(),
+                    'models_breakdown': serializers.ListField(child=serializers.DictField()),
+                },
+            )
+        },
+        tags=['AI'],
+    )
+    def get(self, request):
+        """
+        Retorna las estadísticas del catálogo vectorial en tiempo real.
+        """
+        from books.services.embedding_service import get_embedding_catalog_stats
+
+        stats_data = get_embedding_catalog_stats()
+        return Response(stats_data, status=status.HTTP_200_OK)
+
+
+class AIGenerateBookEmbeddingView(APIView):
+    """
+    Endpoint para generar o forzar la actualización del embedding vectorial de un libro (Fase 25).
+    Soporta ejecución síncrona inmediata o asíncrona mediante Celery.
+    """
+    permission_classes = (permissions.IsAuthenticated,)
+
+    @extend_schema(
+        summary="Generar o actualizar embedding de un libro",
+        description="Vectoriza el contenido normalizado del libro y registra su estado y metadatos.",
+        request=inline_serializer(
+            name='AIGenerateBookEmbeddingRequest',
+            fields={
+                'force': serializers.BooleanField(required=False, default=False),
+                'async_mode': serializers.BooleanField(required=False, default=False),
+            },
+        ),
+        responses={
+            200: inline_serializer(
+                name='AIGenerateBookEmbeddingResponse',
+                fields={
+                    'book_id': serializers.IntegerField(),
+                    'status': serializers.CharField(),
+                    'dimension': serializers.IntegerField(),
+                    'model': serializers.CharField(),
+                    'version': serializers.CharField(),
+                },
+            ),
+            202: inline_serializer(
+                name='AIGenerateBookEmbeddingAsyncResponse',
+                fields={
+                    'book_id': serializers.IntegerField(),
+                    'status': serializers.CharField(),
+                    'task_enqueued': serializers.BooleanField(),
+                },
+            ),
+            404: OpenApiResponse(description="Libro no encontrado"),
+        },
+        tags=['AI'],
+    )
+    def post(self, request, pk):
+        """
+        Inicia la generación de embedding para el libro especificado.
+        """
+        book = get_object_or_404(Book, pk=pk)
+        force = bool(request.data.get('force', False))
+        async_mode = bool(request.data.get('async_mode', False))
+
+        if async_mode:
+            from books.tasks import generate_book_embedding_task
+
+            generate_book_embedding_task.delay(book.id, force=force)
+            return Response(
+                {
+                    'book_id': book.id,
+                    'status': 'enqueued',
+                    'task_enqueued': True,
+                },
+                status=status.HTTP_202_ACCEPTED,
+            )
+
+        from books.services.embedding_service import generate_book_embedding
+
+        rec = generate_book_embedding(book=book, force=force)
+        return Response(
+            {
+                'book_id': book.id,
+                'status': rec.embedding_status,
+                'dimension': rec.dimension,
+                'model': rec.embedding_model,
+                'version': rec.embedding_version,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+

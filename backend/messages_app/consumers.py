@@ -135,7 +135,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     @database_sync_to_async
     def _create_message(self, conversation_id: int, sender_id: int, text: str, client_message_id: str = None):
-        from users.models import Notification, NotificationType
+        from users.models import NotificationType
 
         conv = Conversation.objects.get(id=conversation_id)
         user = User.objects.get(id=sender_id)
@@ -166,11 +166,13 @@ class ChatConsumer(AsyncWebsocketConsumer):
         )
 
         # Generar notificación para los demás participantes
+        from users.notification_service import NotificationService
+
         for participant in conv.participants.exclude(id=sender_id):
-            Notification.objects.create(
+            NotificationService.send_notification(
                 recipient=participant,
                 actor=user,
-                type=NotificationType.MESSAGE,
+                notif_type=NotificationType.MESSAGE,
                 title=f'Mensaje de {user.username}',
                 message=text[:80],
                 link=f'/chat?conversationId={conv.id}',

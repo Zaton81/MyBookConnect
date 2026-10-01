@@ -59,6 +59,7 @@ class Category(models.Model):
 class Book(models.Model):
     title = models.CharField(max_length=300)
     author = models.ForeignKey(Author, null=True, blank=True, on_delete=models.SET_NULL, related_name='books')
+    authors = models.ManyToManyField(Author, related_name='all_books', blank=True)
     isbn = models.CharField(max_length=30, blank=True, null=True, db_index=True)
     google_volume_id = models.CharField(max_length=50, null=True, blank=True, db_index=True)
     openlibrary_work_id = models.CharField(max_length=50, null=True, blank=True, db_index=True)
@@ -89,10 +90,24 @@ class Book(models.Model):
             GinIndex(fields=['description'], name='idx_book_desc_trgm', opclasses=['gin_trgm_ops']),
         ]
 
+    def get_author_names(self) -> str:
+        """Devuelve los nombres de todos los autores concatenados por comas."""
+        if hasattr(self, '_prefetched_objects_cache') and 'authors' in self._prefetched_objects_cache:
+            author_names = [a.name for a in self.authors.all()]
+        else:
+            author_names = list(self.authors.values_list('name', flat=True))
+        if author_names:
+            return ", ".join(author_names)
+        if self.author:
+            return self.author.name
+        return "Autor desconocido"
+
     def save(self, *args, **kwargs):
         if self.isbn:
             self.isbn = normalize_isbn(self.isbn)
         super().save(*args, **kwargs)
+        if self.author_id:
+            self.authors.add(self.author)
 
     def __str__(self):
         return f"{self.title}"
@@ -190,6 +205,13 @@ class Review(SoftDeleteModel):
     )
     title = models.CharField(max_length=200, blank=True, null=True)
     text = models.TextField(blank=True, null=True)
+    image = models.ImageField(
+        upload_to='reviews/',
+        null=True,
+        blank=True,
+        validators=[validate_cover_image],
+        help_text="Fotografía o imagen adjunta a la reseña (ej. portada, dedicatoria, pasaje; máx 10MB)",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     is_moderated = models.BooleanField(
@@ -197,6 +219,7 @@ class Review(SoftDeleteModel):
         db_index=True,
         help_text="Indica si la reseña ha sido ocultada por moderación",
     )
+
 
     class Meta:
         ordering = ['-created_at']
@@ -670,6 +693,127 @@ class BookEmbedding(models.Model):
 
     def __str__(self) -> str:
         return f"Embedding [{self.embedding_status}] - {self.book.title} ({self.dimension}d)"
+
+
+
+# ==============================================================================
+# Plataforma de Autores y Monetización (Fase 31 — RoadmapV2)
+# ==============================================================================
+
+class AuthorProfile(models.Model):
+    """
+    Perfil oficial de un autor en la plataforma, vinculado a su cuenta de usuario
+    y opcionalmente enlazado con la entidad Author del catálogo de libros.
+    """
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='author_profile',
+        verbose_name='Cuenta de usuario',
+    )
+    author = models.ForeignKey(
+        Author,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='profiles',
+        verbose_name='Autor del catálogo',
+        help_text='Registro del catálogo de autores reclamado y verificado',
+    )
+    pen_name = models.CharField(
+        max_length=200,
+        blank=True,
+        verbose_name='Nombre de pluma / artístico',
+    )
+    bio = models.TextField(blank=True, verbose_name='Biografía profesional')
+    website = models.URLField(blank=True, verbose_name='Sitio web oficial')
+    twitter = models.CharField(max_length=100, blank=True, verbose_name='Usuario de Twitter/X')
+    instagram = models.CharField(max_length=100, blank=True, verbose_name='Usuario de Instagram')
+    is_verified = models.BooleanField(
+        default=False,
+        db_index=True,
+        verbose_name='Autor verificado',
+    )
+    verification_notes = models.TextField(
+        blank=True,
+        verbose_name='Notas de verificación o pruebas de autoría',
+    )
+    created_at = models.DateTimeField(default=timezone.now, verbose_name='Fecha de creación')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='Última actualización')
+
+    class Meta:
+        verbose_name = 'Perfil de Autor'
+        verbose_name_plural = 'Perfiles de Autores'
+
+    def __str__(self) -> str:
+        name = self.pen_name or (self.author.name if self.author else self.user.username)
+        return f"Perfil de Autor: {name} ({'Verificado' if self.is_verified else 'Pendiente'})"
+
+
+class AuthorAnnouncement(models.Model):
+    """
+    Comunicado oficial o novedad publicada por un autor verificado para sus lectores.
+    """
+    author_profile = models.ForeignKey(
+        AuthorProfile,
+        on_delete=models.CASCADE,
+        related_name='announcements',
+        verbose_name='Perfil de autor',
+    )
+    book = models.ForeignKey(
+        Book,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='author_announcements',
+        verbose_name='Libro relacionado',
+    )
+    title = models.CharField(max_length=200, verbose_name='Título del comunicado')
+    content = models.TextField(verbose_name='Contenido del comunicado')
+    is_pinned = models.BooleanField(default=False, verbose_name='Fijado en el perfil')
+    created_at = models.DateTimeField(default=timezone.now, db_index=True, verbose_name='Fecha de publicación')
+
+    class Meta:
+        verbose_name = 'Comunicado de Autor'
+        verbose_name_plural = 'Comunicados de Autores'
+        ordering = ['-is_pinned', '-created_at']
+
+    def __str__(self) -> str:
+        return f"[{self.author_profile.pen_name or self.author_profile.user.username}] {self.title}"
+
+
+class AffiliateClick(models.Model):
+    """
+    Registro anónimo de clics en enlaces de afiliados para telemetría y métricas de conversión.
+    No almacena PII para cumplir estrictamente con el RGPD.
+    """
+    class FormatChoices(models.TextChoices):
+        PAPERBACK = 'paperback', 'Libro Físico'
+        EBOOK = 'ebook', 'Ebook Kindle'
+        AUDIOBOOK = 'audiobook', 'Audiolibro Audible'
+
+    book = models.ForeignKey(
+        Book,
+        on_delete=models.CASCADE,
+        related_name='affiliate_clicks',
+        verbose_name='Libro consultado',
+    )
+    format = models.CharField(
+        max_length=20,
+        choices=FormatChoices.choices,
+        default=FormatChoices.PAPERBACK,
+        db_index=True,
+        verbose_name='Formato de compra',
+    )
+    created_at = models.DateTimeField(default=timezone.now, db_index=True, verbose_name='Fecha del clic')
+
+    class Meta:
+        verbose_name = 'Clic de Afiliado'
+        verbose_name_plural = 'Clics de Afiliados'
+        ordering = ['-created_at']
+
+    def __str__(self) -> str:
+        return f"Clic [{self.format}] - {self.book.title} ({self.created_at.strftime('%Y-%m-%d %H:%M')})"
 
 
 # Modelos de gamificación opcional (Fase 54)
