@@ -83,6 +83,22 @@ class BetaMetricsService:
         )
         active_evaluators_count = len(active_feedback_users | active_ticket_users)
 
+        # 5. Métricas de Retención D1 / D7 / D30 (Fase 37)
+        try:
+            from analytics.services import AnalyticsService
+            retention_data = AnalyticsService.get_retention_metrics(days=30)
+        except Exception:
+            retention_data = {
+                'timeframe_days': 30,
+                'total_signups': 0,
+                'd1_active_users': 0,
+                'd1_retention_rate': 0.0,
+                'd7_active_users': 0,
+                'd7_retention_rate': 0.0,
+                'd30_active_users': 0,
+                'd30_retention_rate': 0.0,
+            }
+
         return {
             'invitations': {
                 'total': total_invitations,
@@ -106,5 +122,7 @@ class BetaMetricsService:
             'evaluators': {
                 'active_last_7_days': active_evaluators_count,
             },
+            'retention': retention_data,
             'generated_at': now.isoformat(),
         }
+

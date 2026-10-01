@@ -422,3 +422,7 @@ AMAZON_AFFILIATE_TAG = os.getenv('AMAZON_AFFILIATE_TAG', 'mybooksocial-21')
 AMAZON_AFFILIATE_BASE_URL = os.getenv('AMAZON_AFFILIATE_BASE_URL', 'https://www.amazon.es/dp/')
 AMAZON_AFFILIATE_SEARCH_URL = os.getenv('AMAZON_AFFILIATE_SEARCH_URL', 'https://www.amazon.es/s')
 
+# ─── Configuración Beta Pública y Adopción (Fase 37) ───
+PUBLIC_REGISTRATION_ENABLED = os.getenv('PUBLIC_REGISTRATION_ENABLED', 'true').lower() in ('true', '1', 'yes')
+REQUIRE_BETA_INVITATION = os.getenv('REQUIRE_BETA_INVITATION', 'false').lower() in ('true', '1', 'yes')
+

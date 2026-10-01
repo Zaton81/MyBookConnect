@@ -183,14 +183,47 @@ class UserSerializer(serializers.ModelSerializer):
 class UserCreateSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=True, validators=[validate_password])
     password2 = serializers.CharField(write_only=True, required=True)
+    invitation_code = serializers.CharField(
+        write_only=True,
+        required=False,
+        allow_blank=True,
+        default='',
+        help_text="Código de invitación opcional o requerido según la fase de la beta."
+    )
 
     class Meta:
         model = User
-        fields = ('username', 'password', 'password2', 'email', 'bio', 'first_name', 'last_name')
+        fields = ('username', 'password', 'password2', 'email', 'bio', 'first_name', 'last_name', 'invitation_code')
 
     email = serializers.EmailField(required=True, validators=[UniqueValidator(queryset=User.objects.all())])
 
     def validate(self, attrs):
+        from django.conf import settings
+
+        # Control de acceso a la Beta / Registro Público (Fase 37)
+        public_reg_enabled = getattr(settings, 'PUBLIC_REGISTRATION_ENABLED', True)
+        require_invitation = getattr(settings, 'REQUIRE_BETA_INVITATION', False)
+        invitation_code = (attrs.get('invitation_code') or '').strip()
+
+        if not public_reg_enabled and not require_invitation:
+            raise serializers.ValidationError({
+                "non_field_errors": ["El registro de nuevos usuarios se encuentra deshabilitado temporalmente."]
+            })
+
+        if require_invitation and not invitation_code:
+            raise serializers.ValidationError({
+                "invitation_code": ["Se requiere un código de invitación válido para acceder a la beta privada."]
+            })
+
+        if invitation_code:
+            from beta.models import BetaInvitation
+            invitation = BetaInvitation.objects.filter(code__iexact=invitation_code).first()
+            if not invitation or not invitation.is_valid():
+                raise serializers.ValidationError({
+                    "invitation_code": ["El código de invitación no es válido, ha expirado o ha alcanzado su límite de usos."]
+                })
+            attrs['_beta_invitation'] = invitation
+
         if attrs['password'] != attrs['password2']:
             raise serializers.ValidationError({"password": "Las contraseñas no coinciden"})
         temp_user = User(
@@ -213,7 +246,11 @@ class UserCreateSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         validated_data.pop('password2')
+        invitation = validated_data.pop('_beta_invitation', None)
+        validated_data.pop('invitation_code', None)
         user = User.objects.create_user(**validated_data)
+        if invitation:
+            invitation.use()
         return user
 
 

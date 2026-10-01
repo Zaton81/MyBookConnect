@@ -179,3 +179,62 @@ class AdminBetaAlertsView(APIView):
         from .alerts_service import BetaAlertsService
         alerts = BetaAlertsService.get_active_alerts()
         return Response({'count': len(alerts), 'alerts': alerts}, status=status.HTTP_200_OK)
+
+
+class RegistrationStatusView(APIView):
+    """
+    Informa del modo actual de registro (Público, Beta Cerrada con Invitación o Cerrado).
+    Accesible públicamente sin autenticación (Fase 37).
+    """
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        from django.conf import settings
+        public_registration = getattr(settings, 'PUBLIC_REGISTRATION_ENABLED', True)
+        require_invitation = getattr(settings, 'REQUIRE_BETA_INVITATION', False)
+
+        if require_invitation:
+            mode = 'closed_beta'
+        elif public_registration:
+            mode = 'public'
+        else:
+            mode = 'maintenance'
+
+        return Response({
+            'public_registration_enabled': public_registration,
+            'require_invitation': require_invitation,
+            'mode': mode,
+        }, status=status.HTTP_200_OK)
+
+
+class UserReferralCodeView(APIView):
+    """
+    Obtiene o genera el enlace y código de invitación personal del lector (Fase 37).
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from .referral_service import ReferralService
+        invitation = ReferralService.get_or_create_referral_code(request.user)
+        remaining = max(0, invitation.max_uses - invitation.uses_count)
+        return Response({
+            'code': invitation.code,
+            'referral_url': f"/register?ref={invitation.code}",
+            'max_uses': invitation.max_uses,
+            'uses_count': invitation.uses_count,
+            'remaining_uses': remaining,
+            'is_active': invitation.is_active and remaining > 0,
+        }, status=status.HTTP_200_OK)
+
+
+class UserReferralStatsView(APIView):
+    """
+    Devuelve las métricas de amigos referidos e inscritos mediante el código del lector (Fase 37).
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from .referral_service import ReferralService
+        stats = ReferralService.get_referral_stats(request.user)
+        return Response(stats, status=status.HTTP_200_OK)
+

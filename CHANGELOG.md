@@ -47,6 +47,13 @@ y este proyecto se adhiere a [Semantic Versioning 2.0.0](https://semver.org/lang
   - Servicio de métricas `BetaMetricsService` y endpoint administrativo `/api/v1/beta/admin/metrics/` con cálculo de tasa de activación, distribución de feedback y tickets de soporte.
   - Servicio de triaje y alertas inmediatas `BetaAlertsService` con hooks en feedback (`BUG`) y soporte urgente (`CRITICAL`/`HIGH`) en `/api/v1/beta/admin/alerts/`.
   - Guía operativa de gestión y monitorización de la beta cerrada (`docs/deployment/closed_beta_operations_guide.md`).
+- **Apertura de Beta Pública y Campaña de Adopción (Fase 37)**:
+  - Feature flags dinámicas de registro (`PUBLIC_REGISTRATION_ENABLED` y `REQUIRE_BETA_INVITATION`) en `settings.py` y `UserCreateSerializer`.
+  - Endpoint público de verificación de estado de registro (`GET /api/v1/beta/registration-status/`).
+  - Sistema de referidos virales entre lectores (`ReferralService`) con endpoints `/api/v1/beta/referrals/my-code/` y `/api/v1/beta/referrals/stats/`.
+  - Consolidación del cálculo de retención de cohortes D1 / D7 / D30 en el panel de telemetría (`BetaMetricsService.get_cohort_summary_metrics`).
+  - Suite de pruebas de integración completa (`test_phase37_public_beta_and_retention.py`).
+  - Guía de operaciones y adopción de beta pública (`docs/deployment/public_beta_and_adoption_guide.md`).
 
 ---
 
