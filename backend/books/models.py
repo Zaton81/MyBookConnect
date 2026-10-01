@@ -205,6 +205,13 @@ class Review(SoftDeleteModel):
     )
     title = models.CharField(max_length=200, blank=True, null=True)
     text = models.TextField(blank=True, null=True)
+    image = models.ImageField(
+        upload_to='reviews/',
+        null=True,
+        blank=True,
+        validators=[validate_cover_image],
+        help_text="Fotografía o imagen adjunta a la reseña (ej. portada, dedicatoria, pasaje; máx 10MB)",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     is_moderated = models.BooleanField(
@@ -212,6 +219,7 @@ class Review(SoftDeleteModel):
         db_index=True,
         help_text="Indica si la reseña ha sido ocultada por moderación",
     )
+
 
     class Meta:
         ordering = ['-created_at']

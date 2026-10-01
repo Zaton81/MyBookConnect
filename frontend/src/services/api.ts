@@ -9,10 +9,10 @@ export const authApi = {
     });
   },
 
-  async register(username: string, email: string, password: string, password2?: string) {
+  async register(username: string, email: string, password: string, password2?: string, account_type: string = 'reader') {
     return apiClient('/api/v1/auth/register/', {
       method: 'POST',
-      body: JSON.stringify({ username, email, password, password2 }),
+      body: JSON.stringify({ username, email, password, password2, account_type }),
       requireAuth: false,
     });
   },

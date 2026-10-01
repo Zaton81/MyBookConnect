@@ -338,12 +338,13 @@ class ReviewSerializer(serializers.ModelSerializer):
     likes_count = serializers.SerializerMethodField()
     user_has_liked = serializers.SerializerMethodField()
     comments_count = serializers.SerializerMethodField()
+    image = serializers.ImageField(required=False, allow_null=True)
 
     class Meta:
         model = Review
         fields = (
             'id', 'user', 'username', 'user_id', 'user_avatar', 'avatar', 'privacy_level', 'is_friend',
-            'book', 'book_id', 'rating', 'title', 'text', 'created_at', 'updated_at',
+            'book', 'book_id', 'rating', 'title', 'text', 'image', 'created_at', 'updated_at',
             'likes_count', 'user_has_liked', 'comments_count'
         )
 
@@ -393,6 +394,28 @@ class ReviewSerializer(serializers.ModelSerializer):
     def validate_text(self, value):
         from mybookconnect.html_sanitizer import sanitize_html
         return sanitize_html(value)
+
+    def validate_image(self, value):
+        if not value:
+            return value
+        from django.core.exceptions import ValidationError as DjangoValidationError
+
+        from mybookconnect.media_security import COVER_PRESET, sanitize_image, validate_cover_image
+        try:
+            validate_cover_image(value)
+            return sanitize_image(value, max_dimensions=COVER_PRESET)
+        except DjangoValidationError as err:
+            msg = err.messages if hasattr(err, 'messages') else str(err)
+            raise serializers.ValidationError(msg) from err
+
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        request = self.context.get('request') if hasattr(self, 'context') else None
+        from .media_utils import build_media_url
+        if instance.image:
+            ret['image'] = build_media_url(instance.image, request=request)
+        return ret
+
 
 
 class ErrataSerializer(serializers.ModelSerializer):

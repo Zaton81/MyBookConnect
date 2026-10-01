@@ -35,6 +35,8 @@ export interface User {
   followers_count?: number;
   onboarding_completed?: boolean;
   favorite_categories?: number[];
+  account_type?: 'reader' | 'author' | 'both';
+  is_author?: boolean;
 }
 
 export interface Report {

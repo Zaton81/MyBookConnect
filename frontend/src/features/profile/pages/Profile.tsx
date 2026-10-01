@@ -394,6 +394,16 @@ export function Profile() {
                       Admin
                     </span>
                   )}
+                  {(profileUser.account_type === 'author' || profileUser.account_type === 'both' || profileUser.is_author) && (
+                    <span className="bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200 text-xs px-2.5 py-0.5 rounded-full font-bold flex items-center gap-1 shadow-xs border border-amber-200 dark:border-amber-800">
+                      ✍️ Escritor
+                    </span>
+                  )}
+                  {(profileUser.account_type === 'reader' || profileUser.account_type === 'both') && (
+                    <span className="bg-sky-100 dark:bg-sky-900/40 text-sky-800 dark:text-sky-200 text-xs px-2.5 py-0.5 rounded-full font-semibold flex items-center gap-1">
+                      📖 Lector
+                    </span>
+                  )}
                 </h1>
                 <p className="text-slate-500 dark:text-slate-400 font-medium text-sm">
                   @{profileUser.username}

@@ -38,6 +38,7 @@ class UserSerializer(serializers.ModelSerializer):
     am_i_blocked = serializers.SerializerMethodField()
     is_muted = serializers.SerializerMethodField()
     is_disciplinary_muted = serializers.SerializerMethodField()
+    is_author = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -47,11 +48,28 @@ class UserSerializer(serializers.ModelSerializer):
             'reading_privacy_level', 'activity_privacy_level', 'allow_messages_from',
             'show_email', 'show_birth_date', 'show_location', 'show_bio',
             'following', 'followers', 'is_editor', 'is_staff', 'is_superuser', 'role',
+            'account_type', 'is_author',
             'reviews_count', 'books_read_count', 'following_count', 'followers_count',
             'is_following', 'is_blocked', 'am_i_blocked', 'is_muted', 'is_disciplinary_muted', 'muted_until',
             'onboarding_completed', 'favorite_categories',
         )
-        read_only_fields = ('id', 'followers', 'is_editor', 'is_staff', 'is_superuser', 'role', 'is_email_verified', 'muted_until')
+        read_only_fields = ('id', 'followers', 'is_editor', 'is_staff', 'is_superuser', 'role', 'is_email_verified', 'muted_until', 'is_author')
+
+    @extend_schema_field(serializers.BooleanField)
+    def get_is_author(self, obj):
+        return getattr(obj, 'account_type', 'reader') in ('author', 'both')
+
+    def update(self, instance, validated_data):
+        account_type = validated_data.get('account_type')
+        user = super().update(instance, validated_data)
+        if account_type in ('author', 'both') or instance.account_type in ('author', 'both'):
+            try:
+                from books.models import AuthorProfile
+                AuthorProfile.objects.get_or_create(user=user)
+            except Exception:
+                pass
+        return user
+
 
     def validate_avatar(self, value):
         """
@@ -190,10 +208,16 @@ class UserCreateSerializer(serializers.ModelSerializer):
         default='',
         help_text="Código de invitación opcional o requerido según la fase de la beta."
     )
+    account_type = serializers.ChoiceField(
+        choices=[('reader', 'Lector'), ('author', 'Escritor / Autor'), ('both', 'Lector y Escritor')],
+        default='reader',
+        required=False,
+        help_text="Modalidad de cuenta en la plataforma: lector, escritor/autor o ambos."
+    )
 
     class Meta:
         model = User
-        fields = ('username', 'password', 'password2', 'email', 'bio', 'first_name', 'last_name', 'invitation_code')
+        fields = ('username', 'password', 'password2', 'email', 'bio', 'first_name', 'last_name', 'invitation_code', 'account_type')
 
     email = serializers.EmailField(required=True, validators=[UniqueValidator(queryset=User.objects.all())])
 
@@ -248,9 +272,16 @@ class UserCreateSerializer(serializers.ModelSerializer):
         validated_data.pop('password2')
         invitation = validated_data.pop('_beta_invitation', None)
         validated_data.pop('invitation_code', None)
+        account_type = validated_data.get('account_type', 'reader')
         user = User.objects.create_user(**validated_data)
         if invitation:
             invitation.use()
+        if account_type in ('author', 'both'):
+            try:
+                from books.models import AuthorProfile
+                AuthorProfile.objects.get_or_create(user=user)
+            except Exception:
+                pass
         return user
 
 

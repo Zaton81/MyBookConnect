@@ -20,13 +20,21 @@ export async function register(
   username: string,
   email: string,
   password: string,
-  password2: string = password
+  password2: string = password,
+  account_type: string = 'reader'
 ) {
   const res = await fetch(`${API_URL}/auth/register/`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username, email, password, password2: password2 || password }),
+    body: JSON.stringify({
+      username,
+      email,
+      password,
+      password2: password2 || password,
+      account_type,
+    }),
   });
+
 
   if (!res.ok) {
     // Intentar parsear errores por campo (DRF devuelve dicts) o mensaje general

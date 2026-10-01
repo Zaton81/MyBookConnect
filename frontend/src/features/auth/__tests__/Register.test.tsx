@@ -72,7 +72,12 @@ describe('Register Component', () => {
     fireEvent.click(submitButton);
 
     await waitFor(() => {
-      expect(mockRegister).toHaveBeenCalledWith('testuser', 'test@example.com', 'Password123!');
+      expect(mockRegister).toHaveBeenCalledWith(
+        'testuser',
+        'test@example.com',
+        'Password123!',
+        'reader'
+      );
       expect(mockNavigate).toHaveBeenCalledWith('/profile/edit');
     });
   });

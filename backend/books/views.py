@@ -474,6 +474,18 @@ class ReviewListCreateView(generics.ListCreateAPIView):
 
         title = sanitize_plain_text(request.data.get('title', ''))
         text = sanitize_html(request.data.get('text', ''))
+        image_file = request.FILES.get('image')
+
+        if image_file:
+            from django.core.exceptions import ValidationError as DjangoValidationError
+
+            from mybookconnect.media_security import COVER_PRESET, sanitize_image, validate_cover_image
+            try:
+                validate_cover_image(image_file)
+                image_file = sanitize_image(image_file, max_dimensions=COVER_PRESET)
+            except DjangoValidationError as err:
+                msg = err.messages if hasattr(err, 'messages') else str(err)
+                return Response({'image': [msg]}, status=status.HTTP_400_BAD_REQUEST)
 
         with transaction.atomic():
             active_review = Review.objects.select_for_update().filter(
@@ -484,6 +496,8 @@ class ReviewListCreateView(generics.ListCreateAPIView):
                 active_review.rating = rating_val
                 active_review.title = title
                 active_review.text = text
+                if image_file is not None:
+                    active_review.image = image_file
                 active_review.save()
                 review = active_review
                 created = False
@@ -496,6 +510,7 @@ class ReviewListCreateView(generics.ListCreateAPIView):
                             rating=rating_val,
                             title=title,
                             text=text,
+                            image=image_file,
                         )
                     created = True
                 except IntegrityError:
@@ -507,11 +522,14 @@ class ReviewListCreateView(generics.ListCreateAPIView):
                         active_review.rating = rating_val
                         active_review.title = title
                         active_review.text = text
+                        if image_file is not None:
+                            active_review.image = image_file
                         active_review.save()
                         review = active_review
                         created = False
                     else:
                         raise
+
 
             if created:
                 try:

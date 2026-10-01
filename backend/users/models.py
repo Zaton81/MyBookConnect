@@ -30,6 +30,13 @@ class UserRole(models.TextChoices):
     ADMIN = 'ADMIN', 'Administrador'
 
 
+class AccountType(models.TextChoices):
+    """Modos de cuenta en la comunidad: Lector, Escritor/Autor, o Ambos."""
+    READER = 'reader', 'Lector'
+    AUTHOR = 'author', 'Escritor / Autor'
+    BOTH = 'both', 'Lector y Escritor'
+
+
 class User(AbstractUser):
     bio = models.TextField(max_length=500, blank=True)
     avatar = models.ImageField(
@@ -61,6 +68,14 @@ class User(AbstractUser):
         db_index=True,
         help_text="Jerarquía y rol del usuario (USER, EDITOR, MODERATOR, ADMIN)",
     )
+    account_type = models.CharField(
+        max_length=20,
+        choices=AccountType.choices,
+        default=AccountType.READER,
+        db_index=True,
+        help_text="Modalidad de cuenta en la plataforma: lector, escritor/autor o ambos.",
+    )
+
 
     birth_date = models.DateField(null=True, blank=True,
         validators=[MinValueValidator(limit_value=date(1900, 1, 1))])
@@ -136,6 +151,11 @@ class User(AbstractUser):
     def is_moderator(self) -> bool:
         """Determina si el usuario tiene privilegios de moderación o administración."""
         return self.role in (UserRole.MODERATOR, UserRole.ADMIN) or self.is_staff or self.is_superuser
+
+    @property
+    def is_author(self) -> bool:
+        """Determina si el usuario está registrado o configurado con modalidad de escritor/autor."""
+        return self.account_type in (AccountType.AUTHOR, AccountType.BOTH)
 
     @property
     def is_editor_user(self) -> bool:

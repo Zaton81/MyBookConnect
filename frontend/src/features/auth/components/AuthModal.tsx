@@ -278,6 +278,7 @@ function ModalRegisterForm({
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [passwordConfirm, setPasswordConfirm] = useState('');
+  const [accountType, setAccountType] = useState<'reader' | 'author' | 'both'>('reader');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -307,7 +308,7 @@ function ModalRegisterForm({
     setLoading(true);
     setError(null);
     try {
-      await doRegister(username.trim(), email.trim(), password, passwordConfirm);
+      await doRegister(username.trim(), email.trim(), password, passwordConfirm, accountType);
       const loginResponse = await authApi.login(username.trim(), password);
       const token = loginResponse.access;
       if (!token) throw new Error('No se recibió token tras el registro.');
@@ -328,7 +329,52 @@ function ModalRegisterForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-3.5">
+    <form onSubmit={handleSubmit} className="space-y-3">
+      {/* Selector de Modalidad / Modo Autor */}
+      <div>
+        <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+          ¿Cómo deseas participar en la comunidad?
+        </label>
+        <div className="grid grid-cols-3 gap-2">
+          <button
+            type="button"
+            onClick={() => setAccountType('reader')}
+            className={`p-2 rounded-xl border text-center transition-all cursor-pointer ${
+              accountType === 'reader'
+                ? 'border-teal-500 bg-teal-50 dark:bg-teal-900/30 text-teal-800 dark:text-teal-200 font-bold shadow-sm'
+                : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 text-slate-600 dark:text-slate-400'
+            }`}
+          >
+            <span className="text-base block mb-0.5">📖</span>
+            <span className="text-[11px] block">Lector</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setAccountType('author')}
+            className={`p-2 rounded-xl border text-center transition-all cursor-pointer ${
+              accountType === 'author'
+                ? 'border-teal-500 bg-teal-50 dark:bg-teal-900/30 text-teal-800 dark:text-teal-200 font-bold shadow-sm'
+                : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 text-slate-600 dark:text-slate-400'
+            }`}
+          >
+            <span className="text-base block mb-0.5">✍️</span>
+            <span className="text-[11px] block">Escritor</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setAccountType('both')}
+            className={`p-2 rounded-xl border text-center transition-all cursor-pointer ${
+              accountType === 'both'
+                ? 'border-teal-500 bg-teal-50 dark:bg-teal-900/30 text-teal-800 dark:text-teal-200 font-bold shadow-sm'
+                : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 text-slate-600 dark:text-slate-400'
+            }`}
+          >
+            <span className="text-base block mb-0.5">🌟</span>
+            <span className="text-[11px] block">Ambos</span>
+          </button>
+        </div>
+      </div>
+
       <div>
         <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
           Nombre de usuario
@@ -413,10 +459,31 @@ function ModalRegisterForm({
       <button
         type="submit"
         disabled={loading}
-        className="w-full py-2.5 px-4 rounded-xl font-bold text-sm text-white bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 shadow-lg shadow-teal-700/20 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all disabled:opacity-60 cursor-pointer mt-1"
+        className="w-full py-2.5 px-4 rounded-xl font-bold text-sm text-white bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:from-emerald-500 shadow-lg shadow-teal-700/20 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all disabled:opacity-60 cursor-pointer mt-1"
       >
         {loading ? 'Creando cuenta...' : 'Crear mi cuenta gratis'}
       </button>
+
+      {/* Botón de Registro con Google */}
+      <div className="relative my-3">
+        <div className="absolute inset-0 flex items-center">
+          <div className="w-full border-t border-slate-200 dark:border-slate-800" />
+        </div>
+        <div className="relative flex justify-center text-xs uppercase">
+          <span className="bg-white dark:bg-slate-900 px-3 text-slate-400 font-semibold tracking-wider">
+            O regístrate con
+          </span>
+        </div>
+      </div>
+
+      <GoogleLoginButton
+        onSuccess={() => {
+          const token = useAuthStore.getState().token;
+          if (token) onSuccess(token);
+        }}
+        onError={(err) => setError(err)}
+        label="Registrarse con Google"
+      />
 
       <p className="text-center text-xs text-slate-500 dark:text-slate-400 pt-1">
         ¿Ya eres miembro?{' '}

@@ -24,6 +24,7 @@ export const registerSchema = z.object({
     .regex(/[a-z]/, 'Debe incluir al menos una letra minúscula')
     .regex(/[0-9]/, 'Debe incluir al menos un número')
     .regex(/[!@#$%^&*(),.?"':{}|<>\[\]\\/~`_+=;-]/, 'Debe incluir al menos un símbolo especial'),
+  account_type: z.enum(['reader', 'author', 'both']),
 });
 
 export type RegisterFormData = z.infer<typeof registerSchema>;
