@@ -4,8 +4,9 @@ Esquema: MAJOR.MINOR.PATCH[-PRERELEASE][+BUILD]
 """
 
 VERSION = (1, 0, 0)
-PRERELEASE = "rc1"  # Release Candidate 1
+PRERELEASE = ""  # General Availability (GA)
 API_VERSION = "v1"
+
 
 
 def get_version(version=None) -> str:
