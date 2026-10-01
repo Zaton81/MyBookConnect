@@ -5,6 +5,11 @@ import { Spinner } from 'flowbite-react';
 import DOMPurify from 'dompurify';
 import { AuditLog } from '../../../types/auth';
 import { resolveMediaUrl } from '../../../utils/media';
+import { AdminInvitationsTab } from '../components/AdminInvitationsTab';
+import { AdminFeedbackTab } from '../components/AdminFeedbackTab';
+import { AdminSupportTab } from '../components/AdminSupportTab';
+import { AdminCategoriesTab } from '../components/AdminCategoriesTab';
+import { AdminSystemHealthTab } from '../components/AdminSystemHealthTab';
 
 export function AdminDashboard() {
   const navigate = useNavigate();
@@ -22,7 +27,7 @@ export function AdminDashboard() {
   }, [user, token, isAuthorized, navigate]);
 
   const [activeTab, setActiveTab] = useState<
-    'stats' | 'users' | 'catalog' | 'erratas' | 'reports' | 'audit' | 'legal'
+    'stats' | 'users' | 'catalog' | 'erratas' | 'reports' | 'audit' | 'legal' | 'invitations' | 'feedback' | 'support' | 'health'
   >('stats');
 
   // Estado de Métricas
@@ -47,7 +52,7 @@ export function AdminDashboard() {
   const [userActionMsg, setUserActionMsg] = useState<string | null>(null);
 
   // Estado de Catálogo (Fase 57)
-  const [catalogSubtab, setCatalogSubtab] = useState<'books' | 'authors'>('books');
+  const [catalogSubtab, setCatalogSubtab] = useState<'books' | 'authors' | 'categories'>('books');
   const [catalogItems, setCatalogItems] = useState<any[]>([]);
   const [loadingCatalog, setLoadingCatalog] = useState(false);
   const [catalogSearch, setCatalogSearch] = useState('');
@@ -980,10 +985,14 @@ export function AdminDashboard() {
       <nav className="flex flex-wrap gap-2 border-b border-slate-200 dark:border-slate-800 pb-3">
         {[
           { id: 'stats', label: '📊 Métricas Globales' },
+          { id: 'health', label: '⚡ Salud & Telemetría' },
           { id: 'users', label: '👥 Usuarios & Roles' },
           { id: 'catalog', label: '📚 Catálogo & Autores' },
           { id: 'erratas', label: '✍️ Erratas Editoriales' },
           { id: 'reports', label: '🛡️ Moderación & Denuncias' },
+          { id: 'feedback', label: '💬 Feedback Usuarios' },
+          { id: 'support', label: '🎫 Soporte Técnico' },
+          { id: 'invitations', label: '🎟️ Invitaciones Beta' },
           ...(user?.is_superuser || user?.role === 'ADMIN' || user?.is_staff
             ? [{ id: 'audit', label: '📜 Auditoría & Logs' }]
             : []),
@@ -1311,10 +1320,28 @@ export function AdminDashboard() {
                 </span>
               )}
             </button>
+            <button
+              onClick={() => {
+                setCatalogSubtab('categories');
+                setSelectedCatalogIds(new Set());
+              }}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+                catalogSubtab === 'categories'
+                  ? 'bg-teal-600 text-white shadow-sm'
+                  : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
+              }`}
+            >
+              <span>🏷️</span>
+              <span>Categorías & Géneros</span>
+            </button>
           </div>
 
-          {/* Barra de Filtros y Búsqueda */}
-          <div className="flex flex-wrap gap-3 items-center justify-between bg-slate-50 dark:bg-slate-700/40 p-3 rounded-2xl border border-slate-200/80 dark:border-slate-700">
+          {catalogSubtab === 'categories' ? (
+            <AdminCategoriesTab token={token} apiUrl={apiUrl} />
+          ) : (
+            <>
+              {/* Barra de Filtros y Búsqueda */}
+              <div className="flex flex-wrap gap-3 items-center justify-between bg-slate-50 dark:bg-slate-700/40 p-3 rounded-2xl border border-slate-200/80 dark:border-slate-700">
             <div className="flex flex-wrap gap-2 items-center flex-1">
               <div className="relative min-w-[220px]">
                 <input
@@ -2054,6 +2081,8 @@ export function AdminDashboard() {
                 </form>
               </div>
             </div>
+          )}
+          </>
           )}
         </div>
       )}
@@ -3009,6 +3038,26 @@ export function AdminDashboard() {
             </form>
           )}
         </div>
+      )}
+
+      {/* ── 8. PESTAÑA: SALUD & TELEMETRÍA ── */}
+      {activeTab === 'health' && (
+        <AdminSystemHealthTab token={token} apiUrl={apiUrl} />
+      )}
+
+      {/* ── 9. PESTAÑA: FEEDBACK DE USUARIOS ── */}
+      {activeTab === 'feedback' && (
+        <AdminFeedbackTab token={token} apiUrl={apiUrl} />
+      )}
+
+      {/* ── 10. PESTAÑA: SOPORTE TÉCNICO ── */}
+      {activeTab === 'support' && (
+        <AdminSupportTab token={token} apiUrl={apiUrl} />
+      )}
+
+      {/* ── 11. PESTAÑA: INVITACIONES BETA ── */}
+      {activeTab === 'invitations' && (
+        <AdminInvitationsTab token={token} apiUrl={apiUrl} />
       )}
     </div>
   );

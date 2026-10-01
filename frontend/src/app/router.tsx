@@ -93,6 +93,7 @@ export function AppRouter() {
           <Route path="/users/:id/statistics" element={<ReadingStats />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/profile/edit" element={<EditProfile />} />
+          <Route path="/settings" element={<Navigate to="/profile/edit" replace />} />
           <Route path="/profile/:id" element={<ProfileIdRedirect />} />
           <Route path="/users/:userId" element={<Profile />} />
           <Route path="/chat" element={<Chat />} />

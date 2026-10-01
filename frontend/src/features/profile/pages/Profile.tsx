@@ -418,7 +418,7 @@ export function Profile() {
                       size="sm"
                       color="light"
                       className="font-semibold shadow-xs"
-                      onClick={() => navigate('/settings')}
+                      onClick={() => navigate('/profile/edit')}
                     >
                       Editar perfil
                     </Button>
