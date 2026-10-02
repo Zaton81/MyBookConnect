@@ -34,6 +34,9 @@ const DeletionPolicy = lazy(() =>
 const ContactPage = lazy(() =>
   import('../features/legal').then((m) => ({ default: m.ContactPage }))
 );
+const FaqsPage = lazy(() =>
+  import('../features/faqs').then((m) => ({ default: m.FaqsPage }))
+);
 const AdminDashboard = lazy(() =>
   import('../features/admin').then((m) => ({ default: m.AdminDashboard }))
 );
@@ -78,6 +81,7 @@ export function AppRouter() {
           <Route path="/content-policy" element={<ContentPolicy />} />
           <Route path="/deletion-policy" element={<DeletionPolicy />} />
           <Route path="/contact" element={<ContactPage />} />
+          <Route path="/faqs" element={<FaqsPage />} />
         </Route>
 
         {/* Rutas Protegidas de Miembros */}

@@ -32,6 +32,25 @@ class Author(models.Model):
         validators=[validate_author_photo],
         help_text="Fotografía del autor (JPEG, PNG, WebP; máx 5MB; dimensiones 50x50 a 6000x6000px)",
     )
+    nationality = models.CharField(max_length=100, blank=True, null=True, verbose_name='Nacionalidad / Origen')
+    birth_date = models.DateField(blank=True, null=True, verbose_name='Fecha de nacimiento')
+    death_date = models.DateField(blank=True, null=True, verbose_name='Fecha de fallecimiento')
+    website = models.URLField(blank=True, null=True, verbose_name='Sitio web oficial')
+    twitter = models.CharField(max_length=100, blank=True, null=True, verbose_name='Usuario de Twitter/X')
+    instagram = models.CharField(max_length=100, blank=True, null=True, verbose_name='Usuario de Instagram')
+    wikipedia_url = models.URLField(blank=True, null=True, verbose_name='Enlace a Wikipedia')
+    canonical_name = models.CharField(max_length=200, blank=True, null=True, verbose_name='Nombre canónico')
+    aliases = models.JSONField(default=list, blank=True, verbose_name='Alias y variantes de nombre')
+    external_ids = models.JSONField(default=dict, blank=True, verbose_name='Identificadores externos')
+    is_verified = models.BooleanField(default=False, db_index=True, verbose_name='Autor verificado')
+    claimed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='claimed_authors',
+        verbose_name='Usuario propietario verificado',
+    )
     enrichment_attempted = models.BooleanField(default=False)
 
     class Meta:
@@ -814,6 +833,110 @@ class AffiliateClick(models.Model):
 
     def __str__(self) -> str:
         return f"Clic [{self.format}] - {self.book.title} ({self.created_at.strftime('%Y-%m-%d %H:%M')})"
+
+
+class AuthorClaimStatus(models.TextChoices):
+    PENDING = 'pending', 'Pendiente'
+    APPROVED = 'approved', 'Aprobada'
+    REJECTED = 'rejected', 'Rechazada'
+    CANCELLED = 'cancelled', 'Cancelada'
+
+
+class AuthorClaim(models.Model):
+    """
+    Solicitud formal de un usuario registrado para reclamar la autoría y página de un autor.
+    RoadmapV3 Sprint 3 (Sección 4.4).
+    """
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='author_claims',
+        verbose_name='Usuario solicitante',
+    )
+    author = models.ForeignKey(
+        Author,
+        on_delete=models.CASCADE,
+        related_name='claims',
+        verbose_name='Autor del catálogo',
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=AuthorClaimStatus.choices,
+        default=AuthorClaimStatus.PENDING,
+        db_index=True,
+        verbose_name='Estado de la solicitud',
+    )
+    proof_description = models.TextField(
+        verbose_name='Descripción de autoría o acreditación de identidad',
+        help_text='Indica cómo contrastar tu autoría (web oficial, editorial, ISBN, etc.)',
+    )
+    contact_email = models.EmailField(
+        verbose_name='Email de contacto profesional',
+        blank=True,
+        null=True,
+    )
+    supporting_link = models.URLField(
+        blank=True,
+        null=True,
+        verbose_name='Enlace de respaldo oficial',
+    )
+    moderation_notes = models.TextField(
+        blank=True,
+        verbose_name='Notas de moderación interna',
+    )
+    moderated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='moderated_author_claims',
+        verbose_name='Moderador asignado',
+    )
+    created_at = models.DateTimeField(default=timezone.now, db_index=True, verbose_name='Fecha de solicitud')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='Última actualización')
+
+    class Meta:
+        verbose_name = 'Reclamación de Autor'
+        verbose_name_plural = 'Reclamaciones de Autores'
+        ordering = ['-created_at']
+
+    def __str__(self) -> str:
+        return f"Reclamación: {self.user.username} -> {self.author.name} [{self.status}]"
+
+
+class FAQ(models.Model):
+    """
+    Pregunta y respuesta frecuente gestionable por administradores y visualizable en acordeón.
+    RoadmapV3 Sprint 3.
+    """
+    class Category(models.TextChoices):
+        GENERAL = 'general', 'General'
+        AUTHORS = 'authors', 'Autores y Verificación'
+        BOOKS = 'books', 'Libros y Biblioteca'
+        ACCOUNT = 'account', 'Cuenta y Privacidad'
+        COMMUNITY = 'community', 'Comunidad y Red Social'
+
+    question = models.CharField(max_length=300, verbose_name='Pregunta')
+    answer = models.TextField(verbose_name='Respuesta')
+    category = models.CharField(
+        max_length=50,
+        choices=Category.choices,
+        default=Category.GENERAL,
+        db_index=True,
+        verbose_name='Categoría temática',
+    )
+    order = models.PositiveIntegerField(default=0, db_index=True, verbose_name='Orden')
+    is_published = models.BooleanField(default=True, db_index=True, verbose_name='Publicada')
+    created_at = models.DateTimeField(default=timezone.now, verbose_name='Fecha de creación')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='Última actualización')
+
+    class Meta:
+        verbose_name = 'Pregunta Frecuente (FAQ)'
+        verbose_name_plural = 'Preguntas Frecuentes (FAQs)'
+        ordering = ['order', 'id']
+
+    def __str__(self) -> str:
+        return self.question
 
 
 # Modelos de gamificación opcional (Fase 54)

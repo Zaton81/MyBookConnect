@@ -5,10 +5,13 @@ from rest_framework import serializers
 from .models import (
     Author,
     AuthorAnnouncement,
+    AuthorClaim,
+    AuthorClaimStatus,
     AuthorProfile,
     Book,
     Category,
     Errata,
+    FAQ,
     LegalDocument,
     ReadingList,
     ReadingListComment,
@@ -74,10 +77,68 @@ class AuthorBasicSerializer(serializers.ModelSerializer):
 
 class AuthorSerializer(serializers.ModelSerializer):
     books = AuthorBookSerializer(many=True, read_only=True)
+    published_books_count = serializers.SerializerMethodField()
+    average_rating = serializers.SerializerMethodField()
+    total_reviews_count = serializers.SerializerMethodField()
+    total_readers_count = serializers.SerializerMethodField()
+    is_claimed = serializers.SerializerMethodField()
+    can_claim = serializers.SerializerMethodField()
 
     class Meta:
         model = Author
-        fields = ('id', 'name', 'biography', 'photo', 'books')
+        fields = (
+            'id', 'name', 'biography', 'photo', 'nationality',
+            'birth_date', 'death_date', 'website', 'twitter', 'instagram',
+            'wikipedia_url', 'canonical_name', 'aliases', 'external_ids',
+            'is_verified', 'claimed_by', 'books', 'published_books_count',
+            'average_rating', 'total_reviews_count', 'total_readers_count',
+            'is_claimed', 'can_claim'
+        )
+        read_only_fields = ('id', 'is_verified', 'claimed_by')
+
+    @extend_schema_field(serializers.IntegerField)
+    def get_published_books_count(self, obj):
+        book_ids = set(obj.books.values_list('id', flat=True)).union(set(obj.all_books.values_list('id', flat=True)))
+        return len(book_ids)
+
+    @extend_schema_field(serializers.FloatField)
+    def get_average_rating(self, obj):
+        from django.db.models import Avg
+        from .models import Book
+        book_ids = set(obj.books.values_list('id', flat=True)).union(set(obj.all_books.values_list('id', flat=True)))
+        if not book_ids:
+            return 0.0
+        avg = Book.objects.filter(id__in=book_ids, average_rating__isnull=False).aggregate(Avg('average_rating'))['average_rating__avg']
+        return round(float(avg), 2) if avg is not None else 0.0
+
+    @extend_schema_field(serializers.IntegerField)
+    def get_total_reviews_count(self, obj):
+        from .models import Review
+        book_ids = set(obj.books.values_list('id', flat=True)).union(set(obj.all_books.values_list('id', flat=True)))
+        if not book_ids:
+            return 0
+        return Review.objects.filter(book_id__in=book_ids, deleted_at__isnull=True).count()
+
+    @extend_schema_field(serializers.IntegerField)
+    def get_total_readers_count(self, obj):
+        from .models import UserBook
+        book_ids = set(obj.books.values_list('id', flat=True)).union(set(obj.all_books.values_list('id', flat=True)))
+        if not book_ids:
+            return 0
+        return UserBook.objects.filter(book_id__in=book_ids).values('user_id').distinct().count()
+
+    @extend_schema_field(serializers.BooleanField)
+    def get_is_claimed(self, obj):
+        return obj.claimed_by is not None or getattr(obj, 'is_verified', False)
+
+    @extend_schema_field(serializers.BooleanField)
+    def get_can_claim(self, obj):
+        request = self.context.get('request')
+        if not request or not request.user or not request.user.is_authenticated:
+            return False
+        if obj.claimed_by is not None or getattr(obj, 'is_verified', False):
+            return False
+        return True
 
     def validate_photo(self, value):
         """
@@ -647,6 +708,74 @@ class AuthorAnnouncementSerializer(serializers.ModelSerializer):
         if obj.author_profile.author:
             return obj.author_profile.author.name
         return obj.author_profile.user.username
+
+
+class AuthorClaimCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AuthorClaim
+        fields = ('id', 'proof_description', 'contact_email', 'supporting_link')
+
+    def validate(self, attrs):
+        author = self.context.get('author')
+        user = self.context.get('user')
+        if not author:
+            raise serializers.ValidationError('Autor no especificado.')
+        if author.claimed_by is not None and author.claimed_by != user:
+            raise serializers.ValidationError('Esta página de autor ya ha sido reclamada y verificada.')
+        existing_pending = AuthorClaim.objects.filter(
+            author=author,
+            user=user,
+            status=AuthorClaimStatus.PENDING,
+        ).exists()
+        if existing_pending:
+            raise serializers.ValidationError('Ya tienes una solicitud de reclamación pendiente para este autor.')
+        return attrs
+
+    def create(self, validated_data):
+        author = self.context['author']
+        user = self.context['user']
+        return AuthorClaim.objects.create(
+            author=author,
+            user=user,
+            **validated_data
+        )
+
+
+class AuthorClaimAdminSerializer(serializers.ModelSerializer):
+    author_name = serializers.CharField(source='author.name', read_only=True)
+    author_id = serializers.IntegerField(source='author.id', read_only=True)
+    author_photo = serializers.SerializerMethodField()
+    username = serializers.CharField(source='user.username', read_only=True)
+    user_email = serializers.CharField(source='user.email', read_only=True)
+
+    class Meta:
+        model = AuthorClaim
+        fields = (
+            'id', 'author_id', 'author_name', 'author_photo',
+            'user', 'username', 'user_email', 'status',
+            'proof_description', 'contact_email', 'supporting_link',
+            'moderation_notes', 'created_at', 'updated_at'
+        )
+        read_only_fields = ('id', 'created_at', 'updated_at')
+
+    def get_author_photo(self, obj):
+        request = self.context.get('request')
+        if obj.author and obj.author.photo:
+            from .media_utils import build_media_url
+            return build_media_url(obj.author.photo, request=request)
+        return None
+
+
+class FAQSerializer(serializers.ModelSerializer):
+    category_display = serializers.CharField(source='get_category_display', read_only=True)
+
+    class Meta:
+        model = FAQ
+        fields = (
+            'id', 'question', 'answer', 'category', 'category_display',
+            'order', 'is_published', 'created_at', 'updated_at'
+        )
+        read_only_fields = ('id', 'created_at', 'updated_at')
 
 
 

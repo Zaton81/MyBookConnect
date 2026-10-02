@@ -50,6 +50,12 @@ export function PublicHeader({ onOpenAuth }: PublicHeaderProps) {
               Por qué elegirnos
             </button>
             <Link
+              to="/faqs"
+              className="text-sm font-medium text-teal-100 hover:text-white transition-colors"
+            >
+              FAQs
+            </Link>
+            <Link
               to="/terms"
               className="text-sm font-medium text-teal-100 hover:text-white transition-colors"
             >
@@ -122,6 +128,12 @@ export function PublicHeader({ onOpenAuth }: PublicHeaderProps) {
             >
               Por qué elegirnos
             </button>
+            <Link
+              to="/faqs"
+              className="block px-3 py-2 text-sm font-medium text-teal-100 hover:text-white hover:bg-white/10 rounded-lg"
+            >
+              Preguntas Frecuentes (FAQs)
+            </Link>
             <Link
               to="/terms"
               className="block px-3 py-2 text-sm font-medium text-teal-100 hover:text-white hover:bg-white/10 rounded-lg"

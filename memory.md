@@ -82,7 +82,7 @@ Cualquier agente de IA o desarrollador que se incorpore a la base de código **D
 | :--- | :--- | :--- | :--- |
 | **Sprint 1** | **Seguridad e Integridad (P0)** | COMPLETADA | Eliminado `POST` en `/api/v1/users/notifications/` (solo lectura `GET`), protección IDOR en `/notifications/<id>/`, blindaje de `ChatConsumer` (captura `JSONDecodeError`, límite 64 KB, descarte de acciones desconocidas y rate limiting de 10 msg/s), sanitización de trazas en `/health/ready`, y unificación de PostgreSQL 16 `pgvector` en `docker-compose.yml`. Suite de 15 tests pasando (`test_sprint1_security.py`). |
 | **Sprint 2** | **Infraestructura (P0)** | PENDIENTE | Reverse proxy, HTTPS, PostgreSQL backup/restore automatizado. |
-| **Sprint 3** | **Autores (P1)** | PENDIENTE | Modelo de autor ampliado, normalización, `AuthorClaim`, verificación y panel. |
+| **Sprint 3** | **Autores (P1) & FAQs** | COMPLETADA | Modelo de autor enriquecido (`nationality`, `birth_date`, `death_date`, `website`, `wikipedia_url`, `is_verified`, `claimed_by`), estadísticas en tiempo real, modelo `AuthorClaim` con unicidad y ciclo de vida, endpoints de solicitud y resolución administrativa con notificación. Subsistema integral de FAQs (modelo `FAQ`, endpoints público y admin, acordeón reactivo interactivo en `/faqs`, gestión administrativa en `AdminFaqsTab`). Suite de 9 tests pasando (`test_sprint3_authors_and_faqs.py`). |
 | **Sprint 4** | **Catálogo y UX (P1)** | PENDIENTE | Deduplicación de libros/autores, búsqueda unificada `/search?q=...`, UX y responsive. |
 | **Sprint 5** | **Calidad (P2)** | PENDIENTE | Tests exhaustivos, performance, accesibilidad WCAG y CI/CD. |
 | **Sprint 6** | **Preproducción y Lanzamiento** | PENDIENTE | Deploy staging, smoke tests de producción y soft launch. |

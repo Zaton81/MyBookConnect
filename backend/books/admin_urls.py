@@ -19,6 +19,8 @@ from users.moderation_views import (
 
 from .admin_views import (
     AdminAuthorBulkActionView,
+    AdminAuthorClaimListView,
+    AdminAuthorClaimResolveView,
     AdminAuthorDetailView,
     AdminAuthorEnrichView,
     AdminAuthorListView,
@@ -29,6 +31,8 @@ from .admin_views import (
     AdminCategoryListView,
     AdminErrataDetailView,
     AdminErrataListView,
+    AdminFAQDetailView,
+    AdminFAQListView,
     AdminLegalDocumentDetailView,
     AdminLegalDocumentListView,
     AdminStatsView,
@@ -82,5 +86,13 @@ urlpatterns = [
     path('audit-logs/', AdminAuditLogListView.as_view(), name='admin-audit-logs-list'),
     path('audit-logs/stats/', AdminAuditLogStatsView.as_view(), name='admin-audit-logs-stats'),
     path('audit-logs/<int:pk>/', AdminAuditLogDetailView.as_view(), name='admin-audit-logs-detail'),
+
+    # Reclamaciones de Autor (RoadmapV3 Sprint 3)
+    path('author-claims/', AdminAuthorClaimListView.as_view(), name='admin-author-claims-list'),
+    path('author-claims/<int:pk>/resolve/', AdminAuthorClaimResolveView.as_view(), name='admin-author-claims-resolve'),
+
+    # Preguntas Frecuentes - FAQs (RoadmapV3 Sprint 3)
+    path('faqs/', AdminFAQListView.as_view(), name='admin-faqs-list'),
+    path('faqs/<int:pk>/', AdminFAQDetailView.as_view(), name='admin-faqs-detail'),
 ]
 

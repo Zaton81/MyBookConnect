@@ -156,22 +156,22 @@ Procedimiento:
 
 ## 4.1 Página pública de autor
 
-- [ ] Nombre.
-- [ ] Foto/avatar.
-- [ ] Biografía.
-- [ ] Nacionalidad/origen cuando exista.
-- [ ] Fecha de nacimiento/fallecimiento cuando sea pública.
-- [ ] Géneros.
-- [ ] Web oficial.
-- [ ] Redes sociales.
-- [ ] Wikipedia.
-- [ ] Identificadores externos.
-- [ ] Libros publicados.
-- [ ] Libros populares.
-- [ ] Valoraciones.
-- [ ] Número de lectores.
-- [ ] Número de reseñas.
-- [ ] Estadísticas públicas no sensibles.
+- [x] Nombre.
+- [x] Foto/avatar.
+- [x] Biografía.
+- [x] Nacionalidad/origen cuando exista.
+- [x] Fecha de nacimiento/fallecimiento cuando sea pública.
+- [x] Géneros.
+- [x] Web oficial.
+- [x] Redes sociales.
+- [x] Wikipedia.
+- [x] Identificadores externos.
+- [x] Libros publicados.
+- [x] Libros populares.
+- [x] Valoraciones.
+- [x] Número de lectores.
+- [x] Número de reseñas.
+- [x] Estadísticas públicas no sensibles.
 
 ## 4.2 Modelo de autor
 
@@ -193,10 +193,10 @@ Book ↔ Author
 
 Añadir cuando proceda:
 
-- [ ] orden de autoría;
-- [ ] tipo de contribución;
-- [ ] fuente del dato;
-- [ ] identificador externo.
+- [x] orden de autoría;
+- [x] tipo de contribución;
+- [x] fuente del dato;
+- [x] identificador externo.
 
 Evitar duplicados mediante normalización y aliases.
 
@@ -204,13 +204,13 @@ Evitar duplicados mediante normalización y aliases.
 
 Un nombre puede corresponder a varios autores. El sistema debe soportar:
 
-- [ ] nombre canónico;
-- [ ] alias;
-- [ ] identificadores externos;
-- [ ] biografía;
-- [ ] fechas;
-- [ ] país;
-- [ ] obras conocidas.
+- [x] nombre canónico;
+- [x] alias;
+- [x] identificadores externos;
+- [x] biografía;
+- [x] fechas;
+- [x] país;
+- [x] obras conocidas.
 
 ## 4.4 Reclamar página de autor
 
@@ -247,12 +247,12 @@ La plataforma ha comprobado la identidad/autoría.
 
 Fuentes posibles:
 
-- [ ] web oficial;
-- [ ] editorial;
-- [ ] ISBN/agencia;
-- [ ] perfil profesional;
-- [ ] redes verificadas;
-- [ ] documentación adicional cuando sea estrictamente necesaria.
+- [x] web oficial;
+- [x] editorial;
+- [x] ISBN/agencia;
+- [x] perfil profesional;
+- [x] redes verificadas;
+- [x] documentación adicional cuando sea estrictamente necesaria.
 
 No almacenar documentación sensible innecesariamente.
 
@@ -260,39 +260,48 @@ No almacenar documentación sensible innecesariamente.
 
 Una vez verificado:
 
-- [ ] editar biografía;
-- [ ] cambiar fotografía;
-- [ ] añadir web;
-- [ ] añadir redes;
-- [ ] gestionar enlaces;
-- [ ] solicitar correcciones de libros;
-- [ ] informar de errores de catálogo;
-- [ ] visualizar estadísticas básicas;
-- [ ] ver seguidores;
-- [ ] publicar actualizaciones.
+- [x] editar biografía;
+- [x] cambiar fotografía;
+- [x] añadir web;
+- [x] añadir redes;
+- [x] gestionar enlaces;
+- [x] solicitar correcciones de libros;
+- [x] informar de errores de catálogo;
+- [x] visualizar estadísticas básicas;
+- [x] ver seguidores;
+- [x] publicar actualizaciones.
 
 ## 4.7 Publicaciones y eventos
 
 Posteriormente:
 
-- [ ] novedades;
-- [ ] presentaciones;
-- [ ] firmas;
-- [ ] anuncios;
-- [ ] eventos;
-- [ ] nuevos libros.
+- [x] novedades;
+- [x] presentaciones;
+- [x] firmas;
+- [x] anuncios;
+- [x] eventos;
+- [x] nuevos libros.
 
 No implementar un CMS complejo para el lanzamiento.
 
 ## 4.8 Moderación de autores
 
-- [ ] revisar reclamaciones;
-- [ ] aprobar/rechazar;
-- [ ] fusionar autores duplicados;
-- [ ] corregir datos;
-- [ ] bloquear páginas fraudulentas;
-- [ ] registrar auditoría;
-- [ ] deshacer asociaciones incorrectas.
+- [x] revisar reclamaciones;
+- [x] aprobar/rechazar;
+- [x] fusionar autores duplicados;
+- [x] corregir datos;
+- [x] bloquear páginas fraudulentas;
+- [x] registrar auditoría;
+- [x] deshacer asociaciones incorrectas.
+
+## 4.9 Sistema de FAQs (Preguntas y Respuestas) — P1 (Completado)
+
+- [x] Modelo `FAQ` en backend con campos (`question`, `answer`, `category`, `order`, `is_published`).
+- [x] Endpoint público `GET /api/v1/faqs/` con filtros por categoría y ordenación.
+- [x] Endpoint administrativo `GET, POST, PUT, DELETE /api/v1/admin/faqs/` protegido por rol staff/admin.
+- [x] Página pública en frontend `/faqs` con diseño acordeón interactivo (despliegue animado al pulsar), filtros por píldoras temáticas y buscador en tiempo real.
+- [x] Pestaña administrativa en `AdminDashboard` (`AdminFaqsTab`) para crear, editar, eliminar y cambiar estado borrador/publicado.
+- [x] Pestaña administrativa en `AdminDashboard` (`AdminAuthorClaimsTab`) para aprobar o rechazar reclamaciones con notas de moderación y notificación automática al usuario.
 
 ---
 

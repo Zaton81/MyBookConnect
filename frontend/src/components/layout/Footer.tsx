@@ -143,6 +143,14 @@ export function FooterSection() {
               </li>
               <li>
                 <Link
+                  to="/faqs"
+                  className="hover:text-teal-600 dark:hover:text-teal-400 transition-colors font-semibold text-teal-600 dark:text-teal-400"
+                >
+                  Preguntas Frecuentes (FAQs)
+                </Link>
+              </li>
+              <li>
+                <Link
                   to="/contact"
                   className="hover:text-teal-600 dark:hover:text-teal-400 transition-colors"
                 >

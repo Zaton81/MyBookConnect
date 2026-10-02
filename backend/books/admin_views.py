@@ -7,13 +7,27 @@ from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import Author, Book, Category, Errata, ErrataStatus, LegalDocument, Review, UserBook
+from .models import (
+    Author,
+    AuthorClaim,
+    AuthorClaimStatus,
+    Book,
+    Category,
+    Errata,
+    ErrataStatus,
+    FAQ,
+    LegalDocument,
+    Review,
+    UserBook,
+)
 from .serializers import (
     AdminUserSerializer,
+    AuthorClaimAdminSerializer,
     AuthorSerializer,
     BookSerializer,
     CategorySerializer,
     ErrataSerializer,
+    FAQSerializer,
     LegalDocumentSerializer,
 )
 from .tasks import enrich_book_task, refresh_author_task
@@ -561,4 +575,120 @@ class PublicLegalDocumentListView(generics.ListAPIView):
     serializer_class = LegalDocumentSerializer
     queryset = LegalDocument.objects.all().order_by('slug')
     pagination_class = None
+
+
+class AdminAuthorClaimListView(generics.ListAPIView):
+    """
+    Lista y filtra reclamaciones de autor en la cola de administración/moderación.
+    RoadmapV3 Sprint 3.
+    """
+    permission_classes = [IsAdminOrSuperUser]
+    serializer_class = AuthorClaimAdminSerializer
+
+    def get_queryset(self):
+        qs = AuthorClaim.objects.all().select_related('author', 'user').order_by('-created_at')
+        claim_status = self.request.query_params.get('status')
+        if claim_status and claim_status != 'all':
+            qs = qs.filter(status=claim_status.lower().strip())
+        search = self.request.query_params.get('search')
+        if search:
+            qs = qs.filter(
+                Q(author__name__icontains=search) |
+                Q(user__username__icontains=search) |
+                Q(contact_email__icontains=search)
+            )
+        return qs
+
+
+class AdminAuthorClaimResolveView(APIView):
+    """
+    Aprueba o rechaza una reclamación de autor.
+    RoadmapV3 Sprint 3.
+    """
+    permission_classes = [IsAdminOrSuperUser]
+
+    def post(self, request, pk):
+        from django.shortcuts import get_object_or_404
+        from users.notification_service import NotificationService
+        from users.models import NotificationType
+        from .models import AuthorProfile
+
+        claim = get_object_or_404(AuthorClaim, id=pk)
+        action = request.data.get('action')
+        notes = request.data.get('moderation_notes', '').strip()
+
+        if action not in ('approve', 'reject'):
+            return Response(
+                {'detail': "Acción inválida. Debe ser 'approve' o 'reject'."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        claim.moderation_notes = notes
+        claim.moderated_by = request.user
+
+        if action == 'approve':
+            claim.status = AuthorClaimStatus.APPROVED
+            claim.save()
+
+            author = claim.author
+            author.is_verified = True
+            author.claimed_by = claim.user
+            author.save(update_fields=['is_verified', 'claimed_by'])
+
+            # Sincronizar AuthorProfile
+            AuthorProfile.objects.update_or_create(
+                user=claim.user,
+                defaults={'author': author, 'is_verified': True},
+            )
+
+            # Notificar al usuario
+            NotificationService.send_notification(
+                recipient=claim.user,
+                actor=request.user,
+                notif_type=NotificationType.SYSTEM,
+                title="¡Solicitud de autor aprobada!",
+                message=f"Tu solicitud para reclamar la página oficial de {author.name} ha sido aprobada.",
+                link=f"/authors/{author.id}",
+            )
+            return Response({'status': 'approved', 'detail': 'Reclamación aprobada exitosamente.'}, status=status.HTTP_200_OK)
+
+        else:
+            claim.status = AuthorClaimStatus.REJECTED
+            claim.save()
+
+            NotificationService.send_notification(
+                recipient=claim.user,
+                actor=request.user,
+                notif_type=NotificationType.SYSTEM,
+                title="Resolución de tu solicitud de autor",
+                message=f"Tu solicitud para reclamar a {claim.author.name} no ha sido aprobada. {notes}",
+                link=f"/authors/{claim.author.id}",
+            )
+            return Response({'status': 'rejected', 'detail': 'Reclamación rechazada.'}, status=status.HTTP_200_OK)
+
+
+class AdminFAQListView(generics.ListCreateAPIView):
+    """
+    Listado y creación administrativa de Preguntas Frecuentes (FAQs).
+    RoadmapV3 Sprint 3.
+    """
+    permission_classes = [IsAdminOrSuperUser]
+    serializer_class = FAQSerializer
+
+    def get_queryset(self):
+        qs = FAQ.objects.all().order_by('order', 'id')
+        category = self.request.query_params.get('category')
+        if category and category != 'all':
+            qs = qs.filter(category=category.lower().strip())
+        return qs
+
+
+class AdminFAQDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """
+    Consulta, edición y borrado de una FAQ individual.
+    RoadmapV3 Sprint 3.
+    """
+    permission_classes = [IsAdminOrSuperUser]
+    serializer_class = FAQSerializer
+    queryset = FAQ.objects.all()
 

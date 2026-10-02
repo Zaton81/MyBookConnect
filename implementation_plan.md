@@ -1,89 +1,67 @@
-# Plan de Implementación — RoadmapV3: Sprint 1 (Seguridad e Integridad — P0)
+# Plan de Implementación — RoadmapV3: Sprint 3 (Autores y FAQs)
 
 **Fecha:** 2 de octubre de 2026  
 **Rama:** `develop`  
 **Estado:** En progreso  
-**Objetivo:** Endurecer la seguridad, integridad y estabilidad de los componentes críticos identificados en la Sección 1 de [RoadmapV3.md](file:///c:/Users/zaton/Desktop/Escritorio/proyectos/MyBookConnect/RoadmapV3.md) antes de avanzar en infraestructura y en el nuevo subsistema de autores.
+**Objetivo:** Implementar el subsistema integral de autores prioritario de RoadmapV3 (Sección 4: modelo ampliado, verificación, flujo de reclamación `AuthorClaim`, página pública enriquecida y moderación administrativa) e incorporar el nuevo subsistema de FAQs con visualización pública en acordeón y administración en el panel de control.
 
 ---
 
-## 1. Contexto y Objetivos del Sprint 1
+## 1. Alcance y Requisitos del Sprint 3 + FAQs
 
-Tras completar exitosamente las 38 fases de [RoadmapV2.md](file:///c:/Users/zaton/Desktop/Escritorio/proyectos/MyBookConnect/RoadmapV2.md) y alcanzar la versión GA `1.0.0`, [RoadmapV3.md](file:///c:/Users/zaton/Desktop/Escritorio/proyectos/MyBookConnect/RoadmapV3.md) establece los requisitos finales de producción ordenados en 6 Sprints.
+### 1.1. Subsistema de Autores (Sección 4 RoadmapV3)
+- **Modelo de Autor Ampliado (`Author`):**
+  - Campos biográficos y de identidad: `nationality`, `birth_date`, `death_date`, `website`, `twitter`, `instagram`, `wikipedia_url`, `canonical_name`, `aliases`, `external_ids`.
+  - Estado de verificación: `is_verified` (booleano), `claimed_by` (clave foránea a `User`).
+- **Sistema de Reclamación de Autor (`AuthorClaim`):**
+  - Modelo `AuthorClaim` con estados `pending`, `approved`, `rejected`, `cancelled`.
+  - Solicitud desde la interfaz pública del autor por lectores registrados (`POST /api/v1/books/authors/<id>/claim/`).
+  - Consulta de estado del reclamo (`GET /api/v1/books/authors/<id>/claim-status/`).
+  - Restricciones: una sola solicitud pendiente por autor/usuario; autores ya verificados no pueden ser reclamados arbitrariamente.
+- **Moderación Administrativa de Reclamaciones:**
+  - Endpoint administrativo para listar y filtrar reclamos (`GET /api/v1/admin/author-claims/`).
+  - Resolución de reclamos (`POST /api/v1/admin/author-claims/<id>/resolve/`): aprobación (marca autor verificado, asigna a usuario, sincroniza `AuthorProfile`, emite notificación) o rechazo (guarda notas y notifica).
+- **Página Pública de Autor Mejorada en Frontend:**
+  - Insignia visual de verificación ("Autor Verificado").
+  - Metadatos biográficos, enlaces sociales y enlaces externos.
+  - Estadísticas públicas agregadas: valoración promedio, libros en catálogo, volumen de reseñas y total de lectores.
+  - Botón y modal accesible para reclamar la página.
 
-El **Sprint 1 (Seguridad e Integridad — P0)** aborda deudas de seguridad prioritarias:
-1. **Notificaciones seguras:** Eliminar la creación arbitraria de notificaciones por HTTP POST en la API pública para prevenir falsificaciones e IDOR.
-2. **Observabilidad protegida:** Asegurar que `/api/v1/observability/metrics/` esté estrictamente restringido a administradores y libre de filtraciones de datos o credenciales.
-3. **Robustez de WebSockets:** Proteger `ChatConsumer` ante payloads malformados (`JSONDecodeError`), denegación de servicio por mensajes masivos (límite de 64 KB), acciones no reconocidas y flooding (rate limiting).
-4. **Sondas de salud desacopladas:** Asegurar que `/api/v1/health/` (liveness) y `/api/v1/ready/` (readiness) respondan de forma determinista con 200 y 503 sin exponer trazas internas.
-5. **Alineación de Base de Datos en Entorno de Desarrollo:** Homogeneizar `docker-compose.yml` con `docker-compose.prod.yml` fijando PostgreSQL 16 con `pgvector`.
-
----
-
-## 2. Tareas Detalladas de Implementación
-
-### 2.1. Blindaje del Sistema de Notificaciones (Sección 1.1 RoadmapV3)
-- **Eliminar `POST` en `/api/v1/users/notifications/`:**
-  - Modificar `NotificationListView` en `backend/users/views.py` para heredar de `generics.ListAPIView` en lugar de soportar `POST`.
-  - Desactivar o redirigir `NotificationCreateView` y retirar `NotificationCreateSerializer` de las vistas públicas.
-  - Asegurar que cualquier intento de enviar `POST /api/v1/users/notifications/` devuelva `405 Method Not Allowed`.
-  - Comprobar que los endpoints de acción existentes (`read/`, `read-all/`, `clear-read/`, `preferences/`, `unread-count/`) se mantengan operativos.
-  - Verificar que todas las emisiones de notificaciones del backend continúan canalizándose exclusivamente a través de `NotificationService.send_notification(...)`.
-
-### 2.2. Robustez y Endurecimiento de WebSockets (Sección 1.3 RoadmapV3)
-- **Mejoras en `ChatConsumer` (`backend/messages_app/consumers.py`):**
-  - **Captura de `json.JSONDecodeError`:** Capturar payloads JSON inválidos y responder con evento `error` estructurado (`{"event": "error", "code": "malformed_json", "detail": "Payload JSON malformado."}`) sin provocar crash del consumer.
-  - **Límite de tamaño de mensaje:** Establecer `MAX_WS_MESSAGE_SIZE = 65536` (64 KB). Si el payload recibido excede este tamaño, rechazarlo inmediatamente con evento `error` (`code: "payload_too_large"`).
-  - **Validación de acción obligatoria y control de desconocidas:** Si falta la clave `action` o contiene un valor no contemplado (`ping`, `send_message`, `mark_read`), devolver evento de error controlado (`code: "unknown_action"`).
-  - **Rate Limiting / Backpressure:** Limitar a un máximo de 10 mensajes por segundo por conexión/usuario en el WebSocket mediante control de tasa en memoria/Redis para mitigar ataques de inundación.
-
-### 2.3. Auditoría de Observabilidad y Permisos (Sección 1.2 RoadmapV3)
-- **Verificación de `ObservabilityMetricsView` (`backend/mybookconnect/observability.py`):**
-  - Reafirmar `permission_classes = [permissions.IsAdminUser]`.
-  - Asegurar que un usuario anónimo reciba `401 Unauthorized`.
-  - Asegurar que un usuario autenticado no administrador reciba `403 Forbidden`.
-  - Verificar que el payload JSON resultante contenga únicamente agregaciones estadísticas y no exponga variables de entorno, claves secretas, contraseñas ni identificadores personales (PII).
-
-### 2.4. Sondas de Salud `/health/` y `/ready/` (Sección 1.4 RoadmapV3)
-- **Revisión de `HealthLiveView` y `HealthReadyView`:**
-  - `/api/v1/health/` (Liveness): 200 OK estricto y ultraligero sin acceder a PostgreSQL ni Redis.
-  - `/api/v1/ready/` (Readiness): 200 OK si PostgreSQL y Redis responden; 503 Service Unavailable ante fallo, registrando el error detallado en el logger de observabilidad sin devolver la excepción interna en el payload JSON.
-
-### 2.5. Corrección de Discrepancia PostgreSQL en Docker Compose (Sección 2.2 RoadmapV3)
-- **Actualizar `docker-compose.yml`:**
-  - Cambiar el servicio `db` de `postgres:15` a `pgvector/pgvector:pg16` para eliminar la discrepancia con `docker-compose.prod.yml` y la documentación técnica.
+### 1.2. Subsistema de FAQs (Preguntas Frecuentes)
+- **Modelo Backend (`FAQ`):**
+  - Campos: `question`, `answer`, `category` (`general`, `authors`, `books`, `account`, `community`), `order`, `is_published`, `created_at`, `updated_at`.
+- **Endpoints de la API:**
+  - Público: `GET /api/v1/faqs/` (devuelve FAQs publicadas ordenadas por categoría y orden numérico).
+  - Admin: CRUD completo (`GET`, `POST`, `PATCH`, `DELETE` en `/api/v1/admin/faqs/`).
+  - Fixtures o sembrado inicial con preguntas frecuentes de utilidad.
+- **Frontend:**
+  - Vista pública `/faqs` con componente **Acordeón interactivo** (animación de despliegue al hacer clic, soporte de teclado, buscador por texto y filtros por categoría).
+  - Enlaces a FAQs en cabecera (`Header`) y pie de página (`Footer`).
+  - Pestaña de administración de FAQs en `AdminDashboard` (`AdminFaqsTab.tsx`): creación rápida, edición, cambio de estado publicado/borrador y eliminación.
 
 ---
 
-## 3. Plan de Pruebas Automatizadas
+## 2. Plan de Pruebas
 
-Crear la suite de pruebas unitarias y de integración `backend/tests/test_sprint1_security.py` cubriendo:
-1. **Notificaciones:**
-   - Intentar `POST /api/v1/users/notifications/` con usuario autenticado -> Retorna `405 Method Not Allowed`.
-   - Listar notificaciones `GET /api/v1/users/notifications/` -> Funciona correctamente para el usuario autenticado.
-   - Marcar leídas y eliminar notificaciones propias -> Funciona correctamente.
-   - Comprobar que un usuario no puede marcar ni eliminar notificaciones de terceros (IDOR -> 404 Not Found).
-2. **Observabilidad:**
-   - Acceso anónimo -> 401.
-   - Acceso usuario regular -> 403.
-   - Acceso staff/superadmin -> 200 con estructura de métricas y sin campos sensibles.
-3. **WebSockets:**
-   - Envío de texto no-JSON malformado -> Retorna evento de error sin desconexión abrupta.
-   - Envío de mensaje superior a 64 KB -> Retorna evento de error `payload_too_large`.
-   - Envío de acción desconocida -> Retorna evento de error `unknown_action`.
-   - Rate limiting de mensajes repetidos.
-4. **Health probes:**
-   - Liveness 200.
-   - Readiness 200 en estado saludable.
+- **Backend (`tests/test_sprint3_authors_and_faqs.py`):**
+  - Creación de solicitud `AuthorClaim` por usuario autenticado.
+  - Rechazo de reclamaciones duplicadas pendientes para el mismo autor.
+  - Aprobación administrativa de reclamo: autor pasa a `is_verified=True`, vinculación con `User` y `AuthorProfile`.
+  - Rechazo administrativo de reclamo con registro de notas de moderación.
+  - Serialización enriquecida de autor con estadísticas de lectores y reseñas.
+  - Endpoint público de FAQs: solo devuelve ítems con `is_published=True`.
+  - Endpoint administrativo de FAQs: solo accesible a staff, soporte de CRUD completo.
+- **Frontend:**
+  - Typecheck y comprobación de build con Vite (`npm run build`).
 
 ---
 
-## 4. Criterios de Aceptación (Definition of Done)
+## 3. Criterios de Aceptación (Definition of Done)
 
-- [ ] La creación de notificaciones por `POST` queda totalmente deshabilitada en la API pública.
-- [ ] `ChatConsumer` maneja excepciones de decodificación JSON, tamaño excesivo y acciones inválidas sin fallar.
-- [ ] La endpoint de métricas de observabilidad bloquea accesos no autorizados con 401/403.
-- [ ] Las sondas `/health/` y `/ready/` cumplen con la separación de responsabilidades y códigos HTTP 200/503.
-- [ ] `docker-compose.yml` está alineado con PostgreSQL 16 `pgvector`.
-- [ ] La suite completa de pruebas pasa al 100% sin regresiones.
-- [ ] Commit semántico en `develop` y push al repositorio remoto.
+- [ ] Modelo `Author` ampliado con metadatos de identidad y verificación.
+- [ ] Modelo `AuthorClaim` y flujo de reclamación implementado y protegido.
+- [ ] Panel de administración con pestaña de gestión de reclamaciones de autor y pestaña de FAQs.
+- [ ] Página de autor en frontend con insignia de verificación, estadísticas y modal de reclamo.
+- [ ] Página pública `/faqs` en formato acordeón responsivo y accesible.
+- [ ] 100% de tests pasando en backend y build frontend limpio.
+- [ ] Commit semántico y push a `develop`.

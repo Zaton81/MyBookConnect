@@ -7,6 +7,25 @@ y este proyecto se adhiere a [Semantic Versioning 2.0.0](https://semver.org/lang
 
 ## [Unreleased]
 
+### Added (RoadmapV3 - Sprint 3: Autores P1 & Sistema de FAQs)
+- **Subsistema de Autores de Primer Nivel**:
+  - Ampliación del modelo `Author` con campos enriquecidos: `nationality`, `birth_date`, `death_date`, `website`, `twitter`, `instagram`, `wikipedia_url`, `canonical_name`, `aliases`, `external_ids`, `is_verified` y `claimed_by`.
+  - Serializador `AuthorSerializer` con estadísticas editoriales calculadas en tiempo real (`published_books_count`, `average_rating`, `total_reviews_count`, `total_readers_count`, `is_claimed`, `can_claim`).
+  - Modelo `AuthorClaim` con control de ciclo de vida (`pending`, `approved`, `rejected`, `cancelled`) y unicidad para evitar reclamaciones duplicadas concurrentes por autor.
+  - Endpoints para solicitud de autoría `POST /api/v1/books/authors/<pk>/claim/` y consulta de estado `GET /api/v1/books/authors/<pk>/claim-status/`.
+  - Endpoint de moderación `POST /api/v1/admin/author-claims/<id>/resolve/` con verificación de autor, asignación a cuenta de usuario y emisión de notificaciones en plataforma.
+  - Vista pública del autor en frontend enriquecida con insignia de "Oficial Verificado", métricas de impacto editorial, enlaces oficiales y modal para reclamación de perfil.
+  - Pestaña de administración de solicitudes de autor en el frontend (`AdminAuthorClaimsTab`).
+- **Sistema Integral de Preguntas Frecuentes (FAQs)**:
+  - Modelo `FAQ` en backend con campos (`question`, `answer`, `category`, `order`, `is_published`).
+  - Endpoints públicos `GET /api/v1/faqs/` con filtrado por categoría y orden.
+  - Endpoints administrativos CRUD `GET, POST, PUT, DELETE /api/v1/admin/faqs/` protegidos para staff/moderación.
+  - Página pública de FAQs `/faqs` con formato acordeón interactivo (despliegue de respuestas al pinchar), buscador reactivo y selector temático por píldoras.
+  - Pestaña administrativa de FAQs en `AdminDashboard` (`AdminFaqsTab`) para crear, editar, reordenar y publicar preguntas y respuestas.
+  - Enlaces integrados en Header y Footer.
+- **Suite de Pruebas**:
+  - Añadida suite `backend/tests/test_sprint3_authors_and_faqs.py` con 9 pruebas de integración cubriendo estadísticas de autor, reclamaciones, duplicados, aprobación y ciclo CRUD de FAQs.
+
 ### Added / Security (RoadmapV3 - Sprint 1: Seguridad e Integridad P0)
 - **Blindaje del Sistema de Notificaciones**:
   - Eliminado el método `POST` de `/api/v1/users/notifications/` (ahora estrictamente solo lectura `GET` con `ListAPIView`), previniendo creación de notificaciones no autorizadas e IDOR.

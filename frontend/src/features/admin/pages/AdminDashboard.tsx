@@ -10,6 +10,8 @@ import { AdminFeedbackTab } from '../components/AdminFeedbackTab';
 import { AdminSupportTab } from '../components/AdminSupportTab';
 import { AdminCategoriesTab } from '../components/AdminCategoriesTab';
 import { AdminSystemHealthTab } from '../components/AdminSystemHealthTab';
+import { AdminFaqsTab } from '../components/AdminFaqsTab';
+import { AdminAuthorClaimsTab } from '../components/AdminAuthorClaimsTab';
 
 export function AdminDashboard() {
   const navigate = useNavigate();
@@ -27,7 +29,19 @@ export function AdminDashboard() {
   }, [user, token, isAuthorized, navigate]);
 
   const [activeTab, setActiveTab] = useState<
-    'stats' | 'users' | 'catalog' | 'erratas' | 'reports' | 'audit' | 'legal' | 'invitations' | 'feedback' | 'support' | 'health'
+    | 'stats'
+    | 'users'
+    | 'catalog'
+    | 'erratas'
+    | 'reports'
+    | 'audit'
+    | 'legal'
+    | 'invitations'
+    | 'feedback'
+    | 'support'
+    | 'health'
+    | 'faqs'
+    | 'author_claims'
   >('stats');
 
   // Estado de Métricas
@@ -992,6 +1006,8 @@ export function AdminDashboard() {
           { id: 'reports', label: '🛡️ Moderación & Denuncias' },
           { id: 'feedback', label: '💬 Feedback Usuarios' },
           { id: 'support', label: '🎫 Soporte Técnico' },
+          { id: 'faqs', label: '❓ FAQs (Preguntas)' },
+          { id: 'author_claims', label: '🪪 Reclamaciones de Autor' },
           { id: 'invitations', label: '🎟️ Invitaciones Beta' },
           ...(user?.is_superuser || user?.role === 'ADMIN' || user?.is_staff
             ? [{ id: 'audit', label: '📜 Auditoría & Logs' }]
@@ -3058,6 +3074,16 @@ export function AdminDashboard() {
       {/* ── 11. PESTAÑA: INVITACIONES BETA ── */}
       {activeTab === 'invitations' && (
         <AdminInvitationsTab token={token} apiUrl={apiUrl} />
+      )}
+
+      {/* ── 12. PESTAÑA: FAQS (PREGUNTAS FRECUENTES) ── */}
+      {activeTab === 'faqs' && (
+        <AdminFaqsTab />
+      )}
+
+      {/* ── 13. PESTAÑA: RECLAMACIONES DE AUTOR ── */}
+      {activeTab === 'author_claims' && (
+        <AdminAuthorClaimsTab />
       )}
     </div>
   );

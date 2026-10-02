@@ -2205,5 +2205,87 @@ class AuthorAnnouncementListView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
+class AuthorClaimCreateView(APIView):
+    """
+    Permite a un usuario autenticado reclamar la página de un autor del catálogo.
+    RoadmapV3 Sprint 3 (Sección 4.4).
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    @extend_schema(
+        summary="Reclamar página de autor",
+        tags=['Authors'],
+    )
+    def post(self, request, pk):
+        from django.shortcuts import get_object_or_404
+        from .models import Author
+        from .serializers import AuthorClaimCreateSerializer, AuthorClaimAdminSerializer
+
+        author = get_object_or_404(Author, id=pk)
+        serializer = AuthorClaimCreateSerializer(
+            data=request.data,
+            context={'author': author, 'user': request.user, 'request': request},
+        )
+        serializer.is_valid(raise_exception=True)
+        claim = serializer.save()
+        return Response(
+            AuthorClaimAdminSerializer(claim, context={'request': request}).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class AuthorClaimStatusView(APIView):
+    """
+    Comprueba si el usuario autenticado tiene reclamaciones para este autor.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    @extend_schema(
+        summary="Consultar estado de reclamación del autor para el usuario actual",
+        tags=['Authors'],
+    )
+    def get(self, request, pk):
+        from django.shortcuts import get_object_or_404
+        from .models import Author, AuthorClaim, AuthorClaimStatus
+
+        author = get_object_or_404(Author, id=pk)
+        latest_claim = AuthorClaim.objects.filter(
+            author=author,
+            user=request.user,
+        ).order_by('-created_at').first()
+
+        is_owner = (author.claimed_by_id == request.user.id)
+        has_pending = (latest_claim.status == AuthorClaimStatus.PENDING) if latest_claim else False
+
+        return Response({
+            'author_id': author.id,
+            'is_verified': author.is_verified,
+            'is_owner': is_owner,
+            'has_pending_claim': has_pending,
+            'claim_status': latest_claim.status if latest_claim else None,
+            'claim_id': latest_claim.id if latest_claim else None,
+        }, status=status.HTTP_200_OK)
+
+
+class PublicFAQListView(generics.ListAPIView):
+    """
+    Listado público de Preguntas Frecuentes (FAQs) activas para visualización en formato acordeón.
+    RoadmapV3 Sprint 3.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def get_serializer_class(self):
+        from .serializers import FAQSerializer
+        return FAQSerializer
+
+    def get_queryset(self):
+        from .models import FAQ
+        qs = FAQ.objects.filter(is_published=True).order_by('order', 'id')
+        category = self.request.query_params.get('category')
+        if category:
+            qs = qs.filter(category=category.lower().strip())
+        return qs
+
+
 
 
