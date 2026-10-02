@@ -7,6 +7,22 @@ y este proyecto se adhiere a [Semantic Versioning 2.0.0](https://semver.org/lang
 
 ## [Unreleased]
 
+### Added / Security (RoadmapV3 - Sprint 1: Seguridad e Integridad P0)
+- **Blindaje del Sistema de Notificaciones**:
+  - Eliminado el método `POST` de `/api/v1/users/notifications/` (ahora estrictamente solo lectura `GET` con `ListAPIView`), previniendo creación de notificaciones no autorizadas e IDOR.
+  - Añadido endpoint de detalle seguro `GET /api/v1/users/notifications/<id>/` con validación estricta de receptor (`recipient=request.user`), previniendo IDOR.
+- **Robustez y Resiliencia en WebSockets (`ChatConsumer`)**:
+  - Captura y manejo estructurado de `json.JSONDecodeError` respondiendo con evento `malformed_json` sin interrumpir la conexión.
+  - Límite máximo de mensaje de 64 KB (`payload_too_large`) para prevenir ataques de denegación de servicio por memoria.
+  - Validación de acciones permitidas y descarte controlado con evento `unknown_action`.
+  - Rate limiting local de 10 mensajes por segundo (`rate_limited`) para evitar saturación de la conexión.
+- **Sondas de Salud Desacopladas y Sanitizadas**:
+  - Sanitizado `ReadinessCheckView` (`/health/ready/`) para devolver `unhealthy` sin filtrar detalles internos o credenciales de excepciones de base de datos o caché.
+- **Infraestructura de Desarrollo**:
+  - Sincronizado `docker-compose.yml` para utilizar `pgvector/pgvector:pg16`, homogeneizando la versión con producción.
+- **Suite de Pruebas**:
+  - Añadida suite exhaustiva `backend/tests/test_sprint1_security.py` con 15 pruebas cubriendo notificaciones, observabilidad, WebSockets y sondas de salud.
+
 ### Planned
 - Notificaciones push mediante Web Push API.
 - Internacionalización ampliada (soporte multi-idioma i18n).

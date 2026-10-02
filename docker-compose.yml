@@ -57,7 +57,7 @@ services:
       - backend
 
   db:
-    image: postgres:15
+    image: pgvector/pgvector:pg16
     container_name: booksocial-db
     restart: unless-stopped
     environment:

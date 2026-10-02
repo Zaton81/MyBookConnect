@@ -86,7 +86,7 @@ class ReadinessCheckView(APIView):
             services["database"] = "ready"
         except Exception as exc:
             logger.error("Readiness check fallo en base de datos: %s", exc)
-            services["database"] = f"unhealthy: {exc}"
+            services["database"] = "unhealthy"
             all_ready = False
 
         # 2. Comprobación de Redis (Caché)
@@ -96,11 +96,11 @@ class ReadinessCheckView(APIView):
             if val == "ok":
                 services["cache"] = "ready"
             else:
-                services["cache"] = "unhealthy: cache value mismatch"
+                services["cache"] = "unhealthy"
                 all_ready = False
         except Exception as exc:
             logger.error("Readiness check fallo en cache: %s", exc)
-            services["cache"] = f"unhealthy: {exc}"
+            services["cache"] = "unhealthy"
             all_ready = False
 
         status_code = status.HTTP_200_OK if all_ready else status.HTTP_503_SERVICE_UNAVAILABLE

@@ -10,10 +10,16 @@ from .models import Conversation, ConversationParticipant, Message
 User = get_user_model()
 
 
+MAX_WS_MESSAGE_SIZE = 65536  # 64 KB
+ALLOWED_ACTIONS = {"ping", "send_message", "mark_read"}
+WS_RATE_LIMIT_PER_SEC = 10
+
+
 class ChatConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         self.conversation_id = self.scope["url_route"]["kwargs"]["conversation_id"]
         self.group_name = f"chat_conv_{self.conversation_id}"
+        self._msg_timestamps = []
         user = self.scope.get("user")
         # Validar participante autenticado
         if not user or not user.is_authenticated:
@@ -32,11 +38,62 @@ class ChatConsumer(AsyncWebsocketConsumer):
     async def receive(self, text_data=None, bytes_data=None):
         if not text_data:
             return
-        payload = json.loads(text_data)
+
+        # 1. Validación de tamaño máximo de mensaje (RoadmapV3 Sprint 1)
+        if len(text_data) > MAX_WS_MESSAGE_SIZE:
+            await self.send(text_data=json.dumps({
+                "event": "error",
+                "code": "payload_too_large",
+                "detail": f"El tamaño del mensaje excede el límite permitido de {MAX_WS_MESSAGE_SIZE} bytes.",
+            }))
+            return
+
+        # 2. Rate limiting / backpressure por conexión (10 msg/seg)
+        now = timezone.now().timestamp()
+        if not hasattr(self, '_msg_timestamps'):
+            self._msg_timestamps = []
+        self._msg_timestamps = [t for t in self._msg_timestamps if now - t < 1.0]
+        if len(self._msg_timestamps) >= WS_RATE_LIMIT_PER_SEC:
+            await self.send(text_data=json.dumps({
+                "event": "error",
+                "code": "rate_limited",
+                "detail": "Límite de mensajes por segundo excedido (máximo 10 msg/seg). Por favor espere.",
+            }))
+            return
+        self._msg_timestamps.append(now)
+
+        # 3. Captura de JSONDecodeError y payload malformado
+        try:
+            payload = json.loads(text_data)
+        except (json.JSONDecodeError, TypeError, ValueError):
+            await self.send(text_data=json.dumps({
+                "event": "error",
+                "code": "malformed_json",
+                "detail": "Payload no válido: no se pudo decodificar como JSON estructurado.",
+            }))
+            return
+
+        if not isinstance(payload, dict):
+            await self.send(text_data=json.dumps({
+                "event": "error",
+                "code": "invalid_payload",
+                "detail": "El contenido del mensaje debe ser un objeto JSON.",
+            }))
+            return
+
         action = payload.get("action")
+        # 4. Validación de acción requerida y rechazo de desconocidas
+        if not action or action not in ALLOWED_ACTIONS:
+            await self.send(text_data=json.dumps({
+                "event": "error",
+                "code": "unknown_action",
+                "detail": f"Acción '{action}' desconocida o no soportada.",
+            }))
+            return
+
         user = self.scope.get("user")
 
-        # 1. Heartbeat (Ping / Pong) para mantener conexión viva y detectar caídas
+        # 5. Heartbeat (Ping / Pong) para mantener conexión viva y detectar caídas
         if action == "ping":
             await self.send(text_data=json.dumps({
                 "event": "pong",

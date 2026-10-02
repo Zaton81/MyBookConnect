@@ -76,6 +76,19 @@ Cualquier agente de IA o desarrollador que se incorpore a la base de código **D
 
 ---
 
+## 3.1. Estado de Ejecución de RoadmapV3 (Producción y Lanzamiento Estable)
+
+| Sprint | Título | Estado | Hito Clave / Entregable |
+| :--- | :--- | :--- | :--- |
+| **Sprint 1** | **Seguridad e Integridad (P0)** | COMPLETADA | Eliminado `POST` en `/api/v1/users/notifications/` (solo lectura `GET`), protección IDOR en `/notifications/<id>/`, blindaje de `ChatConsumer` (captura `JSONDecodeError`, límite 64 KB, descarte de acciones desconocidas y rate limiting de 10 msg/s), sanitización de trazas en `/health/ready`, y unificación de PostgreSQL 16 `pgvector` en `docker-compose.yml`. Suite de 15 tests pasando (`test_sprint1_security.py`). |
+| **Sprint 2** | **Infraestructura (P0)** | PENDIENTE | Reverse proxy, HTTPS, PostgreSQL backup/restore automatizado. |
+| **Sprint 3** | **Autores (P1)** | PENDIENTE | Modelo de autor ampliado, normalización, `AuthorClaim`, verificación y panel. |
+| **Sprint 4** | **Catálogo y UX (P1)** | PENDIENTE | Deduplicación de libros/autores, búsqueda unificada `/search?q=...`, UX y responsive. |
+| **Sprint 5** | **Calidad (P2)** | PENDIENTE | Tests exhaustivos, performance, accesibilidad WCAG y CI/CD. |
+| **Sprint 6** | **Preproducción y Lanzamiento** | PENDIENTE | Deploy staging, smoke tests de producción y soft launch. |
+
+---
+
 ## 4. Trampas Conocidas y Lecciones Aprendidas (Gotchas)
 
 ### 4.1. Token de Autenticación en Frontend
