@@ -20,6 +20,8 @@ from .models import (
     Review,
     ReviewComment,
     UserBook,
+    normalize_isbn,
+    normalize_title,
 )
 
 User = get_user_model()
@@ -202,15 +204,63 @@ class BookSerializer(serializers.ModelSerializer):
         model = Book
         fields = (
             'id', 'title', 'author', 'author_id', 'authors', 'author_ids', 'author_names', 'isbn',
-            'google_volume_id', 'openlibrary_work_id', 'openlibrary_edition_id',
+            'additional_isbns', 'google_volume_id', 'openlibrary_work_id', 'openlibrary_edition_id',
             'cover', 'description', 'published_date', 'average_rating', 'created_at',
             'categories', 'category_ids', 'rating_distribution', 'reviews_count'
         )
+        read_only_fields = ('additional_isbns',)
 
     def create(self, validated_data):
         author_ids = validated_data.pop('author_ids', None)
         author_names = validated_data.pop('author_names', None)
         category_ids = validated_data.pop('categories', None)
+        isbn = validated_data.get('isbn')
+        title = validated_data.get('title')
+
+        # 1. Resolver autor potencial
+        resolved_author = validated_data.get('author')
+        if not resolved_author and author_ids:
+            resolved_author = author_ids[0]
+        elif not resolved_author and author_names:
+            first_name = str(author_names[0]).strip()
+            if first_name:
+                resolved_author, _ = Author.objects.get_or_create(name=first_name)
+
+        # 2. Comprobar si ya existe por ISBN directo o alternativo
+        existing = None
+        if isbn:
+            existing = Book.find_by_isbn(isbn)
+
+        # 3. Comprobar si ya existe por Autor y Título Normalizado (ej. físico vs digital)
+        if not existing and title:
+            norm_title = normalize_title(title)
+            candidates = Book.objects.filter(author=resolved_author) if resolved_author else Book.objects.filter(author__isnull=True)
+            for c in candidates:
+                if normalize_title(c.title) == norm_title:
+                    existing = c
+                    break
+
+        # Si ya existe un libro equivalente, unificarlo en vez de crear un duplicado
+        if existing:
+            changed = False
+            if isbn and existing.add_isbn(isbn):
+                changed = True
+            if category_ids:
+                existing.categories.add(*category_ids)
+            if author_ids:
+                existing.authors.add(*author_ids)
+            if not existing.description and validated_data.get('description'):
+                existing.description = validated_data.get('description')
+                changed = True
+            if not existing.cover and validated_data.get('cover'):
+                existing.cover = validated_data.get('cover')
+                changed = True
+            if not existing.author and resolved_author:
+                existing.author = resolved_author
+                changed = True
+            if changed:
+                existing.save()
+            return existing
 
         book = super().create(validated_data)
 

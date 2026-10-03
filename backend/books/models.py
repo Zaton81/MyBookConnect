@@ -1,4 +1,5 @@
 import re
+import unicodedata
 
 from django.conf import settings
 from django.contrib.postgres.indexes import GinIndex
@@ -20,6 +21,17 @@ def normalize_isbn(value: str | None) -> str | None:
         return None
     cleaned = re.sub(r'[^0-9X]', '', str(value).upper().strip())
     return cleaned if cleaned else None
+
+
+def normalize_title(value: str | None) -> str:
+    """Normaliza un título eliminando acentos, caracteres no alfanuméricos y espacios repetidos para comparación."""
+    if not value:
+        return ""
+    normalized = unicodedata.normalize('NFKD', str(value))
+    ascii_clean = "".join(c for c in normalized if not unicodedata.combining(c))
+    lowered = ascii_clean.lower().strip()
+    cleaned = re.sub(r'[^a-z0-9\s]', ' ', lowered)
+    return " ".join(cleaned.split())
 
 
 class Author(models.Model):
@@ -97,6 +109,11 @@ class Book(models.Model):
     categories = models.ManyToManyField(Category, related_name='books', blank=True)
     enrichment_attempted = models.BooleanField(default=False)
     embedding = models.JSONField(null=True, blank=True, help_text="Vector de embedding semántico de la obra")
+    additional_isbns = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Listado de ISBNs adicionales o de otras ediciones (físico, digital, etc.)",
+    )
 
     class Meta:
         ordering = ['-created_at']
@@ -121,9 +138,55 @@ class Book(models.Model):
             return self.author.name
         return "Autor desconocido"
 
+    def add_isbn(self, new_isbn: str | None) -> bool:
+        """Añade un nuevo ISBN a la ficha del libro evitando duplicados."""
+        cleaned = normalize_isbn(new_isbn)
+        if not cleaned:
+            return False
+        if not self.isbn:
+            self.isbn = cleaned
+            return True
+        if self.isbn == cleaned:
+            return False
+        if not isinstance(self.additional_isbns, list):
+            self.additional_isbns = []
+        if cleaned not in self.additional_isbns:
+            self.additional_isbns.append(cleaned)
+            return True
+        return False
+
+    def get_all_isbns(self) -> list[str]:
+        """Devuelve todos los ISBNs asociados a esta obra (principal y alternativos)."""
+        isbns = []
+        if self.isbn:
+            isbns.append(self.isbn)
+        if isinstance(self.additional_isbns, list):
+            for extra in self.additional_isbns:
+                if extra and extra not in isbns:
+                    isbns.append(extra)
+        return isbns
+
+    @classmethod
+    def find_by_isbn(cls, isbn_candidate: str | None):
+        """Busca un libro tanto por su ISBN principal como por sus ISBNs secundarios/alternativos."""
+        cleaned = normalize_isbn(isbn_candidate)
+        if not cleaned:
+            return None
+        found = cls.objects.filter(isbn=cleaned).first()
+        if found:
+            return found
+        return cls.objects.filter(additional_isbns__contains=cleaned).first()
+
     def save(self, *args, **kwargs):
         if self.isbn:
             self.isbn = normalize_isbn(self.isbn)
+        if isinstance(self.additional_isbns, list):
+            clean_extras = []
+            for item in self.additional_isbns:
+                c = normalize_isbn(item)
+                if c and c != self.isbn and c not in clean_extras:
+                    clean_extras.append(c)
+            self.additional_isbns = clean_extras
         super().save(*args, **kwargs)
         if self.author_id:
             self.authors.add(self.author)

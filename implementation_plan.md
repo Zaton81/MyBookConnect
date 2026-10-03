@@ -1,88 +1,111 @@
-# Plan de Implementación — RoadmapV3: Sprint 2 (Infraestructura y Backups — P0)
+# Plan de Implementación — RoadmapV3: Sprint 4 (Catálogo, Deduplicación de Ediciones y Búsqueda Unificada — P1)
 
 **Fecha:** 3 de octubre de 2026  
 **Rama de trabajo:** `develop`  
-**Estado:** Propuesto para ejecución  
-**Prioridad:** P0 (Crítico para producción y lanzamiento)
+**Estado:** Propuesto para revisión y aprobación  
+**Prioridad:** P1 (Catálogo, Integridad Editorial y Experiencia de Descubrimiento)
 
 ---
 
-## 1. Contexto y Objetivos
+## 1. Contexto y Requisitos del Usuario
 
-El **Sprint 2 de RoadmapV3** (junto con la Sección 3 de Backups y Recuperación) establece la base operativa y de infraestructura necesaria para garantizar un despliegue seguro, resiliente y de alto rendimiento antes de salir a producción:
+El usuario ha especificado una directiva central para el catálogo:
+> *"todos los libros de un mismo autor y mismo nombre, deben quedar unificados. Es decir, si hay físico y digital a veces tienen distinto isbn, pero el libro es el mismo"*.
 
-1. **Arquitectura Web y Reverse Proxy (Sección 2.1):**
-   - Blindaje de Nginx como único punto de entrada (reverse proxy perimetral).
-   - Aislamiento absoluto de Django/Daphne, PostgreSQL y Redis (sin puertos expuestos al host en producción).
-   - Soporte para balanceo con upstream `django_cluster`.
-   - Configuración limpia de `/api/`, `/admin/` (y slug administrativo custom), `/ws/` (con variables para WebSocket upgrade `Connection $connection_upgrade`), `/media/`, `/django_static/` y SPA frontend.
-   - Rate limiting a nivel de Nginx (`limit_req_zone`) para mitigar abusos y ataques de denegación de servicio.
-   - Cabeceras completas de seguridad HTTP (HSTS con preload, CSP estricto, X-Frame-Options DENY, X-Content-Type-Options nosniff, Referrer-Policy, Permissions-Policy).
-   - Preparación para HTTPS / SSL y renovación Let's Encrypt.
+Esto se alinea con la **Sección 5 (Catálogo y libros)** y la **Sección 9 (Búsqueda y descubrimiento)** de `RoadmapV3.md`.
 
-2. **Base de Datos y Caché (Secciones 2.2 y 2.3):**
-   - Consolidar PostgreSQL 16 con `pgvector` en todos los entornos, asegurando que las migraciones corran limpiamente.
-   - Consolidar Redis 7 (`redis:7-alpine`) con persistencia AOF (`appendonly yes`), volumen persistente `redis_data`, límite de memoria prudente (`maxmemory 256mb`) y política de desalojo (`allkeys-lru`).
+### Objetivos Principales:
+1. **Unificación de Ediciones de un Mismo Libro (Físico / Digital / Distintos ISBNs):**
+   - Una única ficha canónica por obra (`Book`) cuando compartan autor (o variantes canónicas) y título normalizado (insensible a mayúsculas, tildes, signos de puntuación o espacios).
+   - Soporte para almacenar y consultar múltiples ISBNs por libro mediante `additional_isbns` (lista JSON de ISBNs normalizados asociados a la obra: físico, ebook/digital, bolsillo, etc.).
+   - Capacidad de encontrar la obra unificada buscando por **cualquiera** de sus ISBNs (el principal o cualquiera de los alternativos).
 
-3. **Seguridad y Orquestación Docker (Sección 2.4):**
-   - Asegurar que los contenedores corran como usuario no privilegiado (`appuser` en backend, configuración sin root en Nginx/frontend cuando proceda).
-   - Fijar versiones deterministas en imágenes base (`python:3.12-slim`, `node:22-alpine`, `nginx:1.27-alpine`, `pgvector/pgvector:pg16`, `redis:7-alpine`).
-   - Definir healthchecks estandarizados y cuotas de recursos CPU / memoria (`deploy.resources.limits`) en `docker-compose.prod.yml`.
-   - Limpieza y verificación de redes internas segregadas (`frontend_net` pública, `backend_net` privada e interna).
+2. **Servicio y Herramienta de Fusión y Deduplicación (`BookDeduplicationService`):**
+   - Detección automática de duplicados existentes en el catálogo.
+   - Fusión transaccional segura hacia el libro canónico:
+     - Reasignación de `UserBook` (biblioteca de usuarios), resolviendo colisiones si el usuario tenía ambos formatos (preservando el estado más avanzado y la mejor calificación).
+     - Reasignación de `Review` (reseñas), `ReadingListBook` (listas de lectura), citas y reportes de erratas.
+     - Consolidación de categorías, portadas, descripciones y todos los ISBNs asociados.
+     - Eliminación limpia de las instancias duplicadas redundantes.
+   - Comando de gestión Django: `python manage.py deduplicate_catalog [--dry-run]`.
 
-4. **Estrategia y Verificación de Backups y Recuperación (Sección 3):**
-   - Revisión y ajuste de los scripts de backup y restore en `scripts/backup/` (`backup_db.sh`, `restore_db.sh`, `test_restore_cycle.sh`).
-   - Validación del procedimiento automatizado de restauración: creación de base de datos temporal, volcado, importación, verificación de tablas y smoke test de consistencia.
+3. **Blindaje en la Ingesta / Creación de Libros:**
+   - En `BookSerializer`: si un usuario o cliente intenta crear un libro que ya existe para ese autor y título, no se crea un duplicado; se enriquece el libro existente (incorporando el nuevo ISBN a `additional_isbns` si procede) y se retorna el libro canónico.
+   - En los servicios de importación externa (`import_service.py` y `csv_import_service.py`): la resolución comprueba tanto ISBN principal y alternativos como la tupla (título normalizado, autor), fusionando inmediatamente cualquier edición entrante con la ficha existente.
+
+4. **Búsqueda Global Unificada (`/api/v1/search/?q=...`):**
+   - Endpoint unificado que devuelve en una sola llamada los resultados categorizados en:
+     - `books`: libros que coincidan por título, autor, descripción o cualquiera de sus ISBNs.
+     - `authors`: autores que coincidan por nombre o alias, con sus métricas.
+     - `users`: usuarios públicos (respetando bloqueos y privacidad).
+   - Interfaz en el frontend para búsqueda global `/search?q=...` con selector de pestañas (Todo, Libros, Autores, Lectores).
 
 ---
 
 ## 2. Modificaciones Técnicas Propuestas
 
-### 2.1. Nginx Hardening (`frontend/nginx.conf`)
-- Añadir el mapeo `map $http_upgrade $connection_upgrade` para gestionar upgrades de WebSocket de manera estándar.
-- Unificar las directivas `proxy_pass` hacia `http://django_cluster` en lugar de `http://backend:8000` directo, facilitando escalado horizontal.
-- Añadir `location /admin/` (y soporte para la variable `ADMIN_PATH`) para no atrapar el panel de Django en el `try_files` del frontend.
-- Añadir directiva `limit_req_zone $binary_remote_addr zone=api_limit:10m rate=30r/s;` y aplicarla en `/api/` con burst configurable.
-- Añadir soporte para servidor HTTPS en puerto 443 con certificados SSL opcionales o montados, y redirección condicional en puerto 80.
+### 2.1. Modelo `Book` (`backend/books/models.py`)
+- Añadir campo `additional_isbns = models.JSONField(default=list, blank=True, help_text="Listado de ISBNs adicionales/alternativos (ediciones físicas, digitales, etc.)")`.
+- Crear función auxiliar de normalización de títulos `normalize_title(title: str) -> str` (remueve puntuación superflua, dobles espacios y acentos para comparación canónica).
+- Crear método `add_isbn(isbn: str)` en `Book` que normalice e inserte en `additional_isbns` evitando duplicados.
+- Crear método de clase `Book.find_by_isbn(isbn: str)` que busque tanto en `isbn` como en `additional_isbns`.
+- Crear migración de Django correspondiente.
 
-### 2.2. Configuración de Redis y Persistencia
-- En `docker-compose.yml` y `docker-compose.prod.yml`:
-  - Configurar Redis 7 con parámetros explícitos: `command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru --save 60 1`.
-  - Añadir volumen `redis_data` para evitar pérdida de colas y estados de Celery/Channels ante reinicios.
+### 2.2. Servicio de Deduplicación y Fusión (`backend/books/services/deduplication_service.py`)
+- `find_duplicate_books() -> list[tuple[Book, list[Book]]]`:
+  - Agrupa libros por `(author_id, normalized_title)`.
+- `merge_books(canonical_book: Book, duplicate_books: list[Book]) -> Book`:
+  - Ejecuta la fusión en una transacción atómica `transaction.atomic()`:
+    1. Acumula todos los ISBNs secundarios en `canonical_book.additional_isbns`.
+    2. Si el canónico no tiene portada o descripción pero un duplicado sí, los transfiere.
+    3. Fusiona categorías M2M.
+    4. Migra `UserBook`: si el usuario ya tenía el canónico, actualiza con el estado más avanzado; si no, reasigna el `book_id`.
+    5. Migra `Review`: reasigna al canónico evitando duplicar reseñas del mismo usuario en la misma obra.
+    6. Migra `ReadingListBook`: reasigna elementos de listas sociales evitando duplicados en la misma lista.
+    7. Elimina los registros `duplicate_books`.
+- Comando `backend/books/management/commands/deduplicate_catalog.py` para ejecución manual o en cron/worker.
 
-### 2.3. Configuración de Producción (`docker-compose.prod.yml`)
-- Añadir límites de CPU y memoria (`deploy.resources.limits: cpus: '...', memory: '...'`) en servicios críticos para evitar *OOM-killer* en el host.
-- Asegurar que `backend`, `db` y `cache` no publiquen puertos hacia el host exterior (solo expuestos en redes internas).
-- Validar permisos de `appuser` en volúmenes compartidos (`media`, `staticfiles`, `backups`).
+### 2.3. Blindaje de Creación e Importación
+- En `backend/books/serializers.py` (`BookSerializer.create`):
+  - Normaliza el título y comprueba si ya existe un libro con ese autor y título. Si existe, agrega el ISBN a `additional_isbns` y devuelve el libro canónico.
+- En `backend/books/services/import_service.py` y `csv_import_service.py`:
+  - Buscar primero por ISBN (en `isbn` y `additional_isbns`).
+  - Si no se encuentra por ISBN, buscar por `(author, normalized_title)`.
+  - Si existe por título y autor pero con otro ISBN, registrar el nuevo ISBN en `additional_isbns` del libro existente en lugar de crear un libro nuevo.
 
-### 2.4. Validación de Backups y Disaster Recovery
-- Ajustar scripts en `scripts/backup/` para asegurar compatibilidad con la imagen `pgvector/pgvector:pg16` y comandos directos de docker compose.
-- Ejecutar el script `test_restore_cycle.sh` o prueba equivalente para certificar la recuperabilidad de la base de datos sin errores ni pérdida de datos.
+### 2.4. Búsqueda Global Unificada (`/api/v1/search/?q=...`)
+- Crear `GlobalSearchView` en `backend/books/views.py` expuesta en `/api/v1/search/`:
+  - Parámetros: `q` (término), `type` (opcional: `all`, `books`, `authors`, `users`), `limit`.
+  - Libros: búsqueda híbrida / trigram (`pg_trgm`) por título, autor y match en `isbn` / `additional_isbns`.
+  - Autores: búsqueda por nombre canónico y aliases (`idx_author_name_trgm`).
+  - Usuarios: búsqueda por `username`, aplicando `PrivacyService` y exclusión de usuarios bloqueados/bloqueadores.
+- En frontend:
+  - Componente/página `SearchPage.tsx` accesible en `/search?q=...`.
+  - Pestañas interactivas: "Todos", "Libros", "Autores", "Lectores".
 
 ---
 
 ## 3. Plan de Pruebas y Validación
 
-1. **Validación de Configuración Nginx:**
-   - Comprobación sintáctica con `nginx -t` dentro del contenedor frontend.
-   - Verificación de rutas proxy: `/api/v1/version/`, `/health/ready`, `/ws/` y `/admin/`.
-2. **Prueba de Ciclo de Recuperación de PostgreSQL:**
-   - Ejecutar `bash scripts/backup/test_restore_cycle.sh` o procedimiento automatizado.
-   - Verificar integridad de tablas tras restore (incluyendo modelos de autores y FAQs creados en Sprint 3).
-3. **Pruebas de Regresión Backend:**
-   - Ejecutar la suite completa de tests de seguridad y sprints previos de forma estrictamente secuencial:
-     `pytest tests/test_sprint1_security.py tests/test_sprint3_authors_and_faqs.py`
-4. **Build de Frontend:**
-   - Ejecutar `npm run build` en `frontend/` para garantizar que la compilación de producción sigue limpia (código 0).
+1. **Pruebas Unitarias y de Integración (`backend/tests/test_sprint4_catalog_deduplication.py`):**
+   - Test de unificación: crear un libro físico y un libro digital del mismo autor y título con distintos ISBNs; comprobar que quedan unificados bajo una sola ficha con ambos ISBNs registrados.
+   - Test de búsqueda por ISBN alternativo: verificar que buscar por el ISBN del ebook devuelve la ficha del libro unificado.
+   - Test de fusión transaccional (`merge_books`): verificar que estanterías (`UserBook`), reseñas (`Review`) y listas (`ReadingList`) se transfieren íntegramente sin errores de integridad.
+   - Test de búsqueda global unificada (`/api/v1/search/?q=...`): comprobar que devuelve simultáneamente libros, autores y lectores respetando la privacidad.
+2. **Pruebas de Regresión Completa:**
+   - Ejecutar secuencialmente Sprints 1, 2, 3 y 4:
+     `pytest tests/test_sprint1_security.py tests/test_sprint2_infrastructure.py tests/test_sprint3_authors_and_faqs.py tests/test_sprint4_catalog_deduplication.py`
+3. **Build de Frontend:**
+   - `npm run build` en `frontend/` verificando compilación limpia.
 
 ---
 
 ## 4. Criterios de Aceptación (Definition of Done)
 
-- [ ] Nginx configurado con upstream balanceado, límites de petición, cabeceras seguras y soporte WebSocket.
-- [ ] No existen puertos internos de base de datos o backend expuestos al host en configuración de producción.
-- [ ] Redis 7 configurado con persistencia AOF y política de desalojo LRU.
-- [ ] Ciclo de backup y restauración de PostgreSQL 16 ejecutado y comprobado satisfactoriamente.
-- [ ] 100% de tests pasando sin regresiones en backend y build exitoso en frontend.
-- [ ] Documentación actualizada en `RoadmapV3.md`, `memory.md` y `CHANGELOG.md`.
-- [ ] Commit semántico y push a la rama `develop`.
+- [ ] Libros con el mismo autor y mismo título quedan estrictamente unificados en una sola entidad `Book`.
+- [ ] Los distintos ISBNs (físico, digital, tapa dura) se almacenan en `additional_isbns` y son buscables.
+- [ ] Servicio de deduplicación y comando CLI `deduplicate_catalog` operativos y probados.
+- [ ] Endpoint `/api/v1/search/?q=...` devuelve resultados clasificados de libros, autores y lectores.
+- [ ] 100% tests pasando secuencialmente sin bloqueos de base de datos.
+- [ ] Documentación actualizada (`RoadmapV3.md`, `memory.md`, `CHANGELOG.md`).
+- [ ] Commit semántico y push a `develop`.

@@ -55,6 +55,9 @@ const OnboardingPage = lazy(() =>
 const PublicLandingPage = lazy(() =>
   import('../features/discovery').then((m) => ({ default: m.PublicLandingPage }))
 );
+const SearchPage = lazy(() =>
+  import('../features/discovery').then((m) => ({ default: m.SearchPage }))
+);
 
 function ProfileIdRedirect() {
   const { id } = useParams();
@@ -82,11 +85,13 @@ export function AppRouter() {
           <Route path="/deletion-policy" element={<DeletionPolicy />} />
           <Route path="/contact" element={<ContactPage />} />
           <Route path="/faqs" element={<FaqsPage />} />
+          <Route path="/search" element={<SearchPage />} />
         </Route>
 
         {/* Rutas Protegidas de Miembros */}
         <Route element={<ProtectedLayout />}>
           <Route path="/home" element={<Home />} />
+          <Route path="/search" element={<SearchPage />} />
           <Route path="/books/add" element={<AddBook />} />
           <Route path="/books/:id" element={<BookDetail />} />
           <Route path="/authors/:id" element={<Author />} />

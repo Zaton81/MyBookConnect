@@ -309,26 +309,28 @@ No implementar un CMS complejo para el lanzamiento.
 
 ## 5.1 Calidad de catálogo
 
-- [ ] Detectar libros duplicados.
-- [ ] Detectar autores duplicados.
-- [ ] Normalizar títulos y nombres.
-- [ ] Revisar ISBN.
-- [ ] Mantener identificadores externos.
-- [ ] Registrar fuente de cada dato.
-- [ ] Evitar sobrescribir correcciones manuales con datos externos automáticamente.
+- [x] Detectar libros duplicados (mismo autor y título normalizado).
+- [x] Unificar ediciones físicas y digitales con distintos ISBNs en `additional_isbns`.
+- [x] Servicio atómico `merge_books` con reasignación íntegra de UserBook, Review, Listas y Actividades.
+- [x] Comando CLI de gestión `deduplicate_catalog [--dry-run]` verificado en catálogo productivo.
+- [x] Normalizar títulos y nombres (`normalize_title`).
+- [x] Revisar y validar ISBN (`normalize_isbn`, `Book.find_by_isbn`).
+- [x] Mantener identificadores externos (Google Books, OpenLibrary).
+- [x] Registrar fuente de cada dato.
+- [x] Evitar sobrescribir correcciones manuales con datos externos automáticamente.
 
 ## 5.2 Enriquecimiento externo
 
 Mantener Google Books, OpenLibrary y Wikipedia.
 
-- [ ] prioridad de fuentes;
-- [ ] fallback;
-- [ ] timeouts;
-- [ ] retries;
-- [ ] rate limits;
-- [ ] caché;
-- [ ] detección de cambios;
-- [ ] deduplicación.
+- [x] prioridad de fuentes;
+- [x] fallback;
+- [x] timeouts;
+- [x] retries;
+- [x] rate limits;
+- [x] caché;
+- [x] detección de cambios;
+- [x] deduplicación.
 
 Las llamadas externas deben ser asíncronas cuando sea posible.
 
@@ -425,13 +427,17 @@ Frank Herbert
 
 ## 9.3 Búsqueda unificada
 
-Futuro endpoint:
+Endpoint y página unificada:
 
 ```text
 /search?q=...
 ```
 
-Resultados: libros, autores y usuarios, respetando permisos y privacidad.
+- [x] Endpoint unificado `/api/v1/search/?q=...&type=...&limit=...` implementado en backend (`GlobalSearchView`).
+- [x] Resultados diferenciados por categoría: Libros (con editions/ISBNs unificados), Autores (verificados/métricas) y Lectores comunitarios.
+- [x] Respeto absoluto de permisos, bloqueos mutuos y privacidad de perfil (`PrivacyService`).
+- [x] Página completa de frontend `/search` con pestañas interactivas, estados de carga y empty states.
+- [x] Enlaces integrados en Header privado y PublicHeader.
 
 ---
 

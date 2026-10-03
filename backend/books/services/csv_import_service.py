@@ -7,7 +7,7 @@ from typing import Any
 
 from django.db import transaction
 
-from books.models import Author, Book, ReadingStatus, Review, UserBook, normalize_isbn
+from books.models import Author, Book, ReadingStatus, Review, UserBook, normalize_isbn, normalize_title
 from books.services.enrichment_service import attach_categories_to_book
 
 logger = logging.getLogger(__name__)
@@ -337,15 +337,25 @@ class CSVImportService:
                 if author_name:
                     author_obj, _ = Author.objects.get_or_create(name=author_name)
 
-                # 2. Resolver o Crear Libro (Deduplicación multi-nivel)
+                # 2. Resolver o Crear Libro (Deduplicación multi-nivel y unificación de ediciones)
                 book = None
                 if isbn:
-                    book = Book.objects.filter(isbn=isbn).first()
+                    book = Book.find_by_isbn(isbn)
 
-                if not book and author_obj:
-                    book = Book.objects.filter(title__iexact=title, author=author_obj).first()
-                elif not book:
-                    book = Book.objects.filter(title__iexact=title).first()
+                if not book and author_obj and title:
+                    norm_title = normalize_title(title)
+                    candidates = Book.objects.filter(author=author_obj)
+                    for c in candidates:
+                        if normalize_title(c.title) == norm_title:
+                            book = c
+                            break
+                elif not book and title:
+                    norm_title = normalize_title(title)
+                    candidates = Book.objects.filter(title__iexact=title)
+                    for c in candidates:
+                        if normalize_title(c.title) == norm_title:
+                            book = c
+                            break
 
                 if not book:
                     book = Book.objects.create(
@@ -357,16 +367,17 @@ class CSVImportService:
                     if categories:
                         attach_categories_to_book(book, categories)
                 else:
-                    # Enriquecer libro existente si le faltaba autor o isbn
+                    # Enriquecer libro existente si le faltaba autor o agregar nuevo ISBN a additional_isbns
                     updated_fields = []
-                    if isbn and not book.isbn:
-                        book.isbn = isbn
-                        updated_fields.append('isbn')
+                    if isbn and book.add_isbn(isbn):
+                        updated_fields.append('additional_isbns')
+                        if not book.isbn:
+                            updated_fields.append('isbn')
                     if author_obj and not book.author:
                         book.author = author_obj
                         updated_fields.append('author')
                     if updated_fields:
-                        book.save(update_fields=updated_fields)
+                        book.save(update_fields=list(set(updated_fields)))
 
                 # 3. Vincular a la biblioteca personal UserBook
                 user_book, ub_created = UserBook.objects.get_or_create(

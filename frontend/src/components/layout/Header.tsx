@@ -149,6 +149,16 @@ export function Header() {
           </div>
 
           <div className="flex items-center gap-2 md:order-2">
+            {/* Acceso Rápido a Búsqueda Global */}
+            <Link
+              to="/search"
+              className="p-2 rounded-xl text-teal-100 hover:text-white hover:bg-white/10 transition-colors focus:outline-none focus:ring-2 focus:ring-teal-400"
+              title="Búsqueda Global (Libros, Autores, Lectores)"
+              aria-label="Búsqueda Global"
+            >
+              <span className="text-lg leading-none">🔍</span>
+            </Link>
+
             {/* Campana de Notificaciones */}
             <div className="relative" ref={notifDropdownRef}>
               <button
@@ -290,6 +300,9 @@ export function Header() {
           <Navbar.Collapse className="mt-2 md:mt-0">
             <NavLink to="/home" className={navLinkClasses} end>
               Inicio
+            </NavLink>
+            <NavLink to="/search" className={navLinkClasses}>
+              Buscar
             </NavLink>
             <NavLink to="/library" className={navLinkClasses}>
               Mi Biblioteca

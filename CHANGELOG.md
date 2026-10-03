@@ -7,6 +7,23 @@ y este proyecto se adhiere a [Semantic Versioning 2.0.0](https://semver.org/lang
 
 ## [Unreleased]
 
+### Added / Catalog (RoadmapV3 - Sprint 4: Catálogo, Unificación de Ediciones P1 y Búsqueda Global)
+- **Unificación Canónica de Obras y Ediciones Literarias**:
+  - Incorporada normalización fonética y ortográfica de títulos (`normalize_title`) tolerante a mayúsculas, signos de puntuación, dobles espacios y caracteres diacríticos.
+  - Añadido campo `additional_isbns = models.JSONField(default=list)` en `Book` para almacenar y relacionar múltiples ISBNs (ediciones físicas, digitales Kindle/ePub, bolsillo, audiolibros) bajo una única ficha maestra.
+  - Métodos `Book.add_isbn(new_isbn)`, `Book.get_all_isbns()` y `Book.find_by_isbn(query)` para resolver y buscar libros por cualquier edición de manera transparente.
+  - Blindaje en `BookSerializer.create`, `import_service.py` y `csv_import_service.py` para unificar automáticamente cualquier libro entrante cuyo autor y título coincidan, impidiendo la fragmentación de reseñas y estanterías.
+- **Servicio y Herramienta de Fusión Atómica de Duplicados**:
+  - Implementado `deduplication_service.py` con `find_duplicate_books()`, `merge_books()` y `deduplicate_all_books()`.
+  - Reubicación transaccional y atómica de dependencias foráneas (`UserBook` preservando estados más avanzados y mejores notas, `Review`, `ReadingListItem`, `UserPost`, `Activity`, portadas y categorías).
+  - Comando Django `python manage.py deduplicate_catalog [--dry-run]` ejecutado con éxito en base de datos real (21 obras maestras consolidadas, 25 duplicados redundantes eliminados, 0 duplicados restantes).
+- **Búsqueda Global Unificada (`/api/v1/search/`)**:
+  - Endpoint `GlobalSearchView` en backend que devuelve en una sola consulta categorizada libros (con ISBNs unificados), autores (con estadísticas editoriales y verificación) y lectores comunitarios (respetando privacidad RGPD y bloqueos mutuos).
+  - Nueva página en frontend `/search` (`SearchPage.tsx`) con buscador reactivo, pestañas interactivas ("Todo", "Libros", "Autores", "Lectores"), badges de ediciones unificadas y diseño premium.
+  - Enlaces integrados en `Header.tsx` y `PublicHeader.tsx`.
+- **Suite de Pruebas**:
+  - Añadida suite `backend/tests/test_sprint4_catalog_deduplication.py` con 9 pruebas de integración y API cubriendo normalización, unificación por serializer, fusiones atómicas y endpoint global.
+
 ### Added / Infrastructure (RoadmapV3 - Sprint 2: Infraestructura y Backups P0)
 - **Hardening del Reverse Proxy Nginx**:
   - `upstream django_cluster` balanceado con `keepalive 32`.

@@ -83,7 +83,7 @@ Cualquier agente de IA o desarrollador que se incorpore a la base de código **D
 | **Sprint 1** | **Seguridad e Integridad (P0)** | COMPLETADA | Eliminado `POST` en `/api/v1/users/notifications/` (solo lectura `GET`), protección IDOR en `/notifications/<id>/`, blindaje de `ChatConsumer` (captura `JSONDecodeError`, límite 64 KB, descarte de acciones desconocidas y rate limiting de 10 msg/s), sanitización de trazas en `/health/ready`, y unificación de PostgreSQL 16 `pgvector` en `docker-compose.yml`. Suite de 15 tests pasando (`test_sprint1_security.py`). |
 | **Sprint 2** | **Infraestructura (P0)** | COMPLETADA | Endurecimiento Nginx reverse proxy (upstream balanceado, `limit_req_zone` 30r/s y 5r/s auth, proxy `/admin/` y `/panel-control-mbc/`, headers COOP/CSP/HSTS), Redis 7 con persistencia AOF (`appendonly yes`, `maxmemory 256mb`, `allkeys-lru`), orquestación Docker Compose y Prod con límites CPU/memoria y redes aisladas, scripts de backup/restore PostgreSQL 16 y ciclo completo de restauración verificado al 100% (65 tablas, smoke test con 23 usuarios). Suite de 6 tests pasando (`test_sprint2_infrastructure.py`). |
 | **Sprint 3** | **Autores (P1) & FAQs** | COMPLETADA | Modelo de autor enriquecido (`nationality`, `birth_date`, `death_date`, `website`, `wikipedia_url`, `is_verified`, `claimed_by`), estadísticas en tiempo real, modelo `AuthorClaim` con unicidad y ciclo de vida, endpoints de solicitud y resolución administrativa con notificación. Subsistema integral de FAQs (modelo `FAQ`, endpoints público y admin, acordeón reactivo interactivo en `/faqs`, gestión administrativa en `AdminFaqsTab`). Suite de 9 tests pasando (`test_sprint3_authors_and_faqs.py`). |
-| **Sprint 4** | **Catálogo y UX (P1)** | PENDIENTE | Deduplicación de libros/autores, búsqueda unificada `/search?q=...`, UX y responsive. |
+| **Sprint 4** | **Catálogo y UX (P1)** | COMPLETADA | Unificación canónica de libros por autor y título normalizado (`normalize_title`), soporte de múltiples ISBNs físicos y digitales con `Book.additional_isbns`, búsqueda unificada por cualquier edición con `Book.find_by_isbn`, servicio de deduplicación y fusión atómica `merge_books` con migración de UserBook, Review y Listas, comando CLI `deduplicate_catalog` (21 obras y 25 duplicados consolidados en DB con 0 duplicados restantes), endpoint global `/api/v1/search/` (libros, autores, lectores con privacidad) y página responsive en frontend `/search` con tabs y badge de ediciones. Suite de 9 tests pasando (`test_sprint4_catalog_deduplication.py`). |
 | **Sprint 5** | **Calidad (P2)** | PENDIENTE | Tests exhaustivos, performance, accesibilidad WCAG y CI/CD. |
 | **Sprint 6** | **Preproducción y Lanzamiento** | PENDIENTE | Deploy staging, smoke tests de producción y soft launch. |
 
@@ -227,6 +227,14 @@ Cualquier agente de IA o desarrollador que se incorpore a la base de código **D
   gunzip -c "$BACKUP_FILE" | sed '/transaction_timeout/d' | psql ... --single-transaction
   ```
 - **Conexión Administrativa a la BD Fuente:** Al crear o destruir bases de datos temporales para pruebas de restauración, conectarse mediante `-d "${SOURCE_DB}"` o la base de datos de mantenimiento configurada en vez de asumir `-d postgres`, respetando el usuario no-root `booksocial`.
+
+### 4.23. Unificación Canónica de Ediciones y Múltiples ISBNs (Sprint 4 - RoadmapV3)
+- **El Problema del Libro Múltiple (Físico vs Digital):** Obras literarias idénticas ("Dune", "La catedral del mar") poseen distintos ISBNs según el formato (tapa dura, rústica, ebook Kindle, audiolibro). Si el sistema crea un `Book` por cada ISBN, se fragmentan las valoraciones, reseñas y estanterías de los lectores.
+- **Solución Canónica:**
+  - El modelo `Book` almacena su ISBN principal en `isbn` y acumula todas las ediciones adicionales normalizadas en `additional_isbns = models.JSONField(default=list)`.
+  - `Book.find_by_isbn(query)` busca simultáneamente en ambos campos.
+  - Al crear o importar libros, `normalize_title` y la comparación contra el autor unifican automáticamente la obra en vez de duplicarla.
+  - El comando `python manage.py deduplicate_catalog` reubica de forma transaccional `UserBook`, `Review`, `ReadingListItem`, `UserPost` y `Activity` sin violaciones de unicidad, borrando los duplicados redundantes.
 
 ---
 
