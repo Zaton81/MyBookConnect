@@ -1,67 +1,88 @@
-# Plan de Implementación — RoadmapV3: Sprint 3 (Autores y FAQs)
+# Plan de Implementación — RoadmapV3: Sprint 2 (Infraestructura y Backups — P0)
 
-**Fecha:** 2 de octubre de 2026  
-**Rama:** `develop`  
-**Estado:** En progreso  
-**Objetivo:** Implementar el subsistema integral de autores prioritario de RoadmapV3 (Sección 4: modelo ampliado, verificación, flujo de reclamación `AuthorClaim`, página pública enriquecida y moderación administrativa) e incorporar el nuevo subsistema de FAQs con visualización pública en acordeón y administración en el panel de control.
-
----
-
-## 1. Alcance y Requisitos del Sprint 3 + FAQs
-
-### 1.1. Subsistema de Autores (Sección 4 RoadmapV3)
-- **Modelo de Autor Ampliado (`Author`):**
-  - Campos biográficos y de identidad: `nationality`, `birth_date`, `death_date`, `website`, `twitter`, `instagram`, `wikipedia_url`, `canonical_name`, `aliases`, `external_ids`.
-  - Estado de verificación: `is_verified` (booleano), `claimed_by` (clave foránea a `User`).
-- **Sistema de Reclamación de Autor (`AuthorClaim`):**
-  - Modelo `AuthorClaim` con estados `pending`, `approved`, `rejected`, `cancelled`.
-  - Solicitud desde la interfaz pública del autor por lectores registrados (`POST /api/v1/books/authors/<id>/claim/`).
-  - Consulta de estado del reclamo (`GET /api/v1/books/authors/<id>/claim-status/`).
-  - Restricciones: una sola solicitud pendiente por autor/usuario; autores ya verificados no pueden ser reclamados arbitrariamente.
-- **Moderación Administrativa de Reclamaciones:**
-  - Endpoint administrativo para listar y filtrar reclamos (`GET /api/v1/admin/author-claims/`).
-  - Resolución de reclamos (`POST /api/v1/admin/author-claims/<id>/resolve/`): aprobación (marca autor verificado, asigna a usuario, sincroniza `AuthorProfile`, emite notificación) o rechazo (guarda notas y notifica).
-- **Página Pública de Autor Mejorada en Frontend:**
-  - Insignia visual de verificación ("Autor Verificado").
-  - Metadatos biográficos, enlaces sociales y enlaces externos.
-  - Estadísticas públicas agregadas: valoración promedio, libros en catálogo, volumen de reseñas y total de lectores.
-  - Botón y modal accesible para reclamar la página.
-
-### 1.2. Subsistema de FAQs (Preguntas Frecuentes)
-- **Modelo Backend (`FAQ`):**
-  - Campos: `question`, `answer`, `category` (`general`, `authors`, `books`, `account`, `community`), `order`, `is_published`, `created_at`, `updated_at`.
-- **Endpoints de la API:**
-  - Público: `GET /api/v1/faqs/` (devuelve FAQs publicadas ordenadas por categoría y orden numérico).
-  - Admin: CRUD completo (`GET`, `POST`, `PATCH`, `DELETE` en `/api/v1/admin/faqs/`).
-  - Fixtures o sembrado inicial con preguntas frecuentes de utilidad.
-- **Frontend:**
-  - Vista pública `/faqs` con componente **Acordeón interactivo** (animación de despliegue al hacer clic, soporte de teclado, buscador por texto y filtros por categoría).
-  - Enlaces a FAQs en cabecera (`Header`) y pie de página (`Footer`).
-  - Pestaña de administración de FAQs en `AdminDashboard` (`AdminFaqsTab.tsx`): creación rápida, edición, cambio de estado publicado/borrador y eliminación.
+**Fecha:** 3 de octubre de 2026  
+**Rama de trabajo:** `develop`  
+**Estado:** Propuesto para ejecución  
+**Prioridad:** P0 (Crítico para producción y lanzamiento)
 
 ---
 
-## 2. Plan de Pruebas
+## 1. Contexto y Objetivos
 
-- **Backend (`tests/test_sprint3_authors_and_faqs.py`):**
-  - Creación de solicitud `AuthorClaim` por usuario autenticado.
-  - Rechazo de reclamaciones duplicadas pendientes para el mismo autor.
-  - Aprobación administrativa de reclamo: autor pasa a `is_verified=True`, vinculación con `User` y `AuthorProfile`.
-  - Rechazo administrativo de reclamo con registro de notas de moderación.
-  - Serialización enriquecida de autor con estadísticas de lectores y reseñas.
-  - Endpoint público de FAQs: solo devuelve ítems con `is_published=True`.
-  - Endpoint administrativo de FAQs: solo accesible a staff, soporte de CRUD completo.
-- **Frontend:**
-  - Typecheck y comprobación de build con Vite (`npm run build`).
+El **Sprint 2 de RoadmapV3** (junto con la Sección 3 de Backups y Recuperación) establece la base operativa y de infraestructura necesaria para garantizar un despliegue seguro, resiliente y de alto rendimiento antes de salir a producción:
+
+1. **Arquitectura Web y Reverse Proxy (Sección 2.1):**
+   - Blindaje de Nginx como único punto de entrada (reverse proxy perimetral).
+   - Aislamiento absoluto de Django/Daphne, PostgreSQL y Redis (sin puertos expuestos al host en producción).
+   - Soporte para balanceo con upstream `django_cluster`.
+   - Configuración limpia de `/api/`, `/admin/` (y slug administrativo custom), `/ws/` (con variables para WebSocket upgrade `Connection $connection_upgrade`), `/media/`, `/django_static/` y SPA frontend.
+   - Rate limiting a nivel de Nginx (`limit_req_zone`) para mitigar abusos y ataques de denegación de servicio.
+   - Cabeceras completas de seguridad HTTP (HSTS con preload, CSP estricto, X-Frame-Options DENY, X-Content-Type-Options nosniff, Referrer-Policy, Permissions-Policy).
+   - Preparación para HTTPS / SSL y renovación Let's Encrypt.
+
+2. **Base de Datos y Caché (Secciones 2.2 y 2.3):**
+   - Consolidar PostgreSQL 16 con `pgvector` en todos los entornos, asegurando que las migraciones corran limpiamente.
+   - Consolidar Redis 7 (`redis:7-alpine`) con persistencia AOF (`appendonly yes`), volumen persistente `redis_data`, límite de memoria prudente (`maxmemory 256mb`) y política de desalojo (`allkeys-lru`).
+
+3. **Seguridad y Orquestación Docker (Sección 2.4):**
+   - Asegurar que los contenedores corran como usuario no privilegiado (`appuser` en backend, configuración sin root en Nginx/frontend cuando proceda).
+   - Fijar versiones deterministas en imágenes base (`python:3.12-slim`, `node:22-alpine`, `nginx:1.27-alpine`, `pgvector/pgvector:pg16`, `redis:7-alpine`).
+   - Definir healthchecks estandarizados y cuotas de recursos CPU / memoria (`deploy.resources.limits`) en `docker-compose.prod.yml`.
+   - Limpieza y verificación de redes internas segregadas (`frontend_net` pública, `backend_net` privada e interna).
+
+4. **Estrategia y Verificación de Backups y Recuperación (Sección 3):**
+   - Revisión y ajuste de los scripts de backup y restore en `scripts/backup/` (`backup_db.sh`, `restore_db.sh`, `test_restore_cycle.sh`).
+   - Validación del procedimiento automatizado de restauración: creación de base de datos temporal, volcado, importación, verificación de tablas y smoke test de consistencia.
 
 ---
 
-## 3. Criterios de Aceptación (Definition of Done)
+## 2. Modificaciones Técnicas Propuestas
 
-- [ ] Modelo `Author` ampliado con metadatos de identidad y verificación.
-- [ ] Modelo `AuthorClaim` y flujo de reclamación implementado y protegido.
-- [ ] Panel de administración con pestaña de gestión de reclamaciones de autor y pestaña de FAQs.
-- [ ] Página de autor en frontend con insignia de verificación, estadísticas y modal de reclamo.
-- [ ] Página pública `/faqs` en formato acordeón responsivo y accesible.
-- [ ] 100% de tests pasando en backend y build frontend limpio.
-- [ ] Commit semántico y push a `develop`.
+### 2.1. Nginx Hardening (`frontend/nginx.conf`)
+- Añadir el mapeo `map $http_upgrade $connection_upgrade` para gestionar upgrades de WebSocket de manera estándar.
+- Unificar las directivas `proxy_pass` hacia `http://django_cluster` en lugar de `http://backend:8000` directo, facilitando escalado horizontal.
+- Añadir `location /admin/` (y soporte para la variable `ADMIN_PATH`) para no atrapar el panel de Django en el `try_files` del frontend.
+- Añadir directiva `limit_req_zone $binary_remote_addr zone=api_limit:10m rate=30r/s;` y aplicarla en `/api/` con burst configurable.
+- Añadir soporte para servidor HTTPS en puerto 443 con certificados SSL opcionales o montados, y redirección condicional en puerto 80.
+
+### 2.2. Configuración de Redis y Persistencia
+- En `docker-compose.yml` y `docker-compose.prod.yml`:
+  - Configurar Redis 7 con parámetros explícitos: `command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru --save 60 1`.
+  - Añadir volumen `redis_data` para evitar pérdida de colas y estados de Celery/Channels ante reinicios.
+
+### 2.3. Configuración de Producción (`docker-compose.prod.yml`)
+- Añadir límites de CPU y memoria (`deploy.resources.limits: cpus: '...', memory: '...'`) en servicios críticos para evitar *OOM-killer* en el host.
+- Asegurar que `backend`, `db` y `cache` no publiquen puertos hacia el host exterior (solo expuestos en redes internas).
+- Validar permisos de `appuser` en volúmenes compartidos (`media`, `staticfiles`, `backups`).
+
+### 2.4. Validación de Backups y Disaster Recovery
+- Ajustar scripts en `scripts/backup/` para asegurar compatibilidad con la imagen `pgvector/pgvector:pg16` y comandos directos de docker compose.
+- Ejecutar el script `test_restore_cycle.sh` o prueba equivalente para certificar la recuperabilidad de la base de datos sin errores ni pérdida de datos.
+
+---
+
+## 3. Plan de Pruebas y Validación
+
+1. **Validación de Configuración Nginx:**
+   - Comprobación sintáctica con `nginx -t` dentro del contenedor frontend.
+   - Verificación de rutas proxy: `/api/v1/version/`, `/health/ready`, `/ws/` y `/admin/`.
+2. **Prueba de Ciclo de Recuperación de PostgreSQL:**
+   - Ejecutar `bash scripts/backup/test_restore_cycle.sh` o procedimiento automatizado.
+   - Verificar integridad de tablas tras restore (incluyendo modelos de autores y FAQs creados en Sprint 3).
+3. **Pruebas de Regresión Backend:**
+   - Ejecutar la suite completa de tests de seguridad y sprints previos de forma estrictamente secuencial:
+     `pytest tests/test_sprint1_security.py tests/test_sprint3_authors_and_faqs.py`
+4. **Build de Frontend:**
+   - Ejecutar `npm run build` en `frontend/` para garantizar que la compilación de producción sigue limpia (código 0).
+
+---
+
+## 4. Criterios de Aceptación (Definition of Done)
+
+- [ ] Nginx configurado con upstream balanceado, límites de petición, cabeceras seguras y soporte WebSocket.
+- [ ] No existen puertos internos de base de datos o backend expuestos al host en configuración de producción.
+- [ ] Redis 7 configurado con persistencia AOF y política de desalojo LRU.
+- [ ] Ciclo de backup y restauración de PostgreSQL 16 ejecutado y comprobado satisfactoriamente.
+- [ ] 100% de tests pasando sin regresiones en backend y build exitoso en frontend.
+- [ ] Documentación actualizada en `RoadmapV3.md`, `memory.md` y `CHANGELOG.md`.
+- [ ] Commit semántico y push a la rama `develop`.

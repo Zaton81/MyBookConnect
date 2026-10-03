@@ -18,6 +18,7 @@ DB_NAME="${POSTGRES_DB:-mybookconnect}"
 DB_USER="${POSTGRES_USER:-postgres}"
 DB_HOST="${POSTGRES_HOST:-db}"
 DB_PORT="${POSTGRES_PORT:-5432}"
+export PGPASSWORD="${POSTGRES_PASSWORD:-${PGPASSWORD:-}}"
 
 shift
 while [ $# -gt 0 ]; do
@@ -83,9 +84,9 @@ trap 'if [ "${CLEANUP_TEMP}" = true ] && [ -f "${TEMP_RESTORE_FILE}" ]; then rm 
 echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Restaurando base de datos ${DB_NAME} desde ${BACKUP_FILE}..."
 
 if command -v psql >/dev/null 2>&1; then
-  gzip -dc "${SOURCE_FILE}" | psql -h "${DB_HOST}" -p "${DB_PORT}" -U "${DB_USER}" -d "${DB_NAME}" --single-transaction
+  gzip -dc "${SOURCE_FILE}" | sed '/transaction_timeout/d' | psql -h "${DB_HOST}" -p "${DB_PORT}" -U "${DB_USER}" -d "${DB_NAME}" --single-transaction
 elif docker compose version >/dev/null 2>&1; then
-  gzip -dc "${SOURCE_FILE}" | docker compose exec -T db psql -U "${DB_USER}" -d "${DB_NAME}" --single-transaction
+  gzip -dc "${SOURCE_FILE}" | sed '/transaction_timeout/d' | docker compose exec -T db psql -U "${DB_USER}" -d "${DB_NAME}" --single-transaction
 else
   echo "ERROR: psql no disponible localmente ni vía Docker Compose." >&2
   exit 1

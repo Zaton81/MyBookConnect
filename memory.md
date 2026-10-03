@@ -81,7 +81,7 @@ Cualquier agente de IA o desarrollador que se incorpore a la base de código **D
 | Sprint | Título | Estado | Hito Clave / Entregable |
 | :--- | :--- | :--- | :--- |
 | **Sprint 1** | **Seguridad e Integridad (P0)** | COMPLETADA | Eliminado `POST` en `/api/v1/users/notifications/` (solo lectura `GET`), protección IDOR en `/notifications/<id>/`, blindaje de `ChatConsumer` (captura `JSONDecodeError`, límite 64 KB, descarte de acciones desconocidas y rate limiting de 10 msg/s), sanitización de trazas en `/health/ready`, y unificación de PostgreSQL 16 `pgvector` en `docker-compose.yml`. Suite de 15 tests pasando (`test_sprint1_security.py`). |
-| **Sprint 2** | **Infraestructura (P0)** | PENDIENTE | Reverse proxy, HTTPS, PostgreSQL backup/restore automatizado. |
+| **Sprint 2** | **Infraestructura (P0)** | COMPLETADA | Endurecimiento Nginx reverse proxy (upstream balanceado, `limit_req_zone` 30r/s y 5r/s auth, proxy `/admin/` y `/panel-control-mbc/`, headers COOP/CSP/HSTS), Redis 7 con persistencia AOF (`appendonly yes`, `maxmemory 256mb`, `allkeys-lru`), orquestación Docker Compose y Prod con límites CPU/memoria y redes aisladas, scripts de backup/restore PostgreSQL 16 y ciclo completo de restauración verificado al 100% (65 tablas, smoke test con 23 usuarios). Suite de 6 tests pasando (`test_sprint2_infrastructure.py`). |
 | **Sprint 3** | **Autores (P1) & FAQs** | COMPLETADA | Modelo de autor enriquecido (`nationality`, `birth_date`, `death_date`, `website`, `wikipedia_url`, `is_verified`, `claimed_by`), estadísticas en tiempo real, modelo `AuthorClaim` con unicidad y ciclo de vida, endpoints de solicitud y resolución administrativa con notificación. Subsistema integral de FAQs (modelo `FAQ`, endpoints público y admin, acordeón reactivo interactivo en `/faqs`, gestión administrativa en `AdminFaqsTab`). Suite de 9 tests pasando (`test_sprint3_authors_and_faqs.py`). |
 | **Sprint 4** | **Catálogo y UX (P1)** | PENDIENTE | Deduplicación de libros/autores, búsqueda unificada `/search?q=...`, UX y responsive. |
 | **Sprint 5** | **Calidad (P2)** | PENDIENTE | Tests exhaustivos, performance, accesibilidad WCAG y CI/CD. |
@@ -217,6 +217,16 @@ Cualquier agente de IA o desarrollador que se incorpore a la base de código **D
 - **Coexistencia Many-to-Many y ForeignKey en `Book`:** `Book.authors` (relación `all_books`) coexiste con `Book.author` (autor principal) para mantener compatibilidad total hacia atrás. En el `save()`, el autor principal se añade siempre a `authors`.
 - **Filtro de Reseñas por Usuario:** Tanto `/api/v1/reviews/?user=<id>` como `/api/v1/users/<id>/reviews/` permiten consultar las opiniones del lector, aplicando filtros de privacidad y bloqueos mutuos mediante `filter_visible_reviews`.
 - **Muro Social y Feed (`ActivityType.POST_CREATED`):** Las publicaciones en el muro (`UserPost`) se propagan al feed de actividades (`Activity`) de los seguidores para máxima interacción social comunitaria.
+
+---
+
+### 4.22. Compatibilidad de Backups y Restore en PostgreSQL 16 (Sprint 2 - RoadmapV3)
+- **`SET transaction_timeout = 0;` en `pg_dump` moderno:** Nuevas versiones de utilitarios cliente de PostgreSQL generan volcados SQL con `SET transaction_timeout = 0;`. Al restaurar en PostgreSQL 16 bajo modo transaccional estricto (`--single-transaction`), el motor aborta la transacción entera porque `transaction_timeout` se introdujo en PostgreSQL 17.
+- **Solución Canónica:** En los scripts `restore_db.sh` y `test_restore_cycle.sh`, se filtra el comando incompatibe antes de ejecutar la restauración:
+  ```bash
+  gunzip -c "$BACKUP_FILE" | sed '/transaction_timeout/d' | psql ... --single-transaction
+  ```
+- **Conexión Administrativa a la BD Fuente:** Al crear o destruir bases de datos temporales para pruebas de restauración, conectarse mediante `-d "${SOURCE_DB}"` o la base de datos de mantenimiento configurada en vez de asumir `-d postgres`, respetando el usuario no-root `booksocial`.
 
 ---
 

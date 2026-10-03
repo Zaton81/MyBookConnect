@@ -11,7 +11,7 @@ if [ $# -lt 1 ]; then
 fi
 
 BACKUP_FILE="$1"
-TARGET_DIR="${MEDIA_ROOT:-/app/media}"
+TARGET_DIR="${MEDIA_ROOT:-./backend/media}"
 VERIFY=true
 ENCRYPTION_KEY="${BACKUP_ENCRYPTION_KEY:-${BACKUP_PASSPHRASE:-}}"
 

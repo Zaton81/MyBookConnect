@@ -86,13 +86,13 @@ Reverse Proxy
 Django / Daphne
 ```
 
-- [ ] Incorporar Nginx/Caddy/Traefik o equivalente.
-- [ ] No exponer directamente Django/Daphne a Internet.
-- [ ] Gestionar HTTPS en el reverse proxy.
-- [ ] Configurar `/api/`, `/admin/`, `/ws/`, `/media/` y frontend.
-- [ ] Configurar WebSocket upgrade.
-- [ ] Establecer límites de request y timeouts.
-- [ ] Añadir headers de seguridad.
+- [x] Incorporar Nginx/Caddy/Traefik o equivalente.
+- [x] No exponer directamente Django/Daphne a Internet.
+- [x] Gestionar HTTPS en el reverse proxy.
+- [x] Configurar `/api/`, `/admin/`, `/ws/`, `/media/` y frontend.
+- [x] Configurar WebSocket upgrade.
+- [x] Establecer límites de request y timeouts.
+- [x] Añadir headers de seguridad.
 
 ## 2.2 PostgreSQL
 
@@ -100,26 +100,26 @@ Existe una discrepancia entre la documentación, que describe PostgreSQL 16, y l
 
 - [x] Elegir versión definitiva (PostgreSQL 16 con `pgvector`).
 - [x] Si PostgreSQL 16 es la versión objetivo, actualizar Compose, documentación, CI, scripts y backup.
-- [ ] Probar migraciones.
-- [ ] Hacer backup antes del upgrade.
-- [ ] Probar restore.
+- [x] Probar migraciones.
+- [x] Hacer backup antes del upgrade.
+- [x] Probar restore.
 
 ## 2.3 Redis
 
-- [ ] Confirmar Redis 7.
-- [ ] Revisar persistencia, memoria y eviction policy.
-- [ ] Evaluar separación de cache, Celery y Channels si el crecimiento lo requiere.
-- [ ] Monitorizar memoria y conexiones.
+- [x] Confirmar Redis 7.
+- [x] Revisar persistencia, memoria y eviction policy.
+- [x] Evaluar separación de cache, Celery y Channels si el crecimiento lo requiere.
+- [x] Monitorizar memoria y conexiones.
 
 ## 2.4 Docker
 
-- [ ] Ejecutar contenedores como usuario no root.
-- [ ] Fijar versiones críticas.
-- [ ] Revisar healthchecks.
-- [ ] Revisar límites CPU/memoria.
-- [ ] Revisar restart policies.
-- [ ] Revisar volúmenes.
-- [ ] Eliminar puertos públicos innecesarios.
+- [x] Ejecutar contenedores como usuario no root.
+- [x] Fijar versiones críticas.
+- [x] Revisar healthchecks.
+- [x] Revisar límites CPU/memoria.
+- [x] Revisar restart policies.
+- [x] Revisar volúmenes.
+- [x] Eliminar puertos públicos innecesarios.
 
 ---
 
@@ -127,12 +127,12 @@ Existe una discrepancia entre la documentación, que describe PostgreSQL 16, y l
 
 ## 3.1 PostgreSQL
 
-- [ ] Backup automático.
-- [ ] Backup diario completo.
-- [ ] Retención configurable.
-- [ ] Copias fuera del servidor principal.
-- [ ] Cifrado cuando corresponda.
-- [ ] Monitorización de backups.
+- [x] Backup automático.
+- [x] Backup diario completo.
+- [x] Retención configurable.
+- [x] Copias fuera del servidor principal.
+- [x] Cifrado cuando corresponda.
+- [x] Monitorización de backups.
 
 ## 3.2 Restore
 
@@ -146,7 +146,7 @@ Procedimiento:
 6. Ejecutar smoke tests.
 7. Confirmar usuarios, libros, autores, reseñas, biblioteca y mensajes.
 
-- [ ] Ejecutar restore real antes del lanzamiento.
+- [x] Ejecutar restore real antes del lanzamiento.
 
 ---
 

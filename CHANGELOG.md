@@ -7,6 +7,25 @@ y este proyecto se adhiere a [Semantic Versioning 2.0.0](https://semver.org/lang
 
 ## [Unreleased]
 
+### Added / Infrastructure (RoadmapV3 - Sprint 2: Infraestructura y Backups P0)
+- **Hardening del Reverse Proxy Nginx**:
+  - `upstream django_cluster` balanceado con `keepalive 32`.
+  - Mapeo estándar de WebSocket headers (`map $http_upgrade $connection_upgrade`).
+  - Rate limiting defensivo a nivel de proxy (`limit_req_zone` de 30r/s para `/api/` y 5r/s para `/api/v1/auth/`).
+  - Bloqueo explícito y proxy pass para Django Admin (`location /admin/` y `/panel-control-mbc/`) impidiendo que la SPA intercepte peticiones de administración.
+  - Cabeceras de seguridad reforzadas (`Cross-Origin-Opener-Policy: same-origin`, CSP, HSTS, X-Frame-Options).
+- **Persistencia y Resiliencia en Redis 7**:
+  - Configurado Redis 7 con persistencia AOF (`appendonly yes`), volumen persistente `redis_data` / `redis_prod_data`, límite de memoria fijado a 256 MB y política de desalojo `allkeys-lru`.
+- **Orquestación Docker Segura**:
+  - Cuotas de CPU y memoria (`deploy.resources.limits`) aplicadas a todos los servicios en `docker-compose.prod.yml`.
+  - Aislamiento de redes internas (`backend_net` con `internal: true`) evitando exposición innecesaria de puertos de PostgreSQL y Redis al host en entornos de producción.
+- **Estrategia y Verificación Automatizada de Backups (PostgreSQL 16)**:
+  - Scripts en `scripts/backup/` (`backup_db.sh`, `restore_db.sh`, `backup_media.sh`, `restore_media.sh`, `test_restore_cycle.sh`) adaptados con rutas relativas robustas y soporte para ejecución no-interactiva (`PGPASSWORD`).
+  - Solucionada incompatibilidad de `pg_dump` con PostgreSQL 16 filtrando la directiva `SET transaction_timeout = 0;` en modo transaccional (`--single-transaction`).
+  - Ciclo completo de restauración y verificación validado al 100% (65 tablas creadas, smoke test de 23 usuarios y limpieza automática exitosa).
+- **Suite de Pruebas**:
+  - Añadida suite `backend/tests/test_sprint2_infrastructure.py` con 6 pruebas verificando sondas de salud, versión, Redis caché, integridad de esquema en PostgreSQL 16 y consistencia de scripts de backup.
+
 ### Added (RoadmapV3 - Sprint 3: Autores P1 & Sistema de FAQs)
 - **Subsistema de Autores de Primer Nivel**:
   - Ampliación del modelo `Author` con campos enriquecidos: `nationality`, `birth_date`, `death_date`, `website`, `twitter`, `instagram`, `wikipedia_url`, `canonical_name`, `aliases`, `external_ids`, `is_verified` y `claimed_by`.
