@@ -7,6 +7,25 @@ y este proyecto se adhiere a [Semantic Versioning 2.0.0](https://semver.org/lang
 
 ## [Unreleased]
 
+### Added / Administration & Moderation (RoadmapV3 - Secciones 24 y 25: Administración, Moderación y Reportes Universales)
+- **Sistema Universal de Reportes y Moderación**:
+  - Ampliado `ReportCreateSerializer` y `ALLOWED_TARGET_MODELS` para admitir reportes sobre `Book`, `Author` y `UserPost` (publicaciones en muro), además de usuarios, reseñas, comentarios, mensajes y listas.
+  - Vistas previas enriquecidas en la cola de moderación (`ReportListSerializer.get_target_preview`) con datos contextuales específicos (título/ISBN/autor para libros, biografía/verificación para autores, snippets para publicaciones).
+  - Bloqueo riguroso de auto-denuncias y de denuncias duplicadas pendientes en todos los tipos de contenido.
+  - Acciones disciplinarias completas (`HIDE_CONTENT`, `RESTORE_CONTENT`, `BAN_USER`, `MUTE_USER_24H/7D`, `DISMISS`) registradas en la auditoría con manejo seguro de transacciones.
+- **Endpoints Administrativos de Catálogo y Usuarios**:
+  - `POST /api/v1/admin/books/merge/`: Fusión atómica de libros duplicados (`merge_books`), consolidando múltiples ISBNs en `additional_isbns`, reasignando estanterías (`UserBook`), reseñas y listas de lectura sin pérdida de datos.
+  - `POST /api/v1/admin/authors/merge/`: Fusión atómica de autores homónimos, unificando aliases, transfiriendo obras literarias y preservando verificaciones y reclamaciones oficiales.
+  - `GET /api/v1/admin/users/<pk>/activity/`: Auditoría de actividad cronológica de usuarios investigados (`Activity`, `UserPost` y `Review`).
+  - `GET /api/v1/admin/users/<pk>/reports/`: Consulta unificada de denuncias emitidas y recibidas por un usuario.
+- **Frontend Admin Dashboard (`AdminDashboard.tsx`)**:
+  - Filtros y badges para denuncias de libros, autores, publicaciones y listas.
+  - Renderizado contextual de previews para cada tipo de contenido en la tabla de denuncias.
+- **Pruebas y Verificación**:
+  - Creada suite `backend/tests/test_sprint7_admin_and_moderation.py` (5 pruebas pasando al 100%).
+  - Suite de regresión secuencial de Sprints 1 a 7 ejecutada con éxito (55 pruebas pasando al 100%).
+  - Tipado de TypeScript estricto validado con 0 errores (`tsc --noEmit`), 42 pruebas de Vitest superadas y build de producción Vite exitoso.
+
 ### Added / Preproduction (RoadmapV3 - Sprint 6: Preproducción, Deploy Checks, Smoke Tests E2E y Ready for Production)
 - **Verificación y Sanitización de Despliegue en Django**:
   - `python manage.py check`: 0 issues de integridad de modelos o dependencias.

@@ -265,6 +265,21 @@ Cualquier agente de IA o desarrollador que se incorpore a la base de código **D
   - 50 tests pasando de forma secuencial en pytest cubriendo los Sprints 1 a 6.
   - 42 tests en Vitest pasando al 100% en el frontend con build de producción Vite exitoso.
 
+### 4.26. Administración, Moderación y Sistema Universal de Reportes (RoadmapV3 - Secciones 24 y 25)
+- **Sistema Universal de Reportes (`users.Report`):**
+  - Admite denuncias formales sobre `User`, `Review`, `ReviewComment`, `Message`, `ReadingList`, `Book`, `Author` y `UserPost`.
+  - Mapeo canónico `ALLOWED_TARGET_MODELS` y vistas previas enriquecidas en `ReportListSerializer.get_target_preview`.
+  - Prevención estricta de auto-denuncias (un usuario no puede reportar sus propios posts o perfiles reclamados) y prevención de reportes duplicados pendientes.
+  - Medidas disciplinarias auditadas: `HIDE_CONTENT`, `RESTORE_CONTENT`, `BAN_USER`, `MUTE_USER_24H`, `MUTE_USER_7D` y `DISMISS`. En `HIDE_CONTENT` sobre `UserPost`, el borrado se efectúa tras asegurar la persistencia del expediente para evitar inconsistencias de GenericForeignKey.
+- **Endpoints Administrativos de Catálogo y Usuarios:**
+  - `POST /api/v1/admin/books/merge/`: Fusión atómica de libros duplicados (`merge_books`), unificando ISBNs en `additional_isbns`, reasignando estanterías `UserBook`, reseñas y listas sin pérdida de datos.
+  - `POST /api/v1/admin/authors/merge/`: Fusión atómica de autores homónimos, unificando aliases, reasignando obras literarias y preservando estados de verificación oficial.
+  - `GET /api/v1/admin/users/<pk>/activity/`: Auditoría cronológica de actividades (`Activity`), publicaciones en muro (`UserPost`) y reseñas.
+  - `GET /api/v1/admin/users/<pk>/reports/`: Consulta unificada de denuncias emitidas y denuncias recibidas por un usuario.
+- **Calidad y Regresión Total:**
+  - 55 tests pasando secuencialmente en backend (Sprints 1 a 7 con 0 fallos).
+  - Frontend verificado: TypeScript estricto sin errores (`tsc --noEmit`), 42 pruebas en Vitest y build de producción Vite generado limpiamente.
+
 ---
 
 ## 5. Ubicación de Documentación Relevante

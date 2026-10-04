@@ -773,53 +773,50 @@ y `EXPLAIN ANALYZE` sobre consultas críticas.
 
 ---
 
-# 24. 🟢 Administración y moderación — P3
+# 24. 🟢 Administración y moderación — P3 (COMPLETADO)
 
 ## Usuarios
 
-- [ ] Buscar.
-- [ ] Suspender.
-- [ ] Reactivar.
-- [ ] Ver actividad.
-- [ ] Ver reportes.
+- [x] Buscar (`AdminUserListView` con filtros por texto, rol y estado).
+- [x] Suspender (`AdminUserBanView` desactivando `is_active`).
+- [x] Reactivar (`AdminUserUnbanView`).
+- [x] Ver actividad (`AdminUserActivityView` con cronología de actividades, posts y reseñas).
+- [x] Ver reportes (`AdminUserReportsView` con denuncias presentadas y recibidas).
 
 ## Libros
 
-- [ ] Editar.
-- [ ] Fusionar duplicados.
-- [ ] Ocultar.
-- [ ] Corregir.
+- [x] Editar (`AdminBookDetailView`).
+- [x] Fusionar duplicados (`AdminBookMergeView` con `merge_books`).
+- [x] Ocultar / Moderar.
+- [x] Corregir metadatos y enriquecer (`AdminBookEnrichView`).
 
 ## Autores
 
-- [ ] Editar.
-- [ ] Fusionar.
-- [ ] Ver reclamaciones.
-- [ ] Aprobar/rechazar.
-- [ ] Ver historial.
+- [x] Editar (`AdminAuthorDetailView`).
+- [x] Fusionar (`AdminAuthorMergeView` reasignando libros y claims).
+- [x] Ver reclamaciones (`AdminAuthorClaimListView`).
+- [x] Aprobar/rechazar (`AdminAuthorClaimResolveView`).
+- [x] Ver historial.
 
 ## Contenido
 
-- [ ] Moderar reseñas.
-- [ ] Moderar publicaciones.
-- [ ] Gestionar reportes.
+- [x] Moderar reseñas (`AdminContentHideView` y `AdminContentRestoreView`).
+- [x] Moderar publicaciones (`UserPost` hide/delete en resolución de denuncias).
+- [x] Gestionar reportes (`AdminReportListView`, `AdminReportDetailView` y `AdminModerationStatsView`).
 
 ---
 
-# 25. 🟢 Reportes — P3
+# 25. 🟢 Reportes — P3 (COMPLETADO)
 
-Crear sistema de reportes para usuario, reseña, comentario, libro, autor, perfil y contenido.
+Sistema de reportes universal para: usuario (`user`), reseña (`review`), comentario (`comment`), libro (`book`), autor (`author`), perfil, listas (`list`), mensajes (`message`) y contenido social (`post`).
 
-Estados:
+Estados y ciclo de vida auditado:
+- `OPEN` (pending)
+- `UNDER_REVIEW` (reviewing)
+- `RESOLVED` (resolved)
+- `REJECTED` (rejected / dismissed)
 
-```text
-pending
-reviewing
-resolved
-rejected
-```
-
-Registrar usuario, fecha, motivo, moderador, resolución y timestamp.
+Registra usuario denunciante, fecha, motivo, moderador responsable, notas de resolución y marca temporal auditada en `AuditLog`.
 
 ---
 

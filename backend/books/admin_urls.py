@@ -24,10 +24,12 @@ from .admin_views import (
     AdminAuthorDetailView,
     AdminAuthorEnrichView,
     AdminAuthorListView,
+    AdminAuthorMergeView,
     AdminBookBulkActionView,
     AdminBookDetailView,
     AdminBookEnrichView,
     AdminBookListView,
+    AdminBookMergeView,
     AdminCategoryListView,
     AdminErrataDetailView,
     AdminErrataListView,
@@ -36,8 +38,10 @@ from .admin_views import (
     AdminLegalDocumentDetailView,
     AdminLegalDocumentListView,
     AdminStatsView,
+    AdminUserActivityView,
     AdminUserDetailView,
     AdminUserListView,
+    AdminUserReportsView,
 )
 
 urlpatterns = [
@@ -47,15 +51,19 @@ urlpatterns = [
     # Usuarios
     path('users/', AdminUserListView.as_view(), name='admin-users-list'),
     path('users/<int:pk>/', AdminUserDetailView.as_view(), name='admin-users-detail'),
+    path('users/<int:pk>/activity/', AdminUserActivityView.as_view(), name='admin-users-activity'),
+    path('users/<int:pk>/reports/', AdminUserReportsView.as_view(), name='admin-users-reports'),
 
     # Catálogo: Libros
     path('books/', AdminBookListView.as_view(), name='admin-books-list'),
+    path('books/merge/', AdminBookMergeView.as_view(), name='admin-books-merge'),
     path('books/bulk-action/', AdminBookBulkActionView.as_view(), name='admin-books-bulk-action'),
     path('books/<int:pk>/', AdminBookDetailView.as_view(), name='admin-books-detail'),
     path('books/<int:pk>/enrich/', AdminBookEnrichView.as_view(), name='admin-books-enrich'),
 
     # Catálogo: Autores
     path('authors/', AdminAuthorListView.as_view(), name='admin-authors-list'),
+    path('authors/merge/', AdminAuthorMergeView.as_view(), name='admin-authors-merge'),
     path('authors/bulk-action/', AdminAuthorBulkActionView.as_view(), name='admin-authors-bulk-action'),
     path('authors/<int:pk>/', AdminAuthorDetailView.as_view(), name='admin-authors-detail'),
     path('authors/<int:pk>/enrich/', AdminAuthorEnrichView.as_view(), name='admin-authors-enrich'),

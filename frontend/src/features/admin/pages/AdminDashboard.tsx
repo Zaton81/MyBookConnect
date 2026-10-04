@@ -2345,6 +2345,10 @@ export function AdminDashboard() {
               <option value="user">Perfiles de usuarios</option>
               <option value="comment">Comentarios en reseñas</option>
               <option value="message">Mensajes directos</option>
+              <option value="book">Libros del catálogo</option>
+              <option value="author">Páginas de autores</option>
+              <option value="post">Publicaciones de muro</option>
+              <option value="list">Listas de lectura</option>
             </select>
 
             <button
@@ -2402,7 +2406,13 @@ export function AdminDashboard() {
                           ? 'bg-rose-100 text-rose-800'
                           : r.target_type === 'comment'
                             ? 'bg-teal-100 text-teal-800'
-                            : 'bg-blue-100 text-blue-800';
+                            : r.target_type === 'book'
+                              ? 'bg-indigo-100 text-indigo-800'
+                              : r.target_type === 'author'
+                                ? 'bg-amber-100 text-amber-800'
+                                : r.target_type === 'post'
+                                  ? 'bg-emerald-100 text-emerald-800'
+                                  : 'bg-blue-100 text-blue-800';
 
                     return (
                       <tr key={r.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-700/30">
@@ -2462,7 +2472,27 @@ export function AdminDashboard() {
                                 De <b>@{r.target_preview.sender}</b>: "{r.target_preview.snippet}"
                               </span>
                             )}
-                            {!['review', 'user', 'comment', 'message'].includes(
+                            {r.target_preview?.type === 'book' && (
+                              <span>
+                                Libro <b>"{r.target_preview.title}"</b> (por {r.target_preview.author || 'Desconocido'}, ISBN: {r.target_preview.isbn || 'N/A'})
+                              </span>
+                            )}
+                            {r.target_preview?.type === 'author' && (
+                              <span>
+                                Autor <b>{r.target_preview.name}</b> {r.target_preview.is_verified ? '✓' : ''} ({r.target_preview.snippet || 'Sin biografía'})
+                              </span>
+                            )}
+                            {r.target_preview?.type === 'post' && (
+                              <span>
+                                Post por <b>@{r.target_preview.author}</b> en muro de @{r.target_preview.target_user}: "{r.target_preview.snippet}"
+                              </span>
+                            )}
+                            {r.target_preview?.type === 'list' && (
+                              <span>
+                                Lista <b>"{r.target_preview.name}"</b> por @{r.target_preview.creator}
+                              </span>
+                            )}
+                            {!['review', 'user', 'comment', 'message', 'book', 'author', 'post', 'list'].includes(
                               r.target_preview?.type
                             ) && <span>{r.target_preview?.summary || 'Elemento objetivo'}</span>}
                           </div>
