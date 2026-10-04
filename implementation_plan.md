@@ -1,91 +1,73 @@
-# Plan de Implementación — RoadmapV3: Sprint 5 (Calidad, Rendimiento, Accesibilidad WCAG y CI/CD — P2)
+# Plan de Implementación — RoadmapV3: Sprint 6 (Preproducción, Smoke Tests y Ready for Production)
 
 **Fecha:** 4 de octubre de 2026  
 **Rama de trabajo:** `develop`  
 **Estado:** Propuesto para revisión y aprobación  
-**Prioridad:** P2 (Calidad de Software, Rendimiento y Preparación para el Lanzamiento)
+**Prioridad:** P3 / Cierre Final (Preproducción, Smoke Tests E2E y Criterios de Aceptación)
 
 ---
 
 ## 1. Contexto y Objetivos
 
-El **Sprint 5 de RoadmapV3** consolida la calidad global del sistema, cubriendo las Secciones **13 (Frontend y Accesibilidad)**, **14 (Seguridad y Sanitización)**, **18 (Idempotencia y Resiliencia)**, **19 (Testing)**, **20 (CI/CD y Deploy Checks)** y **23 (Performance Backend y Erradicación de N+1)**.
+El **Sprint 6 de RoadmapV3** culmina el ciclo de desarrollo hacia la versión de producción estable de **MyBookConnect / My Book Social**, cubriendo las Secciones:
+- **20 (CI/CD y Deploy Checks)**: `check --deploy`, validación de migraciones sin cambios pendientes, build Docker.
+- **21 (Documentación Operativa)**: Actualización de guías y manuales de operaciones.
+- **22 (Monitorización y Sondas)**: Verificación de sondas `/health/live` y `/health/ready`.
+- **26 (Legal y Privacidad)**: Verificación de políticas RGPD, eliminación de cuenta y exportación.
+- **27 (Smoke Tests de Producción)**: Flujo de extremo a extremo (Registro, Catálogo unificado, Reseñas, Social, Autores, FAQs).
+- **28 (Soft Launch)** y **31 (Criterios de Ready for Production)**: Certificación de todas las áreas (Seguridad, Datos, Autores, Calidad, Operaciones, UX).
 
 ### Objetivos Principales:
-1. **TypeScript Strict y Typecheck Limpio (Frontend):**
-   - Subsanar todas las advertencias y errores de `tsc --noEmit` (`noUnusedLocals`) en componentes administrativos, de catálogo, FAQs y búsqueda global.
-   - Garantizar que `npm run typecheck` concluya con **cero errores (código 0)**.
-2. **Accesibilidad WCAG 2.1 AA y Usabilidad (UX):**
-   - Asegurar roles y atributos semánticos accesibles en componentes interactivos:
-     - Acordeón de FAQs (`aria-expanded`, `aria-controls`, `role="region"`).
-     - Buscador global y filtros (`aria-label`, estados de foco con `focus-visible`).
-     - Imágenes con texto alternativo (`alt`) coherente para lectores de pantalla.
-3. **Rendimiento Backend y Erradicación de Consultas N+1:**
-   - Auditar y optimizar consultas en `GlobalSearchView` y `UnifiedBookSearchView` garantizando complejidad $O(1)$ en consultas SQL (`select_related`, `prefetch_related`).
-   - Verificar tiempos de respuesta bajo presupuesto estricto (< 100ms en búsqueda y catálogo).
-4. **Seguridad y Sanitización HTML (XSS):**
-   - Validar que las entradas enriquecidas y de usuario se procesen mediante `sanitize_plain_text` y `DOMPurify`, impidiendo inyecciones de scripts maliciosos.
-5. **Testing Automatizado Exhaustivo:**
-   - Nuevos tests de frontend en Vitest para `SearchPage` y `FaqsPage`.
-   - Nueva suite de backend `test_sprint5_quality_and_performance.py` verificando ausencia de N+1, rendimiento de consultas, integridad transaccional y robustez de contratos de API.
+1. **Comprobaciones del Sistema Django para Producción (`check --deploy`)**:
+   - Ejecutar `python manage.py check --deploy` y auditar que las variables de seguridad (`SECURE_SSL_REDIRECT`, `SESSION_COOKIE_SECURE`, `CSRF_COOKIE_SECURE`, `SECURE_HSTS_SECONDS`) estén correctamente gobernadas.
+   - Ejecutar `python manage.py makemigrations --check` para certificar que el esquema está 100% sincronizado.
+2. **Ensayo Certificado de Backup y Restore**:
+   - Ejecutar el script `scripts/backup/test_restore_cycle.sh` dentro del entorno Docker para validar la recuperación ante desastres sin intervención manual.
+3. **Suite Completa de Smoke Tests de Preproducción (`test_sprint6_preproduction_readiness.py`)**:
+   - Flujo E2E de usuario: registro -> verificación -> login -> gestión de biblioteca (`UserBook`).
+   - Flujo de catálogo y unificación: búsqueda global por ISBN principal y secundario -> reseñas con sanitización anti-XSS.
+   - Flujo social: seguimiento de lectores y emisión de eventos en feed.
+   - Flujo de autor verificado: solicitud `AuthorClaim` -> aprobación administrativa -> insignia y panel oficial.
+   - Flujo de soporte: FAQs públicas categorizadas.
+   - Sondas de disponibilidad: `/health/live/` (200 OK) y `/health/ready/` (200 OK con DB/Redis sanos).
+4. **Verificación Integral Frontend**:
+   - Confirmar `npm run typecheck` (código 0).
+   - Confirmar `npm run test` (100% pasando en Vitest).
+   - Confirmar `npm run build` sin errores.
+5. **Cierre Documental y Entrega**:
+   - Actualizar [RoadmapV3.md](file:///c:/Users/zaton/Desktop/Escritorio/proyectos/MyBookConnect/RoadmapV3.md) (marcar todas las tareas de Sprint 6 y Criterios 31).
+   - Actualizar [memory.md](file:///c:/Users/zaton/Desktop/Escritorio/proyectos/MyBookConnect/memory.md) con el balance final.
+   - Actualizar [CHANGELOG.md](file:///c:/Users/zaton/Desktop/Escritorio/proyectos/MyBookConnect/CHANGELOG.md).
+   - Commit semántico y push a `origin/develop`.
 
 ---
 
-## 2. Modificaciones Técnicas Propuestas
+## 2. Plan de Acción Detallado
 
-### 2.1. Limpieza de TypeScript (`frontend/src/`)
-- Corregir imports no utilizados en:
-  - `src/features/admin/components/AdminAuthorClaimsTab.tsx`
-  - `src/features/books/pages/Author.tsx`
-  - `src/features/discovery/pages/SearchPage.tsx`
-  - `src/features/faqs/pages/FaqsPage.tsx`
-- Ejecutar y validar `npm run typecheck` (`tsc --noEmit`).
+### Paso 1: Django Deploy Checks y Validación de Migraciones
+- Ejecutar `docker compose exec -T backend python manage.py check` y `makemigrations --check`.
+- Ejecutar `docker compose exec -T backend python manage.py check --deploy` con settings de producción para confirmar ausencia de fallos críticos.
 
-### 2.2. Accesibilidad WCAG y UX
-- En `src/features/faqs/pages/FaqsPage.tsx`:
-  - Añadir `id`, `aria-expanded={isOpen}`, `aria-controls={`faq-answer-${faq.id}`}` al botón del acordeón.
-  - Añadir `id={`faq-answer-${faq.id}`}`, `role="region"`, `aria-labelledby={`faq-question-${faq.id}`}` al contenedor colapsable.
-- En `src/features/discovery/pages/SearchPage.tsx`:
-  - Añadir `aria-label="Término de búsqueda"` al input y `role="tablist"` / `role="tab"` a los botones de categorías ("Todo", "Libros", "Autores", "Lectores").
-  - Asegurar contraste y anillos de foco visibles (`focus-visible:ring-2 focus-visible:ring-teal-500`).
+### Paso 2: Validación de Backup / Restore en Contenedor
+- Ejecutar `docker compose exec -T backend bash scripts/backup/test_restore_cycle.sh` y certificar creación/destrucción correcta de la base de datos efímera.
 
-### 2.3. Optimización de Rendimiento Backend (`backend/books/search_views.py`)
-- Optimizar `GlobalSearchView`:
-  - Para libros: `select_related('author').prefetch_related('categories', 'authors')`.
-  - Para autores: `prefetch_related('books')`.
-  - Limitar campos diferidos innecesarios si aplica (`defer('embedding')`).
+### Paso 3: Suite Backend Sprint 6 (`test_sprint6_preproduction_readiness.py`)
+- Crear `backend/tests/test_sprint6_preproduction_readiness.py` con pruebas que cubran los requisitos de la Sección 27 del Roadmap:
+  - `test_e2e_user_journey_auth_and_profile`
+  - `test_e2e_catalog_search_and_deduplication`
+  - `test_e2e_author_claim_to_verification_flow`
+  - `test_e2e_social_interactions_and_feed`
+  - `test_e2e_faqs_and_support_flow`
+  - `test_production_health_and_readiness_probes`
 
-### 2.4. Pruebas Automatizadas
-1. **Frontend (Vitest):**
-   - `src/features/discovery/__tests__/SearchPage.test.tsx`: renderizado, búsqueda reactiva, cambio de pestañas y visualización de resultados.
-   - `src/features/faqs/__tests__/FaqsPage.test.tsx`: despliegue del acordeón interactivo al hacer click y filtros por categoría.
-2. **Backend (pytest):**
-   - `backend/tests/test_sprint5_quality_and_performance.py`:
-     - Test de conteo de queries SQL en `/api/v1/search/` (con Django `assertNumQueries`).
-     - Test de resiliencia y sanitización ante payloads con inyección HTML/scripts.
-     - Test de verificación de contratos y accesibilidad de endpoints clave.
+### Paso 4: Ejecución Secuencial de la Suite Completa de Regresión
+- Ejecutar la suite completa secuencial de Sprints 1 a 6 (`test_sprint1_security.py` ... `test_sprint6_preproduction_readiness.py`).
 
----
+### Paso 5: Calidad Frontend y Build
+- Ejecutar `npm run typecheck` en `frontend/`.
+- Ejecutar `npm run test` (Vitest).
+- Ejecutar `npm run build`.
 
-## 3. Plan de Pruebas y Validación
-
-1. **Typecheck y Linters de Frontend:**
-   - `npm run typecheck` en `frontend/` (0 errores).
-   - `npm run test` en `frontend/` (31 tests previos + nuevos tests pasando al 100%).
-   - `npm run build` en `frontend/` (código 0).
-2. **Regresión Backend Completa Secuencial:**
-   - Ejecutar Sprints 1 a 5:
-     `pytest tests/test_sprint1_security.py tests/test_sprint2_infrastructure.py tests/test_sprint3_authors_and_faqs.py tests/test_sprint4_catalog_deduplication.py tests/test_sprint5_quality_and_performance.py`
-3. **Verificación de Sistema Django:**
-   - `python manage.py check` limpio en el contenedor backend.
-
----
-
-## 4. Criterios de Aceptación (Definition of Done)
-
-- [ ] `npm run typecheck` pasa con 0 errores TypeScript.
-- [ ] Atributos ARIA y mejoras WCAG implementadas y operativas en FAQs y Búsqueda.
-- [ ] Cero consultas N+1 en las vistas optimizadas de búsqueda y catálogo.
-- [ ] 100% de tests pasando en backend y frontend sin regresiones.
-- [ ] Documentación actualizada (`RoadmapV3.md`, `memory.md`, `CHANGELOG.md`).
-- [ ] Commit semántico y push a `develop`.
+### Paso 6: Actualización Documental y Commit Semántico
+- Actualizar `RoadmapV3.md`, `memory.md`, `CHANGELOG.md`.
+- `git add .`, commit semántico y `git push origin develop`.

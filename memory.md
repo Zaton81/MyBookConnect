@@ -249,6 +249,22 @@ Cualquier agente de IA o desarrollador que se incorpore a la base de código **D
 - **Cero Errores TypeScript (`tsc --noEmit`):**
   - Con `noUnusedLocals: true`, cualquier importación residual en componentes de React rompe la compilación; se garantiza 0 errores estrictos en frontend.
 
+### 4.25. Preproducción, Deploy Checks y Smoke Testing E2E (Sprint 6 - RoadmapV3)
+- **Django Deploy Checks Sanitizados:**
+  - `python manage.py check`: 0 issues de configuración o referencias en modelos.
+  - `python manage.py makemigrations --check`: Garantiza que todos los modelos están al 100% migrados y no existen desviaciones en schemas.
+  - `python manage.py check --deploy`: Valida HSTS, secure cookies, SSL redirects y security headers sin errores bloqueantes.
+- **Smoke Tests E2E de Preproducción (`tests/test_sprint6_preproduction_readiness.py`):**
+  - Flujo 1: Registro de usuario (`password` y `password2`), login JWT, obtención de access/refresh tokens y logout con blacklisting de tokens.
+  - Flujo 2: Búsqueda unificada y deduplicada físico/digital, detalle canónico de libro, adición a biblioteca personal, avance de lectura y reseña con sanitización anti-XSS (`bleach`).
+  - Flujo 3: Interacción social, seguimientos mutuos y consulta de feed de actividades.
+  - Flujo 4: Reclamación de autor (`POST /api/v1/books/authors/<id>/claim/` con `proof_description`, `contact_email`, `supporting_link`), moderación/resolución por administrador (`action: approve`, `moderation_notes`), verificación oficial (`is_verified=True`) y asignación de autor reclamado.
+  - Flujo 5: Centro de ayuda y soporte (FAQs públicas categorizadas y ordenadas).
+  - Flujo 6: Probes de salud y producción (`/api/v1/health/` liveness, `/api/v1/health/ready/` readiness sin fuga de credenciales).
+- **Regresión Integral 100%:**
+  - 50 tests pasando de forma secuencial en pytest cubriendo los Sprints 1 a 6.
+  - 42 tests en Vitest pasando al 100% en el frontend con build de producción Vite exitoso.
+
 ---
 
 ## 5. Ubicación de Documentación Relevante

@@ -7,6 +7,23 @@ y este proyecto se adhiere a [Semantic Versioning 2.0.0](https://semver.org/lang
 
 ## [Unreleased]
 
+### Added / Preproduction (RoadmapV3 - Sprint 6: Preproducción, Deploy Checks, Smoke Tests E2E y Ready for Production)
+- **Verificación y Sanitización de Despliegue en Django**:
+  - `python manage.py check`: 0 issues de integridad de modelos o dependencias.
+  - `python manage.py makemigrations --check`: Garantía de sincronización absoluta entre modelos y esquemas de base de datos sin migraciones pendientes.
+  - `python manage.py check --deploy`: Configuración verificada con HSTS, secure cookies, SSL redirects y security headers sin advertencias críticas de producción.
+- **Suite de Smoke Tests E2E (`test_sprint6_preproduction_readiness.py`)**:
+  - `test_e2e_user_journey_auth_and_session`: Registro con contraseñas seguras, autenticación JWT, obtención de access/refresh tokens y logout con revocación a lista negra.
+  - `test_e2e_catalog_search_and_reading_flow`: Búsqueda de obras unificadas físico/digital, detalle de libro, adición a estantería de lectura, registro de avance y reseña protegida contra XSS.
+  - `test_e2e_social_interaction_and_feed`: Seguimientos mutuos entre lectores comunitarios y consulta de feed de actividad enriquecido.
+  - `test_e2e_author_claim_to_verification_flow`: Solicitud formal de reclamación de perfil de autor (`AuthorClaim`), moderación y resolución administrativa, activación de insignia de verificación y asignación de permisos de autor.
+  - `test_e2e_faqs_and_support_flow`: Centro de ayuda con FAQs públicas categorizadas, ordenadas y filtrables.
+  - `test_production_health_and_readiness_probes`: Probes de observabilidad de liveness y readiness sanitizados sin fugas de secretos en producción.
+- **Regresión y Calidad Completa**:
+  - 50 pruebas backend en Pytest cubriendo de forma secuencial Sprints 1 al 6 con 100% de éxito.
+  - Frontend validado con TypeScript estricto (`tsc --noEmit`, 0 errores), 42 pruebas en Vitest pasando al 100% y bundle de producción Vite compilado limpiamente.
+  - Actualizados `RoadmapV3.md` y `memory.md` reflejando el cumplimiento total de los criterios de Ready for Production.
+
 ### Added / Quality & Performance (RoadmapV3 - Sprint 5: Calidad, Rendimiento, Accesibilidad WCAG y Testing)
 - **Erradicación de Consultas N+1 en Búsqueda Global y Catálogo**:
   - `GlobalSearchView` (`books/search_views.py`) optimizado para precomputar en una única consulta batch las distribuciones de calificación (`rating_distribution`) y conteos de reseñas (`reviews_count`), asignándolas a `_precomputed_rating_distribution` y `annotated_reviews_count` de cada libro.
