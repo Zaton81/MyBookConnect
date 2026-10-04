@@ -7,6 +7,21 @@ y este proyecto se adhiere a [Semantic Versioning 2.0.0](https://semver.org/lang
 
 ## [Unreleased]
 
+### Added / Quality & Performance (RoadmapV3 - Sprint 5: Calidad, Rendimiento, Accesibilidad WCAG y Testing)
+- **Erradicación de Consultas N+1 en Búsqueda Global y Catálogo**:
+  - `GlobalSearchView` (`books/search_views.py`) optimizado para precomputar en una única consulta batch las distribuciones de calificación (`rating_distribution`) y conteos de reseñas (`reviews_count`), asignándolas a `_precomputed_rating_distribution` y `annotated_reviews_count` de cada libro.
+  - Soporte en `BookSerializer` para reutilizar propiedades precomputadas, evitando 2 consultas SQL adicionales por cada libro devuelto.
+  - Inclusión de `.select_related('claimed_by')` y `.prefetch_related('books', 'all_books')` en consultas de autores, fijando el coste en un número constante de queries (≤ 3) independientemente del volumen de datos.
+- **Accesibilidad Web WCAG 2.1 AA en Frontend**:
+  - `SearchPage` y `FaqsPage` provistas de roles semánticos WAI-ARIA (`role="search"`, `role="tablist"`, `role="tab"`, `aria-selected`, `aria-expanded`, `aria-controls`, `aria-label`).
+  - Navegación completa por teclado con anillos de enfoque `focus-visible:ring-2 focus-visible:ring-teal-500` de alto contraste en formularios, botones y acordeones.
+- **Limpieza Estricta de TypeScript (`tsc --noEmit`)**:
+  - Subsanados todos los avisos de `noUnusedLocals` en componentes clave de frontend (`AdminAuthorClaimsTab.tsx`, `Author.tsx`, `SearchPage.tsx`, `FaqsPage.tsx`), logrando salida con código 0 limpio sin dependencias superfluas.
+- **Suites de Pruebas Unitarias e Integración**:
+  - **Frontend (Vitest)**: Nuevos tests unitarios y de interacción en `SearchPage.test.tsx` (5 pruebas) y `FaqsPage.test.tsx` (6 pruebas), elevando la suite a 13 archivos y 42 tests pasando al 100%.
+  - **Backend (Pytest)**: Creada suite `test_sprint5_quality_and_performance.py` (5 pruebas) evaluando erradicación de N+1 con `django_assert_max_num_queries`, defensas XSS contra inyecciones maliciosas (`sanitize_plain_text`, `sanitize_html`), y ordenamiento/filtros del endpoint de FAQs.
+  - Validación completa secuencial de la suite de regresión de Sprints 1 a 5 (44 tests superados sin bloqueos de base de datos).
+
 ### Added / Catalog (RoadmapV3 - Sprint 4: Catálogo, Unificación de Ediciones P1 y Búsqueda Global)
 - **Unificación Canónica de Obras y Ediciones Literarias**:
   - Incorporada normalización fonética y ortográfica de títulos (`normalize_title`) tolerante a mayúsculas, signos de puntuación, dobles espacios y caracteres diacríticos.

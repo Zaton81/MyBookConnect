@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { useSearchParams, Link, useNavigate } from 'react-router-dom';
+import { useState, useEffect, useCallback } from 'react';
+import { useSearchParams, Link } from 'react-router-dom';
 import { Spinner } from 'flowbite-react';
 import { apiClient } from '../../../api/client';
 
@@ -48,7 +48,6 @@ interface SearchResponse {
 
 export function SearchPage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const navigate = useNavigate();
 
   const queryFromUrl = searchParams.get('q') || '';
   const typeFromUrl = searchParams.get('type') || 'all';
@@ -136,19 +135,20 @@ export function SearchPage() {
             </p>
           </div>
 
-          <form onSubmit={handleSearchSubmit} className="max-w-3xl mx-auto">
+          <form onSubmit={handleSearchSubmit} className="max-w-3xl mx-auto" role="search">
             <div className="relative flex items-center">
-              <span className="absolute left-4 text-slate-400 text-lg">🔍</span>
+              <span className="absolute left-4 text-slate-400 text-lg" aria-hidden="true">🔍</span>
               <input
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="Busca por título, autor, ISBN o nombre de usuario..."
-                className="w-full pl-12 pr-28 py-3.5 sm:py-4 rounded-2xl border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/50 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition text-base shadow-inner"
+                aria-label="Término de búsqueda global (título, autor, ISBN o usuario)"
+                className="w-full pl-12 pr-28 py-3.5 sm:py-4 rounded-2xl border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/50 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus-visible:ring-2 focus-visible:ring-teal-500 focus:border-transparent transition text-base shadow-inner"
               />
               <button
                 type="submit"
-                className="absolute right-2.5 px-5 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-sm shadow-md shadow-teal-700/20 transition-all transform hover:scale-[1.02] active:scale-[0.98]"
+                className="absolute right-2.5 px-5 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-teal-500 text-white font-bold text-sm shadow-md shadow-teal-700/20 transition-all transform hover:scale-[1.02] active:scale-[0.98]"
               >
                 Buscar
               </button>
@@ -179,7 +179,7 @@ export function SearchPage() {
         {/* Pestañas de Filtrado */}
         {data && (
           <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-3">
-            <div className="flex gap-2 overflow-x-auto">
+            <div className="flex gap-2 overflow-x-auto" role="tablist" aria-label="Filtrar tipo de resultado">
               {[
                 { id: 'all', label: 'Todo', count: data.total_results },
                 { id: 'books', label: 'Libros', count: data.books.length },
@@ -188,8 +188,10 @@ export function SearchPage() {
               ].map((tab) => (
                 <button
                   key={tab.id}
+                  role="tab"
+                  aria-selected={activeTab === tab.id}
                   onClick={() => handleTabChange(tab.id as any)}
-                  className={`px-4 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${
+                  className={`px-4 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 ${
                     activeTab === tab.id
                       ? 'bg-teal-600 text-white shadow-md shadow-teal-700/20'
                       : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800'

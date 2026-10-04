@@ -1,111 +1,91 @@
-# Plan de Implementación — RoadmapV3: Sprint 4 (Catálogo, Deduplicación de Ediciones y Búsqueda Unificada — P1)
+# Plan de Implementación — RoadmapV3: Sprint 5 (Calidad, Rendimiento, Accesibilidad WCAG y CI/CD — P2)
 
-**Fecha:** 3 de octubre de 2026  
+**Fecha:** 4 de octubre de 2026  
 **Rama de trabajo:** `develop`  
 **Estado:** Propuesto para revisión y aprobación  
-**Prioridad:** P1 (Catálogo, Integridad Editorial y Experiencia de Descubrimiento)
+**Prioridad:** P2 (Calidad de Software, Rendimiento y Preparación para el Lanzamiento)
 
 ---
 
-## 1. Contexto y Requisitos del Usuario
+## 1. Contexto y Objetivos
 
-El usuario ha especificado una directiva central para el catálogo:
-> *"todos los libros de un mismo autor y mismo nombre, deben quedar unificados. Es decir, si hay físico y digital a veces tienen distinto isbn, pero el libro es el mismo"*.
-
-Esto se alinea con la **Sección 5 (Catálogo y libros)** y la **Sección 9 (Búsqueda y descubrimiento)** de `RoadmapV3.md`.
+El **Sprint 5 de RoadmapV3** consolida la calidad global del sistema, cubriendo las Secciones **13 (Frontend y Accesibilidad)**, **14 (Seguridad y Sanitización)**, **18 (Idempotencia y Resiliencia)**, **19 (Testing)**, **20 (CI/CD y Deploy Checks)** y **23 (Performance Backend y Erradicación de N+1)**.
 
 ### Objetivos Principales:
-1. **Unificación de Ediciones de un Mismo Libro (Físico / Digital / Distintos ISBNs):**
-   - Una única ficha canónica por obra (`Book`) cuando compartan autor (o variantes canónicas) y título normalizado (insensible a mayúsculas, tildes, signos de puntuación o espacios).
-   - Soporte para almacenar y consultar múltiples ISBNs por libro mediante `additional_isbns` (lista JSON de ISBNs normalizados asociados a la obra: físico, ebook/digital, bolsillo, etc.).
-   - Capacidad de encontrar la obra unificada buscando por **cualquiera** de sus ISBNs (el principal o cualquiera de los alternativos).
-
-2. **Servicio y Herramienta de Fusión y Deduplicación (`BookDeduplicationService`):**
-   - Detección automática de duplicados existentes en el catálogo.
-   - Fusión transaccional segura hacia el libro canónico:
-     - Reasignación de `UserBook` (biblioteca de usuarios), resolviendo colisiones si el usuario tenía ambos formatos (preservando el estado más avanzado y la mejor calificación).
-     - Reasignación de `Review` (reseñas), `ReadingListBook` (listas de lectura), citas y reportes de erratas.
-     - Consolidación de categorías, portadas, descripciones y todos los ISBNs asociados.
-     - Eliminación limpia de las instancias duplicadas redundantes.
-   - Comando de gestión Django: `python manage.py deduplicate_catalog [--dry-run]`.
-
-3. **Blindaje en la Ingesta / Creación de Libros:**
-   - En `BookSerializer`: si un usuario o cliente intenta crear un libro que ya existe para ese autor y título, no se crea un duplicado; se enriquece el libro existente (incorporando el nuevo ISBN a `additional_isbns` si procede) y se retorna el libro canónico.
-   - En los servicios de importación externa (`import_service.py` y `csv_import_service.py`): la resolución comprueba tanto ISBN principal y alternativos como la tupla (título normalizado, autor), fusionando inmediatamente cualquier edición entrante con la ficha existente.
-
-4. **Búsqueda Global Unificada (`/api/v1/search/?q=...`):**
-   - Endpoint unificado que devuelve en una sola llamada los resultados categorizados en:
-     - `books`: libros que coincidan por título, autor, descripción o cualquiera de sus ISBNs.
-     - `authors`: autores que coincidan por nombre o alias, con sus métricas.
-     - `users`: usuarios públicos (respetando bloqueos y privacidad).
-   - Interfaz en el frontend para búsqueda global `/search?q=...` con selector de pestañas (Todo, Libros, Autores, Lectores).
+1. **TypeScript Strict y Typecheck Limpio (Frontend):**
+   - Subsanar todas las advertencias y errores de `tsc --noEmit` (`noUnusedLocals`) en componentes administrativos, de catálogo, FAQs y búsqueda global.
+   - Garantizar que `npm run typecheck` concluya con **cero errores (código 0)**.
+2. **Accesibilidad WCAG 2.1 AA y Usabilidad (UX):**
+   - Asegurar roles y atributos semánticos accesibles en componentes interactivos:
+     - Acordeón de FAQs (`aria-expanded`, `aria-controls`, `role="region"`).
+     - Buscador global y filtros (`aria-label`, estados de foco con `focus-visible`).
+     - Imágenes con texto alternativo (`alt`) coherente para lectores de pantalla.
+3. **Rendimiento Backend y Erradicación de Consultas N+1:**
+   - Auditar y optimizar consultas en `GlobalSearchView` y `UnifiedBookSearchView` garantizando complejidad $O(1)$ en consultas SQL (`select_related`, `prefetch_related`).
+   - Verificar tiempos de respuesta bajo presupuesto estricto (< 100ms en búsqueda y catálogo).
+4. **Seguridad y Sanitización HTML (XSS):**
+   - Validar que las entradas enriquecidas y de usuario se procesen mediante `sanitize_plain_text` y `DOMPurify`, impidiendo inyecciones de scripts maliciosos.
+5. **Testing Automatizado Exhaustivo:**
+   - Nuevos tests de frontend en Vitest para `SearchPage` y `FaqsPage`.
+   - Nueva suite de backend `test_sprint5_quality_and_performance.py` verificando ausencia de N+1, rendimiento de consultas, integridad transaccional y robustez de contratos de API.
 
 ---
 
 ## 2. Modificaciones Técnicas Propuestas
 
-### 2.1. Modelo `Book` (`backend/books/models.py`)
-- Añadir campo `additional_isbns = models.JSONField(default=list, blank=True, help_text="Listado de ISBNs adicionales/alternativos (ediciones físicas, digitales, etc.)")`.
-- Crear función auxiliar de normalización de títulos `normalize_title(title: str) -> str` (remueve puntuación superflua, dobles espacios y acentos para comparación canónica).
-- Crear método `add_isbn(isbn: str)` en `Book` que normalice e inserte en `additional_isbns` evitando duplicados.
-- Crear método de clase `Book.find_by_isbn(isbn: str)` que busque tanto en `isbn` como en `additional_isbns`.
-- Crear migración de Django correspondiente.
+### 2.1. Limpieza de TypeScript (`frontend/src/`)
+- Corregir imports no utilizados en:
+  - `src/features/admin/components/AdminAuthorClaimsTab.tsx`
+  - `src/features/books/pages/Author.tsx`
+  - `src/features/discovery/pages/SearchPage.tsx`
+  - `src/features/faqs/pages/FaqsPage.tsx`
+- Ejecutar y validar `npm run typecheck` (`tsc --noEmit`).
 
-### 2.2. Servicio de Deduplicación y Fusión (`backend/books/services/deduplication_service.py`)
-- `find_duplicate_books() -> list[tuple[Book, list[Book]]]`:
-  - Agrupa libros por `(author_id, normalized_title)`.
-- `merge_books(canonical_book: Book, duplicate_books: list[Book]) -> Book`:
-  - Ejecuta la fusión en una transacción atómica `transaction.atomic()`:
-    1. Acumula todos los ISBNs secundarios en `canonical_book.additional_isbns`.
-    2. Si el canónico no tiene portada o descripción pero un duplicado sí, los transfiere.
-    3. Fusiona categorías M2M.
-    4. Migra `UserBook`: si el usuario ya tenía el canónico, actualiza con el estado más avanzado; si no, reasigna el `book_id`.
-    5. Migra `Review`: reasigna al canónico evitando duplicar reseñas del mismo usuario en la misma obra.
-    6. Migra `ReadingListBook`: reasigna elementos de listas sociales evitando duplicados en la misma lista.
-    7. Elimina los registros `duplicate_books`.
-- Comando `backend/books/management/commands/deduplicate_catalog.py` para ejecución manual o en cron/worker.
+### 2.2. Accesibilidad WCAG y UX
+- En `src/features/faqs/pages/FaqsPage.tsx`:
+  - Añadir `id`, `aria-expanded={isOpen}`, `aria-controls={`faq-answer-${faq.id}`}` al botón del acordeón.
+  - Añadir `id={`faq-answer-${faq.id}`}`, `role="region"`, `aria-labelledby={`faq-question-${faq.id}`}` al contenedor colapsable.
+- En `src/features/discovery/pages/SearchPage.tsx`:
+  - Añadir `aria-label="Término de búsqueda"` al input y `role="tablist"` / `role="tab"` a los botones de categorías ("Todo", "Libros", "Autores", "Lectores").
+  - Asegurar contraste y anillos de foco visibles (`focus-visible:ring-2 focus-visible:ring-teal-500`).
 
-### 2.3. Blindaje de Creación e Importación
-- En `backend/books/serializers.py` (`BookSerializer.create`):
-  - Normaliza el título y comprueba si ya existe un libro con ese autor y título. Si existe, agrega el ISBN a `additional_isbns` y devuelve el libro canónico.
-- En `backend/books/services/import_service.py` y `csv_import_service.py`:
-  - Buscar primero por ISBN (en `isbn` y `additional_isbns`).
-  - Si no se encuentra por ISBN, buscar por `(author, normalized_title)`.
-  - Si existe por título y autor pero con otro ISBN, registrar el nuevo ISBN en `additional_isbns` del libro existente en lugar de crear un libro nuevo.
+### 2.3. Optimización de Rendimiento Backend (`backend/books/search_views.py`)
+- Optimizar `GlobalSearchView`:
+  - Para libros: `select_related('author').prefetch_related('categories', 'authors')`.
+  - Para autores: `prefetch_related('books')`.
+  - Limitar campos diferidos innecesarios si aplica (`defer('embedding')`).
 
-### 2.4. Búsqueda Global Unificada (`/api/v1/search/?q=...`)
-- Crear `GlobalSearchView` en `backend/books/views.py` expuesta en `/api/v1/search/`:
-  - Parámetros: `q` (término), `type` (opcional: `all`, `books`, `authors`, `users`), `limit`.
-  - Libros: búsqueda híbrida / trigram (`pg_trgm`) por título, autor y match en `isbn` / `additional_isbns`.
-  - Autores: búsqueda por nombre canónico y aliases (`idx_author_name_trgm`).
-  - Usuarios: búsqueda por `username`, aplicando `PrivacyService` y exclusión de usuarios bloqueados/bloqueadores.
-- En frontend:
-  - Componente/página `SearchPage.tsx` accesible en `/search?q=...`.
-  - Pestañas interactivas: "Todos", "Libros", "Autores", "Lectores".
+### 2.4. Pruebas Automatizadas
+1. **Frontend (Vitest):**
+   - `src/features/discovery/__tests__/SearchPage.test.tsx`: renderizado, búsqueda reactiva, cambio de pestañas y visualización de resultados.
+   - `src/features/faqs/__tests__/FaqsPage.test.tsx`: despliegue del acordeón interactivo al hacer click y filtros por categoría.
+2. **Backend (pytest):**
+   - `backend/tests/test_sprint5_quality_and_performance.py`:
+     - Test de conteo de queries SQL en `/api/v1/search/` (con Django `assertNumQueries`).
+     - Test de resiliencia y sanitización ante payloads con inyección HTML/scripts.
+     - Test de verificación de contratos y accesibilidad de endpoints clave.
 
 ---
 
 ## 3. Plan de Pruebas y Validación
 
-1. **Pruebas Unitarias y de Integración (`backend/tests/test_sprint4_catalog_deduplication.py`):**
-   - Test de unificación: crear un libro físico y un libro digital del mismo autor y título con distintos ISBNs; comprobar que quedan unificados bajo una sola ficha con ambos ISBNs registrados.
-   - Test de búsqueda por ISBN alternativo: verificar que buscar por el ISBN del ebook devuelve la ficha del libro unificado.
-   - Test de fusión transaccional (`merge_books`): verificar que estanterías (`UserBook`), reseñas (`Review`) y listas (`ReadingList`) se transfieren íntegramente sin errores de integridad.
-   - Test de búsqueda global unificada (`/api/v1/search/?q=...`): comprobar que devuelve simultáneamente libros, autores y lectores respetando la privacidad.
-2. **Pruebas de Regresión Completa:**
-   - Ejecutar secuencialmente Sprints 1, 2, 3 y 4:
-     `pytest tests/test_sprint1_security.py tests/test_sprint2_infrastructure.py tests/test_sprint3_authors_and_faqs.py tests/test_sprint4_catalog_deduplication.py`
-3. **Build de Frontend:**
-   - `npm run build` en `frontend/` verificando compilación limpia.
+1. **Typecheck y Linters de Frontend:**
+   - `npm run typecheck` en `frontend/` (0 errores).
+   - `npm run test` en `frontend/` (31 tests previos + nuevos tests pasando al 100%).
+   - `npm run build` en `frontend/` (código 0).
+2. **Regresión Backend Completa Secuencial:**
+   - Ejecutar Sprints 1 a 5:
+     `pytest tests/test_sprint1_security.py tests/test_sprint2_infrastructure.py tests/test_sprint3_authors_and_faqs.py tests/test_sprint4_catalog_deduplication.py tests/test_sprint5_quality_and_performance.py`
+3. **Verificación de Sistema Django:**
+   - `python manage.py check` limpio en el contenedor backend.
 
 ---
 
 ## 4. Criterios de Aceptación (Definition of Done)
 
-- [ ] Libros con el mismo autor y mismo título quedan estrictamente unificados en una sola entidad `Book`.
-- [ ] Los distintos ISBNs (físico, digital, tapa dura) se almacenan en `additional_isbns` y son buscables.
-- [ ] Servicio de deduplicación y comando CLI `deduplicate_catalog` operativos y probados.
-- [ ] Endpoint `/api/v1/search/?q=...` devuelve resultados clasificados de libros, autores y lectores.
-- [ ] 100% tests pasando secuencialmente sin bloqueos de base de datos.
+- [ ] `npm run typecheck` pasa con 0 errores TypeScript.
+- [ ] Atributos ARIA y mejoras WCAG implementadas y operativas en FAQs y Búsqueda.
+- [ ] Cero consultas N+1 en las vistas optimizadas de búsqueda y catálogo.
+- [ ] 100% de tests pasando en backend y frontend sin regresiones.
 - [ ] Documentación actualizada (`RoadmapV3.md`, `memory.md`, `CHANGELOG.md`).
 - [ ] Commit semántico y push a `develop`.

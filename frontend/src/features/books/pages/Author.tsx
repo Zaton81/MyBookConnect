@@ -6,13 +6,11 @@ import { Spinner, Modal, Button } from 'flowbite-react';
 import {
   HiBadgeCheck,
   HiOutlineGlobeAlt,
-  HiOutlineSparkles,
   HiOutlineBookOpen,
   HiOutlineStar,
   HiOutlineChatAlt2,
   HiOutlineUsers,
   HiOutlineShieldCheck,
-  HiOutlineExternalLink,
 } from 'react-icons/hi';
 import { BsTwitterX, BsInstagram, BsWikipedia } from 'react-icons/bs';
 

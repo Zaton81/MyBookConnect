@@ -107,6 +107,29 @@ class GlobalSearchView(APIView):
                     books_set[b.id] = b
 
             selected_books = list(books_set.values())[:limit]
+            if selected_books:
+                from django.db.models import Count
+                from books.models import Review
+                b_ids = [b.id for b in selected_books]
+                dist_map = {b_id: dict.fromkeys(range(1, 6), 0) for b_id in b_ids}
+                counts_map = {b_id: 0 for b_id in b_ids}
+
+                review_rows = Review.objects.filter(
+                    book_id__in=b_ids, deleted_at__isnull=True, is_moderated=False
+                ).values('book_id', 'rating').annotate(count=Count('id'))
+
+                for r in review_rows:
+                    b_id = r['book_id']
+                    val = r['rating']
+                    c = r['count']
+                    counts_map[b_id] += c
+                    if val is not None and 1 <= val <= 5:
+                        dist_map[b_id][val] = c
+
+                for b in selected_books:
+                    b._precomputed_rating_distribution = dist_map.get(b.id, dict.fromkeys(range(1, 6), 0))
+                    b.annotated_reviews_count = counts_map.get(b.id, 0)
+
             books_data = BookSerializer(selected_books, many=True, context={'request': request}).data
 
         # 2. Búsqueda de Autores
@@ -117,7 +140,8 @@ class GlobalSearchView(APIView):
                     | Q(canonical_name__icontains=q)
                     | Q(biography__icontains=q)
                 )
-                .prefetch_related('books')
+                .select_related('claimed_by')
+                .prefetch_related('books', 'all_books')
                 .distinct()[:limit]
             )
             authors_data = AuthorSerializer(authors, many=True, context={'request': request}).data

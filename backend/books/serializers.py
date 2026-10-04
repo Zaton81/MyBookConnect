@@ -312,6 +312,9 @@ class BookSerializer(serializers.ModelSerializer):
 
     @extend_schema_field(serializers.DictField)
     def get_rating_distribution(self, obj):
+        if hasattr(obj, '_precomputed_rating_distribution'):
+            return obj._precomputed_rating_distribution
+
         request = self.context.get('request')
         cache_key = f'_rating_dist_{obj.id}'
         if request and hasattr(request, cache_key):

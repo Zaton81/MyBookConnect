@@ -238,6 +238,19 @@ Cualquier agente de IA o desarrollador que se incorpore a la base de código **D
 
 ---
 
+### 4.24. Erradicación de N+1 Queries, Accesibilidad WCAG y Calidad (Sprint 5 - RoadmapV3)
+- **Erradicación de N+1 en Búsqueda Global y Catálogo:**
+  - Al serializar listas de libros (`BookSerializer`), acceder a `rating_distribution` y `reviews_count` generaba 2 consultas SQL adicionales por cada libro (`2*N` queries).
+  - **Solución Canónica:** `GlobalSearchView` precomputa en una única consulta batch (`Review.objects.filter(book_id__in=b_ids).values('book_id', 'rating').annotate(count=Count('id'))`) las distribuciones y conteos, asignándolos a `b._precomputed_rating_distribution` y `b.annotated_reviews_count`. El serializer comprueba estas propiedades precomputadas y evita consultas secundarias.
+  - Para autores, se incluyó `.select_related('claimed_by')` y `.prefetch_related('books', 'all_books')`, reduciendo las consultas a un total constante (3 consultas) independientemente del volumen de resultados.
+- **Accesibilidad WCAG 2.1 AA:**
+  - `SearchPage` y `FaqsPage` implementan atributos semánticos `role="search"`, `role="tablist"`, `role="tab"`, `aria-selected`, `aria-expanded`, `aria-controls`, `aria-label`, y bordes `focus-visible` de alto contraste en Tailwind.
+  - La suite de frontend en Vitest verifica rigurosamente las propiedades ARIA y la interacción con teclado.
+- **Cero Errores TypeScript (`tsc --noEmit`):**
+  - Con `noUnusedLocals: true`, cualquier importación residual en componentes de React rompe la compilación; se garantiza 0 errores estrictos en frontend.
+
+---
+
 ## 5. Ubicación de Documentación Relevante
 
 - **Arquitectura y Rendimiento:** [docs/architecture/database_performance.md](file:///c:/Users/zaton/Desktop/Escritorio/proyectos/MyBookConnect/docs/architecture/database_performance.md)

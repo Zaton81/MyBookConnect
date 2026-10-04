@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Spinner, Modal, Button } from 'flowbite-react';
 import {
   HiOutlineShieldCheck,

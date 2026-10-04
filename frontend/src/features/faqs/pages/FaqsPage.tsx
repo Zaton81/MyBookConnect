@@ -8,7 +8,6 @@ import {
   HiOutlineSparkles,
   HiOutlineMail,
   HiOutlineBookOpen,
-  HiOutlineUser,
   HiOutlineShieldCheck,
   HiOutlineChatAlt2,
 } from 'react-icons/hi';

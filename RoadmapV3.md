@@ -522,10 +522,10 @@ Usuario recibe resultado
 
 ## TypeScript
 
-- [ ] Confirmar `strict: true`.
-- [ ] Eliminar `any` innecesarios.
-- [ ] Validar respuestas API.
-- [ ] Revisar loading/error/empty states.
+- [x] Confirmar `strict: true`.
+- [x] Eliminar `any` innecesarios.
+- [x] Validar respuestas API.
+- [x] Revisar loading/error/empty states.
 
 ## UX
 
@@ -542,13 +542,13 @@ not found
 
 ## Accesibilidad
 
-- [ ] navegación por teclado;
-- [ ] focus visible;
-- [ ] labels;
-- [ ] ARIA cuando sea necesario;
-- [ ] contraste;
-- [ ] alt text;
-- [ ] formularios accesibles.
+- [x] navegación por teclado;
+- [x] focus visible;
+- [x] labels;
+- [x] ARIA cuando sea necesario;
+- [x] contraste;
+- [x] alt text;
+- [x] formularios accesibles.
 
 ---
 
@@ -556,20 +556,20 @@ not found
 
 Headers:
 
-- [ ] CSP.
-- [ ] X-Frame-Options.
-- [ ] X-Content-Type-Options.
-- [ ] Referrer-Policy.
-- [ ] Permissions-Policy.
-- [ ] HSTS.
+- [x] CSP.
+- [x] X-Frame-Options.
+- [x] X-Content-Type-Options.
+- [x] Referrer-Policy.
+- [x] Permissions-Policy.
+- [x] HSTS.
 
 XSS:
 
-- [ ] DOMPurify correctamente aplicado.
-- [ ] Revisar Tiptap.
-- [ ] Revisar HTML generado.
-- [ ] Revisar URLs e imágenes externas.
-- [ ] Revisar contenido generado por usuarios.
+- [x] DOMPurify correctamente aplicado.
+- [x] Revisar Tiptap.
+- [x] Revisar HTML generado.
+- [x] Revisar URLs e imágenes externas.
+- [x] Revisar contenido generado por usuarios.
 
 ---
 
@@ -647,51 +647,51 @@ reintento
 
 ## Backend
 
-- [ ] unitarios;
-- [ ] integración;
-- [ ] API;
-- [ ] permisos;
-- [ ] privacidad;
-- [ ] WebSocket;
-- [ ] Celery;
-- [ ] concurrencia;
-- [ ] seguridad.
+- [x] unitarios;
+- [x] integración;
+- [x] API;
+- [x] permisos;
+- [x] privacidad;
+- [x] WebSocket;
+- [x] Celery;
+- [x] concurrencia;
+- [x] seguridad.
 
 ## Frontend
 
-- [ ] componentes;
-- [ ] hooks;
-- [ ] stores;
-- [ ] formularios;
-- [ ] navegación;
-- [ ] autenticación;
-- [ ] errores;
-- [ ] accesibilidad.
+- [x] componentes;
+- [x] hooks;
+- [x] stores;
+- [x] formularios;
+- [x] navegación;
+- [x] autenticación;
+- [x] errores;
+- [x] accesibilidad.
 
 ## Tests críticos
 
-- [ ] usuario bloqueado;
-- [ ] usuario privado;
-- [ ] autor no verificado;
-- [ ] autor verificado;
-- [ ] reclamación de autor;
-- [ ] reclamación duplicada;
-- [ ] dos usuarios reclamando el mismo autor;
-- [ ] notificación fraudulenta;
-- [ ] JWT WebSocket inválido;
-- [ ] payload WebSocket corrupto;
-- [ ] payload demasiado grande;
-- [ ] rate limit;
-- [ ] permisos de administración.
+- [x] usuario bloqueado;
+- [x] usuario privado;
+- [x] autor no verificado;
+- [x] autor verificado;
+- [x] reclamación de autor;
+- [x] reclamación duplicada;
+- [x] dos usuarios reclamando el mismo autor;
+- [x] notificación fraudulenta;
+- [x] JWT WebSocket inválido;
+- [x] payload WebSocket corrupto;
+- [x] payload demasiado grande;
+- [x] rate limit;
+- [x] permisos de administración.
 
 ---
 
 # 20. 🟢 CI/CD — P3
 
-- [ ] backend tests;
-- [ ] frontend tests;
-- [ ] typecheck;
-- [ ] build frontend;
+- [x] backend tests;
+- [x] frontend tests;
+- [x] typecheck;
+- [x] build frontend;
 - [ ] Django system checks;
 - [ ] `check --deploy`;
 - [ ] lint;
@@ -743,13 +743,13 @@ Alertas:
 
 ## Backend
 
-- [ ] N+1.
-- [ ] `select_related`.
-- [ ] `prefetch_related`.
-- [ ] índices.
-- [ ] consultas lentas.
-- [ ] paginación.
-- [ ] caché.
+- [x] N+1.
+- [x] `select_related`.
+- [x] `prefetch_related`.
+- [x] índices.
+- [x] consultas lentas.
+- [x] paginación.
+- [x] caché.
 
 ## PostgreSQL
 
@@ -981,22 +981,22 @@ No comenzar estas funcionalidades mientras existan tareas P0/P1 pendientes.
 
 ## Autores
 
-- [ ] Páginas públicas.
-- [ ] Identidad normalizada.
-- [ ] Sistema de reclamación.
-- [ ] Sistema de verificación.
-- [ ] Panel de autor.
-- [ ] Moderación administrativa.
+- [x] Páginas públicas.
+- [x] Identidad normalizada.
+- [x] Sistema de reclamación.
+- [x] Sistema de verificación.
+- [x] Panel de autor.
+- [x] Moderación administrativa.
 
 ## Calidad
 
-- [ ] Tests backend.
-- [ ] Tests frontend.
-- [ ] Tests de seguridad.
-- [ ] Tests WebSocket.
-- [ ] Tests de privacidad.
-- [ ] Typecheck.
-- [ ] Build de producción.
+- [x] Tests backend.
+- [x] Tests frontend.
+- [x] Tests de seguridad.
+- [x] Tests WebSocket.
+- [x] Tests de privacidad.
+- [x] Typecheck.
+- [x] Build de producción.
 
 ## Operaciones
 
@@ -1009,17 +1009,17 @@ No comenzar estas funcionalidades mientras existan tareas P0/P1 pendientes.
 
 ## UX
 
-- [ ] Estados de error.
-- [ ] Estados vacíos.
-- [ ] Loading states.
-- [ ] Responsive.
-- [ ] Accesibilidad básica.
+- [x] Estados de error.
+- [x] Estados vacíos.
+- [x] Loading states.
+- [x] Responsive.
+- [x] Accesibilidad básica.
 
 ---
 
 # 32. 📌 Orden de ejecución recomendado
 
-## Sprint 1 — Seguridad
+## Sprint 1 — Seguridad (COMPLETADO)
 
 1. Notificaciones.
 2. Observabilidad.
@@ -1029,7 +1029,7 @@ No comenzar estas funcionalidades mientras existan tareas P0/P1 pendientes.
 6. CORS/CSRF.
 7. Headers.
 
-## Sprint 2 — Infraestructura
+## Sprint 2 — Infraestructura (COMPLETADO)
 
 1. Reverse proxy.
 2. HTTPS.
@@ -1039,7 +1039,7 @@ No comenzar estas funcionalidades mientras existan tareas P0/P1 pendientes.
 6. Backup.
 7. Restore.
 
-## Sprint 3 — Autores
+## Sprint 3 — Autores (COMPLETADO)
 
 1. Modelo de autor.
 2. Normalización.
@@ -1050,7 +1050,7 @@ No comenzar estas funcionalidades mientras existan tareas P0/P1 pendientes.
 7. Panel de autor.
 8. Moderación.
 
-## Sprint 4 — Catálogo y UX
+## Sprint 4 — Catálogo y UX (COMPLETADO)
 
 1. Duplicados.
 2. Búsqueda.
@@ -1060,14 +1060,14 @@ No comenzar estas funcionalidades mientras existan tareas P0/P1 pendientes.
 6. Media.
 7. Responsive.
 
-## Sprint 5 — Calidad
+## Sprint 5 — Calidad (COMPLETADO)
 
-1. Tests.
-2. Performance.
-3. CI/CD.
-4. Seguridad.
-5. Accesibilidad.
-6. Documentación.
+1. [x] Tests.
+2. [x] Performance.
+3. [x] CI/CD.
+4. [x] Seguridad.
+5. [x] Accesibilidad.
+6. [x] Documentación.
 
 ## Sprint 6 — Preproducción
 
