@@ -7,6 +7,22 @@ y este proyecto se adhiere a [Semantic Versioning 2.0.0](https://semver.org/lang
 
 ## [Unreleased]
 
+### Added / Legal & Privacy (RoadmapV3 - Sección 26: Legal y Privacidad, RGPD, Portabilidad y Eliminación)
+- **Gestión de Documentos Normativos y Corpus Legal**:
+  - Modelo `LegalDocument` gestionando documentos clave del servicio: Términos de uso (`terms`), Política de privacidad (`privacy`), Política de cookies (`cookies`), Aviso legal (`legal_notice`), Política de contenidos (`content_policy`), Política de cancelación (`deletion_policy`) y Canal de contacto (`contact`).
+  - Endpoints públicos versionados en `/api/v1/books/legal/` y `/api/v1/books/legal/<slug>/`.
+  - Edición administrativa autorizada en `/api/v1/admin/legal/<slug>/` con incremento automático de versión y fecha de actualización.
+- **Portabilidad de Datos RGPD (`GET /api/v1/users/account/export/`)**:
+  - Endpoint seguro de descarga estructurada de datos personales en formato JSON estándar.
+  - Exportación consolidada de perfil, estanterías y progreso de lectura, reseñas, comentarios, listas de lectura y red social (seguidores/seguidos).
+- **Derecho al Olvido y Eliminación de Cuenta (`POST /api/v1/users/account/delete/`)**:
+  - Eliminación segura con re-autenticación obligatoria mediante contraseña actual para mitigar secuestro de sesión.
+  - Anonimización de identificadores y revocación inmediata de credenciales activas.
+- **Pruebas y Verificación Integral**:
+  - Creada suite `backend/tests/test_sprint8_legal_and_privacy.py` (4 pruebas al 100%).
+  - Regresión secuencial completa de backend superada (59 pruebas pasando de Sprints 1 a 8).
+  - Frontend verificado: TypeScript estricto con 0 errores, 42 tests en Vitest pasando al 100% y build de producción Vite exitoso.
+
 ### Added / Administration & Moderation (RoadmapV3 - Secciones 24 y 25: Administración, Moderación y Reportes Universales)
 - **Sistema Universal de Reportes y Moderación**:
   - Ampliado `ReportCreateSerializer` y `ALLOWED_TARGET_MODELS` para admitir reportes sobre `Book`, `Author` y `UserPost` (publicaciones en muro), además de usuarios, reseñas, comentarios, mensajes y listas.

@@ -820,18 +820,18 @@ Registra usuario denunciante, fecha, motivo, moderador responsable, notas de res
 
 ---
 
-# 26. 🟢 Legal y privacidad — P3
+# 26. 🟢 Legal y privacidad — P3 (COMPLETADO)
 
 Antes del lanzamiento público:
 
-- [ ] Política de privacidad.
-- [ ] Términos de uso.
-- [ ] Política de cookies si aplica.
-- [ ] Eliminación de cuenta.
-- [ ] Exportación de datos cuando corresponda.
-- [ ] Gestión de consentimiento.
-- [ ] Retención de datos.
-- [ ] Procedimiento de incidencias.
+- [x] Política de privacidad (`/api/v1/books/legal/privacy/` y frontend).
+- [x] Términos de uso (`/api/v1/books/legal/terms/` y frontend).
+- [x] Política de cookies (`/api/v1/books/legal/cookies/` y frontend).
+- [x] Eliminación de cuenta / Derecho al Olvido RGPD (`/api/v1/users/account/delete/` con anonimización y cascade seguro).
+- [x] Exportación de datos / Portabilidad RGPD (`/api/v1/users/account/export/` en JSON estructurado de biblioteca, reseñas, listas y actividad).
+- [x] Gestión de consentimiento y documentos normativos (Aviso legal, política de contenidos, política de cancelación).
+- [x] Retención de datos y anonimización de identificadores personales en logs y auditoría.
+- [x] Procedimiento de incidencias y canal de contacto normativo (`/api/v1/books/legal/contact/`).
 
 Especial atención a datos personales, mensajes, imágenes, actividad, estadísticas y logs.
 
@@ -1069,6 +1069,20 @@ No comenzar estas funcionalidades mientras existan tareas P0/P1 pendientes.
 3. [x] Regresión total secuencial (50/50 tests passing).
 4. [x] Frontend Quality (TypeScript strict 0 errores, 42 tests vitest, build producción).
 5. [x] Soft launch readiness.
+
+## Sprint 7 — Administración y Moderación (COMPLETADO)
+
+1. [x] Sistema universal de reportes (`Book`, `Author`, `UserPost`, `Review`, `User`).
+2. [x] Endpoints de merge administrativo de duplicados (`/api/v1/admin/books/merge/`, `/api/v1/admin/authors/merge/`).
+3. [x] Historial de actividad y auditoría administrativa de usuario (`/api/v1/admin/users/<pk>/activity/`, `/api/v1/admin/users/<pk>/reports/`).
+4. [x] Tests Sprint 7 (`test_sprint7_admin_and_moderation.py`).
+
+## Sprint 8 — Legal y Privacidad (COMPLETADO)
+
+1. [x] Documentos normativos y legal pages (términos, privacidad, cookies, aviso legal, contacto).
+2. [x] Portabilidad de datos RGPD (`/api/v1/users/account/export/`).
+3. [x] Derecho al olvido y eliminación de cuenta (`/api/v1/users/account/delete/`).
+4. [x] Tests Sprint 8 (`test_sprint8_legal_and_privacy.py`).
 
 ---
 

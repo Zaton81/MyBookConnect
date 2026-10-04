@@ -276,9 +276,21 @@ Cualquier agente de IA o desarrollador que se incorpore a la base de código **D
   - `POST /api/v1/admin/authors/merge/`: Fusión atómica de autores homónimos, unificando aliases, reasignando obras literarias y preservando estados de verificación oficial.
   - `GET /api/v1/admin/users/<pk>/activity/`: Auditoría cronológica de actividades (`Activity`), publicaciones en muro (`UserPost`) y reseñas.
   - `GET /api/v1/admin/users/<pk>/reports/`: Consulta unificada de denuncias emitidas y denuncias recibidas por un usuario.
-- **Calidad y Regresión Total:**
-  - 55 tests pasando secuencialmente en backend (Sprints 1 a 7 con 0 fallos).
-  - Frontend verificado: TypeScript estricto sin errores (`tsc --noEmit`), 42 pruebas en Vitest y build de producción Vite generado limpiamente.
+### 4.27. Legalidad, RGPD, Portabilidad de Datos y Derecho al Olvido (Sprint 8 - RoadmapV3 Sección 26)
+- **Documentos Normativos y Legal API:**
+  - Modelo `LegalDocument` gestionado con slug canónico (`terms`, `privacy`, `cookies`, `legal_notice`, `content_policy`, `deletion_policy`, `contact`).
+  - Endpoints públicos versionados: `GET /api/v1/books/legal/` (listado) y `GET /api/v1/books/legal/<slug>/` (detalle normativo renderizable).
+  - Endpoint administrativo seguro: `PATCH/PUT /api/v1/admin/legal/<slug>/` para actualización del corpus legal con incremento automático de versión y fecha de actualización.
+- **Portabilidad de Datos RGPD (`GET /api/v1/users/account/export/`):**
+  - Exportación integral de datos del usuario autenticado en formato JSON normalizado.
+  - Secciones incluidas: `_metadata` (timestamps, id, legal notice), `profile` (username, email, biografía, avatar, fecha de alta), `library` (estanterías, libros, rating personal, fechas de lectura, notas), `reviews` (reseñas y ratings publicados), `comments` (comentarios en reseñas), `reading_lists` (listas de lectura creadas y libros asociados) y `social` (seguidores y seguidos).
+- **Derecho al Olvido / Cancelación de Cuenta (`POST /api/v1/users/account/delete/`):**
+  - Requiere re-autenticación obligatoria con contraseña actual para mitigar secuestro de sesión.
+  - Proceso de anonimización y cascade seguro: revocación de tokens JWT activos, eliminación/anonimización de datos de perfil, desvinculación de identificadores personales en logs y auditoría, respetando la consistencia referencial en reseñas comunitarias y registros contables/legales.
+- **Suite de Pruebas Sprint 8 y Regresión:**
+  - `backend/tests/test_sprint8_legal_and_privacy.py`: 4 tests cubriendo el ciclo completo de consulta pública de documentos normativos, actualización administrativa, exportación completa de datos RGPD y eliminación segura de cuenta con rechazo por contraseña incorrecta.
+  - Regresión secuencial completa de backend: 59 tests pasando al 100% (Sprints 1 al 8 con 0 fallos).
+  - Frontend: `tsc --noEmit` 0 errores, 42 tests en Vitest pasando en suite completa y build de producción Vite generado limpiamente.
 
 ---
 
