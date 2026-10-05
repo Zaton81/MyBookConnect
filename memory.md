@@ -287,10 +287,23 @@ Cualquier agente de IA o desarrollador que se incorpore a la base de código **D
 - **Derecho al Olvido / Cancelación de Cuenta (`POST /api/v1/users/account/delete/`):**
   - Requiere re-autenticación obligatoria con contraseña actual para mitigar secuestro de sesión.
   - Proceso de anonimización y cascade seguro: revocación de tokens JWT activos, eliminación/anonimización de datos de perfil, desvinculación de identificadores personales en logs y auditoría, respetando la consistencia referencial en reseñas comunitarias y registros contables/legales.
-- **Suite de Pruebas Sprint 8 y Regresión:**
-  - `backend/tests/test_sprint8_legal_and_privacy.py`: 4 tests cubriendo el ciclo completo de consulta pública de documentos normativos, actualización administrativa, exportación completa de datos RGPD y eliminación segura de cuenta con rechazo por contraseña incorrecta.
-  - Regresión secuencial completa de backend: 59 tests pasando al 100% (Sprints 1 al 8 con 0 fallos).
-  - Frontend: `tsc --noEmit` 0 errores, 42 tests en Vitest pasando en suite completa y build de producción Vite generado limpiamente.
+### 4.28. Clubs de Lectura, Membresías y Debates por Capítulos (Sprint 9 - RoadmapV3 Sección 30.1)
+- **Modelos de Dominio (`books.club_models`):**
+  - `ReadingClub`: Gestión de comunidades literarias públicas y privadas con slug autogenerado, reglas de convivencia, creador y libro actual en curso (`current_book`).
+  - `ReadingClubMember`: Membresías con control de roles (`ADMIN`, `MODERATOR`, `MEMBER`) y estados (`ACTIVE`, `PENDING`, `BANNED`), con unión directa en clubs públicos y flujo de solicitud/aprobación en privados.
+  - `ReadingClubBook`: Plan de lecturas conjuntas con estados (`CURRENT`, `UPCOMING`, `FINISHED`), fechas límite e hitos por capítulos/páginas.
+  - `ReadingClubDiscussion` & `ReadingClubDiscussionComment`: Hilos de debate estructurados por libro o tema general, soporte de avisos de spoilers (`has_spoilers` con blur/revelación bajo demanda), hilos fijados (`is_pinned`) y comentarios anidados con conteo optimizado (`_annotated_comments_count`).
+- **Endpoints API REST (`/api/v1/clubs/`):**
+  - Listado con filtros de búsqueda y pertenencia (`?my_clubs=true`, `?q=...`), creación con auto-asignación de administrador, unión (`/join/`), salida (`/leave/` con bloqueo si es el único administrador), gestión de miembros y aprobación (`/members/<id>/`), plan de lecturas (`/books/`) y debates/comentarios (`/discussions/`, `/discussions/<id>/comments/`).
+  - Sanitización anti-XSS mediante `mybookconnect.html_sanitizer` (`sanitize_plain_text`, `sanitize_html`).
+- **Frontend y UX (`frontend/src/features/clubs/`):**
+  - `ClubsPage.tsx`: Vista general de exploración, pestañas accesibles WAI-ARIA, buscador dinámico y modal interactivo para creación de clubs.
+  - `ClubDetailPage.tsx`: Panel completo del club con lectura actual, hitos, foros con advertencias de spoiler, comentarios y lista de miembros.
+  - Navegación integrada en `AppRouter`, `Header.tsx` y `PublicHeader.tsx`.
+- **Calidad y Regresión Total:**
+  - Suite `backend/tests/test_sprint9_reading_clubs.py`: 6 tests pasando al 100%.
+  - Regresión secuencial backend: 65 tests pasando al 100% de forma consecutiva (Sprints 1 al 9 con 0 fallos).
+  - Frontend: `tsc --noEmit` con 0 errores, 46 tests en Vitest pasando al 100% en 14 suites, y build de producción Vite generado limpiamente.
 
 ---
 

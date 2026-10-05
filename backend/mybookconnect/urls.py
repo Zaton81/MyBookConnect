@@ -72,6 +72,7 @@ urlpatterns = [
             path('my/', UserReportsListView.as_view(), name='user-reports-list'),
         ])),
         path('faqs/', PublicFAQListView.as_view(), name='faqs-list'),
+        path('clubs/', include('books.club_urls')),
         path('search/', GlobalSearchView.as_view(), name='global-search'),
         path('analytics/', include('analytics.urls')),
         path('beta/', include('beta.urls')),

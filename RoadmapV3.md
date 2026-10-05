@@ -937,8 +937,8 @@ Después:
 - [ ] eventos de autores;
 - [ ] publicaciones avanzadas de autores;
 - [ ] newsletters;
-- [ ] clubs de lectura;
-- [ ] grupos;
+- [x] clubs de lectura (`/api/v1/clubs/`, lecturas conjuntas y debates con spoilers);
+- [x] grupos (comunidades literarias con roles ADMIN/MODERATOR/MEMBER y gestión de aprobación);
 - [ ] listas colaborativas;
 - [ ] recomendaciones avanzadas;
 - [ ] IA multimodal;
@@ -1083,6 +1083,13 @@ No comenzar estas funcionalidades mientras existan tareas P0/P1 pendientes.
 2. [x] Portabilidad de datos RGPD (`/api/v1/users/account/export/`).
 3. [x] Derecho al olvido y eliminación de cuenta (`/api/v1/users/account/delete/`).
 4. [x] Tests Sprint 8 (`test_sprint8_legal_and_privacy.py`).
+
+## Sprint 9 — Clubs de Lectura y Grupos Literarios (COMPLETADO)
+
+1. [x] Modelos de dominio (`ReadingClub`, `ReadingClubMember`, `ReadingClubBook`, `ReadingClubDiscussion`, `ReadingClubDiscussionComment`).
+2. [x] Endpoints API REST en `/api/v1/clubs/` (exploración, creación, membresías públicas y privadas con aprobación, plan de lectura y debates con spoilers).
+3. [x] Interfaz frontend accesible (`ClubsPage.tsx`, `ClubDetailPage.tsx`) con navegación en tabs WAI-ARIA, modal de creación de club y filtros por rol.
+4. [x] Pruebas y verificación integral (backend `test_sprint9_reading_clubs.py` 6/6 tests, frontend `ClubsPage.test.tsx` 4/4 tests, regresión 65/65 tests pasando).
 
 ---
 

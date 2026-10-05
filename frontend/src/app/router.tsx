@@ -37,6 +37,12 @@ const ContactPage = lazy(() =>
 const FaqsPage = lazy(() =>
   import('../features/faqs').then((m) => ({ default: m.FaqsPage }))
 );
+const ClubsPage = lazy(() =>
+  import('../features/clubs').then((m) => ({ default: m.ClubsPage }))
+);
+const ClubDetailPage = lazy(() =>
+  import('../features/clubs').then((m) => ({ default: m.ClubDetailPage }))
+);
 const AdminDashboard = lazy(() =>
   import('../features/admin').then((m) => ({ default: m.AdminDashboard }))
 );
@@ -85,6 +91,8 @@ export function AppRouter() {
           <Route path="/deletion-policy" element={<DeletionPolicy />} />
           <Route path="/contact" element={<ContactPage />} />
           <Route path="/faqs" element={<FaqsPage />} />
+          <Route path="/clubs" element={<ClubsPage />} />
+          <Route path="/clubs/:slug" element={<ClubDetailPage />} />
           <Route path="/search" element={<SearchPage />} />
         </Route>
 
@@ -92,6 +100,8 @@ export function AppRouter() {
         <Route element={<ProtectedLayout />}>
           <Route path="/home" element={<Home />} />
           <Route path="/search" element={<SearchPage />} />
+          <Route path="/clubs" element={<ClubsPage />} />
+          <Route path="/clubs/:slug" element={<ClubDetailPage />} />
           <Route path="/books/add" element={<AddBook />} />
           <Route path="/books/:id" element={<BookDetail />} />
           <Route path="/authors/:id" element={<Author />} />

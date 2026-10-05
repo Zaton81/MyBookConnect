@@ -1015,5 +1015,15 @@ from .gamification_models import (  # noqa: E402, F401
     UserChallenge,
 )
 
+# Modelos de Clubs de Lectura y Debates (RoadmapV3 Sección 30.1)
+from .club_models import (  # noqa: E402, F401
+    ReadingClub,
+    ReadingClubMember,
+    ReadingClubBook,
+    ReadingClubDiscussion,
+    ReadingClubDiscussionComment,
+)
+
+
 
 

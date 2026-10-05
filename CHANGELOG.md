@@ -7,6 +7,25 @@ y este proyecto se adhiere a [Semantic Versioning 2.0.0](https://semver.org/lang
 
 ## [Unreleased]
 
+### Added / Reading Clubs & Groups (RoadmapV3 - Sección 30.1: Clubs de Lectura, Grupos y Debates por Capítulos)
+- **Modelos de Dominio de Clubs y Grupos Literarios**:
+  - Modelos `ReadingClub`, `ReadingClubMember`, `ReadingClubBook`, `ReadingClubDiscussion` y `ReadingClubDiscussionComment`.
+  - Soporte de clubs públicos y privados, roles jerárquicos (`ADMIN`, `MODERATOR`, `MEMBER`) y estados (`ACTIVE`, `PENDING`, `BANNED`).
+  - Plan de lecturas conjuntas (`CURRENT`, `UPCOMING`, `FINISHED`) con hitos por capítulos y actualización automática del libro en curso del club.
+  - Hilos de debate con avisos y ocultación de spoilers (`has_spoilers`), temas fijados (`is_pinned`) y comentarios anidados.
+- **Endpoints API REST (`/api/v1/clubs/`)**:
+  - Catálogo de clubs con filtros por pertenencia (`my_clubs=true`) y búsqueda por texto (`q`).
+  - Creación con auto-asignación de administrador al creador, unión automática o por solicitud según privacidad, salida segura (impidiendo huérfanos de administrador único), gestión de roles y plan de lectura.
+- **Frontend y UX (`frontend/src/features/clubs/`)**:
+  - `ClubsPage.tsx`: Vista de catálogo y exploración con pestañas WAI-ARIA, modal interactivo de creación de club y tarjetas informativas.
+  - `ClubDetailPage.tsx`: Panel completo con lectura activa, plan de lecturas, foros de debate con blur/reveal de spoilers, comentarios y listado de miembros.
+  - Integración en navegación (`router.tsx`, `Header.tsx`, `PublicHeader.tsx`).
+- **Pruebas y Verificación Integral**:
+  - Creada suite `backend/tests/test_sprint9_reading_clubs.py` (6 pruebas al 100%).
+  - Creada suite `frontend/src/features/clubs/__tests__/ClubsPage.test.tsx` (4 pruebas al 100%).
+  - Regresión secuencial completa de backend superada (65 pruebas pasando al 100% de Sprints 1 al 9).
+  - Frontend verificado: TypeScript estricto con 0 errores (`tsc --noEmit`), 46 tests en Vitest pasando al 100% en 14 suites y build de producción Vite exitoso.
+
 ### Added / Legal & Privacy (RoadmapV3 - Sección 26: Legal y Privacidad, RGPD, Portabilidad y Eliminación)
 - **Gestión de Documentos Normativos y Corpus Legal**:
   - Modelo `LegalDocument` gestionando documentos clave del servicio: Términos de uso (`terms`), Política de privacidad (`privacy`), Política de cookies (`cookies`), Aviso legal (`legal_notice`), Política de contenidos (`content_policy`), Política de cancelación (`deletion_policy`) y Canal de contacto (`contact`).

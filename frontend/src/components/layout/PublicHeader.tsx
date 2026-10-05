@@ -57,6 +57,12 @@ export function PublicHeader({ onOpenAuth }: PublicHeaderProps) {
               <span>Buscar</span>
             </Link>
             <Link
+              to="/clubs"
+              className="text-sm font-medium text-teal-100 hover:text-white transition-colors"
+            >
+              Clubs
+            </Link>
+            <Link
               to="/faqs"
               className="text-sm font-medium text-teal-100 hover:text-white transition-colors"
             >
