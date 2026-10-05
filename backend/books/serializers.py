@@ -14,6 +14,7 @@ from .models import (
     FAQ,
     LegalDocument,
     ReadingList,
+    ReadingListCollaborator,
     ReadingListComment,
     ReadingListItem,
     RecommendationFeedback,
@@ -587,11 +588,29 @@ class ReadingListItemSerializer(serializers.ModelSerializer):
     book_id = serializers.PrimaryKeyRelatedField(
         queryset=Book.objects.all(), source='book', write_only=True
     )
+    added_by = ReadingListUserSerializer(read_only=True)
 
     class Meta:
         model = ReadingListItem
-        fields = ('id', 'reading_list', 'book', 'book_id', 'position', 'notes', 'added_at')
-        read_only_fields = ('id', 'reading_list', 'added_at')
+        fields = ('id', 'reading_list', 'book', 'book_id', 'position', 'notes', 'added_by', 'added_at')
+        read_only_fields = ('id', 'reading_list', 'added_by', 'added_at')
+
+
+class ReadingListCollaboratorSerializer(serializers.ModelSerializer):
+    user = ReadingListUserSerializer(read_only=True)
+    user_id = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.all(), source='user', write_only=True, required=False
+    )
+    invited_by = ReadingListUserSerializer(read_only=True)
+
+    class Meta:
+        model = ReadingListCollaborator
+        fields = (
+            'id', 'reading_list', 'user', 'user_id', 'role',
+            'status', 'can_add_books', 'can_remove_books',
+            'invited_by', 'created_at', 'updated_at'
+        )
+        read_only_fields = ('id', 'reading_list', 'invited_by', 'created_at', 'updated_at')
 
 
 class ReadingListSerializer(serializers.ModelSerializer):
@@ -601,13 +620,17 @@ class ReadingListSerializer(serializers.ModelSerializer):
     followers_count = serializers.SerializerMethodField()
     comments_count = serializers.SerializerMethodField()
     is_following = serializers.SerializerMethodField()
+    collaborators_count = serializers.SerializerMethodField()
+    collaborators = serializers.SerializerMethodField()
+    is_collaborator = serializers.SerializerMethodField()
 
     class Meta:
         model = ReadingList
         fields = (
             'id', 'user', 'name', 'slug', 'description', 'privacy',
-            'created_at', 'updated_at', 'items', 'items_count',
-            'followers_count', 'comments_count', 'views_count', 'is_following'
+            'is_collaborative', 'created_at', 'updated_at', 'items', 'items_count',
+            'followers_count', 'comments_count', 'views_count', 'is_following',
+            'collaborators_count', 'collaborators', 'is_collaborator'
         )
         read_only_fields = ('id', 'user', 'slug', 'created_at', 'updated_at', 'views_count')
 
@@ -629,6 +652,25 @@ class ReadingListSerializer(serializers.ModelSerializer):
         if request and request.user.is_authenticated:
             return obj.followers.filter(user=request.user).exists()
         return False
+
+    @extend_schema_field(serializers.IntegerField())
+    def get_collaborators_count(self, obj):
+        if not obj.is_collaborative:
+            return 0
+        return obj.collaborators.filter(status=ReadingListCollaborator.Status.ACCEPTED).count()
+
+    def get_collaborators(self, obj):
+        if not obj.is_collaborative:
+            return []
+        collabs = obj.collaborators.filter(status=ReadingListCollaborator.Status.ACCEPTED).select_related('user')[:5]
+        return ReadingListCollaboratorSerializer(collabs, many=True).data
+
+    @extend_schema_field(serializers.BooleanField())
+    def get_is_collaborator(self, obj):
+        request = self.context.get('request')
+        if not request or not request.user.is_authenticated or not obj.is_collaborative:
+            return False
+        return obj.collaborators.filter(user=request.user, status=ReadingListCollaborator.Status.ACCEPTED).exists()
 
 
 class ReadingListCommentSerializer(serializers.ModelSerializer):
@@ -654,7 +696,7 @@ class ReadingListCreateUpdateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ReadingList
-        fields = ('id', 'user', 'name', 'slug', 'description', 'privacy')
+        fields = ('id', 'user', 'name', 'slug', 'description', 'privacy', 'is_collaborative')
         read_only_fields = ('id', 'user', 'slug')
 
 

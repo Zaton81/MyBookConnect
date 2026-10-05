@@ -305,6 +305,30 @@ Cualquier agente de IA o desarrollador que se incorpore a la base de código **D
   - Regresión secuencial backend: 65 tests pasando al 100% de forma consecutiva (Sprints 1 al 9 con 0 fallos).
   - Frontend: `tsc --noEmit` con 0 errores, 46 tests en Vitest pasando al 100% en 14 suites, y build de producción Vite generado limpiamente.
 
+### 4.30. Sprint 10 — Listas Colaborativas y Atribución de Autoría
+- **Modelos de Dominio y Base de Datos:**
+  - `ReadingList.is_collaborative`: Flag booleano indexado que habilita listas compartidas.
+  - `ReadingListItem.added_by`: Clave foránea nullable a `User` para registrar quién aportó cada libro a la lista.
+  - `ReadingListCollaborator`: Modelo relacional con `reading_list`, `user`, `role` (`EDITOR`, `VIEWER`), `status` (`PENDING`, `ACCEPTED`, `REJECTED`), `can_add_books`, `can_remove_books` e `invited_by`.
+  - Migración aplicada en PostgreSQL: `0034_readinglistcollaborator_readinglist_is_collaborative_and_more.py`.
+- **API REST y Permisos:**
+  - Modificación de `ReadingListViewSet`:
+    - Filtrado `?collaborative=true` para devolver listas colaborativas propias o donde el usuario colabora (estado `ACCEPTED` o `PENDING`).
+    - Actualización de `PrivacyService.filter_visible_reading_lists` para permitir acceso de lectura a colaboradores aceptados en listas privadas.
+    - Endpoints `@action` en `collaborators` (`GET`, `POST`) y `collaborators/(?P<user_id>\d+)` (`PATCH`, `DELETE`).
+    - Lógica de permisos en `add_book` y `remove_book`: colaboradores con `can_add_books=True` pueden añadir libros (registrando `added_by`); pueden eliminar sus propios libros aportados o cualquier libro si poseen `can_remove_books=True`.
+- **Frontend React y Experiencia de Usuario:**
+  - Nueva pestaña "🤝 Colaborativas" en la navegación de `ReadingLists.tsx`.
+  - Badges informativos de lista colaborativa en las tarjetas del grid y en la cabecera del detalle.
+  - Panel interactivo de colaboradores en la vista de detalle con avatares, roles y estados.
+  - Banner interactivo para aceptar o rechazar invitaciones pendientes de colaboración.
+  - Modal para invitar nuevos colaboradores por nombre de usuario con asignación granular de permisos.
+  - Atribución de autoría ("Aportado por @username") en cada tarjeta de libro dentro de la lista.
+- **Calidad y Regresión Total:**
+  - Suite `backend/tests/test_sprint10_collaborative_lists.py`: 7/7 tests pasando al 100%.
+  - Regresión secuencial completa backend (Sprints 1 al 10): 72/72 tests pasando al 100%.
+  - Frontend: `npm run typecheck` limpio (0 errores), 14 suites / 46 tests Vitest pasando, y `npm run build` generado sin incidencias.
+
 ---
 
 ## 5. Ubicación de Documentación Relevante

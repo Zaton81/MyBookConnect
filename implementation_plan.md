@@ -1,117 +1,87 @@
-# Plan de Implementación: Clubs de Lectura y Lecturas Conjuntas (RoadmapV3 - Sección 30.1)
+# Plan de Implementación: Listas Colaborativas (RoadmapV3 - Sección 30.2)
 
 ## 1. Contexto y Objetivos
 
-Con las fases 1 a 27 y preproducción completadas en `RoadmapV3.md`, iniciamos el bloque de funcionalidades avanzadas post-lanzamiento de la **Sección 30**, priorizando los **Clubs de Lectura y Lecturas Conjuntas (Book Clubs & Buddy Reads)**:
-
-1. **Gestión de Clubs**: Creación de clubs de lectura con opciones de visibilidad (públicos y privados), descripción, reglas, portada y administración de miembros.
-2. **Membresías y Roles**: Roles de usuario dentro del club (`ADMIN`, `MODERATOR`, `MEMBER`) y estados (`ACTIVE`, `PENDING_APPROVAL`, `BANNED`), permitiendo solicitudes de unión en clubs privados y auto-ingreso en públicos.
-3. **Plan de Lecturas Conjuntas**: Libro en curso (`current_book`), lecturas programadas (`UPCOMING`) y lecturas finalizadas (`FINISHED`) con fechas estimadas y metas de capítulos.
-4. **Hilos de Debate y Spoilers**: Discusiones temáticas por libro o generales, hilos fijados (`is_pinned`), soporte de advertencia de spoilers (`has_spoilers`) y comentarios anidados.
-5. **Experiencia Frontend Premium**: Explorador de clubs, vista detallada con pestañas fluidas, interfaz accesible WCAG, diseño moderno acorde al sistema de diseño existente (Tailwind/CSS tokens).
+Continuando con la **Sección 30 (Futuro / Funcionalidades avanzadas)** de [RoadmapV3.md](file:///c:/Users/zaton/Desktop/Escritorio/proyectos/MyBookConnect/RoadmapV3.md), implementamos las **Listas Colaborativas**:
+1. Permitir que una `ReadingList` sea marcada como colaborativa (`is_collaborative=True`).
+2. Invitar a otros lectores a colaborar mediante `ReadingListCollaborator` con estados (`PENDING`, `ACCEPTED`, `REJECTED`) y permisos granulares (`can_add_books`, `can_remove_books`, rol `EDITOR`/`VIEWER`).
+3. Trazabilidad: en cada `ReadingListItem`, registrar quién aportó el libro (`added_by`).
+4. Autorización y permisos en `ReadingListViewSet`:
+   - El dueño conserva el control total y puede invitar o remover colaboradores.
+   - Los colaboradores aceptados con `can_add_books=True` pueden añadir libros y reordenar.
+   - Los colaboradores pueden eliminar los libros que ellos mismos añadieron, o cualquier libro si disponen de `can_remove_books=True`.
+   - El colaborador puede aceptar, rechazar o abandonar la colaboración.
+5. Endpoints REST completos en `/api/v1/books/reading-lists/<id>/collaborators/`.
+6. Experiencia frontend en `features/books/pages/ReadingLists.tsx`:
+   - Pestaña / filtro "Listas Colaborativas".
+   - Tarjetas con badge "Colaborativa" e indicador de colaboradores.
+   - Modal de invitación y panel para aceptar/rechazar invitaciones.
+   - Etiqueta "Añadido por @usuario" en los libros de la lista.
 
 ---
 
-## 2. Arquitectura de Datos y Backend (Django / DRF)
+## 2. Cambios en Backend (Django / DRF)
 
 ### 2.1 Modelos (`backend/books/models.py`)
-- **`ReadingClub`**:
-  - `name`: CharField(max_length=200)
-  - `slug`: SlugField(unique=True, blank=True)
-  - `description`: TextField(blank=True)
-  - `cover_image`: ImageField(upload_to='club_covers/', null=True, blank=True)
-  - `creator`: ForeignKey(User, related_name='created_clubs')
-  - `is_private`: BooleanField(default=False)
-  - `rules`: TextField(blank=True)
-  - `current_book`: ForeignKey(Book, null=True, blank=True, on_delete=SET_NULL, related_name='active_in_clubs')
-  - Timestamps (`created_at`, `updated_at`)
-- **`ReadingClubMember`**:
-  - `club`: ForeignKey(ReadingClub, related_name='memberships', on_delete=CASCADE)
-  - `user`: ForeignKey(User, related_name='club_memberships', on_delete=CASCADE)
-  - `role`: TextChoices (`ADMIN`, `MODERATOR`, `MEMBER`)
-  - `status`: TextChoices (`ACTIVE`, `PENDING_APPROVAL`, `BANNED`)
-  - `joined_at`: DateTimeField(auto_now_add=True)
-  - `unique_together = ('club', 'user')`
-- **`ReadingClubBook`**:
-  - `club`: ForeignKey(ReadingClub, related_name='reading_plan', on_delete=CASCADE)
-  - `book`: ForeignKey(Book, related_name='club_readings', on_delete=CASCADE)
-  - `status`: TextChoices (`CURRENT`, `UPCOMING`, `FINISHED`)
-  - `start_date`, `end_date`: DateField(null=True, blank=True)
-  - `target_milestones`: CharField(max_length=255, blank=True)
-  - `created_at`: DateTimeField(auto_now_add=True)
-- **`ReadingClubDiscussion`**:
-  - `club`: ForeignKey(ReadingClub, related_name='discussions', on_delete=CASCADE)
-  - `book`: ForeignKey(Book, null=True, blank=True, on_delete=SET_NULL, related_name='club_discussions')
-  - `title`: CharField(max_length=255)
-  - `content`: TextField()
-  - `author`: ForeignKey(User, related_name='club_discussions', on_delete=CASCADE)
-  - `is_pinned`: BooleanField(default=False)
-  - `has_spoilers`: BooleanField(default=False)
-  - Timestamps (`created_at`, `updated_at`)
-- **`ReadingClubDiscussionComment`**:
-  - `discussion`: ForeignKey(ReadingClubDiscussion, related_name='comments', on_delete=CASCADE)
-  - `author`: ForeignKey(User, related_name='club_discussion_comments', on_delete=CASCADE)
-  - `content`: TextField()
-  - `has_spoilers`: BooleanField(default=False)
-  - Timestamps (`created_at`, `updated_at`)
+- **`ReadingList`**:
+  - Añadir campo `is_collaborative = models.BooleanField(default=False, db_index=True)`.
+- **`ReadingListItem`**:
+  - Añadir campo `added_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name='added_reading_list_items')`.
+- **`ReadingListCollaborator`**:
+  - `reading_list = models.ForeignKey(ReadingList, on_delete=models.CASCADE, related_name='collaborations')`
+  - `user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='collaborative_lists')`
+  - `role = models.CharField(max_length=20, choices=['EDITOR', 'VIEWER'], default='EDITOR')`
+  - `status = models.CharField(max_length=20, choices=['PENDING', 'ACCEPTED', 'REJECTED'], default='PENDING', db_index=True)`
+  - `can_add_books = models.BooleanField(default=True)`
+  - `can_remove_books = models.BooleanField(default=False)`
+  - `invited_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL, related_name='sent_collaborations')`
+  - Timestamps (`created_at`, `updated_at`).
+  - Constraint `unique_together = ('reading_list', 'user')`.
 
-### 2.2 Serializadores (`backend/books/club_serializers.py`)
-- Serializadores detallados y ligeros para listados, detalle, miembros, plan de lectura y debates con conteo de comentarios.
-- Sanitización anti-XSS en descripciones, reglas y comentarios de debate.
+### 2.2 Serializadores (`backend/books/serializers.py`)
+- `ReadingListCollaboratorSerializer`: datos del usuario (`id`, `username`, `avatar_url`), `role`, `status`, `can_add_books`, `can_remove_books`, `invited_by`.
+- Actualizar `ReadingListItemSerializer` para exponer `added_by` (`id`, `username`).
+- Actualizar `ReadingListSerializer` y `ReadingListCreateUpdateSerializer` para exponer `is_collaborative`, `collaborators_count` y si el usuario actual es colaborador.
 
-### 2.3 Vistas y Rutas (`backend/books/club_views.py` & `backend/books/club_urls.py`)
-- `GET /api/v1/clubs/`: Explorar clubs públicos y filtrar por pertenencia (`my_clubs=true`) o término de búsqueda (`q`).
-- `POST /api/v1/clubs/`: Crear club (creador adquiere rol `ADMIN` automático).
-- `GET /api/v1/clubs/<slug>/`: Consulta detallada del club y estado de membresía del usuario actual.
-- `PATCH /api/v1/clubs/<slug>/`: Modificación (exclusivo para `ADMIN`).
-- `POST /api/v1/clubs/<slug>/join/`: Unirse al club (`ACTIVE` si es público, `PENDING_APPROVAL` si es privado).
-- `POST /api/v1/clubs/<slug>/leave/`: Salir del club.
-- `GET /api/v1/clubs/<slug>/members/`: Lista de miembros y roles.
-- `PATCH /api/v1/clubs/<slug>/members/<user_id>/`: Moderar miembro / aprobar ingreso (solo `ADMIN`/`MODERATOR`).
-- `POST /api/v1/clubs/<slug>/books/`: Añadir lectura al plan o actualizar libro actual.
-- `GET/POST /api/v1/clubs/<slug>/discussions/`: Hilos de debate del club.
-- `GET /api/v1/clubs/<slug>/discussions/<pk>/`: Detalle del debate y comentarios.
-- `POST /api/v1/clubs/<slug>/discussions/<pk>/comments/`: Comentar en un debate.
+### 2.3 Vistas y Acciones (`backend/books/views.py`)
+- En `ReadingListViewSet`:
+  - `get_queryset`: soporte para `?collaborative=true`.
+  - `add_book`: permitir si es el dueño o colaborador `ACCEPTED` con `can_add_books=True`. Registrar `added_by = request.user`.
+  - `remove_book`: permitir si es dueño, si el colaborador tiene `can_remove_books=True` o si `item.added_by == request.user`.
+  - Action `collaborators` (`GET`, `POST`): listar e invitar colaboradores.
+  - Action `manage_collaborator` (`PATCH`, `DELETE`): aceptar invitación, actualizar permisos o revocar.
 
 ---
 
-## 3. Frontend (React 18 + TypeScript + Vite)
+## 3. Cambios en Frontend (React 18 + TypeScript + Vite)
 
-### 3.1 Tipos y Servicios (`frontend/src/features/clubs/`)
-- `types/index.ts`: Definición de interfaces `ReadingClub`, `ReadingClubMember`, `ReadingClubBook`, `ReadingClubDiscussion`, `ReadingClubComment`.
-- `services/clubService.ts`: Clientes de API con Axios para todos los endpoints de clubs.
+### 3.1 Tipos y API
+- Extender tipos en `frontend/src/features/books/types/`: `ReadingListCollaborator`, flag `is_collaborative`, `added_by` en items.
+- Servicios para `inviteCollaborator`, `acceptCollaboration`, `removeCollaborator`.
 
-### 3.2 Páginas y Componentes
-- `pages/ClubsPage.tsx`:
-  - Listado de clubs con pestañas "Explorar Clubs" y "Mis Clubs".
-  - Barra de búsqueda y filtros.
-  - Botón y modal accesible para "Crear Club".
-- `pages/ClubDetailPage.tsx`:
-  - Banner, información general, badges de privacidad (`Público` / `Privado`).
-  - Botones contextuales: `Unirse`, `Solicitar acceso`, `Salir`, `Gestionar`.
-  - Pestañas organizadas:
-    - **Lecturas**: Libro actual con enlace a detalle de libro, barra de avance, historial de lecturas conjuntas y botón para proponer/añadir nuevo libro (para admins/moderadores).
-    - **Debates**: Foro del club, temas fijados, indicador de spoilers con blur/reveal y modal para nuevo tema.
-    - **Miembros**: Listado de integrantes, roles destacados y panel de aprobación de solicitudes si es admin.
-- Integración en navegación: enlace en `Navbar.tsx` y rutas `/clubs` y `/clubs/:slug` en `App.tsx`.
+### 3.2 Interfaz (`ReadingLists.tsx`)
+- Pestaña "Colaborativas".
+- Badge en las listas colaborativas con avatares de colaboradores.
+- Modal para invitar por nombre de usuario.
+- Aceptación/rechazo de invitaciones pendientes.
 
 ---
 
 ## 4. Pruebas y Validación
 
-1. **Backend Tests (`backend/tests/test_sprint9_reading_clubs.py`)**:
-   - `test_create_club_and_auto_admin_membership`
-   - `test_join_public_club_and_request_private_club`
-   - `test_admin_can_approve_member_and_change_roles`
-   - `test_club_reading_plan_and_current_book`
-   - `test_club_discussions_with_spoilers_and_permissions`
+1. **Backend Tests (`backend/tests/test_sprint10_collaborative_lists.py`)**:
+   - `test_owner_can_invite_collaborator_and_set_permissions`
+   - `test_collaborator_accept_invitation`
+   - `test_collaborator_can_add_book_to_list`
+   - `test_item_tracks_added_by_user`
+   - `test_collaborator_cannot_remove_others_books_without_permission`
+   - `test_collaborator_can_leave_list`
 2. **Regresión Total Backend**:
-   - Ejecución secuencial de los tests (Sprints 1 al 9) garantizando 100% de éxito.
-3. **Frontend Tests & Build**:
-   - Test unitario de `ClubsPage.test.tsx` en Vitest.
-   - `npm run typecheck` (`tsc --noEmit`) con 0 errores.
-   - `npm run test` (Vitest) 100% pasando.
-   - `npm run build` exitoso.
+   - Ejecutar la suite completa secuencial de Sprints 1 al 10 (71 tests).
+3. **Frontend Validation**:
+   - `npm run typecheck` (`tsc --noEmit`).
+   - `npm run test` (Vitest).
+   - `npm run build`.
 4. **Documentación y Git**:
    - Actualizar `RoadmapV3.md`, `memory.md`, `CHANGELOG.md`.
    - Commit y push a `origin/develop`.

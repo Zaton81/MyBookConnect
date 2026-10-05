@@ -11,6 +11,7 @@ export const readingListSchema = z.object({
     .optional()
     .or(z.literal('')),
   privacy: z.enum(['public', 'followers', 'private']),
+  is_collaborative: z.boolean(),
 });
 
 export type ReadingListFormData = z.infer<typeof readingListSchema>;

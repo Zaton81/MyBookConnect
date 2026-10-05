@@ -23,6 +23,7 @@ from .models import (
     Errata,
     ErrataStatus,
     ReadingList,
+    ReadingListCollaborator,
     ReadingListComment,
     ReadingListFollow,
     ReadingListItem,
@@ -37,6 +38,7 @@ from .serializers import (
     AuthorSerializer,
     BookSerializer,
     ErrataSerializer,
+    ReadingListCollaboratorSerializer,
     ReadingListCommentSerializer,
     ReadingListCreateUpdateSerializer,
     ReadingListItemSerializer,
@@ -1544,12 +1546,18 @@ class ReadingListViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         queryset = ReadingList.objects.select_related('user').prefetch_related(
-            'items__book', 'items__book__author', 'followers'
+            'items__book', 'items__book__author', 'items__added_by', 'followers', 'collaborators__user'
         )
 
         user_id_param = self.request.query_params.get('user_id')
         if user_id_param:
             queryset = queryset.filter(user_id=user_id_param)
+
+        if self.request.query_params.get('collaborative') == 'true' and user.is_authenticated:
+            return queryset.filter(
+                Q(collaborators__user=user, collaborators__status__in=['ACCEPTED', 'PENDING']) |
+                Q(user=user, is_collaborative=True)
+            ).distinct()
 
         if self.request.query_params.get('my_lists') == 'true' and user.is_authenticated:
             return queryset.filter(user=user)
@@ -1608,7 +1616,17 @@ class ReadingListViewSet(viewsets.ModelViewSet):
     def add_book(self, request, pk=None):
         """Añade un libro a la lista en una posición específica o al final bajo bloqueo exclusivo de fila."""
         reading_list = self.get_object()
-        if reading_list.user != request.user and not request.user.is_staff:
+        user = request.user
+
+        is_owner = (reading_list.user == user)
+        is_staff = user.is_staff
+        can_add = is_owner or is_staff
+        if not can_add and reading_list.is_collaborative:
+            collab = reading_list.collaborators.filter(user=user, status='ACCEPTED').first()
+            if collab and collab.can_add_books:
+                can_add = True
+
+        if not can_add:
             return Response({'detail': 'No tienes permiso para modificar esta lista.'}, status=status.HTTP_403_FORBIDDEN)
 
         book_id = request.data.get('book_id')
@@ -1643,6 +1661,7 @@ class ReadingListViewSet(viewsets.ModelViewSet):
                         book=book,
                         position=position,
                         notes=notes,
+                        added_by=user,
                     )
             except IntegrityError:
                 return Response({'detail': 'Este libro ya se encuentra en la lista.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -1653,17 +1672,30 @@ class ReadingListViewSet(viewsets.ModelViewSet):
     def remove_book(self, request, pk=None):
         """Elimina un libro de la lista de lectura."""
         reading_list = self.get_object()
-        if reading_list.user != request.user and not request.user.is_staff:
-            return Response({'detail': 'No tienes permiso para modificar esta lista.'}, status=status.HTTP_403_FORBIDDEN)
+        user = request.user
 
         book_id = request.data.get('book_id') or request.query_params.get('book_id')
         if not book_id:
             return Response({'detail': 'El parámetro book_id es obligatorio.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        with transaction.atomic():
-            deleted_count, _ = ReadingListItem.objects.filter(reading_list=reading_list, book_id=book_id).delete()
-        if deleted_count == 0:
+        item = ReadingListItem.objects.filter(reading_list=reading_list, book_id=book_id).first()
+        if not item:
             return Response({'detail': 'El libro no estaba en esta lista.'}, status=status.HTTP_404_NOT_FOUND)
+
+        can_remove = False
+        if reading_list.user == user or user.is_staff:
+            can_remove = True
+        elif reading_list.is_collaborative:
+            collab = reading_list.collaborators.filter(user=user, status='ACCEPTED').first()
+            if collab:
+                if collab.can_remove_books or item.added_by_id == user.id:
+                    can_remove = True
+
+        if not can_remove:
+            return Response({'detail': 'No tienes permiso para modificar esta lista.'}, status=status.HTTP_403_FORBIDDEN)
+
+        with transaction.atomic():
+            item.delete()
 
         return Response({'detail': 'Libro eliminado de la lista.'}, status=status.HTTP_200_OK)
 
@@ -1674,7 +1706,13 @@ class ReadingListViewSet(viewsets.ModelViewSet):
         [ {"book_id": 1, "position": 1}, {"book_id": 2, "position": 2} ] o [1, 2, 3] (lista ordenada de IDs).
         """
         reading_list = self.get_object()
-        if reading_list.user != request.user and not request.user.is_staff:
+        user = request.user
+
+        can_edit = (reading_list.user == user or user.is_staff)
+        if not can_edit and reading_list.is_collaborative:
+            can_edit = reading_list.collaborators.filter(user=user, status='ACCEPTED').exists()
+
+        if not can_edit:
             return Response({'detail': 'No tienes permiso para modificar esta lista.'}, status=status.HTTP_403_FORBIDDEN)
 
         orders = request.data.get('items') or request.data
@@ -1835,6 +1873,122 @@ class ReadingListViewSet(viewsets.ModelViewSet):
             )
         comment.delete()
         return Response({'detail': 'Comentario eliminado.'}, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['get', 'post'], url_path='collaborators', permission_classes=[permissions.IsAuthenticated])
+    def collaborators(self, request, pk=None):
+        """Lista o invita colaboradores a una lista de lectura."""
+        reading_list = self.get_object()
+
+        if request.method == 'GET':
+            collaborators_qs = reading_list.collaborators.select_related('user', 'invited_by').order_by('created_at')
+            serializer = ReadingListCollaboratorSerializer(collaborators_qs, many=True, context={'request': request})
+            return Response(serializer.data)
+
+        # POST: invitar colaborador
+        if reading_list.user != request.user and not request.user.is_staff:
+            return Response({'detail': 'Solo el creador de la lista puede invitar colaboradores.'}, status=status.HTTP_403_FORBIDDEN)
+
+        from django.contrib.auth import get_user_model
+        UserModel = get_user_model()
+
+        user_id = request.data.get('user_id')
+        username = request.data.get('username')
+        email = request.data.get('email')
+
+        target_user = None
+        if user_id:
+            target_user = UserModel.objects.filter(id=user_id).first()
+        elif username:
+            target_user = UserModel.objects.filter(username__iexact=username).first()
+        elif email:
+            target_user = UserModel.objects.filter(email__iexact=email).first()
+
+        if not target_user:
+            return Response({'detail': 'Usuario a invitar no encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if target_user == reading_list.user:
+            return Response({'detail': 'El creador de la lista ya es el propietario.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if reading_list.collaborators.filter(user=target_user).exists():
+            return Response({'detail': 'Este usuario ya ha sido invitado a la lista.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        role = request.data.get('role', 'EDITOR')
+        can_add_books = request.data.get('can_add_books', True)
+        can_remove_books = request.data.get('can_remove_books', False)
+
+        with transaction.atomic():
+            if not reading_list.is_collaborative:
+                reading_list.is_collaborative = True
+                reading_list.save(update_fields=['is_collaborative'])
+
+            collaborator = ReadingListCollaborator.objects.create(
+                reading_list=reading_list,
+                user=target_user,
+                invited_by=request.user,
+                role=role,
+                status='PENDING',
+                can_add_books=can_add_books,
+                can_remove_books=can_remove_books,
+            )
+
+            try:
+                from users.models import NotificationType
+                from users.notification_service import NotificationService
+                NotificationService.send_notification(
+                    recipient=target_user,
+                    actor=request.user,
+                    notif_type=NotificationType.LIST_FOLLOW,
+                    title='Invitación a lista colaborativa',
+                    message=f"{request.user.username} te ha invitado a colaborar en la lista '{reading_list.name}'.",
+                    link=f"/reading-lists?id={reading_list.id}",
+                )
+            except Exception:
+                pass
+
+        return Response(
+            ReadingListCollaboratorSerializer(collaborator, context={'request': request}).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+    @action(detail=True, methods=['patch', 'delete'], url_path=r'collaborators/(?P<user_id>\d+)', permission_classes=[permissions.IsAuthenticated])
+    def manage_collaborator(self, request, pk=None, user_id=None):
+        """Gestiona el estado o permisos de un colaborador (aceptar/rechazar/editar/eliminar)."""
+        reading_list = self.get_object()
+        collaborator = get_object_or_404(reading_list.collaborators.select_related('user'), user_id=user_id)
+
+        is_self = (request.user.id == collaborator.user_id)
+        is_owner = (reading_list.user == request.user or request.user.is_staff)
+
+        if request.method == 'PATCH':
+            new_status = request.data.get('status')
+            with transaction.atomic():
+                if is_self:
+                    if new_status in ['ACCEPTED', 'REJECTED']:
+                        collaborator.status = new_status
+                        collaborator.save(update_fields=['status', 'updated_at'])
+                        return Response(ReadingListCollaboratorSerializer(collaborator, context={'request': request}).data)
+                    return Response({'detail': 'Estado no válido.'}, status=status.HTTP_400_BAD_REQUEST)
+
+                if is_owner:
+                    if new_status in ['ACCEPTED', 'REJECTED', 'PENDING']:
+                        collaborator.status = new_status
+                    if 'can_add_books' in request.data:
+                        collaborator.can_add_books = bool(request.data['can_add_books'])
+                    if 'can_remove_books' in request.data:
+                        collaborator.can_remove_books = bool(request.data['can_remove_books'])
+                    if 'role' in request.data and request.data['role'] in ['EDITOR', 'VIEWER']:
+                        collaborator.role = request.data['role']
+                    collaborator.save()
+                    return Response(ReadingListCollaboratorSerializer(collaborator, context={'request': request}).data)
+
+                return Response({'detail': 'No tienes permiso para modificar este colaborador.'}, status=status.HTTP_403_FORBIDDEN)
+
+        if request.method == 'DELETE':
+            if not is_self and not is_owner:
+                return Response({'detail': 'No tienes permiso para eliminar este colaborador.'}, status=status.HTTP_403_FORBIDDEN)
+            with transaction.atomic():
+                collaborator.delete()
+            return Response({'detail': 'Colaborador eliminado.'}, status=status.HTTP_200_OK)
 
 
 class ReadingStatsView(APIView):

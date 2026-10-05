@@ -573,6 +573,7 @@ class PrivacyService:
 
         condition = (
             Q(user=viewer)
+            | Q(collaborators__user=viewer, collaborators__status="ACCEPTED")
             | (Q(privacy="public") & ~Q(user__privacy_level=PrivacyChoices.PRIVATE))
             | (Q(privacy="followers") & Q(user_id__in=following_ids))
         )

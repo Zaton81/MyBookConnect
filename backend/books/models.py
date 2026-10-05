@@ -576,6 +576,12 @@ class ReadingList(models.Model):
         db_index=True,
         help_text="Indica si la lista ha sido ocultada por el equipo de moderación",
     )
+    is_collaborative = models.BooleanField(
+        default=False,
+        db_index=True,
+        verbose_name="Lista colaborativa",
+        help_text="Permite que otros usuarios invitados colaboren añadiendo y organizando libros",
+    )
     views_count = models.PositiveIntegerField(
         default=0,
         help_text="Número de veces que la lista ha sido abierta/consultada",
@@ -592,6 +598,7 @@ class ReadingList(models.Model):
             models.Index(fields=['user', '-updated_at'], name='idx_readinglist_user_updated'),
             models.Index(fields=['privacy', '-updated_at'], name='idx_readinglist_priv_updated'),
             models.Index(fields=['is_moderated', '-updated_at'], name='idx_readinglist_mod_updated'),
+            models.Index(fields=['is_collaborative', '-updated_at'], name='idx_readinglist_collab_updated'),
         ]
 
     def save(self, *args, **kwargs):
@@ -617,6 +624,15 @@ class ReadingListItem(models.Model):
     book = models.ForeignKey(Book, on_delete=models.CASCADE, related_name='reading_list_items')
     position = models.PositiveIntegerField(default=0)
     notes = models.TextField(blank=True, default='')
+    added_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='added_reading_list_items',
+        verbose_name="Añadido por",
+        help_text="Usuario que aportó este libro a la lista (dueño o colaborador)",
+    )
     added_at = models.DateTimeField(default=timezone.now)
 
     class Meta:
@@ -630,6 +646,73 @@ class ReadingListItem(models.Model):
 
     def __str__(self):
         return f"{self.reading_list.name} - {self.book.title} (#{self.position})"
+
+
+class ReadingListCollaborator(models.Model):
+    """
+    Colaborador invitado a una lista de lectura colaborativa (RoadmapV3 Sección 30.2).
+    """
+    class Role(models.TextChoices):
+        EDITOR = 'EDITOR', 'Editor'
+        VIEWER = 'VIEWER', 'Lector'
+
+    class Status(models.TextChoices):
+        PENDING = 'PENDING', 'Invitación pendiente'
+        ACCEPTED = 'ACCEPTED', 'Aceptada'
+        REJECTED = 'REJECTED', 'Rechazada'
+
+    reading_list = models.ForeignKey(
+        ReadingList,
+        on_delete=models.CASCADE,
+        related_name='collaborators',
+        verbose_name='Lista de lectura',
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='collaborations',
+        verbose_name='Usuario colaborador',
+    )
+    role = models.CharField(
+        max_length=20,
+        choices=Role.choices,
+        default=Role.EDITOR,
+        verbose_name='Rol de colaboración',
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.PENDING,
+        db_index=True,
+        verbose_name='Estado de la invitación',
+    )
+    can_add_books = models.BooleanField(
+        default=True,
+        verbose_name='Puede añadir libros',
+    )
+    can_remove_books = models.BooleanField(
+        default=False,
+        verbose_name='Puede eliminar libros de otros',
+    )
+    invited_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='sent_collaborations',
+        verbose_name='Invitado por',
+    )
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Fecha de invitación')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='Última actualización')
+
+    class Meta:
+        verbose_name = 'Colaborador de Lista'
+        verbose_name_plural = 'Colaboradores de Listas'
+        unique_together = ('reading_list', 'user')
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.user.username} en {self.reading_list.name} [{self.status}]"
 
 
 class ReadingListFollow(models.Model):

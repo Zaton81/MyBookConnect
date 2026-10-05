@@ -939,7 +939,7 @@ Después:
 - [ ] newsletters;
 - [x] clubs de lectura (`/api/v1/clubs/`, lecturas conjuntas y debates con spoilers);
 - [x] grupos (comunidades literarias con roles ADMIN/MODERATOR/MEMBER y gestión de aprobación);
-- [ ] listas colaborativas;
+- [x] listas colaborativas (invitaciones, permisos EDITOR/VIEWER, atribución de autoría por libro y filtrado colaborativo);
 - [ ] recomendaciones avanzadas;
 - [ ] IA multimodal;
 - [ ] audiolibros/TTS;
@@ -1090,6 +1090,13 @@ No comenzar estas funcionalidades mientras existan tareas P0/P1 pendientes.
 2. [x] Endpoints API REST en `/api/v1/clubs/` (exploración, creación, membresías públicas y privadas con aprobación, plan de lectura y debates con spoilers).
 3. [x] Interfaz frontend accesible (`ClubsPage.tsx`, `ClubDetailPage.tsx`) con navegación en tabs WAI-ARIA, modal de creación de club y filtros por rol.
 4. [x] Pruebas y verificación integral (backend `test_sprint9_reading_clubs.py` 6/6 tests, frontend `ClubsPage.test.tsx` 4/4 tests, regresión 65/65 tests pasando).
+
+## Sprint 10 — Listas Colaborativas (COMPLETADO)
+
+1. [x] Modelado de datos: flag `ReadingList.is_collaborative`, autoría `ReadingListItem.added_by`, modelo `ReadingListCollaborator` (`role`, `status`, `can_add_books`, `can_remove_books`).
+2. [x] Endpoints API REST: soporte de filtrado `?collaborative=true`, endpoints `@action` para invitar colaboradores (`POST /api/v1/books/reading-lists/<id>/collaborators/`), responder invitaciones y gestionar permisos (`PATCH/DELETE /api/v1/books/reading-lists/<id>/collaborators/<user_id>/`).
+3. [x] Frontend reactivo y accesible: pestaña "🤝 Colaborativas", modal de invitación con selector de roles y permisos, trazabilidad de libros aportados ("Añadido por @user") y gestión de colaboradores en `ReadingLists.tsx`.
+4. [x] Verificación integral: suite backend `test_sprint10_collaborative_lists.py` (7/7 tests), regresión completa Sprints 1 al 10 (72/72 tests pasando), frontend validado (`typecheck`, `test` con 46 tests vitest, `build`).
 
 ---
 

@@ -7,6 +7,29 @@ y este proyecto se adhiere a [Semantic Versioning 2.0.0](https://semver.org/lang
 
 ## [Unreleased]
 
+### Added / Collaborative Lists (RoadmapV3 - Sección 30: Listas Colaborativas y Atribución de Autoría)
+- **Modelos de Dominio y Base de Datos**:
+  - `ReadingList.is_collaborative`: Flag booleano indexado para habilitar listas de lectura colaborativas entre usuarios.
+  - `ReadingListItem.added_by`: Clave foránea a `User` para registrar y atribuir qué miembro aportó cada libro a la lista.
+  - `ReadingListCollaborator`: Modelo relacional de invitaciones y colaboraciones (`role`, `status`, `can_add_books`, `can_remove_books`, `invited_by`).
+  - Migración aplicada en PostgreSQL: `0034_readinglistcollaborator_readinglist_is_collaborative_and_more.py`.
+- **Endpoints API REST (`/api/v1/books/reading-lists/`)**:
+  - Soporte de filtro `?collaborative=true` para consultar listas colaborativas en las que el usuario participa o es propietario.
+  - Adaptación de `PrivacyService.filter_visible_reading_lists` para visibilidad de listas privadas por colaboradores aceptados.
+  - Endpoints `@action` en `collaborators/` (`GET`, `POST`) y `collaborators/<user_id>/` (`PATCH`, `DELETE`).
+  - Permisos adaptados en `add-book` y `remove-book` con autoría `added_by` y control de borrado según permisos o aportación propia.
+- **Frontend y UX (`ReadingLists.tsx`)**:
+  - Pestaña "🤝 Colaborativas" en la barra de navegación de listas.
+  - Badges de lista colaborativa en tarjetas de cuadrícula y vista de detalle.
+  - Panel interactivo de colaboradores con avatares, roles y estados.
+  - Banner para aceptar o rechazar invitaciones de colaboración pendientes.
+  - Modal interactivo para invitar colaboradores por nombre de usuario con roles (`EDITOR`, `VIEWER`) y permisos granulares.
+  - Atribución visual de autoría ("Añadido por @usuario") en cada libro de la lista.
+- **Pruebas y Verificación Integral**:
+  - Creada suite `backend/tests/test_sprint10_collaborative_lists.py` (7/7 pruebas al 100%).
+  - Regresión secuencial completa de backend superada (72/72 pruebas pasando al 100% de Sprints 1 al 10).
+  - Frontend verificado: TypeScript estricto con 0 errores (`tsc --noEmit`), 46 tests en Vitest pasando al 100% en 14 suites y build de producción Vite exitoso.
+
 ### Added / Reading Clubs & Groups (RoadmapV3 - Sección 30.1: Clubs de Lectura, Grupos y Debates por Capítulos)
 - **Modelos de Dominio de Clubs y Grupos Literarios**:
   - Modelos `ReadingClub`, `ReadingClubMember`, `ReadingClubBook`, `ReadingClubDiscussion` y `ReadingClubDiscussionComment`.
