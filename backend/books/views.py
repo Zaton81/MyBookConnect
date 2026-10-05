@@ -2441,5 +2441,171 @@ class PublicFAQListView(generics.ListAPIView):
         return qs
 
 
+class AuthorEventViewSet(viewsets.ModelViewSet):
+    """
+    Gestión y consulta de eventos literarios de autores (presentaciones, firmas, Q&A, etc.).
+    RoadmapV3 Sección 30 — Sprint 11.
+    """
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+
+    def get_queryset(self):
+        from .models import AuthorEvent
+        qs = AuthorEvent.objects.select_related('author', 'book', 'created_by', 'author_profile').prefetch_related('attendees')
+
+        author_id = self.request.query_params.get('author') or self.request.query_params.get('author_id')
+        if author_id:
+            qs = qs.filter(author_id=author_id)
+
+        book_id = self.request.query_params.get('book') or self.request.query_params.get('book_id')
+        if book_id:
+            qs = qs.filter(book_id=book_id)
+
+        event_type = self.request.query_params.get('event_type')
+        if event_type:
+            qs = qs.filter(event_type=event_type)
+
+        event_format = self.request.query_params.get('format') or self.request.query_params.get('event_format')
+        if event_format:
+            qs = qs.filter(event_format=event_format)
+
+        upcoming = self.request.query_params.get('upcoming')
+        if upcoming in ('true', '1', 'True'):
+            from django.utils import timezone
+            qs = qs.filter(start_time__gte=timezone.now(), is_cancelled=False)
+        elif self.request.query_params.get('past') in ('true', '1', 'True'):
+            from django.utils import timezone
+            qs = qs.filter(start_time__lt=timezone.now())
+
+        search = self.request.query_params.get('search')
+        if search:
+            from django.db.models import Q
+            qs = qs.filter(Q(title__icontains=search) | Q(description__icontains=search) | Q(location_name__icontains=search))
+
+        return qs.order_by('start_time')
+
+    def get_serializer_class(self):
+        from .serializers import AuthorEventCreateUpdateSerializer, AuthorEventSerializer
+        if self.action in ('create', 'update', 'partial_update'):
+            return AuthorEventCreateUpdateSerializer
+        return AuthorEventSerializer
+
+    def perform_create(self, serializer):
+        from .models import AuthorProfile
+        author = serializer.validated_data['author']
+        author_profile = AuthorProfile.objects.filter(user=self.request.user, author=author).first()
+        serializer.save(created_by=self.request.user, author_profile=author_profile)
+
+    def perform_destroy(self, instance):
+        user = self.request.user
+        is_owner = (instance.created_by_id == user.id or instance.author.claimed_by_id == user.id)
+        is_staff = user.is_staff or getattr(user, 'role', '') in ('ADMIN', 'MODERATOR')
+        if not (is_owner or is_staff):
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("No tienes permisos para eliminar este evento.")
+        instance.delete()
+
+    def perform_update(self, serializer):
+        user = self.request.user
+        instance = self.get_object()
+        is_owner = (instance.created_by_id == user.id or instance.author.claimed_by_id == user.id)
+        is_staff = user.is_staff or getattr(user, 'role', '') in ('ADMIN', 'MODERATOR')
+        if not (is_owner or is_staff):
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("No tienes permisos para modificar este evento.")
+        serializer.save()
+
+    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
+    def register(self, request, pk=None):
+        from .models import AuthorEventAttendee
+        event = self.get_object()
+
+        if event.is_cancelled:
+            return Response({'detail': 'Este evento ha sido cancelado.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        notes = request.data.get('notes', '').strip()
+        attendee = AuthorEventAttendee.objects.filter(event=event, user=request.user).first()
+
+        if attendee:
+            if attendee.status in (AuthorEventAttendee.AttendeeStatus.REGISTERED, AuthorEventAttendee.AttendeeStatus.WAITLIST):
+                if notes:
+                    attendee.notes = notes
+                    attendee.save()
+                return Response({
+                    'detail': f'Ya estás inscrito en este evento ({attendee.get_status_display()}).',
+                    'status': attendee.status,
+                    'is_waitlist': (attendee.status == AuthorEventAttendee.AttendeeStatus.WAITLIST),
+                }, status=status.HTTP_200_OK)
+            else:
+                # Was CANCELLED, reactivate
+                new_status = AuthorEventAttendee.AttendeeStatus.WAITLIST if event.is_full else AuthorEventAttendee.AttendeeStatus.REGISTERED
+                attendee.status = new_status
+                attendee.notes = notes
+                attendee.save()
+                return Response({
+                    'detail': f'Inscripción reactivada ({attendee.get_status_display()}).',
+                    'status': attendee.status,
+                    'is_waitlist': (new_status == AuthorEventAttendee.AttendeeStatus.WAITLIST),
+                }, status=status.HTTP_200_OK)
+
+        new_status = AuthorEventAttendee.AttendeeStatus.WAITLIST if event.is_full else AuthorEventAttendee.AttendeeStatus.REGISTERED
+        attendee = AuthorEventAttendee.objects.create(
+            event=event,
+            user=request.user,
+            status=new_status,
+            notes=notes,
+        )
+        msg = 'Te hemos añadido a la lista de espera.' if new_status == AuthorEventAttendee.AttendeeStatus.WAITLIST else '¡Inscripción confirmada!'
+        return Response({
+            'detail': msg,
+            'status': new_status,
+            'is_waitlist': (new_status == AuthorEventAttendee.AttendeeStatus.WAITLIST),
+        }, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
+    def cancel_registration(self, request, pk=None):
+        from .models import AuthorEventAttendee
+        event = self.get_object()
+        attendee = AuthorEventAttendee.objects.filter(event=event, user=request.user).first()
+
+        if not attendee or attendee.status == AuthorEventAttendee.AttendeeStatus.CANCELLED:
+            return Response({'detail': 'No tienes una inscripción activa para este evento.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        was_registered = (attendee.status == AuthorEventAttendee.AttendeeStatus.REGISTERED)
+        attendee.status = AuthorEventAttendee.AttendeeStatus.CANCELLED
+        attendee.save()
+
+        # If user had a confirmed seat, promote next person on waitlist
+        promoted_username = None
+        if was_registered:
+            next_in_line = event.attendees.filter(
+                status=AuthorEventAttendee.AttendeeStatus.WAITLIST
+            ).order_by('created_at').first()
+            if next_in_line:
+                next_in_line.status = AuthorEventAttendee.AttendeeStatus.REGISTERED
+                next_in_line.save()
+                promoted_username = next_in_line.user.username
+
+        return Response({
+            'detail': 'Tu inscripción ha sido cancelada correctamente.',
+            'status': 'CANCELLED',
+            'promoted_user': promoted_username,
+        }, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['get'], permission_classes=[permissions.IsAuthenticated])
+    def attendees(self, request, pk=None):
+        from .serializers import AuthorEventAttendeeSerializer
+        event = self.get_object()
+        user = request.user
+        is_organizer = (event.created_by_id == user.id or event.author.claimed_by_id == user.id or user.is_staff or getattr(user, 'role', '') in ('ADMIN', 'MODERATOR'))
+
+        if is_organizer:
+            attendees = event.attendees.select_related('user').all().order_by('created_at')
+        else:
+            attendees = event.attendees.filter(status='REGISTERED').select_related('user').order_by('created_at')
+
+        serializer = AuthorEventAttendeeSerializer(attendees, many=True, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
 
 

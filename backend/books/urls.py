@@ -28,6 +28,7 @@ from .views import (
     AuthorClaimView,
     AuthorDashboardView,
     AuthorDetailView,
+    AuthorEventViewSet,
     AuthorListCreateView,
     AuthorProfileMeView,
     BookAffiliateClickView,
@@ -57,6 +58,7 @@ from .views import (
 
 router = DefaultRouter()
 router.register('reading-lists', ReadingListViewSet, basename='reading-lists')
+router.register('author-events', AuthorEventViewSet, basename='author-events')
 
 urlpatterns = [
     path('legal/', PublicLegalDocumentListView.as_view(), name='books-legal-list'),

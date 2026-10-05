@@ -7,6 +7,28 @@ y este proyecto se adhiere a [Semantic Versioning 2.0.0](https://semver.org/lang
 
 ## [Unreleased]
 
+### Added / Author Events & Encounters (RoadmapV3 - Sección 30: Eventos de Autores, Presentaciones y Reservas)
+- **Modelos de Dominio y Base de Datos**:
+  - `AuthorEvent`: Modelo para eventos literarios (presentaciones, firmas, Q&A, lecturas, talleres). Soporta formatos `ONLINE`, `IN_PERSON`, `HYBRID`, enlace a libro presentado, zona horaria y aforo máximo (`max_attendees`).
+  - `AuthorEventAttendee`: Inscripciones de lectores con estados `REGISTERED`, `WAITLIST`, `CANCELLED` y preguntas opcionales para el autor.
+  - Migración aplicada en PostgreSQL: `0035_authorevent_authoreventattendee.py`.
+- **Endpoints API REST (`/api/v1/books/author-events/`)**:
+  - ViewSet completo con filtrado avanzado por autor, libro, tipo, formato, próximos/pasados (`upcoming=true`) y búsqueda por texto.
+  - Acción `@action register`: reserva de plazas con colocación automática en lista de espera al alcanzar aforo.
+  - Acción `@action cancel_registration`: cancelación de plaza y autopromoción automática del primer usuario en lista de espera a confirmado.
+  - Acción `@action attendees`: consulta de asistentes y preguntas registradas para autores y moderadores.
+- **Frontend y UX (`Author.tsx` / `AuthorEventsSection.tsx`)**:
+  - Componente accesible `AuthorEventsSection` integrado en la vista de autor.
+  - Filtro interactivo de eventos próximos e históricos.
+  - Tarjetas de eventos con badges de tipo, formato, indicador de plazas y fecha localizada en español.
+  - Modal para inscribirse con formulario de preguntas para el coloquio o notas al autor.
+  - Modal para programar nuevos eventos y modal para consultar lista de inscritos y preguntas formuladas.
+- **Pruebas y Verificación Integral**:
+  - Creada suite `backend/tests/test_sprint11_author_events.py` (7/7 tests al 100%).
+  - Creada suite `frontend/src/features/books/__tests__/AuthorEventsSection.test.tsx` (4/4 tests al 100%).
+  - Regresión secuencial completa de backend superada (79/79 pruebas pasando al 100% de Sprints 1 al 11).
+  - Frontend verificado: TypeScript estricto con 0 errores (`tsc --noEmit`), 50 tests en Vitest pasando al 100% en 15 suites y build de producción Vite exitoso.
+
 ### Added / Collaborative Lists (RoadmapV3 - Sección 30: Listas Colaborativas y Atribución de Autoría)
 - **Modelos de Dominio y Base de Datos**:
   - `ReadingList.is_collaborative`: Flag booleano indexado para habilitar listas de lectura colaborativas entre usuarios.

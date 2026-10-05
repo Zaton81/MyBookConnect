@@ -934,7 +934,7 @@ Después:
 
 # 30. 🔮 Futuro — No bloquea el lanzamiento
 
-- [ ] eventos de autores;
+- [x] eventos de autores (presentaciones, firmas, Q&A, aforo y lista de espera automática);
 - [ ] publicaciones avanzadas de autores;
 - [ ] newsletters;
 - [x] clubs de lectura (`/api/v1/clubs/`, lecturas conjuntas y debates con spoilers);
@@ -1097,6 +1097,13 @@ No comenzar estas funcionalidades mientras existan tareas P0/P1 pendientes.
 2. [x] Endpoints API REST: soporte de filtrado `?collaborative=true`, endpoints `@action` para invitar colaboradores (`POST /api/v1/books/reading-lists/<id>/collaborators/`), responder invitaciones y gestionar permisos (`PATCH/DELETE /api/v1/books/reading-lists/<id>/collaborators/<user_id>/`).
 3. [x] Frontend reactivo y accesible: pestaña "🤝 Colaborativas", modal de invitación con selector de roles y permisos, trazabilidad de libros aportados ("Añadido por @user") y gestión de colaboradores en `ReadingLists.tsx`.
 4. [x] Verificación integral: suite backend `test_sprint10_collaborative_lists.py` (7/7 tests), regresión completa Sprints 1 al 10 (72/72 tests pasando), frontend validado (`typecheck`, `test` con 46 tests vitest, `build`).
+
+## Sprint 11 — Eventos de Autores (COMPLETADO)
+
+1. [x] Modelado de datos: `AuthorEvent` (tipos `BOOK_LAUNCH`, `SIGNING`, `QA_SESSION`, `READING`, `WORKSHOP`, `OTHER`; formatos `ONLINE`, `IN_PERSON`, `HYBRID`; vinculación a libro y fecha/hora con zona horaria y aforo) y `AuthorEventAttendee` (estados `REGISTERED`, `WAITLIST`, `CANCELLED` y preguntas/notas al autor).
+2. [x] Endpoints API REST: `AuthorEventViewSet` en `/api/v1/books/author-events/` con filtrado (`upcoming`, `past`, `author`, `book`, `event_type`, `format`, `search`), acciones `@action` para reserva `/register/`, cancelación `/cancel_registration/` con autopromoción de lista de espera, y gestión de asistentes `/attendees/`.
+3. [x] Frontend interactivo: componente `AuthorEventsSection.tsx` integrado en `Author.tsx`, selector de eventos próximos e históricos, reserva con envío de preguntas al autor, panel de aforo dinámico y modales para creación de eventos y visualización de asistentes para autores y administradores.
+4. [x] Pruebas y verificación integral: suite backend `test_sprint11_author_events.py` (7/7 tests), suite frontend `AuthorEventsSection.test.tsx` (4/4 tests), regresión completa Sprints 1 al 11 (79/79 tests pasando), typecheck estricto con 0 errores y build de producción validado.
 
 ---
 

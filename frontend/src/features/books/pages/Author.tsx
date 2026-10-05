@@ -13,6 +13,7 @@ import {
   HiOutlineShieldCheck,
 } from 'react-icons/hi';
 import { BsTwitterX, BsInstagram, BsWikipedia } from 'react-icons/bs';
+import { AuthorEventsSection } from '../components/AuthorEventsSection';
 
 interface AuthorData {
   id: number;
@@ -31,6 +32,7 @@ interface AuthorData {
   is_verified?: boolean;
   is_claimed?: boolean;
   can_claim?: boolean;
+  claimed_by?: number;
   published_books_count?: number;
   average_rating?: number;
   total_reviews_count?: number;
@@ -510,6 +512,16 @@ export function Author() {
           </div>
         )}
       </div>
+
+      {/* Encuentros y Eventos Literarios del Autor */}
+      <AuthorEventsSection
+        authorId={author.id}
+        authorName={author.name}
+        isAuthorOwner={Boolean(
+          (user && (author.claimed_by === user.id || (user as any).role === 'ADMIN' || (user as any).role === 'MODERATOR' || user.is_staff))
+        )}
+        books={localBooks}
+      />
 
       {/* Formulario de Erratas / Sugerencias */}
       <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 p-6 shadow-sm">

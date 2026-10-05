@@ -7,6 +7,8 @@ from .models import (
     AuthorAnnouncement,
     AuthorClaim,
     AuthorClaimStatus,
+    AuthorEvent,
+    AuthorEventAttendee,
     AuthorProfile,
     Book,
     Category,
@@ -871,6 +873,128 @@ class FAQSerializer(serializers.ModelSerializer):
             'order', 'is_published', 'created_at', 'updated_at'
         )
         read_only_fields = ('id', 'created_at', 'updated_at')
+
+
+class AuthorEventAttendeeSerializer(serializers.ModelSerializer):
+    username = serializers.CharField(source='user.username', read_only=True)
+    user_avatar = serializers.SerializerMethodField()
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+
+    class Meta:
+        model = AuthorEventAttendee
+        fields = (
+            'id', 'event', 'user', 'username', 'user_avatar',
+            'status', 'status_display', 'notes', 'created_at', 'updated_at'
+        )
+        read_only_fields = ('id', 'created_at', 'updated_at', 'status_display')
+
+    @extend_schema_field(serializers.CharField(allow_null=True))
+    def get_user_avatar(self, obj):
+        request = self.context.get('request')
+        avatar = getattr(obj.user, 'avatar', None)
+        if avatar:
+            from .media_utils import build_media_url
+            return build_media_url(avatar, request=request)
+        return None
+
+
+class AuthorEventSerializer(serializers.ModelSerializer):
+    author_name = serializers.CharField(source='author.name', read_only=True)
+    author_photo = serializers.SerializerMethodField()
+    created_by_username = serializers.CharField(source='created_by.username', read_only=True)
+    book_title = serializers.CharField(source='book.title', read_only=True, allow_null=True)
+    book_cover = serializers.SerializerMethodField()
+    event_type_display = serializers.CharField(source='get_event_type_display', read_only=True)
+    event_format_display = serializers.CharField(source='get_event_format_display', read_only=True)
+    registered_count = serializers.IntegerField(read_only=True)
+    waitlist_count = serializers.IntegerField(read_only=True)
+    is_full = serializers.BooleanField(read_only=True)
+    user_registration_status = serializers.SerializerMethodField()
+    is_user_registered = serializers.SerializerMethodField()
+    user_notes = serializers.SerializerMethodField()
+
+    class Meta:
+        model = AuthorEvent
+        fields = (
+            'id', 'author', 'author_name', 'author_photo', 'author_profile',
+            'created_by', 'created_by_username', 'book', 'book_title', 'book_cover',
+            'title', 'description', 'event_type', 'event_type_display',
+            'event_format', 'event_format_display', 'start_time', 'end_time',
+            'event_timezone', 'location_name', 'location_address', 'online_url',
+            'max_attendees', 'is_cancelled', 'registered_count', 'waitlist_count',
+            'is_full', 'user_registration_status', 'is_user_registered', 'user_notes',
+            'created_at', 'updated_at'
+        )
+        read_only_fields = ('id', 'created_by', 'created_at', 'updated_at')
+
+    @extend_schema_field(serializers.CharField(allow_null=True))
+    def get_author_photo(self, obj):
+        request = self.context.get('request')
+        if obj.author and obj.author.photo:
+            from .media_utils import build_media_url
+            return build_media_url(obj.author.photo, request=request)
+        return None
+
+    @extend_schema_field(serializers.CharField(allow_null=True))
+    def get_book_cover(self, obj):
+        request = self.context.get('request')
+        if obj.book and obj.book.cover:
+            from .media_utils import build_media_url
+            return build_media_url(obj.book.cover, request=request)
+        return None
+
+    @extend_schema_field(serializers.CharField(allow_null=True))
+    def get_user_registration_status(self, obj):
+        request = self.context.get('request')
+        if not request or not request.user or not request.user.is_authenticated:
+            return None
+        attendee = obj.attendees.filter(user=request.user).first()
+        return attendee.status if attendee else None
+
+    @extend_schema_field(serializers.BooleanField)
+    def get_is_user_registered(self, obj):
+        request = self.context.get('request')
+        if not request or not request.user or not request.user.is_authenticated:
+            return False
+        return obj.attendees.filter(user=request.user, status=AuthorEventAttendee.AttendeeStatus.REGISTERED).exists()
+
+    @extend_schema_field(serializers.CharField(allow_null=True))
+    def get_user_notes(self, obj):
+        request = self.context.get('request')
+        if not request or not request.user or not request.user.is_authenticated:
+            return None
+        attendee = obj.attendees.filter(user=request.user).first()
+        return attendee.notes if attendee else None
+
+
+class AuthorEventCreateUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AuthorEvent
+        fields = (
+            'author', 'book', 'title', 'description',
+            'event_type', 'event_format', 'start_time', 'end_time',
+            'event_timezone', 'location_name', 'location_address',
+            'online_url', 'max_attendees', 'is_cancelled'
+        )
+
+    def validate(self, attrs):
+        start_time = attrs.get('start_time') or (self.instance.start_time if self.instance else None)
+        end_time = attrs.get('end_time') if 'end_time' in attrs else (self.instance.end_time if self.instance else None)
+
+        if start_time and end_time and end_time <= start_time:
+            raise serializers.ValidationError({"end_time": "La fecha y hora de finalización debe ser posterior al inicio."})
+
+        request = self.context.get('request')
+        author = attrs.get('author') or (self.instance.author if self.instance else None)
+        if request and author:
+            user = request.user
+            is_claimed_owner = (author.claimed_by_id == user.id)
+            is_profile_owner = hasattr(user, 'author_profile') and user.author_profile.author_id == author.id and user.author_profile.is_verified
+            is_staff = user.is_staff or getattr(user, 'role', '') in ('ADMIN', 'MODERATOR')
+            if not (is_claimed_owner or is_profile_owner or is_staff):
+                raise serializers.ValidationError({"author": "No tienes permisos para organizar eventos para este autor."})
+
+        return attrs
 
 
 

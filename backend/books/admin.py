@@ -5,6 +5,8 @@ from django.utils.html import format_html
 
 from .models import (
     Author,
+    AuthorEvent,
+    AuthorEventAttendee,
     Book,
     Category,
     Errata,
@@ -272,3 +274,18 @@ class ErrataAdmin(admin.ModelAdmin):
 class LegalDocumentAdmin(admin.ModelAdmin):
     list_display = ('id', 'title', 'slug', 'updated_at', 'updated_by')
     search_fields = ('title', 'slug', 'content')
+
+
+@admin.register(AuthorEvent)
+class AuthorEventAdmin(admin.ModelAdmin):
+    list_display = ('id', 'title', 'author', 'event_type', 'event_format', 'start_time', 'max_attendees', 'is_cancelled')
+    list_filter = ('event_type', 'event_format', 'is_cancelled', 'start_time')
+    search_fields = ('title', 'author__name', 'location_name')
+    date_hierarchy = 'start_time'
+
+
+@admin.register(AuthorEventAttendee)
+class AuthorEventAttendeeAdmin(admin.ModelAdmin):
+    list_display = ('id', 'event', 'user', 'status', 'created_at')
+    list_filter = ('status', 'created_at')
+    search_fields = ('user__username', 'event__title', 'notes')

@@ -329,6 +329,27 @@ Cualquier agente de IA o desarrollador que se incorpore a la base de código **D
   - Regresión secuencial completa backend (Sprints 1 al 10): 72/72 tests pasando al 100%.
   - Frontend: `npm run typecheck` limpio (0 errores), 14 suites / 46 tests Vitest pasando, y `npm run build` generado sin incidencias.
 
+### 4.31. Eventos y Encuentros Literarios de Autores (Sprint 11 — Futuro)
+- **Modelos de Dominio:**
+  - `AuthorEvent`: representa presentaciones (`BOOK_LAUNCH`), firmas de libros (`SIGNING`), coloquios (`QA_SESSION`), lecturas públicas (`READING`), talleres (`WORKSHOP`) y otros eventos literarios. Soporta formatos `ONLINE`, `IN_PERSON` y `HYBRID`, libro presentado opcional, ubicación o URL de streaming, zona horaria explícita (`event_timezone`) y aforo máximo (`max_attendees`).
+  - `AuthorEventAttendee`: gestiona las inscripciones con estados `REGISTERED`, `WAITLIST` (lista de espera cuando el aforo está completo) y `CANCELLED`. Permite adjuntar preguntas o notas para el autor (`notes`).
+- **Lógica de Negocio y Endpoints REST:**
+  - `AuthorEventViewSet` en `/api/v1/books/author-events/`:
+    - Filtrado flexible por `author`, `book`, `event_type`, `format`, `upcoming=true` o `past=true`, y búsqueda textual (`search`).
+    - Acción `@action register`: inscribe al usuario en el evento; si el aforo está completo, asigna automáticamente estado `WAITLIST`.
+    - Acción `@action cancel_registration`: cancela la inscripción y, si la plaza liberada estaba confirmada (`REGISTERED`), promociona de forma automática y secuencial al primer asistente de la lista de espera (`WAITLIST`).
+    - Acción `@action attendees`: permite a los autores y administradores consultar la lista completa de asistentes con sus preguntas o dedicatorias solicitadas.
+- **Frontend React y Experiencia de Usuario:**
+  - Componente accesible `AuthorEventsSection.tsx` integrado en la página pública del autor (`Author.tsx`).
+  - Filtros entre "Próximos eventos" y "Histórico de eventos".
+  - Visualización enriquecida con badges de formato, fecha formateada en locale español, indicador de capacidad y aforo restante.
+  - Modales accesibles para reservar plaza con envío de preguntas al autor, modal para crear eventos y modal para gestionar inscripciones.
+- **Calidad y Regresión Total:**
+  - Suite `backend/tests/test_sprint11_author_events.py`: 7/7 tests pasando al 100%.
+  - Suite `frontend/src/features/books/__tests__/AuthorEventsSection.test.tsx`: 4/4 tests pasando al 100%.
+  - Regresión secuencial completa backend (Sprints 1 al 11): 79/79 tests pasando al 100%.
+  - Frontend: `npm run typecheck` limpio (0 errores), 15 suites / 50 tests Vitest pasando al 100%, y `npm run build` generado sin incidencias.
+
 ---
 
 ## 5. Ubicación de Documentación Relevante

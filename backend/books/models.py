@@ -947,6 +947,147 @@ class AuthorAnnouncement(models.Model):
         return f"[{self.author_profile.pen_name or self.author_profile.user.username}] {self.title}"
 
 
+class AuthorEvent(models.Model):
+    """
+    Evento literario organizado por o en torno a un autor (presentaciones, firmas, Q&A, lecturas, talleres).
+    """
+    class EventType(models.TextChoices):
+        BOOK_LAUNCH = 'BOOK_LAUNCH', 'Lanzamiento / Presentación'
+        SIGNING = 'SIGNING', 'Firma de ejemplares'
+        QA_SESSION = 'QA_SESSION', 'Sesión de preguntas (Q&A)'
+        READING = 'READING', 'Lectura pública'
+        WORKSHOP = 'WORKSHOP', 'Taller literario'
+        OTHER = 'OTHER', 'Otro evento'
+
+    class EventFormat(models.TextChoices):
+        ONLINE = 'ONLINE', 'Virtual / En línea'
+        IN_PERSON = 'IN_PERSON', 'Presencial'
+        HYBRID = 'HYBRID', 'Híbrido'
+
+    author = models.ForeignKey(
+        Author,
+        on_delete=models.CASCADE,
+        related_name='events',
+        verbose_name='Autor',
+    )
+    author_profile = models.ForeignKey(
+        AuthorProfile,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='events',
+        verbose_name='Perfil oficial del autor',
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='created_author_events',
+        verbose_name='Creado por',
+    )
+    book = models.ForeignKey(
+        Book,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='author_events',
+        verbose_name='Libro relacionado',
+    )
+    title = models.CharField(max_length=255, verbose_name='Título del evento')
+    description = models.TextField(verbose_name='Descripción del evento')
+    event_type = models.CharField(
+        max_length=30,
+        choices=EventType.choices,
+        default=EventType.BOOK_LAUNCH,
+        verbose_name='Tipo de evento',
+    )
+    event_format = models.CharField(
+        max_length=20,
+        choices=EventFormat.choices,
+        default=EventFormat.ONLINE,
+        verbose_name='Formato',
+    )
+    start_time = models.DateTimeField(db_index=True, verbose_name='Fecha y hora de inicio')
+    end_time = models.DateTimeField(null=True, blank=True, verbose_name='Fecha y hora de fin')
+    event_timezone = models.CharField(max_length=50, default='Europe/Madrid', verbose_name='Zona horaria')
+    location_name = models.CharField(max_length=255, blank=True, verbose_name='Lugar o plataforma (ej. Librería Alberti / Zoom)')
+    location_address = models.CharField(max_length=255, blank=True, verbose_name='Dirección física')
+    online_url = models.URLField(max_length=500, blank=True, verbose_name='Enlace virtual o streaming')
+    max_attendees = models.PositiveIntegerField(null=True, blank=True, verbose_name='Aforo máximo')
+    is_cancelled = models.BooleanField(default=False, verbose_name='Cancelado')
+    created_at = models.DateTimeField(default=timezone.now, verbose_name='Fecha de creación')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='Última actualización')
+
+    class Meta:
+        verbose_name = 'Evento de Autor'
+        verbose_name_plural = 'Eventos de Autores'
+        ordering = ['start_time']
+
+    def __str__(self) -> str:
+        return f"[{self.get_event_type_display()}] {self.title} - {self.author.name}"
+
+    @property
+    def registered_count(self) -> int:
+        return self.attendees.filter(status=AuthorEventAttendee.AttendeeStatus.REGISTERED).count()
+
+    @property
+    def waitlist_count(self) -> int:
+        return self.attendees.filter(status=AuthorEventAttendee.AttendeeStatus.WAITLIST).count()
+
+    @property
+    def is_full(self) -> bool:
+        if not self.max_attendees:
+            return False
+        return self.registered_count >= self.max_attendees
+
+
+class AuthorEventAttendee(models.Model):
+    """
+    Inscripción de un lector en un evento de autor, con soporte de lista de espera y preguntas para el autor.
+    """
+    class AttendeeStatus(models.TextChoices):
+        REGISTERED = 'REGISTERED', 'Inscrito'
+        WAITLIST = 'WAITLIST', 'Lista de espera'
+        CANCELLED = 'CANCELLED', 'Cancelado'
+
+    event = models.ForeignKey(
+        AuthorEvent,
+        on_delete=models.CASCADE,
+        related_name='attendees',
+        verbose_name='Evento',
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='author_event_attendances',
+        verbose_name='Usuario asistente',
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=AttendeeStatus.choices,
+        default=AttendeeStatus.REGISTERED,
+        db_index=True,
+        verbose_name='Estado de inscripción',
+    )
+    notes = models.CharField(
+        max_length=500,
+        blank=True,
+        verbose_name='Pregunta para el autor o nota adicional',
+    )
+    created_at = models.DateTimeField(default=timezone.now, verbose_name='Fecha de registro')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='Última actualización')
+
+    class Meta:
+        verbose_name = 'Asistente a Evento'
+        verbose_name_plural = 'Asistentes a Eventos'
+        constraints = [
+            models.UniqueConstraint(fields=['event', 'user'], name='unique_event_user_attendance'),
+        ]
+        ordering = ['created_at']
+
+    def __str__(self) -> str:
+        return f"{self.user.username} -> {self.event.title} ({self.get_status_display()})"
+
+
 class AffiliateClick(models.Model):
     """
     Registro anónimo de clics en enlaces de afiliados para telemetría y métricas de conversión.
