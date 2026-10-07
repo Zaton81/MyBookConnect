@@ -5,7 +5,7 @@ from datetime import datetime
 from django.db import IntegrityError, transaction
 from django.utils.text import slugify
 
-from books.models import Author, Book
+from books.models import Author, Book, normalize_title
 
 from .author_service import maybe_enrich_author
 from .base import (
@@ -46,7 +46,7 @@ def _create_or_get_from_volume(volume: dict, fallback_isbn: str | None = None) -
                 return existing_vol
 
         if clean_isbn:
-            existing = Book.objects.select_for_update().filter(isbn=clean_isbn).first()
+            existing = Book.find_by_isbn(clean_isbn)
             if existing:
                 updated_fields = []
                 if google_vol_id and not existing.google_volume_id:
@@ -70,16 +70,25 @@ def _create_or_get_from_volume(volume: dict, fallback_isbn: str | None = None) -
 
         title = info.get('title') or 'Desconocido'
 
-        # Comprobar si ya existe con este título y autor
-        existing = Book.objects.select_for_update().filter(title__iexact=title)
+        # Comprobar si ya existe con este título y autor (unificando ediciones con distinto ISBN)
+        norm_title = normalize_title(title)
+        found = None
         if author_obj:
-            existing = existing.filter(author=author_obj)
-        found = existing.first()
+            candidates = Book.objects.select_for_update().filter(author=author_obj)
+            for c in candidates:
+                if normalize_title(c.title) == norm_title:
+                    found = c
+                    break
+        elif norm_title:
+            candidates = Book.objects.select_for_update().filter(title__iexact=title)
+            found = candidates.first()
+
         if found:
             updated_fields = []
-            if isbn and not found.isbn:
-                found.isbn = isbn
-                updated_fields.append('isbn')
+            if clean_isbn and found.add_isbn(clean_isbn):
+                updated_fields.append('additional_isbns')
+                if not found.isbn:
+                    updated_fields.append('isbn')
             if google_vol_id and not found.google_volume_id:
                 found.google_volume_id = google_vol_id
                 updated_fields.append('google_volume_id')

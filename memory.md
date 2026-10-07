@@ -76,6 +76,19 @@ Cualquier agente de IA o desarrollador que se incorpore a la base de código **D
 
 ---
 
+## 3.1. Estado de Ejecución de RoadmapV3 (Producción y Lanzamiento Estable)
+
+| Sprint | Título | Estado | Hito Clave / Entregable |
+| :--- | :--- | :--- | :--- |
+| **Sprint 1** | **Seguridad e Integridad (P0)** | COMPLETADA | Eliminado `POST` en `/api/v1/users/notifications/` (solo lectura `GET`), protección IDOR en `/notifications/<id>/`, blindaje de `ChatConsumer` (captura `JSONDecodeError`, límite 64 KB, descarte de acciones desconocidas y rate limiting de 10 msg/s), sanitización de trazas en `/health/ready`, y unificación de PostgreSQL 16 `pgvector` en `docker-compose.yml`. Suite de 15 tests pasando (`test_sprint1_security.py`). |
+| **Sprint 2** | **Infraestructura (P0)** | COMPLETADA | Endurecimiento Nginx reverse proxy (upstream balanceado, `limit_req_zone` 30r/s y 5r/s auth, proxy `/admin/` y `/panel-control-mbc/`, headers COOP/CSP/HSTS), Redis 7 con persistencia AOF (`appendonly yes`, `maxmemory 256mb`, `allkeys-lru`), orquestación Docker Compose y Prod con límites CPU/memoria y redes aisladas, scripts de backup/restore PostgreSQL 16 y ciclo completo de restauración verificado al 100% (65 tablas, smoke test con 23 usuarios). Suite de 6 tests pasando (`test_sprint2_infrastructure.py`). |
+| **Sprint 3** | **Autores (P1) & FAQs** | COMPLETADA | Modelo de autor enriquecido (`nationality`, `birth_date`, `death_date`, `website`, `wikipedia_url`, `is_verified`, `claimed_by`), estadísticas en tiempo real, modelo `AuthorClaim` con unicidad y ciclo de vida, endpoints de solicitud y resolución administrativa con notificación. Subsistema integral de FAQs (modelo `FAQ`, endpoints público y admin, acordeón reactivo interactivo en `/faqs`, gestión administrativa en `AdminFaqsTab`). Suite de 9 tests pasando (`test_sprint3_authors_and_faqs.py`). |
+| **Sprint 4** | **Catálogo y UX (P1)** | COMPLETADA | Unificación canónica de libros por autor y título normalizado (`normalize_title`), soporte de múltiples ISBNs físicos y digitales con `Book.additional_isbns`, búsqueda unificada por cualquier edición con `Book.find_by_isbn`, servicio de deduplicación y fusión atómica `merge_books` con migración de UserBook, Review y Listas, comando CLI `deduplicate_catalog` (21 obras y 25 duplicados consolidados en DB con 0 duplicados restantes), endpoint global `/api/v1/search/` (libros, autores, lectores con privacidad) y página responsive en frontend `/search` con tabs y badge de ediciones. Suite de 9 tests pasando (`test_sprint4_catalog_deduplication.py`). |
+| **Sprint 5** | **Calidad (P2)** | PENDIENTE | Tests exhaustivos, performance, accesibilidad WCAG y CI/CD. |
+| **Sprint 6** | **Preproducción y Lanzamiento** | PENDIENTE | Deploy staging, smoke tests de producción y soft launch. |
+
+---
+
 ## 4. Trampas Conocidas y Lecciones Aprendidas (Gotchas)
 
 ### 4.1. Token de Autenticación en Frontend
@@ -204,6 +217,138 @@ Cualquier agente de IA o desarrollador que se incorpore a la base de código **D
 - **Coexistencia Many-to-Many y ForeignKey en `Book`:** `Book.authors` (relación `all_books`) coexiste con `Book.author` (autor principal) para mantener compatibilidad total hacia atrás. En el `save()`, el autor principal se añade siempre a `authors`.
 - **Filtro de Reseñas por Usuario:** Tanto `/api/v1/reviews/?user=<id>` como `/api/v1/users/<id>/reviews/` permiten consultar las opiniones del lector, aplicando filtros de privacidad y bloqueos mutuos mediante `filter_visible_reviews`.
 - **Muro Social y Feed (`ActivityType.POST_CREATED`):** Las publicaciones en el muro (`UserPost`) se propagan al feed de actividades (`Activity`) de los seguidores para máxima interacción social comunitaria.
+
+---
+
+### 4.22. Compatibilidad de Backups y Restore en PostgreSQL 16 (Sprint 2 - RoadmapV3)
+- **`SET transaction_timeout = 0;` en `pg_dump` moderno:** Nuevas versiones de utilitarios cliente de PostgreSQL generan volcados SQL con `SET transaction_timeout = 0;`. Al restaurar en PostgreSQL 16 bajo modo transaccional estricto (`--single-transaction`), el motor aborta la transacción entera porque `transaction_timeout` se introdujo en PostgreSQL 17.
+- **Solución Canónica:** En los scripts `restore_db.sh` y `test_restore_cycle.sh`, se filtra el comando incompatibe antes de ejecutar la restauración:
+  ```bash
+  gunzip -c "$BACKUP_FILE" | sed '/transaction_timeout/d' | psql ... --single-transaction
+  ```
+- **Conexión Administrativa a la BD Fuente:** Al crear o destruir bases de datos temporales para pruebas de restauración, conectarse mediante `-d "${SOURCE_DB}"` o la base de datos de mantenimiento configurada en vez de asumir `-d postgres`, respetando el usuario no-root `booksocial`.
+
+### 4.23. Unificación Canónica de Ediciones y Múltiples ISBNs (Sprint 4 - RoadmapV3)
+- **El Problema del Libro Múltiple (Físico vs Digital):** Obras literarias idénticas ("Dune", "La catedral del mar") poseen distintos ISBNs según el formato (tapa dura, rústica, ebook Kindle, audiolibro). Si el sistema crea un `Book` por cada ISBN, se fragmentan las valoraciones, reseñas y estanterías de los lectores.
+- **Solución Canónica:**
+  - El modelo `Book` almacena su ISBN principal en `isbn` y acumula todas las ediciones adicionales normalizadas en `additional_isbns = models.JSONField(default=list)`.
+  - `Book.find_by_isbn(query)` busca simultáneamente en ambos campos.
+  - Al crear o importar libros, `normalize_title` y la comparación contra el autor unifican automáticamente la obra en vez de duplicarla.
+  - El comando `python manage.py deduplicate_catalog` reubica de forma transaccional `UserBook`, `Review`, `ReadingListItem`, `UserPost` y `Activity` sin violaciones de unicidad, borrando los duplicados redundantes.
+
+---
+
+### 4.24. Erradicación de N+1 Queries, Accesibilidad WCAG y Calidad (Sprint 5 - RoadmapV3)
+- **Erradicación de N+1 en Búsqueda Global y Catálogo:**
+  - Al serializar listas de libros (`BookSerializer`), acceder a `rating_distribution` y `reviews_count` generaba 2 consultas SQL adicionales por cada libro (`2*N` queries).
+  - **Solución Canónica:** `GlobalSearchView` precomputa en una única consulta batch (`Review.objects.filter(book_id__in=b_ids).values('book_id', 'rating').annotate(count=Count('id'))`) las distribuciones y conteos, asignándolos a `b._precomputed_rating_distribution` y `b.annotated_reviews_count`. El serializer comprueba estas propiedades precomputadas y evita consultas secundarias.
+  - Para autores, se incluyó `.select_related('claimed_by')` y `.prefetch_related('books', 'all_books')`, reduciendo las consultas a un total constante (3 consultas) independientemente del volumen de resultados.
+- **Accesibilidad WCAG 2.1 AA:**
+  - `SearchPage` y `FaqsPage` implementan atributos semánticos `role="search"`, `role="tablist"`, `role="tab"`, `aria-selected`, `aria-expanded`, `aria-controls`, `aria-label`, y bordes `focus-visible` de alto contraste en Tailwind.
+  - La suite de frontend en Vitest verifica rigurosamente las propiedades ARIA y la interacción con teclado.
+- **Cero Errores TypeScript (`tsc --noEmit`):**
+  - Con `noUnusedLocals: true`, cualquier importación residual en componentes de React rompe la compilación; se garantiza 0 errores estrictos en frontend.
+
+### 4.25. Preproducción, Deploy Checks y Smoke Testing E2E (Sprint 6 - RoadmapV3)
+- **Django Deploy Checks Sanitizados:**
+  - `python manage.py check`: 0 issues de configuración o referencias en modelos.
+  - `python manage.py makemigrations --check`: Garantiza que todos los modelos están al 100% migrados y no existen desviaciones en schemas.
+  - `python manage.py check --deploy`: Valida HSTS, secure cookies, SSL redirects y security headers sin errores bloqueantes.
+- **Smoke Tests E2E de Preproducción (`tests/test_sprint6_preproduction_readiness.py`):**
+  - Flujo 1: Registro de usuario (`password` y `password2`), login JWT, obtención de access/refresh tokens y logout con blacklisting de tokens.
+  - Flujo 2: Búsqueda unificada y deduplicada físico/digital, detalle canónico de libro, adición a biblioteca personal, avance de lectura y reseña con sanitización anti-XSS (`bleach`).
+  - Flujo 3: Interacción social, seguimientos mutuos y consulta de feed de actividades.
+  - Flujo 4: Reclamación de autor (`POST /api/v1/books/authors/<id>/claim/` con `proof_description`, `contact_email`, `supporting_link`), moderación/resolución por administrador (`action: approve`, `moderation_notes`), verificación oficial (`is_verified=True`) y asignación de autor reclamado.
+  - Flujo 5: Centro de ayuda y soporte (FAQs públicas categorizadas y ordenadas).
+  - Flujo 6: Probes de salud y producción (`/api/v1/health/` liveness, `/api/v1/health/ready/` readiness sin fuga de credenciales).
+- **Regresión Integral 100%:**
+  - 50 tests pasando de forma secuencial en pytest cubriendo los Sprints 1 a 6.
+  - 42 tests en Vitest pasando al 100% en el frontend con build de producción Vite exitoso.
+
+### 4.26. Administración, Moderación y Sistema Universal de Reportes (RoadmapV3 - Secciones 24 y 25)
+- **Sistema Universal de Reportes (`users.Report`):**
+  - Admite denuncias formales sobre `User`, `Review`, `ReviewComment`, `Message`, `ReadingList`, `Book`, `Author` y `UserPost`.
+  - Mapeo canónico `ALLOWED_TARGET_MODELS` y vistas previas enriquecidas en `ReportListSerializer.get_target_preview`.
+  - Prevención estricta de auto-denuncias (un usuario no puede reportar sus propios posts o perfiles reclamados) y prevención de reportes duplicados pendientes.
+  - Medidas disciplinarias auditadas: `HIDE_CONTENT`, `RESTORE_CONTENT`, `BAN_USER`, `MUTE_USER_24H`, `MUTE_USER_7D` y `DISMISS`. En `HIDE_CONTENT` sobre `UserPost`, el borrado se efectúa tras asegurar la persistencia del expediente para evitar inconsistencias de GenericForeignKey.
+- **Endpoints Administrativos de Catálogo y Usuarios:**
+  - `POST /api/v1/admin/books/merge/`: Fusión atómica de libros duplicados (`merge_books`), unificando ISBNs en `additional_isbns`, reasignando estanterías `UserBook`, reseñas y listas sin pérdida de datos.
+  - `POST /api/v1/admin/authors/merge/`: Fusión atómica de autores homónimos, unificando aliases, reasignando obras literarias y preservando estados de verificación oficial.
+  - `GET /api/v1/admin/users/<pk>/activity/`: Auditoría cronológica de actividades (`Activity`), publicaciones en muro (`UserPost`) y reseñas.
+  - `GET /api/v1/admin/users/<pk>/reports/`: Consulta unificada de denuncias emitidas y denuncias recibidas por un usuario.
+### 4.27. Legalidad, RGPD, Portabilidad de Datos y Derecho al Olvido (Sprint 8 - RoadmapV3 Sección 26)
+- **Documentos Normativos y Legal API:**
+  - Modelo `LegalDocument` gestionado con slug canónico (`terms`, `privacy`, `cookies`, `legal_notice`, `content_policy`, `deletion_policy`, `contact`).
+  - Endpoints públicos versionados: `GET /api/v1/books/legal/` (listado) y `GET /api/v1/books/legal/<slug>/` (detalle normativo renderizable).
+  - Endpoint administrativo seguro: `PATCH/PUT /api/v1/admin/legal/<slug>/` para actualización del corpus legal con incremento automático de versión y fecha de actualización.
+- **Portabilidad de Datos RGPD (`GET /api/v1/users/account/export/`):**
+  - Exportación integral de datos del usuario autenticado en formato JSON normalizado.
+  - Secciones incluidas: `_metadata` (timestamps, id, legal notice), `profile` (username, email, biografía, avatar, fecha de alta), `library` (estanterías, libros, rating personal, fechas de lectura, notas), `reviews` (reseñas y ratings publicados), `comments` (comentarios en reseñas), `reading_lists` (listas de lectura creadas y libros asociados) y `social` (seguidores y seguidos).
+- **Derecho al Olvido / Cancelación de Cuenta (`POST /api/v1/users/account/delete/`):**
+  - Requiere re-autenticación obligatoria con contraseña actual para mitigar secuestro de sesión.
+  - Proceso de anonimización y cascade seguro: revocación de tokens JWT activos, eliminación/anonimización de datos de perfil, desvinculación de identificadores personales en logs y auditoría, respetando la consistencia referencial en reseñas comunitarias y registros contables/legales.
+### 4.28. Clubs de Lectura, Membresías y Debates por Capítulos (Sprint 9 - RoadmapV3 Sección 30.1)
+- **Modelos de Dominio (`books.club_models`):**
+  - `ReadingClub`: Gestión de comunidades literarias públicas y privadas con slug autogenerado, reglas de convivencia, creador y libro actual en curso (`current_book`).
+  - `ReadingClubMember`: Membresías con control de roles (`ADMIN`, `MODERATOR`, `MEMBER`) y estados (`ACTIVE`, `PENDING`, `BANNED`), con unión directa en clubs públicos y flujo de solicitud/aprobación en privados.
+  - `ReadingClubBook`: Plan de lecturas conjuntas con estados (`CURRENT`, `UPCOMING`, `FINISHED`), fechas límite e hitos por capítulos/páginas.
+  - `ReadingClubDiscussion` & `ReadingClubDiscussionComment`: Hilos de debate estructurados por libro o tema general, soporte de avisos de spoilers (`has_spoilers` con blur/revelación bajo demanda), hilos fijados (`is_pinned`) y comentarios anidados con conteo optimizado (`_annotated_comments_count`).
+- **Endpoints API REST (`/api/v1/clubs/`):**
+  - Listado con filtros de búsqueda y pertenencia (`?my_clubs=true`, `?q=...`), creación con auto-asignación de administrador, unión (`/join/`), salida (`/leave/` con bloqueo si es el único administrador), gestión de miembros y aprobación (`/members/<id>/`), plan de lecturas (`/books/`) y debates/comentarios (`/discussions/`, `/discussions/<id>/comments/`).
+  - Sanitización anti-XSS mediante `mybookconnect.html_sanitizer` (`sanitize_plain_text`, `sanitize_html`).
+- **Frontend y UX (`frontend/src/features/clubs/`):**
+  - `ClubsPage.tsx`: Vista general de exploración, pestañas accesibles WAI-ARIA, buscador dinámico y modal interactivo para creación de clubs.
+  - `ClubDetailPage.tsx`: Panel completo del club con lectura actual, hitos, foros con advertencias de spoiler, comentarios y lista de miembros.
+  - Navegación integrada en `AppRouter`, `Header.tsx` y `PublicHeader.tsx`.
+- **Calidad y Regresión Total:**
+  - Suite `backend/tests/test_sprint9_reading_clubs.py`: 6 tests pasando al 100%.
+  - Regresión secuencial backend: 65 tests pasando al 100% de forma consecutiva (Sprints 1 al 9 con 0 fallos).
+  - Frontend: `tsc --noEmit` con 0 errores, 46 tests en Vitest pasando al 100% en 14 suites, y build de producción Vite generado limpiamente.
+
+### 4.30. Sprint 10 — Listas Colaborativas y Atribución de Autoría
+- **Modelos de Dominio y Base de Datos:**
+  - `ReadingList.is_collaborative`: Flag booleano indexado que habilita listas compartidas.
+  - `ReadingListItem.added_by`: Clave foránea nullable a `User` para registrar quién aportó cada libro a la lista.
+  - `ReadingListCollaborator`: Modelo relacional con `reading_list`, `user`, `role` (`EDITOR`, `VIEWER`), `status` (`PENDING`, `ACCEPTED`, `REJECTED`), `can_add_books`, `can_remove_books` e `invited_by`.
+  - Migración aplicada en PostgreSQL: `0034_readinglistcollaborator_readinglist_is_collaborative_and_more.py`.
+- **API REST y Permisos:**
+  - Modificación de `ReadingListViewSet`:
+    - Filtrado `?collaborative=true` para devolver listas colaborativas propias o donde el usuario colabora (estado `ACCEPTED` o `PENDING`).
+    - Actualización de `PrivacyService.filter_visible_reading_lists` para permitir acceso de lectura a colaboradores aceptados en listas privadas.
+    - Endpoints `@action` en `collaborators` (`GET`, `POST`) y `collaborators/(?P<user_id>\d+)` (`PATCH`, `DELETE`).
+    - Lógica de permisos en `add_book` y `remove_book`: colaboradores con `can_add_books=True` pueden añadir libros (registrando `added_by`); pueden eliminar sus propios libros aportados o cualquier libro si poseen `can_remove_books=True`.
+- **Frontend React y Experiencia de Usuario:**
+  - Nueva pestaña "🤝 Colaborativas" en la navegación de `ReadingLists.tsx`.
+  - Badges informativos de lista colaborativa en las tarjetas del grid y en la cabecera del detalle.
+  - Panel interactivo de colaboradores en la vista de detalle con avatares, roles y estados.
+  - Banner interactivo para aceptar o rechazar invitaciones pendientes de colaboración.
+  - Modal para invitar nuevos colaboradores por nombre de usuario con asignación granular de permisos.
+  - Atribución de autoría ("Aportado por @username") en cada tarjeta de libro dentro de la lista.
+- **Calidad y Regresión Total:**
+  - Suite `backend/tests/test_sprint10_collaborative_lists.py`: 7/7 tests pasando al 100%.
+  - Regresión secuencial completa backend (Sprints 1 al 10): 72/72 tests pasando al 100%.
+  - Frontend: `npm run typecheck` limpio (0 errores), 14 suites / 46 tests Vitest pasando, y `npm run build` generado sin incidencias.
+
+### 4.31. Eventos y Encuentros Literarios de Autores (Sprint 11 — Futuro)
+- **Modelos de Dominio:**
+  - `AuthorEvent`: representa presentaciones (`BOOK_LAUNCH`), firmas de libros (`SIGNING`), coloquios (`QA_SESSION`), lecturas públicas (`READING`), talleres (`WORKSHOP`) y otros eventos literarios. Soporta formatos `ONLINE`, `IN_PERSON` y `HYBRID`, libro presentado opcional, ubicación o URL de streaming, zona horaria explícita (`event_timezone`) y aforo máximo (`max_attendees`).
+  - `AuthorEventAttendee`: gestiona las inscripciones con estados `REGISTERED`, `WAITLIST` (lista de espera cuando el aforo está completo) y `CANCELLED`. Permite adjuntar preguntas o notas para el autor (`notes`).
+- **Lógica de Negocio y Endpoints REST:**
+  - `AuthorEventViewSet` en `/api/v1/books/author-events/`:
+    - Filtrado flexible por `author`, `book`, `event_type`, `format`, `upcoming=true` o `past=true`, y búsqueda textual (`search`).
+    - Acción `@action register`: inscribe al usuario en el evento; si el aforo está completo, asigna automáticamente estado `WAITLIST`.
+    - Acción `@action cancel_registration`: cancela la inscripción y, si la plaza liberada estaba confirmada (`REGISTERED`), promociona de forma automática y secuencial al primer asistente de la lista de espera (`WAITLIST`).
+    - Acción `@action attendees`: permite a los autores y administradores consultar la lista completa de asistentes con sus preguntas o dedicatorias solicitadas.
+- **Frontend React y Experiencia de Usuario:**
+  - Componente accesible `AuthorEventsSection.tsx` integrado en la página pública del autor (`Author.tsx`).
+  - Filtros entre "Próximos eventos" y "Histórico de eventos".
+  - Visualización enriquecida con badges de formato, fecha formateada en locale español, indicador de capacidad y aforo restante.
+  - Modales accesibles para reservar plaza con envío de preguntas al autor, modal para crear eventos y modal para gestionar inscripciones.
+- **Calidad y Regresión Total:**
+  - Suite `backend/tests/test_sprint11_author_events.py`: 7/7 tests pasando al 100%.
+  - Suite `frontend/src/features/books/__tests__/AuthorEventsSection.test.tsx`: 4/4 tests pasando al 100%.
+  - Regresión secuencial completa backend (Sprints 1 al 11): 79/79 tests pasando al 100%.
+  - Frontend: `npm run typecheck` limpio (0 errores), 15 suites / 50 tests Vitest pasando al 100%, y `npm run build` generado sin incidencias.
 
 ---
 

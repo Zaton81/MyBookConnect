@@ -19,21 +19,29 @@ from users.moderation_views import (
 
 from .admin_views import (
     AdminAuthorBulkActionView,
+    AdminAuthorClaimListView,
+    AdminAuthorClaimResolveView,
     AdminAuthorDetailView,
     AdminAuthorEnrichView,
     AdminAuthorListView,
+    AdminAuthorMergeView,
     AdminBookBulkActionView,
     AdminBookDetailView,
     AdminBookEnrichView,
     AdminBookListView,
+    AdminBookMergeView,
     AdminCategoryListView,
     AdminErrataDetailView,
     AdminErrataListView,
+    AdminFAQDetailView,
+    AdminFAQListView,
     AdminLegalDocumentDetailView,
     AdminLegalDocumentListView,
     AdminStatsView,
+    AdminUserActivityView,
     AdminUserDetailView,
     AdminUserListView,
+    AdminUserReportsView,
 )
 
 urlpatterns = [
@@ -43,15 +51,19 @@ urlpatterns = [
     # Usuarios
     path('users/', AdminUserListView.as_view(), name='admin-users-list'),
     path('users/<int:pk>/', AdminUserDetailView.as_view(), name='admin-users-detail'),
+    path('users/<int:pk>/activity/', AdminUserActivityView.as_view(), name='admin-users-activity'),
+    path('users/<int:pk>/reports/', AdminUserReportsView.as_view(), name='admin-users-reports'),
 
     # Catálogo: Libros
     path('books/', AdminBookListView.as_view(), name='admin-books-list'),
+    path('books/merge/', AdminBookMergeView.as_view(), name='admin-books-merge'),
     path('books/bulk-action/', AdminBookBulkActionView.as_view(), name='admin-books-bulk-action'),
     path('books/<int:pk>/', AdminBookDetailView.as_view(), name='admin-books-detail'),
     path('books/<int:pk>/enrich/', AdminBookEnrichView.as_view(), name='admin-books-enrich'),
 
     # Catálogo: Autores
     path('authors/', AdminAuthorListView.as_view(), name='admin-authors-list'),
+    path('authors/merge/', AdminAuthorMergeView.as_view(), name='admin-authors-merge'),
     path('authors/bulk-action/', AdminAuthorBulkActionView.as_view(), name='admin-authors-bulk-action'),
     path('authors/<int:pk>/', AdminAuthorDetailView.as_view(), name='admin-authors-detail'),
     path('authors/<int:pk>/enrich/', AdminAuthorEnrichView.as_view(), name='admin-authors-enrich'),
@@ -82,5 +94,13 @@ urlpatterns = [
     path('audit-logs/', AdminAuditLogListView.as_view(), name='admin-audit-logs-list'),
     path('audit-logs/stats/', AdminAuditLogStatsView.as_view(), name='admin-audit-logs-stats'),
     path('audit-logs/<int:pk>/', AdminAuditLogDetailView.as_view(), name='admin-audit-logs-detail'),
+
+    # Reclamaciones de Autor (RoadmapV3 Sprint 3)
+    path('author-claims/', AdminAuthorClaimListView.as_view(), name='admin-author-claims-list'),
+    path('author-claims/<int:pk>/resolve/', AdminAuthorClaimResolveView.as_view(), name='admin-author-claims-resolve'),
+
+    # Preguntas Frecuentes - FAQs (RoadmapV3 Sprint 3)
+    path('faqs/', AdminFAQListView.as_view(), name='admin-faqs-list'),
+    path('faqs/<int:pk>/', AdminFAQDetailView.as_view(), name='admin-faqs-detail'),
 ]
 

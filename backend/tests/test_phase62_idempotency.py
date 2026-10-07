@@ -244,37 +244,14 @@ class TestIdempotencyEndpointsIntegration:
         c.force_authenticate(user=user)
         return c
 
-    def test_notifications_creation_idempotency_prevents_duplicates(self, client, user):
-        key = str(uuid.uuid4())
-        payload = {
-            "title": "Alerta de prueba",
-            "message": "Mensaje de idempotencia",
-            "type": "system",
-        }
-
-        # 1. Primera emisión de notificación
-        res1 = client.post(
+    def test_notifications_endpoint_post_disallowed(self, client):
+        """Verifica que POST a /api/v1/users/notifications/ devuelva 405 Method Not Allowed (RoadmapV3 Sprint 1)."""
+        res = client.post(
             "/api/v1/users/notifications/",
-            payload,
+            {"title": "Alerta de prueba", "message": "Mensaje"},
             format="json",
-            HTTP_IDEMPOTENCY_KEY=key,
         )
-        assert res1.status_code == 201
-        notif_id = res1.data["id"]
-        assert Notification.objects.filter(recipient=user).count() == 1
-
-        # 2. Reintento con la misma clave de idempotencia
-        res2 = client.post(
-            "/api/v1/users/notifications/",
-            payload,
-            format="json",
-            HTTP_IDEMPOTENCY_KEY=key,
-        )
-        assert res2.status_code == 201
-        assert res2["Idempotent-Replayed"] == "true"
-        assert res2.data["id"] == notif_id
-        # Garantía crítica: ¡No se duplicó en la base de datos!
-        assert Notification.objects.filter(recipient=user).count() == 1
+        assert res.status_code == 405
 
     def test_external_sync_endpoint_idempotency(self, client):
         key = str(uuid.uuid4())

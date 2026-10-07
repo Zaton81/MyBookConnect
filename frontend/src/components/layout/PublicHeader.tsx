@@ -50,6 +50,25 @@ export function PublicHeader({ onOpenAuth }: PublicHeaderProps) {
               Por qué elegirnos
             </button>
             <Link
+              to="/search"
+              className="text-sm font-medium text-teal-100 hover:text-white transition-colors flex items-center gap-1"
+            >
+              <span>🔍</span>
+              <span>Buscar</span>
+            </Link>
+            <Link
+              to="/clubs"
+              className="text-sm font-medium text-teal-100 hover:text-white transition-colors"
+            >
+              Clubs
+            </Link>
+            <Link
+              to="/faqs"
+              className="text-sm font-medium text-teal-100 hover:text-white transition-colors"
+            >
+              FAQs
+            </Link>
+            <Link
               to="/terms"
               className="text-sm font-medium text-teal-100 hover:text-white transition-colors"
             >
@@ -122,6 +141,20 @@ export function PublicHeader({ onOpenAuth }: PublicHeaderProps) {
             >
               Por qué elegirnos
             </button>
+            <Link
+              to="/search"
+              onClick={() => setMobileMenuOpen(false)}
+              className="block px-3 py-2 text-sm font-medium text-teal-100 hover:text-white hover:bg-white/10 rounded-lg flex items-center gap-2"
+            >
+              <span>🔍</span>
+              <span>Búsqueda Global</span>
+            </Link>
+            <Link
+              to="/faqs"
+              className="block px-3 py-2 text-sm font-medium text-teal-100 hover:text-white hover:bg-white/10 rounded-lg"
+            >
+              Preguntas Frecuentes (FAQs)
+            </Link>
             <Link
               to="/terms"
               className="block px-3 py-2 text-sm font-medium text-teal-100 hover:text-white hover:bg-white/10 rounded-lg"

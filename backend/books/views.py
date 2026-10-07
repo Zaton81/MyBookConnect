@@ -23,6 +23,7 @@ from .models import (
     Errata,
     ErrataStatus,
     ReadingList,
+    ReadingListCollaborator,
     ReadingListComment,
     ReadingListFollow,
     ReadingListItem,
@@ -37,6 +38,7 @@ from .serializers import (
     AuthorSerializer,
     BookSerializer,
     ErrataSerializer,
+    ReadingListCollaboratorSerializer,
     ReadingListCommentSerializer,
     ReadingListCreateUpdateSerializer,
     ReadingListItemSerializer,
@@ -1544,12 +1546,18 @@ class ReadingListViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         queryset = ReadingList.objects.select_related('user').prefetch_related(
-            'items__book', 'items__book__author', 'followers'
+            'items__book', 'items__book__author', 'items__added_by', 'followers', 'collaborators__user'
         )
 
         user_id_param = self.request.query_params.get('user_id')
         if user_id_param:
             queryset = queryset.filter(user_id=user_id_param)
+
+        if self.request.query_params.get('collaborative') == 'true' and user.is_authenticated:
+            return queryset.filter(
+                Q(collaborators__user=user, collaborators__status__in=['ACCEPTED', 'PENDING']) |
+                Q(user=user, is_collaborative=True)
+            ).distinct()
 
         if self.request.query_params.get('my_lists') == 'true' and user.is_authenticated:
             return queryset.filter(user=user)
@@ -1608,7 +1616,17 @@ class ReadingListViewSet(viewsets.ModelViewSet):
     def add_book(self, request, pk=None):
         """Añade un libro a la lista en una posición específica o al final bajo bloqueo exclusivo de fila."""
         reading_list = self.get_object()
-        if reading_list.user != request.user and not request.user.is_staff:
+        user = request.user
+
+        is_owner = (reading_list.user == user)
+        is_staff = user.is_staff
+        can_add = is_owner or is_staff
+        if not can_add and reading_list.is_collaborative:
+            collab = reading_list.collaborators.filter(user=user, status='ACCEPTED').first()
+            if collab and collab.can_add_books:
+                can_add = True
+
+        if not can_add:
             return Response({'detail': 'No tienes permiso para modificar esta lista.'}, status=status.HTTP_403_FORBIDDEN)
 
         book_id = request.data.get('book_id')
@@ -1643,6 +1661,7 @@ class ReadingListViewSet(viewsets.ModelViewSet):
                         book=book,
                         position=position,
                         notes=notes,
+                        added_by=user,
                     )
             except IntegrityError:
                 return Response({'detail': 'Este libro ya se encuentra en la lista.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -1653,17 +1672,30 @@ class ReadingListViewSet(viewsets.ModelViewSet):
     def remove_book(self, request, pk=None):
         """Elimina un libro de la lista de lectura."""
         reading_list = self.get_object()
-        if reading_list.user != request.user and not request.user.is_staff:
-            return Response({'detail': 'No tienes permiso para modificar esta lista.'}, status=status.HTTP_403_FORBIDDEN)
+        user = request.user
 
         book_id = request.data.get('book_id') or request.query_params.get('book_id')
         if not book_id:
             return Response({'detail': 'El parámetro book_id es obligatorio.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        with transaction.atomic():
-            deleted_count, _ = ReadingListItem.objects.filter(reading_list=reading_list, book_id=book_id).delete()
-        if deleted_count == 0:
+        item = ReadingListItem.objects.filter(reading_list=reading_list, book_id=book_id).first()
+        if not item:
             return Response({'detail': 'El libro no estaba en esta lista.'}, status=status.HTTP_404_NOT_FOUND)
+
+        can_remove = False
+        if reading_list.user == user or user.is_staff:
+            can_remove = True
+        elif reading_list.is_collaborative:
+            collab = reading_list.collaborators.filter(user=user, status='ACCEPTED').first()
+            if collab:
+                if collab.can_remove_books or item.added_by_id == user.id:
+                    can_remove = True
+
+        if not can_remove:
+            return Response({'detail': 'No tienes permiso para modificar esta lista.'}, status=status.HTTP_403_FORBIDDEN)
+
+        with transaction.atomic():
+            item.delete()
 
         return Response({'detail': 'Libro eliminado de la lista.'}, status=status.HTTP_200_OK)
 
@@ -1674,7 +1706,13 @@ class ReadingListViewSet(viewsets.ModelViewSet):
         [ {"book_id": 1, "position": 1}, {"book_id": 2, "position": 2} ] o [1, 2, 3] (lista ordenada de IDs).
         """
         reading_list = self.get_object()
-        if reading_list.user != request.user and not request.user.is_staff:
+        user = request.user
+
+        can_edit = (reading_list.user == user or user.is_staff)
+        if not can_edit and reading_list.is_collaborative:
+            can_edit = reading_list.collaborators.filter(user=user, status='ACCEPTED').exists()
+
+        if not can_edit:
             return Response({'detail': 'No tienes permiso para modificar esta lista.'}, status=status.HTTP_403_FORBIDDEN)
 
         orders = request.data.get('items') or request.data
@@ -1835,6 +1873,122 @@ class ReadingListViewSet(viewsets.ModelViewSet):
             )
         comment.delete()
         return Response({'detail': 'Comentario eliminado.'}, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['get', 'post'], url_path='collaborators', permission_classes=[permissions.IsAuthenticated])
+    def collaborators(self, request, pk=None):
+        """Lista o invita colaboradores a una lista de lectura."""
+        reading_list = self.get_object()
+
+        if request.method == 'GET':
+            collaborators_qs = reading_list.collaborators.select_related('user', 'invited_by').order_by('created_at')
+            serializer = ReadingListCollaboratorSerializer(collaborators_qs, many=True, context={'request': request})
+            return Response(serializer.data)
+
+        # POST: invitar colaborador
+        if reading_list.user != request.user and not request.user.is_staff:
+            return Response({'detail': 'Solo el creador de la lista puede invitar colaboradores.'}, status=status.HTTP_403_FORBIDDEN)
+
+        from django.contrib.auth import get_user_model
+        UserModel = get_user_model()
+
+        user_id = request.data.get('user_id')
+        username = request.data.get('username')
+        email = request.data.get('email')
+
+        target_user = None
+        if user_id:
+            target_user = UserModel.objects.filter(id=user_id).first()
+        elif username:
+            target_user = UserModel.objects.filter(username__iexact=username).first()
+        elif email:
+            target_user = UserModel.objects.filter(email__iexact=email).first()
+
+        if not target_user:
+            return Response({'detail': 'Usuario a invitar no encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if target_user == reading_list.user:
+            return Response({'detail': 'El creador de la lista ya es el propietario.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if reading_list.collaborators.filter(user=target_user).exists():
+            return Response({'detail': 'Este usuario ya ha sido invitado a la lista.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        role = request.data.get('role', 'EDITOR')
+        can_add_books = request.data.get('can_add_books', True)
+        can_remove_books = request.data.get('can_remove_books', False)
+
+        with transaction.atomic():
+            if not reading_list.is_collaborative:
+                reading_list.is_collaborative = True
+                reading_list.save(update_fields=['is_collaborative'])
+
+            collaborator = ReadingListCollaborator.objects.create(
+                reading_list=reading_list,
+                user=target_user,
+                invited_by=request.user,
+                role=role,
+                status='PENDING',
+                can_add_books=can_add_books,
+                can_remove_books=can_remove_books,
+            )
+
+            try:
+                from users.models import NotificationType
+                from users.notification_service import NotificationService
+                NotificationService.send_notification(
+                    recipient=target_user,
+                    actor=request.user,
+                    notif_type=NotificationType.LIST_FOLLOW,
+                    title='Invitación a lista colaborativa',
+                    message=f"{request.user.username} te ha invitado a colaborar en la lista '{reading_list.name}'.",
+                    link=f"/reading-lists?id={reading_list.id}",
+                )
+            except Exception:
+                pass
+
+        return Response(
+            ReadingListCollaboratorSerializer(collaborator, context={'request': request}).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+    @action(detail=True, methods=['patch', 'delete'], url_path=r'collaborators/(?P<user_id>\d+)', permission_classes=[permissions.IsAuthenticated])
+    def manage_collaborator(self, request, pk=None, user_id=None):
+        """Gestiona el estado o permisos de un colaborador (aceptar/rechazar/editar/eliminar)."""
+        reading_list = self.get_object()
+        collaborator = get_object_or_404(reading_list.collaborators.select_related('user'), user_id=user_id)
+
+        is_self = (request.user.id == collaborator.user_id)
+        is_owner = (reading_list.user == request.user or request.user.is_staff)
+
+        if request.method == 'PATCH':
+            new_status = request.data.get('status')
+            with transaction.atomic():
+                if is_self:
+                    if new_status in ['ACCEPTED', 'REJECTED']:
+                        collaborator.status = new_status
+                        collaborator.save(update_fields=['status', 'updated_at'])
+                        return Response(ReadingListCollaboratorSerializer(collaborator, context={'request': request}).data)
+                    return Response({'detail': 'Estado no válido.'}, status=status.HTTP_400_BAD_REQUEST)
+
+                if is_owner:
+                    if new_status in ['ACCEPTED', 'REJECTED', 'PENDING']:
+                        collaborator.status = new_status
+                    if 'can_add_books' in request.data:
+                        collaborator.can_add_books = bool(request.data['can_add_books'])
+                    if 'can_remove_books' in request.data:
+                        collaborator.can_remove_books = bool(request.data['can_remove_books'])
+                    if 'role' in request.data and request.data['role'] in ['EDITOR', 'VIEWER']:
+                        collaborator.role = request.data['role']
+                    collaborator.save()
+                    return Response(ReadingListCollaboratorSerializer(collaborator, context={'request': request}).data)
+
+                return Response({'detail': 'No tienes permiso para modificar este colaborador.'}, status=status.HTTP_403_FORBIDDEN)
+
+        if request.method == 'DELETE':
+            if not is_self and not is_owner:
+                return Response({'detail': 'No tienes permiso para eliminar este colaborador.'}, status=status.HTTP_403_FORBIDDEN)
+            with transaction.atomic():
+                collaborator.delete()
+            return Response({'detail': 'Colaborador eliminado.'}, status=status.HTTP_200_OK)
 
 
 class ReadingStatsView(APIView):
@@ -2202,6 +2356,254 @@ class AuthorAnnouncementListView(APIView):
 
         announcements = AuthorService.get_announcements_for_author(author_id=pk)
         serializer = AuthorAnnouncementSerializer(announcements, many=True, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class AuthorClaimCreateView(APIView):
+    """
+    Permite a un usuario autenticado reclamar la página de un autor del catálogo.
+    RoadmapV3 Sprint 3 (Sección 4.4).
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    @extend_schema(
+        summary="Reclamar página de autor",
+        tags=['Authors'],
+    )
+    def post(self, request, pk):
+        from django.shortcuts import get_object_or_404
+        from .models import Author
+        from .serializers import AuthorClaimCreateSerializer, AuthorClaimAdminSerializer
+
+        author = get_object_or_404(Author, id=pk)
+        serializer = AuthorClaimCreateSerializer(
+            data=request.data,
+            context={'author': author, 'user': request.user, 'request': request},
+        )
+        serializer.is_valid(raise_exception=True)
+        claim = serializer.save()
+        return Response(
+            AuthorClaimAdminSerializer(claim, context={'request': request}).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class AuthorClaimStatusView(APIView):
+    """
+    Comprueba si el usuario autenticado tiene reclamaciones para este autor.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    @extend_schema(
+        summary="Consultar estado de reclamación del autor para el usuario actual",
+        tags=['Authors'],
+    )
+    def get(self, request, pk):
+        from django.shortcuts import get_object_or_404
+        from .models import Author, AuthorClaim, AuthorClaimStatus
+
+        author = get_object_or_404(Author, id=pk)
+        latest_claim = AuthorClaim.objects.filter(
+            author=author,
+            user=request.user,
+        ).order_by('-created_at').first()
+
+        is_owner = (author.claimed_by_id == request.user.id)
+        has_pending = (latest_claim.status == AuthorClaimStatus.PENDING) if latest_claim else False
+
+        return Response({
+            'author_id': author.id,
+            'is_verified': author.is_verified,
+            'is_owner': is_owner,
+            'has_pending_claim': has_pending,
+            'claim_status': latest_claim.status if latest_claim else None,
+            'claim_id': latest_claim.id if latest_claim else None,
+        }, status=status.HTTP_200_OK)
+
+
+class PublicFAQListView(generics.ListAPIView):
+    """
+    Listado público de Preguntas Frecuentes (FAQs) activas para visualización en formato acordeón.
+    RoadmapV3 Sprint 3.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def get_serializer_class(self):
+        from .serializers import FAQSerializer
+        return FAQSerializer
+
+    def get_queryset(self):
+        from .models import FAQ
+        qs = FAQ.objects.filter(is_published=True).order_by('order', 'id')
+        category = self.request.query_params.get('category')
+        if category:
+            qs = qs.filter(category=category.lower().strip())
+        return qs
+
+
+class AuthorEventViewSet(viewsets.ModelViewSet):
+    """
+    Gestión y consulta de eventos literarios de autores (presentaciones, firmas, Q&A, etc.).
+    RoadmapV3 Sección 30 — Sprint 11.
+    """
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+
+    def get_queryset(self):
+        from .models import AuthorEvent
+        qs = AuthorEvent.objects.select_related('author', 'book', 'created_by', 'author_profile').prefetch_related('attendees')
+
+        author_id = self.request.query_params.get('author') or self.request.query_params.get('author_id')
+        if author_id:
+            qs = qs.filter(author_id=author_id)
+
+        book_id = self.request.query_params.get('book') or self.request.query_params.get('book_id')
+        if book_id:
+            qs = qs.filter(book_id=book_id)
+
+        event_type = self.request.query_params.get('event_type')
+        if event_type:
+            qs = qs.filter(event_type=event_type)
+
+        event_format = self.request.query_params.get('format') or self.request.query_params.get('event_format')
+        if event_format:
+            qs = qs.filter(event_format=event_format)
+
+        upcoming = self.request.query_params.get('upcoming')
+        if upcoming in ('true', '1', 'True'):
+            from django.utils import timezone
+            qs = qs.filter(start_time__gte=timezone.now(), is_cancelled=False)
+        elif self.request.query_params.get('past') in ('true', '1', 'True'):
+            from django.utils import timezone
+            qs = qs.filter(start_time__lt=timezone.now())
+
+        search = self.request.query_params.get('search')
+        if search:
+            from django.db.models import Q
+            qs = qs.filter(Q(title__icontains=search) | Q(description__icontains=search) | Q(location_name__icontains=search))
+
+        return qs.order_by('start_time')
+
+    def get_serializer_class(self):
+        from .serializers import AuthorEventCreateUpdateSerializer, AuthorEventSerializer
+        if self.action in ('create', 'update', 'partial_update'):
+            return AuthorEventCreateUpdateSerializer
+        return AuthorEventSerializer
+
+    def perform_create(self, serializer):
+        from .models import AuthorProfile
+        author = serializer.validated_data['author']
+        author_profile = AuthorProfile.objects.filter(user=self.request.user, author=author).first()
+        serializer.save(created_by=self.request.user, author_profile=author_profile)
+
+    def perform_destroy(self, instance):
+        user = self.request.user
+        is_owner = (instance.created_by_id == user.id or instance.author.claimed_by_id == user.id)
+        is_staff = user.is_staff or getattr(user, 'role', '') in ('ADMIN', 'MODERATOR')
+        if not (is_owner or is_staff):
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("No tienes permisos para eliminar este evento.")
+        instance.delete()
+
+    def perform_update(self, serializer):
+        user = self.request.user
+        instance = self.get_object()
+        is_owner = (instance.created_by_id == user.id or instance.author.claimed_by_id == user.id)
+        is_staff = user.is_staff or getattr(user, 'role', '') in ('ADMIN', 'MODERATOR')
+        if not (is_owner or is_staff):
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("No tienes permisos para modificar este evento.")
+        serializer.save()
+
+    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
+    def register(self, request, pk=None):
+        from .models import AuthorEventAttendee
+        event = self.get_object()
+
+        if event.is_cancelled:
+            return Response({'detail': 'Este evento ha sido cancelado.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        notes = request.data.get('notes', '').strip()
+        attendee = AuthorEventAttendee.objects.filter(event=event, user=request.user).first()
+
+        if attendee:
+            if attendee.status in (AuthorEventAttendee.AttendeeStatus.REGISTERED, AuthorEventAttendee.AttendeeStatus.WAITLIST):
+                if notes:
+                    attendee.notes = notes
+                    attendee.save()
+                return Response({
+                    'detail': f'Ya estás inscrito en este evento ({attendee.get_status_display()}).',
+                    'status': attendee.status,
+                    'is_waitlist': (attendee.status == AuthorEventAttendee.AttendeeStatus.WAITLIST),
+                }, status=status.HTTP_200_OK)
+            else:
+                # Was CANCELLED, reactivate
+                new_status = AuthorEventAttendee.AttendeeStatus.WAITLIST if event.is_full else AuthorEventAttendee.AttendeeStatus.REGISTERED
+                attendee.status = new_status
+                attendee.notes = notes
+                attendee.save()
+                return Response({
+                    'detail': f'Inscripción reactivada ({attendee.get_status_display()}).',
+                    'status': attendee.status,
+                    'is_waitlist': (new_status == AuthorEventAttendee.AttendeeStatus.WAITLIST),
+                }, status=status.HTTP_200_OK)
+
+        new_status = AuthorEventAttendee.AttendeeStatus.WAITLIST if event.is_full else AuthorEventAttendee.AttendeeStatus.REGISTERED
+        attendee = AuthorEventAttendee.objects.create(
+            event=event,
+            user=request.user,
+            status=new_status,
+            notes=notes,
+        )
+        msg = 'Te hemos añadido a la lista de espera.' if new_status == AuthorEventAttendee.AttendeeStatus.WAITLIST else '¡Inscripción confirmada!'
+        return Response({
+            'detail': msg,
+            'status': new_status,
+            'is_waitlist': (new_status == AuthorEventAttendee.AttendeeStatus.WAITLIST),
+        }, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
+    def cancel_registration(self, request, pk=None):
+        from .models import AuthorEventAttendee
+        event = self.get_object()
+        attendee = AuthorEventAttendee.objects.filter(event=event, user=request.user).first()
+
+        if not attendee or attendee.status == AuthorEventAttendee.AttendeeStatus.CANCELLED:
+            return Response({'detail': 'No tienes una inscripción activa para este evento.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        was_registered = (attendee.status == AuthorEventAttendee.AttendeeStatus.REGISTERED)
+        attendee.status = AuthorEventAttendee.AttendeeStatus.CANCELLED
+        attendee.save()
+
+        # If user had a confirmed seat, promote next person on waitlist
+        promoted_username = None
+        if was_registered:
+            next_in_line = event.attendees.filter(
+                status=AuthorEventAttendee.AttendeeStatus.WAITLIST
+            ).order_by('created_at').first()
+            if next_in_line:
+                next_in_line.status = AuthorEventAttendee.AttendeeStatus.REGISTERED
+                next_in_line.save()
+                promoted_username = next_in_line.user.username
+
+        return Response({
+            'detail': 'Tu inscripción ha sido cancelada correctamente.',
+            'status': 'CANCELLED',
+            'promoted_user': promoted_username,
+        }, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['get'], permission_classes=[permissions.IsAuthenticated])
+    def attendees(self, request, pk=None):
+        from .serializers import AuthorEventAttendeeSerializer
+        event = self.get_object()
+        user = request.user
+        is_organizer = (event.created_by_id == user.id or event.author.claimed_by_id == user.id or user.is_staff or getattr(user, 'role', '') in ('ADMIN', 'MODERATOR'))
+
+        if is_organizer:
+            attendees = event.attendees.select_related('user').all().order_by('created_at')
+        else:
+            attendees = event.attendees.filter(status='REGISTERED').select_related('user').order_by('created_at')
+
+        serializer = AuthorEventAttendeeSerializer(attendees, many=True, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 

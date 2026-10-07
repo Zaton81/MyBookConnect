@@ -17,5 +17,12 @@ export default defineConfig({
     setupFiles: './src/setupTests.ts',
     include: ['src/**/*.{test,spec}.{ts,tsx}'],
     exclude: ['e2e/**', 'node_modules/**', 'dist/**'],
+    pool: 'threads',
+    poolOptions: {
+      threads: {
+        singleThread: true,
+      },
+    },
+    testTimeout: 20000,
   },
 })

@@ -21,7 +21,30 @@ interface ReadingListItem {
   book: BookItem;
   position: number;
   notes?: string;
+  added_by?: {
+    id: number;
+    username: string;
+    avatar?: string;
+  };
   added_at: string;
+}
+
+interface ReadingListCollaborator {
+  id: number;
+  user: {
+    id: number;
+    username: string;
+    avatar?: string;
+  };
+  role: 'EDITOR' | 'VIEWER';
+  status: 'PENDING' | 'ACCEPTED' | 'REJECTED';
+  can_add_books: boolean;
+  can_remove_books: boolean;
+  invited_by?: {
+    id: number;
+    username: string;
+  };
+  created_at: string;
 }
 
 interface ReadingList {
@@ -30,6 +53,10 @@ interface ReadingList {
   slug: string;
   description: string;
   privacy: 'public' | 'followers' | 'private';
+  is_collaborative: boolean;
+  collaborators_count?: number;
+  collaborators?: ReadingListCollaborator[];
+  is_collaborator?: boolean;
   created_at: string;
   updated_at: string;
   user: {
@@ -63,7 +90,7 @@ export function ReadingLists() {
   const [searchParams] = useSearchParams();
   const apiUrl = (import.meta as any).env.VITE_API_URL || 'http://localhost:8000';
 
-  const [activeTab, setActiveTab] = useState<'my' | 'explore' | 'followed'>('my');
+  const [activeTab, setActiveTab] = useState<'my' | 'explore' | 'followed' | 'collaborative'>('my');
   const [lists, setLists] = useState<ReadingList[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedList, setSelectedList] = useState<ReadingList | null>(null);
@@ -82,6 +109,14 @@ export function ReadingLists() {
   const [savingList, setSavingList] = useState(false);
   const [reportingList, setReportingList] = useState<ReadingList | null>(null);
 
+  // Modal Invitar Colaborador (Sprint 10)
+  const [inviteModalOpen, setInviteModalOpen] = useState(false);
+  const [inviteUsername, setInviteUsername] = useState('');
+  const [inviteRole, setInviteRole] = useState<'EDITOR' | 'VIEWER'>('EDITOR');
+  const [inviteCanAdd, setInviteCanAdd] = useState(true);
+  const [inviteCanRemove, setInviteCanRemove] = useState(false);
+  const [invitingCollaborator, setInvitingCollaborator] = useState(false);
+
   const {
     register: registerList,
     handleSubmit: handleSubmitList,
@@ -93,6 +128,7 @@ export function ReadingLists() {
       name: '',
       description: '',
       privacy: 'public',
+      is_collaborative: false,
     },
   });
 
@@ -102,6 +138,20 @@ export function ReadingLists() {
   const [searchingBooks, setSearchingBooks] = useState(false);
   const [addingBook, setAddingBook] = useState(false);
 
+  const refreshSelectedList = async (listId: number) => {
+    try {
+      const headers: Record<string, string> = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const res = await fetch(`${apiUrl}/api/v1/books/reading-lists/${listId}/`, { headers });
+      if (res.ok) {
+        const data = await res.json();
+        setSelectedList(data);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   const fetchLists = async () => {
     setLoading(true);
     try {
@@ -110,6 +160,8 @@ export function ReadingLists() {
         endpoint += '?my_lists=true';
       } else if (activeTab === 'followed') {
         endpoint += '?followed=true';
+      } else if (activeTab === 'collaborative') {
+        endpoint += '?collaborative=true';
       }
 
       const headers: Record<string, string> = {};
@@ -267,6 +319,7 @@ export function ReadingLists() {
       name: '',
       description: '',
       privacy: 'public',
+      is_collaborative: false,
     });
     setModalOpen(true);
   };
@@ -277,6 +330,7 @@ export function ReadingLists() {
       name: list.name,
       description: list.description || '',
       privacy: list.privacy,
+      is_collaborative: list.is_collaborative || false,
     });
     setModalOpen(true);
   };
@@ -301,6 +355,7 @@ export function ReadingLists() {
           name: data.name.trim(),
           description: data.description?.trim() || '',
           privacy: data.privacy,
+          is_collaborative: Boolean(data.is_collaborative),
         }),
       });
 
@@ -403,6 +458,7 @@ export function ReadingLists() {
       if (res.ok) {
         setBookSearchQuery('');
         setBookSearchResults([]);
+        await refreshSelectedList(selectedList.id);
         await fetchLists();
       } else {
         const err = await res.json().catch(() => ({}));
@@ -426,6 +482,7 @@ export function ReadingLists() {
         }
       );
       if (res.ok) {
+        await refreshSelectedList(selectedList.id);
         await fetchLists();
       }
     } catch (err) {
@@ -467,7 +524,107 @@ export function ReadingLists() {
     }
   };
 
-  const isOwner = (list: ReadingList) => currentUser && list.user.id === currentUser.id;
+  const handleInviteSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedList || !token || !inviteUsername.trim()) return;
+    setInvitingCollaborator(true);
+    try {
+      const res = await fetch(`${apiUrl}/api/v1/books/reading-lists/${selectedList.id}/collaborators/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          username: inviteUsername.trim(),
+          role: inviteRole,
+          can_add_books: inviteCanAdd,
+          can_remove_books: inviteCanRemove,
+        }),
+      });
+      if (res.ok) {
+        setInviteModalOpen(false);
+        setInviteUsername('');
+        await refreshSelectedList(selectedList.id);
+        await fetchLists();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert(err.detail || 'Error al invitar al colaborador.');
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setInvitingCollaborator(false);
+    }
+  };
+
+  const handleRespondInvitation = async (listId: number, status: 'ACCEPTED' | 'REJECTED') => {
+    if (!token || !currentUser) return;
+    try {
+      const res = await fetch(
+        `${apiUrl}/api/v1/books/reading-lists/${listId}/collaborators/${currentUser.id}/`,
+        {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ status }),
+        }
+      );
+      if (res.ok) {
+        await refreshSelectedList(listId);
+        await fetchLists();
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleRemoveCollaborator = async (listId: number, userId: number) => {
+    if (!token) return;
+    const isSelf = currentUser && currentUser.id === userId;
+    const msg = isSelf
+      ? '¿Estás seguro de que deseas abandonar la colaboración en esta lista?'
+      : '¿Deseas eliminar a este colaborador de la lista?';
+    if (!window.confirm(msg)) return;
+
+    try {
+      const res = await fetch(
+        `${apiUrl}/api/v1/books/reading-lists/${listId}/collaborators/${userId}/`,
+        {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+      if (res.ok) {
+        await refreshSelectedList(listId);
+        await fetchLists();
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const isOwner = (list: ReadingList) => Boolean(currentUser && list.user.id === currentUser.id);
+  const userCollaborator = selectedList && currentUser
+    ? selectedList.collaborators?.find((c) => c.user.id === currentUser.id && c.status === 'ACCEPTED')
+    : undefined;
+  const userPendingInvitation = selectedList && currentUser
+    ? selectedList.collaborators?.find((c) => c.user.id === currentUser.id && c.status === 'PENDING')
+    : undefined;
+  const canAddBooks = Boolean(
+    selectedList && (isOwner(selectedList) || (selectedList.is_collaborative && userCollaborator && userCollaborator.can_add_books))
+  );
+  const canRemoveItem = (item: ReadingListItem) => {
+    if (!selectedList) return false;
+    if (isOwner(selectedList)) return true;
+    if (selectedList.is_collaborative && userCollaborator) {
+      if (userCollaborator.can_remove_books) return true;
+      if (item.added_by && item.added_by.id === currentUser?.id) return true;
+    }
+    return false;
+  };
 
   return (
     <div className="max-w-6xl mx-auto space-y-8 p-4 sm:p-6">
@@ -538,6 +695,21 @@ export function ReadingLists() {
             ⭐ Siguiendo
           </button>
         )}
+        {token && (
+          <button
+            onClick={() => {
+              setActiveTab('collaborative');
+              setSelectedList(null);
+            }}
+            className={`px-5 py-2 rounded-xl text-xs font-bold transition-all ${
+              activeTab === 'collaborative'
+                ? 'bg-white dark:bg-slate-700 text-teal-700 dark:text-teal-300 shadow-sm'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            🤝 Colaborativas
+          </button>
+        )}
       </div>
 
       {/* Contenido principal: Grid de Listas o Detalle */}
@@ -578,6 +750,11 @@ export function ReadingLists() {
                         ? 'Solo seguidores'
                         : 'Privada'}
                   </span>
+                  {selectedList.is_collaborative && (
+                    <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-teal-100 text-teal-800 dark:bg-teal-900/40 dark:text-teal-300">
+                      🤝 Colaborativa
+                    </span>
+                  )}
                 </div>
                 {selectedList.description && (
                   <p className="text-sm text-slate-600 dark:text-slate-300 mt-2 max-w-2xl">
@@ -596,6 +773,12 @@ export function ReadingLists() {
                   <span>👁️ {selectedList.views_count || 0} aperturas</span>
                   <span>•</span>
                   <span>💬 {selectedList.comments_count || comments.length || 0} comentarios</span>
+                  {selectedList.is_collaborative && (
+                    <>
+                      <span>•</span>
+                      <span>🤝 {selectedList.collaborators?.length || selectedList.collaborators_count || 0} colaboradores</span>
+                    </>
+                  )}
                 </div>
               </div>
 
@@ -675,8 +858,109 @@ export function ReadingLists() {
               </div>
             )}
 
-            {/* Añadir libro a la lista (Solo propietario) */}
-            {isOwner(selectedList) && (
+            {/* Sección de Colaboradores (Sprint 10) */}
+            {selectedList.is_collaborative && (
+              <div className="border-t border-slate-100 dark:border-slate-700 pt-6">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">🤝</span>
+                    <h3 className="text-sm font-bold text-slate-800 dark:text-white">
+                      Colaboradores ({selectedList.collaborators?.length || 0})
+                    </h3>
+                  </div>
+                  {isOwner(selectedList) && (
+                    <button
+                      onClick={() => setInviteModalOpen(true)}
+                      className="text-xs font-bold px-3 py-1.5 rounded-xl bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 hover:bg-teal-100 dark:hover:bg-teal-900/50 transition-colors flex items-center gap-1 cursor-pointer"
+                    >
+                      <span>+</span>
+                      <span>Invitar Colaborador</span>
+                    </button>
+                  )}
+                </div>
+
+                {/* Banner de invitación pendiente para el usuario actual */}
+                {userPendingInvitation && (
+                  <div className="mb-4 p-4 bg-teal-50 dark:bg-teal-950/40 border border-teal-200 dark:border-teal-800 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-center gap-2.5">
+                      <span className="text-lg">📬</span>
+                      <div>
+                        <p className="text-xs font-bold text-teal-900 dark:text-teal-200">
+                          ¡Te han invitado a colaborar en esta lista!
+                        </p>
+                        <p className="text-[11px] text-teal-700 dark:text-teal-400">
+                          Acepta para poder añadir y recomendar libros en esta colección conjunta.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleRespondInvitation(selectedList.id, 'ACCEPTED')}
+                        className="text-xs font-bold px-3.5 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white shadow-sm transition-colors cursor-pointer"
+                      >
+                        Aceptar
+                      </button>
+                      <button
+                        onClick={() => handleRespondInvitation(selectedList.id, 'REJECTED')}
+                        className="text-xs font-bold px-3.5 py-1.5 rounded-xl bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 text-slate-700 dark:text-slate-300 transition-colors cursor-pointer"
+                      >
+                        Rechazar
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Grid de colaboradores */}
+                {selectedList.collaborators && selectedList.collaborators.length > 0 ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                    {selectedList.collaborators.map((c) => (
+                      <div
+                        key={c.id}
+                        className="p-3 bg-slate-50 dark:bg-slate-900/40 rounded-2xl border border-slate-100 dark:border-slate-700/60 flex items-center justify-between gap-2"
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="w-8 h-8 rounded-full bg-teal-100 dark:bg-teal-900/60 text-teal-800 dark:text-teal-200 font-bold flex items-center justify-center shrink-0 text-xs">
+                            {c.user.username.charAt(0).toUpperCase()}
+                          </div>
+                          <div className="truncate">
+                            <p className="text-xs font-bold text-slate-800 dark:text-white truncate">
+                              @{c.user.username}
+                            </p>
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[10px] text-slate-400 font-medium">
+                                {c.role === 'EDITOR' ? 'Editor' : 'Lector'}
+                              </span>
+                              {c.status === 'PENDING' && (
+                                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300">
+                                  Pendiente
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {(isOwner(selectedList) || (currentUser && currentUser.id === c.user.id)) && (
+                          <button
+                            onClick={() => handleRemoveCollaborator(selectedList.id, c.user.id)}
+                            className="text-slate-400 hover:text-red-500 p-1 rounded-lg text-xs transition-colors cursor-pointer"
+                            title={currentUser && currentUser.id === c.user.id ? 'Abandonar lista' : 'Eliminar colaborador'}
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-slate-400 italic">
+                    Aún no hay colaboradores en esta lista.
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Añadir libro a la lista (Propietario o Colaboradores con permisos) */}
+            {canAddBooks && (
               <div className="border-t border-slate-100 dark:border-slate-700 pt-6">
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-2">
                   Añadir libro a esta lista
@@ -792,27 +1076,36 @@ export function ReadingLists() {
                               "{item.notes}"
                             </p>
                           )}
+                          {item.added_by && (
+                            <p className="text-[10px] text-teal-600 dark:text-teal-400 font-medium mt-0.5">
+                              Añadido por @{item.added_by.username}
+                            </p>
+                          )}
                         </div>
                       </div>
 
-                      {isOwner(selectedList) && (
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          <button
-                            disabled={idx === 0}
-                            onClick={() => handleMoveBook(idx, 'up')}
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white disabled:opacity-30"
-                            title="Subir posición"
-                          >
-                            ▲
-                          </button>
-                          <button
-                            disabled={idx === selectedList.items.length - 1}
-                            onClick={() => handleMoveBook(idx, 'down')}
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white disabled:opacity-30"
-                            title="Bajar posición"
-                          >
-                            ▼
-                          </button>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {isOwner(selectedList) && (
+                          <>
+                            <button
+                              disabled={idx === 0}
+                              onClick={() => handleMoveBook(idx, 'up')}
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white disabled:opacity-30"
+                              title="Subir posición"
+                            >
+                              ▲
+                            </button>
+                            <button
+                              disabled={idx === selectedList.items.length - 1}
+                              onClick={() => handleMoveBook(idx, 'down')}
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white disabled:opacity-30"
+                              title="Bajar posición"
+                            >
+                              ▼
+                            </button>
+                          </>
+                        )}
+                        {canRemoveItem(item) && (
                           <button
                             onClick={() => handleRemoveBookFromList(item.book.id)}
                             className="p-1.5 text-xs text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg ml-1"
@@ -820,8 +1113,8 @@ export function ReadingLists() {
                           >
                             ✕
                           </button>
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -929,7 +1222,9 @@ export function ReadingLists() {
                   ? 'Aún no has creado ninguna lista de lectura. ¡Crea la primera para organizar tus libros!'
                   : activeTab === 'followed'
                     ? 'No sigues ninguna lista de lectura aún.'
-                    : 'Aún no hay listas públicas compartidas por la comunidad.'}
+                    : activeTab === 'collaborative'
+                      ? 'No perteneces a ninguna lista colaborativa todavía. ¡Crea una o solicita que te inviten!'
+                      : 'Aún no hay listas públicas compartidas por la comunidad.'}
               </p>
               {activeTab === 'my' && token && (
                 <button
@@ -950,21 +1245,28 @@ export function ReadingLists() {
                 >
                   <div>
                     <div className="flex items-center justify-between gap-2 mb-2">
-                      <span
-                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                          list.privacy === 'public'
-                            ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                            list.privacy === 'public'
+                              ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
+                              : list.privacy === 'followers'
+                                ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
+                                : 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300'
+                          }`}
+                        >
+                          {list.privacy === 'public'
+                            ? 'Pública'
                             : list.privacy === 'followers'
-                              ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
-                              : 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300'
-                        }`}
-                      >
-                        {list.privacy === 'public'
-                          ? 'Pública'
-                          : list.privacy === 'followers'
-                            ? 'Seguidores'
-                            : 'Privada'}
-                      </span>
+                              ? 'Seguidores'
+                              : 'Privada'}
+                        </span>
+                        {list.is_collaborative && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-teal-100 text-teal-800 dark:bg-teal-900/40 dark:text-teal-300">
+                            🤝 Colab
+                          </span>
+                        )}
+                      </div>
                       <span className="text-[11px] text-slate-400">
                         {list.items_count || 0} {list.items_count === 1 ? 'libro' : 'libros'}
                       </span>
@@ -1011,7 +1313,12 @@ export function ReadingLists() {
 
                   <div className="border-t border-slate-100 dark:border-slate-700/60 pt-3 mt-4 flex items-center justify-between text-xs text-slate-400">
                     <span>@{list.user.username}</span>
-                    <span>{list.followers_count || 0} seguidores</span>
+                    <div className="flex items-center gap-2">
+                      {list.is_collaborative && (
+                        <span>🤝 {list.collaborators_count || 0}</span>
+                      )}
+                      <span>{list.followers_count || 0} seguidores</span>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -1084,6 +1391,22 @@ export function ReadingLists() {
                 )}
               </div>
 
+              <div className="pt-1">
+                <label className="flex items-center gap-2.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    {...registerList('is_collaborative')}
+                    className="rounded text-teal-600 focus:ring-teal-500 h-4 w-4 border-slate-300 dark:border-slate-600"
+                  />
+                  <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                    Lista colaborativa 🤝
+                  </span>
+                </label>
+                <p className="text-[11px] text-slate-400 mt-0.5 pl-6.5">
+                  Permite invitar a otros lectores para añadir libros conjuntamente.
+                </p>
+              </div>
+
               <div className="flex items-center justify-end gap-3 pt-2">
                 <button
                   type="button"
@@ -1098,6 +1421,98 @@ export function ReadingLists() {
                   className="bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs px-5 py-2.5 rounded-xl transition-all shadow-md"
                 >
                   {savingList ? 'Guardando...' : editingList ? 'Actualizar' : 'Crear'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Invitar Colaborador (Sprint 10) */}
+      {inviteModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 sm:p-8 max-w-sm w-full shadow-2xl border border-slate-200 dark:border-slate-700 space-y-5">
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-base text-slate-900 dark:text-white flex items-center gap-2">
+                <span>🤝</span>
+                <span>Invitar Colaborador</span>
+              </h3>
+              <button
+                onClick={() => setInviteModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-white text-sm"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleInviteSubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
+                  Nombre de usuario *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={inviteUsername}
+                  onChange={(e) => setInviteUsername(e.target.value)}
+                  placeholder="Ej. lector_apasionado"
+                  className="w-full text-sm rounded-xl border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-700 dark:text-white py-2 px-3 focus:ring-teal-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
+                  Rol
+                </label>
+                <select
+                  value={inviteRole}
+                  onChange={(e) => setInviteRole(e.target.value as any)}
+                  className="w-full text-sm rounded-xl border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-700 dark:text-white py-2 px-3 focus:ring-teal-500"
+                >
+                  <option value="EDITOR">Editor (Puede añadir libros)</option>
+                  <option value="VIEWER">Lector (Solo lectura y comentarios)</option>
+                </select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={inviteCanAdd}
+                    onChange={(e) => setInviteCanAdd(e.target.checked)}
+                    className="rounded text-teal-600 focus:ring-teal-500 h-4 w-4"
+                  />
+                  <span className="text-xs text-slate-700 dark:text-slate-300">
+                    Puede añadir libros
+                  </span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={inviteCanRemove}
+                    onChange={(e) => setInviteCanRemove(e.target.checked)}
+                    className="rounded text-teal-600 focus:ring-teal-500 h-4 w-4"
+                  />
+                  <span className="text-xs text-slate-700 dark:text-slate-300">
+                    Puede eliminar cualquier libro
+                  </span>
+                </label>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setInviteModalOpen(false)}
+                  className="text-xs font-bold px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={invitingCollaborator || !inviteUsername.trim()}
+                  className="bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs px-5 py-2.5 rounded-xl transition-all shadow-md disabled:opacity-50 cursor-pointer"
+                >
+                  {invitingCollaborator ? 'Invitando...' : 'Enviar Invitación'}
                 </button>
               </div>
             </form>

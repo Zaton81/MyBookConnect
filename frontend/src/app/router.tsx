@@ -34,6 +34,15 @@ const DeletionPolicy = lazy(() =>
 const ContactPage = lazy(() =>
   import('../features/legal').then((m) => ({ default: m.ContactPage }))
 );
+const FaqsPage = lazy(() =>
+  import('../features/faqs').then((m) => ({ default: m.FaqsPage }))
+);
+const ClubsPage = lazy(() =>
+  import('../features/clubs').then((m) => ({ default: m.ClubsPage }))
+);
+const ClubDetailPage = lazy(() =>
+  import('../features/clubs').then((m) => ({ default: m.ClubDetailPage }))
+);
 const AdminDashboard = lazy(() =>
   import('../features/admin').then((m) => ({ default: m.AdminDashboard }))
 );
@@ -51,6 +60,9 @@ const OnboardingPage = lazy(() =>
 );
 const PublicLandingPage = lazy(() =>
   import('../features/discovery').then((m) => ({ default: m.PublicLandingPage }))
+);
+const SearchPage = lazy(() =>
+  import('../features/discovery').then((m) => ({ default: m.SearchPage }))
 );
 
 function ProfileIdRedirect() {
@@ -78,11 +90,18 @@ export function AppRouter() {
           <Route path="/content-policy" element={<ContentPolicy />} />
           <Route path="/deletion-policy" element={<DeletionPolicy />} />
           <Route path="/contact" element={<ContactPage />} />
+          <Route path="/faqs" element={<FaqsPage />} />
+          <Route path="/clubs" element={<ClubsPage />} />
+          <Route path="/clubs/:slug" element={<ClubDetailPage />} />
+          <Route path="/search" element={<SearchPage />} />
         </Route>
 
         {/* Rutas Protegidas de Miembros */}
         <Route element={<ProtectedLayout />}>
           <Route path="/home" element={<Home />} />
+          <Route path="/search" element={<SearchPage />} />
+          <Route path="/clubs" element={<ClubsPage />} />
+          <Route path="/clubs/:slug" element={<ClubDetailPage />} />
           <Route path="/books/add" element={<AddBook />} />
           <Route path="/books/:id" element={<BookDetail />} />
           <Route path="/authors/:id" element={<Author />} />

@@ -495,17 +495,15 @@ class LogoutView(APIView):
             return Response({'detail': 'Token inválido o ya revocado.'}, status=status.HTTP_400_BAD_REQUEST)
 
 
-class NotificationListView(generics.ListCreateAPIView):
+class NotificationListView(generics.ListAPIView):
     """
-    Lista y emite notificaciones para usuarios autenticados (Fase 62).
-    La creación está protegida con @idempotent para prevenir duplicados.
+    Lista notificaciones para el usuario autenticado (RoadmapV3 Sprint 1 - P0).
+    Endpoint estrictamente de solo lectura (GET).
+    La generación de notificaciones se canaliza exclusivamente por el servicio interno NotificationService.
     """
     permission_classes = (permissions.IsAuthenticated,)
 
     def get_serializer_class(self):
-        if self.request.method == 'POST':
-            from .serializers import NotificationCreateSerializer
-            return NotificationCreateSerializer
         from .serializers import NotificationSerializer
         return NotificationSerializer
 
@@ -522,11 +520,6 @@ class NotificationListView(generics.ListCreateAPIView):
             queryset = queryset.filter(type=notif_type.upper().strip())
         return queryset
 
-    @idempotent(required=False)
-    def post(self, request, *args, **kwargs):
-        with transaction.atomic():
-            return super().post(request, *args, **kwargs)
-
 
 NotificationCreateView = NotificationListView
 
@@ -534,6 +527,18 @@ NotificationCreateView = NotificationListView
 class NotificationDetailView(APIView):
     """Permite consultar o eliminar una notificación individual."""
     permission_classes = (permissions.IsAuthenticated,)
+
+    @extend_schema(
+        summary="Consultar notificación individual",
+        responses={200: 'NotificationSerializer', 404: OpenApiResponse(description="Notificación no encontrada")},
+        tags=['Notifications'],
+    )
+    def get(self, request, notification_id):
+        from .models import Notification
+        from .serializers import NotificationSerializer
+        notif = get_object_or_404(Notification, id=notification_id, recipient=request.user)
+        serializer = NotificationSerializer(notif, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
     @extend_schema(
         summary="Eliminar notificación individual",

@@ -23,9 +23,12 @@ from .views import (
     AuthorAnnouncementListView,
     AuthorBookRefreshView,
     AuthorBooksView,
+    AuthorClaimCreateView,
+    AuthorClaimStatusView,
     AuthorClaimView,
     AuthorDashboardView,
     AuthorDetailView,
+    AuthorEventViewSet,
     AuthorListCreateView,
     AuthorProfileMeView,
     BookAffiliateClickView,
@@ -55,6 +58,7 @@ from .views import (
 
 router = DefaultRouter()
 router.register('reading-lists', ReadingListViewSet, basename='reading-lists')
+router.register('author-events', AuthorEventViewSet, basename='author-events')
 
 urlpatterns = [
     path('legal/', PublicLegalDocumentListView.as_view(), name='books-legal-list'),
@@ -104,6 +108,8 @@ urlpatterns = [
     path('authors/<int:pk>/', AuthorDetailView.as_view(), name='authors-detail'),
     path('authors/<int:pk>/books/', AuthorBooksView.as_view(), name='author-books'),
     path('authors/<int:pk>/refresh-books/', AuthorBookRefreshView.as_view(), name='author-refresh-books'),
+    path('authors/<int:pk>/claim/', AuthorClaimCreateView.as_view(), name='author-claim-create'),
+    path('authors/<int:pk>/claim-status/', AuthorClaimStatusView.as_view(), name='author-claim-status'),
     path('user/books/', UserBookListCreateView.as_view(), name='user-books'),
     path('user/books/<int:pk>/', UserBookDetailView.as_view(), name='user-book-detail'),
     path('user/books/by-book/<int:book_id>/', UserBookByBookView.as_view(), name='user-book-by-book'),

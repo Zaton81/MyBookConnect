@@ -13,19 +13,22 @@ from django.contrib.auth import get_user_model
 from django.contrib.contenttypes.models import ContentType
 from rest_framework import serializers
 
-from books.models import ReadingList, Review, ReviewComment
+from books.models import Author, Book, ReadingList, Review, ReviewComment
 from messages_app.models import Message
-from users.models import Report, ReportStatus
+from users.models import Report, ReportStatus, UserPost
 
 User = get_user_model()
 
-# Mapeo canónico de tipos de contenido denunciables (Roadmap 21.1)
+# Mapeo canónico de tipos de contenido denunciables (Roadmap 21.1 y 25)
 ALLOWED_TARGET_MODELS = {
     'user': User,
     'review': Review,
     'comment': ReviewComment,
     'message': Message,
     'list': ReadingList,
+    'book': Book,
+    'author': Author,
+    'post': UserPost,
 }
 
 
@@ -73,6 +76,10 @@ class ReportCreateSerializer(serializers.ModelSerializer):
             elif target_type in ('review', 'comment', 'list') and getattr(target_obj, 'user_id', None) == user.id:
                 is_self = True
             elif target_type == 'message' and getattr(target_obj, 'sender_id', None) == user.id:
+                is_self = True
+            elif target_type == 'post' and getattr(target_obj, 'author_id', None) == user.id:
+                is_self = True
+            elif target_type == 'author' and getattr(target_obj, 'claimed_by_id', None) == user.id:
                 is_self = True
 
             if is_self:
@@ -135,6 +142,8 @@ class ReportListSerializer(serializers.ModelSerializer):
             return 'comment'
         elif model_name == 'readinglist':
             return 'list'
+        elif model_name == 'userpost':
+            return 'post'
         return model_name
 
     def get_target_preview(self, obj) -> dict:
@@ -184,6 +193,33 @@ class ReportListSerializer(serializers.ModelSerializer):
                 "privacy": target.privacy,
                 "is_moderated": target.is_moderated,
                 "snippet": (target.description[:120] + '...') if target.description and len(target.description) > 120 else target.description,
+            }
+        elif isinstance(target, Book):
+            return {
+                "type": "book",
+                "id": target.id,
+                "title": target.title,
+                "author": target.author.name if target.author else None,
+                "isbn": target.isbn,
+                "cover": target.cover.url if target.cover else None,
+                "average_rating": target.average_rating,
+            }
+        elif isinstance(target, Author):
+            return {
+                "type": "author",
+                "id": target.id,
+                "name": target.name,
+                "is_verified": target.is_verified,
+                "claimed_by": target.claimed_by.username if target.claimed_by else None,
+                "snippet": (target.biography[:120] + '...') if target.biography and len(target.biography) > 120 else target.biography,
+            }
+        elif isinstance(target, UserPost):
+            return {
+                "type": "post",
+                "id": target.id,
+                "author": target.author.username,
+                "target_user": target.target_user.username,
+                "snippet": (target.content[:120] + '...') if target.content and len(target.content) > 120 else target.content,
             }
         return {"summary": str(target)}
 

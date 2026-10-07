@@ -13,6 +13,8 @@ from drf_spectacular.views import (
 )
 from rest_framework_simplejwt.views import TokenRefreshView
 
+from books.search_views import GlobalSearchView
+from books.views import PublicFAQListView
 from users.auth_views import CustomTokenObtainPairView
 from users.moderation_views import ReportCreateView, UserReportsListView
 
@@ -69,6 +71,9 @@ urlpatterns = [
             path('', ReportCreateView.as_view(), name='report-create'),
             path('my/', UserReportsListView.as_view(), name='user-reports-list'),
         ])),
+        path('faqs/', PublicFAQListView.as_view(), name='faqs-list'),
+        path('clubs/', include('books.club_urls')),
+        path('search/', GlobalSearchView.as_view(), name='global-search'),
         path('analytics/', include('analytics.urls')),
         path('beta/', include('beta.urls')),
     ])),

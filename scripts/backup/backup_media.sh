@@ -5,8 +5,8 @@
 # ==============================================================================
 set -euo pipefail
 
-BACKUP_DIR="${MEDIA_BACKUP_DIR:-/backups/media}"
-MEDIA_DIR="${MEDIA_ROOT:-/app/media}"
+BACKUP_DIR="${MEDIA_BACKUP_DIR:-./backups/media}"
+MEDIA_DIR="${MEDIA_ROOT:-./backend/media}"
 RETENTION_DAYS="${MEDIA_BACKUP_RETENTION_DAYS:-30}"
 TIMESTAMP=$(date -u +"%Y%m%d_%H%M%S")
 ENCRYPTION_KEY="${BACKUP_ENCRYPTION_KEY:-${BACKUP_PASSPHRASE:-}}"

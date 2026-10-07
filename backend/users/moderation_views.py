@@ -21,10 +21,10 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from books.admin_views import IsModeratorOrAdmin
-from books.models import ReadingList, Review, ReviewComment
+from books.models import Author, Book, ReadingList, Review, ReviewComment
 from books.pagination import StandardResultsSetPagination
 from messages_app.models import Message
-from users.models import Report, ReportStatus
+from users.models import Report, ReportStatus, UserPost
 
 from .moderation_serializers import (
     ALLOWED_TARGET_MODELS,
@@ -172,6 +172,10 @@ class AdminReportDetailView(generics.RetrieveUpdateAPIView):
                         user_to_act = target.user
                     elif isinstance(target, Message):
                         user_to_act = target.sender
+                    elif isinstance(target, UserPost):
+                        user_to_act = target.author
+                    elif isinstance(target, Author) and target.claimed_by:
+                        user_to_act = target.claimed_by
 
                     if user_to_act and not (user_to_act.is_staff or user_to_act.is_superuser):
                         if action_taken == 'BAN_USER':
@@ -185,6 +189,10 @@ class AdminReportDetailView(generics.RetrieveUpdateAPIView):
                             user_to_act.save(update_fields=['muted_until'])
 
             instance.save()
+
+            # Si la medida es HIDE_CONTENT sobre un UserPost, eliminarlo tras asegurar el reporte
+            if new_status == ReportStatus.RESOLVED and action_taken == 'HIDE_CONTENT' and isinstance(target, UserPost):
+                target.delete()
 
             # Registro de auditoría
             from users.audit_service import log_audit

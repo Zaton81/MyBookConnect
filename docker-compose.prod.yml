@@ -1,6 +1,6 @@
 # ==============================================================================
 # MyBookConnect - Orquestación de Contenedores para Producción
-# Fase 13 - Docker y Producción (Prioridad P1)
+# RoadmapV3 - Sprint 2: Infraestructura y Backups (Prioridad P0)
 # ==============================================================================
 # Principios de Seguridad y Aislamiento:
 # 1. Reverse proxy (frontend Nginx) es el ÚNICO servicio que expone puertos al exterior (80 / 443).
@@ -8,6 +8,7 @@
 # 3. Base de datos (PostgreSQL 16) y Redis 7 están aisladas en backend_net sin puertos mapeados al host.
 # 4. Graceful shutdown configurado con stop_signal y stop_grace_period en todos los servicios.
 # 5. Healthchecks separados: /health/ready para readiness en backend y /health/live para el contenedor.
+# 6. Cuotas y límites de recursos (CPU y memoria) definidos para todos los servicios.
 # ==============================================================================
 
 services:
@@ -37,6 +38,11 @@ services:
       timeout: 3s
       retries: 3
       start_period: 5s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 256M
 
   # ─── Backend API & ASGI Channels (Daphne) ───
   backend:
@@ -69,6 +75,11 @@ services:
       timeout: 5s
       retries: 3
       start_period: 15s
+    deploy:
+      resources:
+        limits:
+          cpus: '1.50'
+          memory: 1024M
 
   # ─── Worker de Tareas Asíncronas (Celery) ───
   celery_worker:
@@ -93,6 +104,11 @@ services:
       - backend_media:/app/media
     stop_signal: SIGTERM
     stop_grace_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: '1.00'
+          memory: 512M
 
   # ─── Base de Datos Relacional (PostgreSQL 16 con pgvector) ───
   db:
@@ -113,20 +129,33 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: '1.50'
+          memory: 1024M
 
   # ─── Caché y Message Broker (Redis 7) ───
   cache:
     image: redis:7-alpine
     container_name: booksocial-cache-prod
     restart: always
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru --save 60 1
     networks:
       - backend_net
+    volumes:
+      - redis_prod_data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 5s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 384M
 
 networks:
   # Red pública compartida entre Nginx y Backend
@@ -140,6 +169,8 @@ networks:
 volumes:
   db_prod_data:
     name: booksocial_db_prod_data
+  redis_prod_data:
+    name: booksocial_redis_prod_data
   backend_media:
     name: booksocial_media_data
   backend_static:

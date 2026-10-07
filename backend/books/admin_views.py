@@ -1,19 +1,35 @@
 import logging
 
 from django.contrib.auth import get_user_model
+from django.db import transaction
 from django.db.models import Q
+from django.shortcuts import get_object_or_404
 from rest_framework import filters, generics, permissions, status
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import Author, Book, Category, Errata, ErrataStatus, LegalDocument, Review, UserBook
+from .models import (
+    Author,
+    AuthorClaim,
+    AuthorClaimStatus,
+    Book,
+    Category,
+    Errata,
+    ErrataStatus,
+    FAQ,
+    LegalDocument,
+    Review,
+    UserBook,
+)
 from .serializers import (
     AdminUserSerializer,
+    AuthorClaimAdminSerializer,
     AuthorSerializer,
     BookSerializer,
     CategorySerializer,
     ErrataSerializer,
+    FAQSerializer,
     LegalDocumentSerializer,
 )
 from .tasks import enrich_book_task, refresh_author_task
@@ -561,4 +577,400 @@ class PublicLegalDocumentListView(generics.ListAPIView):
     serializer_class = LegalDocumentSerializer
     queryset = LegalDocument.objects.all().order_by('slug')
     pagination_class = None
+
+
+class AdminAuthorClaimListView(generics.ListAPIView):
+    """
+    Lista y filtra reclamaciones de autor en la cola de administración/moderación.
+    RoadmapV3 Sprint 3.
+    """
+    permission_classes = [IsAdminOrSuperUser]
+    serializer_class = AuthorClaimAdminSerializer
+
+    def get_queryset(self):
+        qs = AuthorClaim.objects.all().select_related('author', 'user').order_by('-created_at')
+        claim_status = self.request.query_params.get('status')
+        if claim_status and claim_status != 'all':
+            qs = qs.filter(status=claim_status.lower().strip())
+        search = self.request.query_params.get('search')
+        if search:
+            qs = qs.filter(
+                Q(author__name__icontains=search) |
+                Q(user__username__icontains=search) |
+                Q(contact_email__icontains=search)
+            )
+        return qs
+
+
+class AdminAuthorClaimResolveView(APIView):
+    """
+    Aprueba o rechaza una reclamación de autor.
+    RoadmapV3 Sprint 3.
+    """
+    permission_classes = [IsAdminOrSuperUser]
+
+    def post(self, request, pk):
+        from django.shortcuts import get_object_or_404
+        from users.notification_service import NotificationService
+        from users.models import NotificationType
+        from .models import AuthorProfile
+
+        claim = get_object_or_404(AuthorClaim, id=pk)
+        action = request.data.get('action')
+        notes = request.data.get('moderation_notes', '').strip()
+
+        if action not in ('approve', 'reject'):
+            return Response(
+                {'detail': "Acción inválida. Debe ser 'approve' o 'reject'."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        claim.moderation_notes = notes
+        claim.moderated_by = request.user
+
+        if action == 'approve':
+            claim.status = AuthorClaimStatus.APPROVED
+            claim.save()
+
+            author = claim.author
+            author.is_verified = True
+            author.claimed_by = claim.user
+            author.save(update_fields=['is_verified', 'claimed_by'])
+
+            # Sincronizar AuthorProfile
+            AuthorProfile.objects.update_or_create(
+                user=claim.user,
+                defaults={'author': author, 'is_verified': True},
+            )
+
+            # Notificar al usuario
+            NotificationService.send_notification(
+                recipient=claim.user,
+                actor=request.user,
+                notif_type=NotificationType.SYSTEM,
+                title="¡Solicitud de autor aprobada!",
+                message=f"Tu solicitud para reclamar la página oficial de {author.name} ha sido aprobada.",
+                link=f"/authors/{author.id}",
+            )
+            return Response({'status': 'approved', 'detail': 'Reclamación aprobada exitosamente.'}, status=status.HTTP_200_OK)
+
+        else:
+            claim.status = AuthorClaimStatus.REJECTED
+            claim.save()
+
+            NotificationService.send_notification(
+                recipient=claim.user,
+                actor=request.user,
+                notif_type=NotificationType.SYSTEM,
+                title="Resolución de tu solicitud de autor",
+                message=f"Tu solicitud para reclamar a {claim.author.name} no ha sido aprobada. {notes}",
+                link=f"/authors/{claim.author.id}",
+            )
+            return Response({'status': 'rejected', 'detail': 'Reclamación rechazada.'}, status=status.HTTP_200_OK)
+
+
+class AdminFAQListView(generics.ListCreateAPIView):
+    """
+    Listado y creación administrativa de Preguntas Frecuentes (FAQs).
+    RoadmapV3 Sprint 3.
+    """
+    permission_classes = [IsAdminOrSuperUser]
+    serializer_class = FAQSerializer
+
+    def get_queryset(self):
+        qs = FAQ.objects.all().order_by('order', 'id')
+        category = self.request.query_params.get('category')
+        if category and category != 'all':
+            qs = qs.filter(category=category.lower().strip())
+        return qs
+
+
+class AdminFAQDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """
+    Consulta, edición y borrado de una FAQ individual.
+    RoadmapV3 Sprint 3.
+    """
+    permission_classes = [IsAdminOrSuperUser]
+    serializer_class = FAQSerializer
+    queryset = FAQ.objects.all()
+
+
+class AdminBookMergeView(APIView):
+    """
+    Fusión administrativa atómica de uno o más libros duplicados en una obra canónica.
+    RoadmapV3 Sección 24.
+    """
+    permission_classes = [IsAdminOrEditor]
+
+    def post(self, request):
+        canonical_id = request.data.get('canonical_id')
+        duplicate_ids = request.data.get('duplicate_ids', [])
+
+        if not canonical_id or not duplicate_ids:
+            return Response(
+                {'error': 'Se requiere canonical_id y una lista de duplicate_ids.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not isinstance(duplicate_ids, list):
+            duplicate_ids = [duplicate_ids]
+
+        duplicate_ids = [d for d in duplicate_ids if d != canonical_id]
+        if not duplicate_ids:
+            return Response(
+                {'error': 'No se especificaron libros duplicados diferentes del canónico.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        canonical = get_object_or_404(Book, id=canonical_id)
+        duplicates = list(Book.objects.filter(id__in=duplicate_ids))
+
+        if not duplicates:
+            return Response(
+                {'error': 'No se encontraron libros duplicados con los identificadores provistos.'},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        from books.services.deduplication_service import merge_books
+        merged_book = merge_books(canonical, duplicates)
+
+        # Registro de auditoría
+        try:
+            from users.audit_service import log_audit
+            from users.models import AuditAction
+            log_audit(
+                action=AuditAction.BOOK_UPDATE,
+                actor=request.user,
+                target_user=None,
+                details={
+                    'action': 'merge_books',
+                    'canonical_id': canonical_id,
+                    'merged_duplicate_ids': [d.id for d in duplicates],
+                },
+            )
+        except Exception as e:
+            logger.warning(f"Error registrando auditoría para merge_books: {e}")
+
+        return Response(
+            {
+                'detail': f'Se fusionaron exitosamente {len(duplicates)} libros en el registro canónico #{merged_book.id}.',
+                'book': BookSerializer(merged_book).data,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+class AdminAuthorMergeView(APIView):
+    """
+    Fusión administrativa atómica de autores duplicados u homónimos.
+    RoadmapV3 Sección 24.
+    """
+    permission_classes = [IsAdminOrEditor]
+
+    def post(self, request):
+        canonical_id = request.data.get('canonical_id')
+        duplicate_ids = request.data.get('duplicate_ids', [])
+
+        if not canonical_id or not duplicate_ids:
+            return Response(
+                {'error': 'Se requiere canonical_id y una lista de duplicate_ids.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not isinstance(duplicate_ids, list):
+            duplicate_ids = [duplicate_ids]
+
+        duplicate_ids = [d for d in duplicate_ids if d != canonical_id]
+        if not duplicate_ids:
+            return Response(
+                {'error': 'No se especificaron autores duplicados diferentes del canónico.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        canonical = get_object_or_404(Author, id=canonical_id)
+        duplicates = list(Author.objects.filter(id__in=duplicate_ids))
+
+        if not duplicates:
+            return Response(
+                {'error': 'No se encontraron autores duplicados con los IDs provistos.'},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        with transaction.atomic():
+            canonical = Author.objects.select_for_update().get(id=canonical.id)
+            for dup in duplicates:
+                if dup.id == canonical.id:
+                    continue
+
+                # 1. Reasignar libros (FK principal y M2M all_books)
+                Book.objects.filter(author=dup).update(author=canonical)
+                canonical.all_books.add(*dup.all_books.all())
+
+                # 2. Unificar aliases
+                if hasattr(dup, 'aliases') and dup.aliases:
+                    if not isinstance(canonical.aliases, list):
+                        canonical.aliases = []
+                    for a in dup.aliases:
+                        if a not in canonical.aliases:
+                            canonical.aliases.append(a)
+
+                # 3. Preservar verificación o reclamación
+                if not canonical.is_verified and dup.is_verified:
+                    canonical.is_verified = True
+                    if dup.claimed_by:
+                        canonical.claimed_by = dup.claimed_by
+                elif not canonical.claimed_by and dup.claimed_by:
+                    canonical.claimed_by = dup.claimed_by
+
+                # 4. Enriquecimiento de bio y foto si el canónico carece
+                if not canonical.biography and dup.biography:
+                    canonical.biography = dup.biography
+                if not canonical.photo and dup.photo:
+                    canonical.photo = dup.photo
+
+                # 5. Reasignar AuthorClaims
+                AuthorClaim.objects.filter(author=dup).update(author=canonical)
+
+                # 6. Eliminar autor duplicado
+                dup.delete()
+
+            canonical.save()
+
+        # Registro de auditoría
+        try:
+            from users.audit_service import log_audit
+            from users.models import AuditAction
+            log_audit(
+                action=AuditAction.AUTHOR_UPDATE,
+                actor=request.user,
+                target_user=None,
+                details={
+                    'action': 'merge_authors',
+                    'canonical_id': canonical.id,
+                    'merged_duplicate_ids': [d.id for d in duplicates],
+                },
+            )
+        except Exception as e:
+            logger.warning(f"Error registrando auditoría para merge_authors: {e}")
+
+        return Response(
+            {
+                'detail': f'Se fusionaron exitosamente {len(duplicates)} autores en el registro canónico #{canonical.id}.',
+                'author': AuthorSerializer(canonical).data,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+class AdminUserActivityView(APIView):
+    """
+    Inspección cronológica de actividad social, publicaciones y reseñas de un usuario.
+    RoadmapV3 Sección 24.
+    """
+    permission_classes = [IsAdminOrSuperUser]
+
+    def get(self, request, pk):
+        user = get_object_or_404(User, pk=pk)
+        from users.models import Activity, UserPost
+
+        activities = (
+            Activity.objects.filter(user=user)
+            .select_related('book', 'review')
+            .order_by('-created_at')[:40]
+        )
+        posts = (
+            UserPost.objects.filter(author=user)
+            .select_related('target_user', 'book')
+            .order_by('-created_at')[:20]
+        )
+        reviews = (
+            Review.objects.filter(user=user, deleted_at__isnull=True)
+            .select_related('book')
+            .order_by('-created_at')[:20]
+        )
+
+        activities_data = [
+            {
+                'id': act.id,
+                'type': act.type,
+                'created_at': act.created_at,
+                'book_title': act.book.title if act.book else None,
+                'metadata': act.metadata,
+            }
+            for act in activities
+        ]
+
+        posts_data = [
+            {
+                'id': p.id,
+                'content': p.content,
+                'created_at': p.created_at,
+                'target_username': p.target_user.username if p.target_user else None,
+                'likes_count': p.likes_count,
+                'comments_count': p.comments_count,
+            }
+            for p in posts
+        ]
+
+        reviews_data = [
+            {
+                'id': r.id,
+                'book_id': r.book.id,
+                'book_title': r.book.title,
+                'rating': r.rating,
+                'snippet': (r.text[:120] + '...') if r.text and len(r.text) > 120 else r.text,
+                'created_at': r.created_at,
+                'is_moderated': r.is_moderated,
+            }
+            for r in reviews
+        ]
+
+        return Response(
+            {
+                'user_id': user.id,
+                'username': user.username,
+                'activities': activities_data,
+                'wall_posts': posts_data,
+                'reviews': reviews_data,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+class AdminUserReportsView(APIView):
+    """
+    Expedientes de denuncias vinculadas a un usuario (emitidas y recibidas).
+    RoadmapV3 Sección 24 y 25.
+    """
+    permission_classes = [IsAdminOrSuperUser]
+
+    def get(self, request, pk):
+        user = get_object_or_404(User, pk=pk)
+        from django.contrib.contenttypes.models import ContentType
+        from users.models import Report
+        from users.moderation_serializers import ReportListSerializer
+
+        user_ct = ContentType.objects.get_for_model(User)
+
+        filed_reports = (
+            Report.objects.filter(reporter=user)
+            .select_related('reporter', 'content_type', 'resolved_by')
+            .order_by('-created_at')
+        )
+        reports_against_user = (
+            Report.objects.filter(content_type=user_ct, object_id=user.id)
+            .select_related('reporter', 'content_type', 'resolved_by')
+            .order_by('-created_at')
+        )
+
+        return Response(
+            {
+                'user_id': user.id,
+                'username': user.username,
+                'filed_reports': ReportListSerializer(filed_reports, many=True).data,
+                'reports_against_user': ReportListSerializer(reports_against_user, many=True).data,
+            },
+            status=status.HTTP_200_OK,
+        )
+
 
