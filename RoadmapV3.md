@@ -942,11 +942,11 @@ Después:
 - [x] listas colaborativas (invitaciones, permisos EDITOR/VIEWER, atribución de autoría por libro y filtrado colaborativo);
 - [x] gamificación avanzada (retos de lectura anuales y temáticos, sincronización dinámica por libros/páginas/géneros, ritmo y proyección, racha diaria y medallero);
 - [x] estadísticas avanzadas (ritmo y velocidad días/libro, desglose por longitud y formato, doble evolución mensual y memoria anual retrospectiva);
+- [x] integración con redes sociales (tarjetas gráficas sociales, memoria anual compartible, deep links directos de 1 clic para X, WhatsApp, Telegram, LinkedIn y Facebook, y métricas de analítica de difusión);
 - [ ] recomendaciones avanzadas;
 - [ ] IA multimodal;
 - [ ] audiolibros/TTS;
 - [ ] aplicaciones móviles;
-- [ ] integración con redes sociales;
 - [ ] marketplace/editoriales.
 
 No comenzar estas funcionalidades mientras existan tareas P0/P1 pendientes.
@@ -1135,6 +1135,14 @@ No comenzar estas funcionalidades mientras existan tareas P0/P1 pendientes.
 4. [x] Memoria Anual y Doble Evolución: retrospectiva del año ("Year in Review") con libro cumbre mejor puntuado, autor y género predilectos, comparativa interanual frente al año previo (+libros y +páginas), y gráfico mensual con selector interactivo de métrica (Libros vs Páginas).
 5. [x] Frontend React Accesible: rediseño integral de `ReadingStats.tsx` con selector de año en la cabecera, navegación en 4 pestañas WAI-ARIA (Resumen General, Ritmo & Velocidad, Longitud & Formatos, Memoria Anual) y tooltips flotantes.
 6. [x] Pruebas y Verificación Integral: suite backend `test_sprint15_advanced_reading_stats.py` (7/7 tests), suite frontend `ReadingStats.test.tsx` (4/4 tests), regresión secuencial backend completa Sprints 1 a 15 (107/107 tests pasando al 100%), typecheck estricto 0 errores, vitest completo (19 suites / 66 tests pasando) y build de producción limpio en 13.88s.
+
+## Sprint 16 — Integración con Redes Sociales y Compartición Gráfica (COMPLETADO)
+
+1. [x] Motor de Compartición Backend (`social_share_service.py`): generación dinámica de metadatos sociales (`generate_social_share_card`) con soporte para 5 tipos de entidad (`book`, `reading_stats`, `challenge`, `badge`, `reading_list`), títulos adaptados, descripciones con emojis, hashtags inteligentes y deep links directos a X (Twitter), WhatsApp, Telegram, LinkedIn, Facebook y correo electrónico.
+2. [x] Endpoints API REST de Compartición: `GET /api/v1/books/share/card/` (`SocialShareCardView`) para obtener la carga útil social enriquecida y `POST /api/v1/books/share/track/` (`SocialShareTrackView`) para registrar eventos de analítica y difusión con auditoría de plataforma.
+3. [x] Componente Frontend Accesible (`SocialShareModal.tsx`): modal interactivo con vista previa en tiempo real de "Social Card Preview" estilo tarjeta gráfica con gradientes, insignias métricas y badges temáticos; selector de 5 redes con apertura segura (`noopener,noreferrer`), botón de copiado de URL y botón de copiado de texto enriquecido con emojis y hashtags con feedback háptico/visual.
+4. [x] Integración en Páginas Clave: botones directos de "Compartir" integrados en la cabecera y en la sección de Memoria Anual de `ReadingStats.tsx`, así como en la ficha principal de `BookDetail.tsx`.
+5. [x] Pruebas y Verificación Integral: suite backend `test_sprint16_social_sharing.py` (7/7 tests), suite frontend `SocialShareModal.test.tsx` (4/4 tests), regresión secuencial backend completa Sprints 1 a 16 (114/114 tests pasando al 100%), typecheck con 0 errores, suite completa de Vitest (20 suites / 70 tests pasando al 100%) y build de producción limpio en Vite (16.05s).
 
 ---
 

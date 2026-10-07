@@ -8,7 +8,9 @@ import {
   HiOutlineSparkles,
   HiOutlineArrowSmUp,
   HiOutlineArrowSmDown,
+  HiOutlineShare,
 } from 'react-icons/hi';
+import { SocialShareModal } from '../../social/components/SocialShareModal';
 import { useAuthStore } from '../../../store/auth';
 import {
   ActiveChallengesCard,
@@ -165,6 +167,7 @@ export function ReadingStats() {
   const [activeTab, setActiveTab] = useState<StatsTab>('overview');
   const [selectedYear, setSelectedYear] = useState<string>('all');
   const [chartMetric, setChartMetric] = useState<'books' | 'pages'>('books');
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
 
   const apiUrl = (import.meta as any).env.VITE_API_URL || 'http://localhost:8000';
 
@@ -314,6 +317,15 @@ export function ReadingStats() {
               </Button>
             </Link>
           )}
+          <Button
+            size="xs"
+            color="teal"
+            onClick={() => setIsShareModalOpen(true)}
+            className="ml-2 flex items-center gap-1"
+          >
+            <HiOutlineShare className="w-3.5 h-3.5 mr-1" />
+            Compartir
+          </Button>
         </div>
       </div>
 
@@ -1092,13 +1104,24 @@ export function ReadingStats() {
                     Año {stats.year_in_review.year} en Resumen
                   </h2>
                 </div>
-                <div className="text-right">
-                  <div className="text-3xl sm:text-4xl font-black text-teal-400">
-                    {stats.year_in_review.total_books}
+                <div className="flex flex-col sm:items-end gap-2">
+                  <div className="text-right">
+                    <div className="text-3xl sm:text-4xl font-black text-teal-400">
+                      {stats.year_in_review.total_books}
+                    </div>
+                    <div className="text-xs text-slate-300 font-semibold uppercase tracking-wider">
+                      Libros Completados
+                    </div>
                   </div>
-                  <div className="text-xs text-slate-300 font-semibold uppercase tracking-wider">
-                    Libros Completados
-                  </div>
+                  <Button
+                    size="xs"
+                    color="light"
+                    onClick={() => setIsShareModalOpen(true)}
+                    className="font-bold flex items-center"
+                  >
+                    <HiOutlineShare className="w-3.5 h-3.5 mr-1 text-teal-600" />
+                    Compartir Memoria
+                  </Button>
                 </div>
               </div>
 
@@ -1238,6 +1261,15 @@ export function ReadingStats() {
           )}
         </div>
       )}
+
+      {/* Modal de Compartición en Redes Sociales (Sprint 16) */}
+      <SocialShareModal
+        isOpen={isShareModalOpen}
+        onClose={() => setIsShareModalOpen(false)}
+        shareType="reading_stats"
+        year={selectedYear !== 'all' ? selectedYear : stats?.year_in_review?.year}
+        initialTitle={selectedYear !== 'all' ? `Mi Lectura ${selectedYear}` : 'Mis Estadísticas Lectoras'}
+      />
     </div>
   );
 }

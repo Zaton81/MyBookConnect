@@ -447,6 +447,37 @@ Cualquier agente de IA o desarrollador que se incorpore a la base de código **D
   - Regresión secuencial completa backend (Sprints 1 al 15): 107/107 tests pasando consecutivamente al 100% en 126s.
   - Frontend: `npm run typecheck` estricto 0 errores, Vitest completo (19 suites / 66 tests pasando al 100%) y build de producción Vite limpio generado en 13.88s.
 
+### 4.36. Sprint 16 — Integración con Redes Sociales y Compartición Gráfica
+
+- **Servicio y Motor de Compartición Backend (`social_share_service.py`):**
+  - Implementación de `generate_social_share_card(share_type, object_id, user, year)`:
+    - 📖 **Libros (`book`)**: metadatos enriquecidos con título, autor, valoración media, hashtags específicos (`#<Titulo>`, `#LibrosRecomendados`) y URL canónica.
+    - 📊 **Estadísticas / Memoria Anual (`reading_stats`)**: métricas agregadas anuales o históricas (libros leídos, páginas acumuladas, autor y género cumbre) y hashtags (`#MemoriaLectora`, `#ReadingGoals`).
+    - 🏆 **Retos de Lectura (`challenge`)**: progreso actual, meta objetivo, porcentaje y llamada a la acción comunitaria.
+    - 🎖️ **Insignias y Medallas (`badge`)**: categoría, nombre y nivel de maestría alcanzado.
+    - 📋 **Listas de Lectura (`reading_list`)**: tipo de lista (personal o colaborativa), recuento de obras y descripción.
+  - Generación automática de deep links directos de 1 clic para:
+    - **X (Twitter)** (`https://twitter.com/intent/tweet?text=...&url=...`)
+    - **WhatsApp** (`https://api.whatsapp.com/send?text=...`)
+    - **Telegram** (`https://t.me/share/url?url=...&text=...`)
+    - **LinkedIn** (`https://www.linkedin.com/sharing/share-offsite/?url=...`)
+    - **Facebook** (`https://www.facebook.com/sharer/sharer.php?u=...`)
+    - **Email** (`mailto:?subject=...&body=...`)
+  - Tracking analítico de difusión (`track_social_share(share_type, object_id, platform, user)`) registrado con `AuditLog` o métricas de difusión.
+- **Endpoints REST Registrados:**
+  - `GET /api/v1/books/share/card/` (`SocialShareCardView`): consulta y generación en tiempo real de metadatos sociales estructurados y deep links.
+  - `POST /api/v1/books/share/track/` (`SocialShareTrackView`): telemetría y registro de clics de compartición por plataforma social.
+- **Frontend Interactivo y Accesible (`SocialShareModal.tsx`):**
+  - Componente modal con previsualización en vivo de la tarjeta social gráfica ("Social Card Preview"): gradientes temáticos, portadas/emojis, badges destacados y formato estándar listo para difusión.
+  - Botones directos para las 5 redes con apertura en nueva pestaña segura (`rel="noopener noreferrer"`).
+  - Botón de copiado de URL y botón de copiado de texto formateado con emojis y hashtags, con feedback visual reactivo (`¡Enlace copiado!`, `¡Texto copiado!`).
+  - Integración en `ReadingStats.tsx` (botón en cabecera y en tarjeta de Memoria Anual) y en `BookDetail.tsx` (botón "Compartir este libro").
+- **Calidad y Regresión Total:**
+  - Suite backend `backend/tests/test_sprint16_social_sharing.py`: 7/7 tests pasando al 100%.
+  - Suite frontend `frontend/src/features/social/__tests__/SocialShareModal.test.tsx`: 4/4 tests pasando al 100%.
+  - Regresión secuencial completa backend (Sprints 1 al 16): 114/114 tests pasando consecutivamente al 100% en 101s.
+  - Frontend: `npm run typecheck` estricto con 0 errores, Vitest completo (20 suites / 70 tests pasando al 100%) y build de producción Vite limpio generado en 16.05s.
+
 ---
 
 ## 5. Ubicación de Documentación Relevante

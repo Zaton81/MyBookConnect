@@ -88,6 +88,7 @@ from .recommendation_v3_service import (
     get_user_preference_vector,
     recommend_books_v3,
 )
+from .social_share_service import generate_social_share_card, track_social_share
 from .stats_service import get_user_reading_stats
 from .trending_service import get_trending_books
 from .unified_search_service import (
@@ -98,6 +99,8 @@ from .unified_search_service import (
 
 __all__ = [
     # Funciones públicas principales
+    'generate_social_share_card',
+    'track_social_share',
     'AffiliateService',
     'AuthorService',
     'UnifiedSearchEngine',

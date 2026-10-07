@@ -2067,6 +2067,57 @@ class ReadingStatsView(APIView):
         return Response(stats)
 
 
+class SocialShareCardView(APIView):
+    """
+    Endpoint para obtener metadatos y deep links de compartición en redes sociales (Sprint 16).
+    Soporta tipos: 'book', 'reading_stats', 'challenge', 'badge', 'reading_list'.
+    """
+    permission_classes = (permissions.AllowAny,)
+
+    def get(self, request, *args, **kwargs):
+        share_type = request.query_params.get('type', 'book')
+        object_id = request.query_params.get('id')
+        year = request.query_params.get('year')
+        user_id = request.query_params.get('user_id') or (request.user.id if request.user.is_authenticated else None)
+
+        base_url = request.build_absolute_uri('/')[:-1]
+        try:
+            card_info = services.generate_social_share_card(
+                share_type=share_type,
+                object_id=object_id,
+                year=year,
+                user_id=user_id,
+                base_url=base_url,
+            )
+            return Response(card_info, status=status.HTTP_200_OK)
+        except ValueError as exc:
+            return Response({'detail': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as exc:
+            logger.exception(f"Error generando tarjeta social: {exc}")
+            return Response({'detail': 'Error procesando solicitud de compartición.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class SocialShareTrackView(APIView):
+    """
+    Endpoint para registrar eventos de compartición en redes sociales (Sprint 16).
+    """
+    permission_classes = (permissions.AllowAny,)
+
+    def post(self, request, *args, **kwargs):
+        share_type = request.data.get('type') or request.data.get('share_type', 'unknown')
+        object_id = request.data.get('id') or request.data.get('object_id')
+        platform = request.data.get('platform', 'unknown')
+        user_id = request.user.id if request.user.is_authenticated else None
+
+        result = services.track_social_share(
+            share_type=share_type,
+            object_id=object_id,
+            platform=platform,
+            user_id=user_id,
+        )
+        return Response(result, status=status.HTTP_201_CREATED)
+
+
 class UnifiedBookSearchView(APIView):
     """
     Endpoint de búsqueda unificada para libros.

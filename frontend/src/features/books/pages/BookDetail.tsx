@@ -8,6 +8,7 @@ import { AIAssistantModal } from '../../ai';
 import { AmazonAdSlot, StarRating } from '../../../components/ui';
 import { BookReviewsSection } from '../../reviews';
 import { resolveMediaUrl } from '../../../utils/media';
+import { SocialShareModal } from '../../social/components/SocialShareModal';
 
 interface ContextualRecommendation {
   id: number;
@@ -53,6 +54,7 @@ export function BookDetail() {
   const [loadingExplain, setLoadingExplain] = useState(false);
   const [activeAiTab, setActiveAiTab] = useState<'summary' | 'explain'>('summary');
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
 
   // Reporte de Erratas
   const [errataText, setErrataText] = useState<string>('');
@@ -639,6 +641,15 @@ export function BookDetail() {
               <span>✨</span>
               <span>Preguntar a BookAI sobre este libro</span>
             </button>
+
+            {/* Botón Compartir Libro (Sprint 16) */}
+            <button
+              onClick={() => setIsShareModalOpen(true)}
+              className="w-full max-w-xs bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-200 font-bold py-2.5 px-4 rounded-2xl text-xs transition-colors flex items-center justify-center gap-2 border border-slate-200 dark:border-slate-600"
+            >
+              <span>🔗</span>
+              <span>Compartir este libro</span>
+            </button>
           </div>
 
           {/* Columna Derecha: Información & Sinopsis */}
@@ -994,6 +1005,15 @@ export function BookDetail() {
         onClose={() => setIsAiModalOpen(false)}
         contextBookId={book.id}
         contextBookTitle={book.title}
+      />
+
+      {/* Modal de Compartición en Redes (Sprint 16) */}
+      <SocialShareModal
+        isOpen={isShareModalOpen}
+        onClose={() => setIsShareModalOpen(false)}
+        shareType="book"
+        objectId={book.id}
+        initialTitle={book.title}
       />
     </div>
   );

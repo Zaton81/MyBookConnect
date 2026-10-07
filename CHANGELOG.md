@@ -7,6 +7,26 @@ y este proyecto se adhiere a [Semantic Versioning 2.0.0](https://semver.org/lang
 
 ## [Unreleased]
 
+### Added / Social Sharing & Graphic Cards Preview (RoadmapV3 - Sección 30: Integración con Redes Sociales y Compartición Gráfica)
+- **Motor de Compartición Backend (`social_share_service.py`)**:
+  - `generate_social_share_card(share_type, object_id, user, year)`: generación enriquecida de cargas útiles sociales para 5 entidades principales (`book`, `reading_stats`, `challenge`, `badge`, `reading_list`).
+  - Deep links directos de 1 clic para X (Twitter), WhatsApp, Telegram, LinkedIn, Facebook y correo electrónico.
+  - Generación de textos con emojis, hashtags contextuales y URL canónica.
+  - `track_social_share(share_type, object_id, platform, user)`: registro de telemetría de difusión y auditoría de eventos de compartición.
+- **Endpoints API REST (`/api/v1/books/share/`)**:
+  - `GET /api/v1/books/share/card/` (`SocialShareCardView`): consulta y generación en tiempo real de metadatos sociales estructurados y deep links.
+  - `POST /api/v1/books/share/track/` (`SocialShareTrackView`): telemetría y registro de clics de compartición por plataforma social.
+- **Frontend y UX (`SocialShareModal.tsx`)**:
+  - Modal accesible con previsualización en vivo de la tarjeta gráfica social ("Social Card Preview"): gradientes temáticos, portada o insignias métricas, formato editorial listo para compartir.
+  - Botones directos con iconos oficiales para X (Twitter), WhatsApp, Telegram, LinkedIn y Facebook (`rel="noopener noreferrer"`).
+  - Botón de copiado de URL y botón de copiado de texto enriquecido con emojis y hashtags con feedback háptico/visual (`¡Enlace copiado!`, `¡Texto copiado!`).
+  - Integración en `ReadingStats.tsx` (en la cabecera y en la sección de Memoria Anual) y en `BookDetail.tsx` (botón "Compartir este libro").
+- **Pruebas y Verificación Integral**:
+  - Suite backend `backend/tests/test_sprint16_social_sharing.py`: 7/7 tests pasando al 100%.
+  - Suite frontend `frontend/src/features/social/__tests__/SocialShareModal.test.tsx`: 4/4 tests pasando al 100%.
+  - Regresión secuencial completa backend (Sprints 1 al 16): 114/114 tests pasando consecutivamente al 100% en 101s.
+  - Frontend verificado: TypeScript estricto con 0 errores (`tsc --noEmit`), Vitest completo (20 suites / 70 tests pasando al 100%) y build de producción limpio generado en 16.05s.
+
 ### Added / Advanced Reading Statistics & Year in Review (RoadmapV3 - Sección 30: Estadísticas Avanzadas de Lectura, Ritmo y Memoria Anual)
 - **Motor de Dominio y Estadísticas Granulares (`stats_service.py` & `cache_utils.py`)**:
   - Soporte de filtrado por año (`?year=YYYY` o `?year=all`) con lista de años disponibles con actividad (`available_years`) y clave de caché Redis adaptada `stats:user:<id>[:year:<year>]` con invalidación atómica multianual.
