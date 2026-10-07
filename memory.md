@@ -370,6 +370,33 @@ Cualquier agente de IA o desarrollador que se incorpore a la base de código **D
   - Regresión secuencial completa backend (Sprints 1 al 12): 86/86 tests pasando al 100% consecutivamente en 79s.
   - Frontend: `npm run typecheck` limpio (0 errores), 16 suites / 54 tests Vitest pasando al 100%, y `npm run build` generado sin incidencias en 11s.
 
+### 4.33. Newsletters y Boletines de Autores (Sprint 13 — Futuro)
+- **Modelos de Dominio y Base de Datos:**
+  - `AuthorNewsletter`: configuración de boletín por autor (`author`, `author_profile`, `title`, `description`, `frequency` [`WEEKLY`, `BIWEEKLY`, `MONTHLY`, `OCCASIONAL`], `is_active`). Propiedades calculadas: `active_subscribers_count` y `sent_issues_count`.
+  - `AuthorNewsletterSubscriber`: suscripción del lector con token seguro para baja instantánea (`unsubscribe_token` UUID), estado activo indexado y fechas `subscribed_at` / `unsubscribed_at`. Restricción única `(newsletter, user)`.
+  - `AuthorNewsletterIssue`: números del boletín con títulos, asunto, contenido, estados `DRAFT`, `SCHEDULED`, `SENT`, fechas de programación y envío, recuento de destinatarios (`recipients_count`) y lecturas (`views_count`).
+  - Migración aplicada en PostgreSQL: `0037_authornewsletter_authornewsletterissue_and_more.py`.
+- **API REST y Lógica de Negocio:**
+  - `AuthorNewsletterViewSet` en `/api/v1/books/author-newsletters/`:
+    - Filtrado por `author` o `author_id`.
+    - Acción `@action subscribe`: suscripción inmediata o reactivación sin duplicados con retorno de contador dinámico.
+    - Acción `@action unsubscribe`: baja instantánea con actualización de timestamp.
+    - Acción `@action my_subscriptions`: listado de boletines a los que está suscrito el usuario.
+    - Acción `@action subscribers`: consulta paginada de suscriptores restringida al autor propietario y administradores.
+  - `AuthorNewsletterIssueViewSet` en `/api/v1/books/author-newsletter-issues/`:
+    - Filtrado por `newsletter` y visibilidad restringida (lectores generales solo ven entregas con estado `SENT`).
+    - Acción `@action send_issue`: cálculo de destinatarios, marcado a `SENT`, timestamp de envío y guardado atómico.
+- **Frontend React y Experiencia de Usuario:**
+  - Componente accesible `AuthorNewsletterSection.tsx` integrado en `Author.tsx`.
+  - Tarjeta de suscripción editorial con frecuencia, contador dinámico de lectores y botón interactivo 1-clic con feedback visual.
+  - Histórico de entregas con visor expandible de contenido ("Leer entrega" / "Ocultar") y métricas de lectores.
+  - Panel para el autor verificado con modales para configurar la newsletter y redactar/enviar nuevas entregas con opción de borrador o publicación inmediata.
+- **Calidad y Regresión Total:**
+  - Suite `backend/tests/test_sprint13_author_newsletters.py`: 7/7 tests pasando al 100%.
+  - Suite `frontend/src/features/books/__tests__/AuthorNewsletterSection.test.tsx`: 4/4 tests pasando al 100%.
+  - Regresión secuencial completa backend (Sprints 1 al 13): 88/88 tests pasando consecutivamente al 100% en 98s.
+  - Frontend: `npm run typecheck` limpio (0 errores), 17 suites / 58 tests Vitest pasando al 100%, y build de producción Vite generado limpiamente en 12s.
+
 ---
 
 ## 5. Ubicación de Documentación Relevante

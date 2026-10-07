@@ -936,7 +936,7 @@ Después:
 
 - [x] eventos de autores (presentaciones, firmas, Q&A, aforo y lista de espera automática);
 - [x] publicaciones avanzadas de autores (adelantos de capítulos, diarios de escritura, escenas eliminadas, control de spoilers y borradores);
-- [ ] newsletters;
+- [x] newsletters (boletines periódicos de autores, suscripción 1-clic de lectores, gestión de entregas, borradores y envíos);
 - [x] clubs de lectura (`/api/v1/clubs/`, lecturas conjuntas y debates con spoilers);
 - [x] grupos (comunidades literarias con roles ADMIN/MODERATOR/MEMBER y gestión de aprobación);
 - [x] listas colaborativas (invitaciones, permisos EDITOR/VIEWER, atribución de autoría por libro y filtrado colaborativo);
@@ -1111,6 +1111,13 @@ No comenzar estas funcionalidades mientras existan tareas P0/P1 pendientes.
 2. [x] Endpoints API REST: `AuthorPublicationViewSet` en `/api/v1/books/author-publications/` con soporte CRUD, filtrado por autor, libro, tipo, destacados (`pinned`) y borradores para el autor, y acción `@action toggle_pin` para fijar publicaciones destacadas en la cabecera.
 3. [x] Frontend interactivo: componente `AuthorPublicationsSection.tsx` en `Author.tsx` con selector de filtros por categoría, visor de texto desplegable, bloqueador de spoilers con botón de revelación, conmutador de borradores y modal para crear y editar publicaciones para el autor.
 4. [x] Pruebas y verificación integral: suite backend `test_sprint12_author_publications.py` (7/7 tests), suite frontend `AuthorPublicationsSection.test.tsx` (4/4 tests), regresión completa Sprints 1 a 12 (86/86 tests pasando al 100%), typecheck 0 errores y build de producción validado.
+
+## Sprint 13 — Newsletters y Boletines de Autores (COMPLETADO)
+
+1. [x] Modelado de datos: `AuthorNewsletter` (vínculo a autor y perfil oficial, título, descripción, frecuencia y estado), `AuthorNewsletterSubscriber` (suscripción con token seguro para baja 1-clic y timestamps), `AuthorNewsletterIssue` (ediciones con estado `DRAFT`/`SCHEDULED`/`SENT`, recuento de destinatarios y fecha de envío). Migración `0037` aplicada en PostgreSQL.
+2. [x] Endpoints API REST: `AuthorNewsletterViewSet` (`/api/v1/books/author-newsletters/`) con acciones `@action subscribe`, `@action unsubscribe`, `@action my_subscriptions`, `@action subscribers` y `AuthorNewsletterIssueViewSet` (`/api/v1/books/author-newsletter-issues/`) con acción `@action send_issue`.
+3. [x] Frontend interactivo: componente `AuthorNewsletterSection.tsx` integrado en `Author.tsx` con tarjeta de suscripción 1-clic para lectores, contador dinámico de suscriptores, lector desplegable de entregas y panel para el autor propietario con modales para configurar la newsletter y redactar/enviar nuevas entregas.
+4. [x] Pruebas y verificación integral: suite backend `test_sprint13_author_newsletters.py` (7/7 tests), suite frontend `AuthorNewsletterSection.test.tsx` (4/4 tests), regresión secuencial backend completa Sprints 1 a 13 (88/88 tests pasando al 100%), typecheck estricto 0 errores, vitest completo (17 suites / 58 tests) y build de producción validado.
 
 ---
 

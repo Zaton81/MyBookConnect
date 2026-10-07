@@ -8,6 +8,9 @@ from .models import (
     AuthorAnnouncement,
     AuthorEvent,
     AuthorEventAttendee,
+    AuthorNewsletter,
+    AuthorNewsletterIssue,
+    AuthorNewsletterSubscriber,
     Book,
     Category,
     Errata,
@@ -298,4 +301,26 @@ class AuthorAnnouncementAdmin(admin.ModelAdmin):
     list_filter = ('publication_type', 'is_pinned', 'is_draft', 'created_at')
     search_fields = ('title', 'content', 'author__name')
     date_hierarchy = 'created_at'
+
+
+@admin.register(AuthorNewsletter)
+class AuthorNewsletterAdmin(admin.ModelAdmin):
+    list_display = ('id', 'title', 'author', 'frequency', 'is_active', 'active_subscribers_count', 'sent_issues_count', 'created_at')
+    list_filter = ('frequency', 'is_active', 'created_at')
+    search_fields = ('title', 'description', 'author__name')
+
+
+@admin.register(AuthorNewsletterSubscriber)
+class AuthorNewsletterSubscriberAdmin(admin.ModelAdmin):
+    list_display = ('id', 'newsletter', 'user', 'is_active', 'subscribed_at', 'unsubscribed_at')
+    list_filter = ('is_active', 'subscribed_at')
+    search_fields = ('user__username', 'newsletter__title')
+
+
+@admin.register(AuthorNewsletterIssue)
+class AuthorNewsletterIssueAdmin(admin.ModelAdmin):
+    list_display = ('id', 'title', 'newsletter', 'status', 'sent_at', 'recipients_count', 'views_count')
+    list_filter = ('status', 'sent_at')
+    search_fields = ('title', 'subject', 'content', 'newsletter__title')
+
 

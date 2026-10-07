@@ -1,5 +1,6 @@
 import re
 import unicodedata
+import uuid
 
 from django.conf import settings
 from django.contrib.postgres.indexes import GinIndex
@@ -1126,6 +1127,134 @@ class AuthorEventAttendee(models.Model):
 
     def __str__(self) -> str:
         return f"{self.user.username} -> {self.event.title} ({self.get_status_display()})"
+
+
+class AuthorNewsletter(models.Model):
+    """
+    Boletín periódico o canal de novedades de un autor literario.
+    """
+    class Frequency(models.TextChoices):
+        WEEKLY = 'WEEKLY', 'Semanal'
+        BIWEEKLY = 'BIWEEKLY', 'Quincenal'
+        MONTHLY = 'MONTHLY', 'Mensual'
+        OCCASIONAL = 'OCCASIONAL', 'Ocasional'
+
+    author = models.ForeignKey(
+        Author,
+        on_delete=models.CASCADE,
+        related_name='newsletters',
+        verbose_name='Autor del catálogo',
+    )
+    author_profile = models.ForeignKey(
+        AuthorProfile,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='newsletters',
+        verbose_name='Perfil oficial del autor',
+    )
+    title = models.CharField(max_length=255, verbose_name='Título del boletín')
+    description = models.TextField(blank=True, verbose_name='Descripción del boletín')
+    frequency = models.CharField(
+        max_length=20,
+        choices=Frequency.choices,
+        default=Frequency.MONTHLY,
+        verbose_name='Frecuencia estimada',
+    )
+    is_active = models.BooleanField(default=True, verbose_name='Boletín activo')
+    created_at = models.DateTimeField(default=timezone.now, verbose_name='Fecha de creación')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='Última actualización')
+
+    class Meta:
+        verbose_name = 'Boletín de Autor'
+        verbose_name_plural = 'Boletines de Autores'
+        ordering = ['-created_at']
+
+    def __str__(self) -> str:
+        return f"Newsletter: {self.title} ({self.author.name})"
+
+    @property
+    def active_subscribers_count(self) -> int:
+        return self.subscribers.filter(is_active=True).count()
+
+    @property
+    def sent_issues_count(self) -> int:
+        return self.issues.filter(status=AuthorNewsletterIssue.IssueStatus.SENT).count()
+
+
+class AuthorNewsletterSubscriber(models.Model):
+    """
+    Suscripción de un lector al boletín de un autor, con token seguro para baja inmediata.
+    """
+    newsletter = models.ForeignKey(
+        AuthorNewsletter,
+        on_delete=models.CASCADE,
+        related_name='subscribers',
+        verbose_name='Boletín',
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='author_newsletter_subscriptions',
+        verbose_name='Lector suscriptor',
+    )
+    is_active = models.BooleanField(default=True, db_index=True, verbose_name='Suscripción activa')
+    unsubscribe_token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False, verbose_name='Token de cancelación')
+    subscribed_at = models.DateTimeField(default=timezone.now, verbose_name='Fecha de suscripción')
+    unsubscribed_at = models.DateTimeField(null=True, blank=True, verbose_name='Fecha de baja')
+
+    class Meta:
+        verbose_name = 'Suscriptor de Boletín'
+        verbose_name_plural = 'Suscriptores de Boletines'
+        constraints = [
+            models.UniqueConstraint(fields=['newsletter', 'user'], name='unique_newsletter_user_subscription'),
+        ]
+        ordering = ['-subscribed_at']
+
+    def __str__(self) -> str:
+        status_label = "Activo" if self.is_active else "Baja"
+        return f"{self.user.username} -> {self.newsletter.title} ({status_label})"
+
+
+class AuthorNewsletterIssue(models.Model):
+    """
+    Entrega o edición específica del boletín de un autor (borrador, programada o enviada).
+    """
+    class IssueStatus(models.TextChoices):
+        DRAFT = 'DRAFT', 'Borrador'
+        SCHEDULED = 'SCHEDULED', 'Programado'
+        SENT = 'SENT', 'Enviado'
+
+    newsletter = models.ForeignKey(
+        AuthorNewsletter,
+        on_delete=models.CASCADE,
+        related_name='issues',
+        verbose_name='Boletín',
+    )
+    title = models.CharField(max_length=255, verbose_name='Título de la entrega')
+    subject = models.CharField(max_length=255, verbose_name='Asunto / Cabecera')
+    content = models.TextField(verbose_name='Contenido del boletín')
+    status = models.CharField(
+        max_length=20,
+        choices=IssueStatus.choices,
+        default=IssueStatus.DRAFT,
+        db_index=True,
+        verbose_name='Estado',
+    )
+    scheduled_for = models.DateTimeField(null=True, blank=True, verbose_name='Fecha programada')
+    sent_at = models.DateTimeField(null=True, blank=True, db_index=True, verbose_name='Fecha de envío')
+    recipients_count = models.PositiveIntegerField(default=0, verbose_name='Destinatarios alcanzados')
+    views_count = models.PositiveIntegerField(default=0, verbose_name='Aperturas registradas')
+    created_at = models.DateTimeField(default=timezone.now, verbose_name='Fecha de creación')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='Última actualización')
+
+    class Meta:
+        verbose_name = 'Entrega de Boletín'
+        verbose_name_plural = 'Entregas de Boletines'
+        ordering = ['-sent_at', '-created_at']
+
+    def __str__(self) -> str:
+        return f"[{self.get_status_display()}] {self.newsletter.title} - {self.title}"
 
 
 class AffiliateClick(models.Model):

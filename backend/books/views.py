@@ -19,6 +19,10 @@ from .cache_utils import TTL_BOOK_DETAIL, book_detail_key
 from .media_utils import build_media_url
 from .models import (
     Author,
+    AuthorAnnouncement,
+    AuthorNewsletter,
+    AuthorNewsletterIssue,
+    AuthorNewsletterSubscriber,
     Book,
     Errata,
     ErrataStatus,
@@ -35,6 +39,11 @@ from .models import (
 )
 from .pagination import StandardResultsSetPagination
 from .serializers import (
+    AuthorNewsletterCreateUpdateSerializer,
+    AuthorNewsletterIssueCreateUpdateSerializer,
+    AuthorNewsletterIssueSerializer,
+    AuthorNewsletterSerializer,
+    AuthorNewsletterSubscriberSerializer,
     AuthorSerializer,
     BookSerializer,
     ErrataSerializer,
@@ -2742,6 +2751,232 @@ class AuthorPublicationViewSet(viewsets.ModelViewSet):
         instance.is_pinned = not instance.is_pinned
         instance.save()
         return Response({'id': instance.id, 'is_pinned': instance.is_pinned}, status=status.HTTP_200_OK)
+
+
+class AuthorNewsletterViewSet(viewsets.ModelViewSet):
+    """
+    CRUD y gestión de newsletters/boletines literarios de autores, con suscripción 1-clic y consulta de suscriptores.
+    """
+    queryset = AuthorNewsletter.objects.select_related('author', 'author_profile').prefetch_related('subscribers', 'issues')
+    pagination_class = StandardResultsSetPagination
+
+    def get_serializer_class(self):
+        if self.action in ('create', 'update', 'partial_update'):
+            return AuthorNewsletterCreateUpdateSerializer
+        return AuthorNewsletterSerializer
+
+    def get_permissions(self):
+        if self.action in ('list', 'retrieve'):
+            return [permissions.AllowAny()]
+        return [permissions.IsAuthenticated()]
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        author_id = self.request.query_params.get('author') or self.request.query_params.get('author_id')
+        if author_id:
+            qs = qs.filter(Q(author_id=author_id) | Q(author_profile__author_id=author_id))
+
+        user = self.request.user
+        if not user.is_staff and getattr(user, 'role', '') not in ('ADMIN', 'MODERATOR'):
+            # Los usuarios no administradores solo ven newsletters activas o las propias
+            if user.is_authenticated:
+                qs = qs.filter(Q(is_active=True) | Q(author__claimed_by=user) | Q(author_profile__user=user))
+            else:
+                qs = qs.filter(is_active=True)
+        return qs.order_by('-created_at')
+
+    def perform_create(self, serializer):
+        from .models import AuthorProfile
+        from .services.author_service import AuthorService
+        user = self.request.user
+        author = serializer.validated_data.get('author')
+        profile = AuthorService.get_or_create_profile(user)
+        if not author and profile.author:
+            author = profile.author
+        serializer.save(author=author, author_profile=profile)
+
+    def perform_update(self, serializer):
+        user = self.request.user
+        instance = self.get_object()
+        is_owner = (
+            (instance.author_profile and instance.author_profile.user_id == user.id) or
+            (instance.author and instance.author.claimed_by_id == user.id) or
+            user.is_staff or getattr(user, 'role', '') in ('ADMIN', 'MODERATOR')
+        )
+        if not is_owner:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("No tienes permisos para modificar este boletín.")
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        user = self.request.user
+        is_owner = (
+            (instance.author_profile and instance.author_profile.user_id == user.id) or
+            (instance.author and instance.author.claimed_by_id == user.id) or
+            user.is_staff or getattr(user, 'role', '') in ('ADMIN', 'MODERATOR')
+        )
+        if not is_owner:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("No tienes permisos para eliminar este boletín.")
+        instance.delete()
+
+    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
+    def subscribe(self, request, pk=None):
+        newsletter = self.get_object()
+        sub, created = AuthorNewsletterSubscriber.objects.get_or_create(
+            newsletter=newsletter,
+            user=request.user,
+            defaults={'is_active': True}
+        )
+        if not created and not sub.is_active:
+            sub.is_active = True
+            sub.unsubscribed_at = None
+            sub.save(update_fields=['is_active', 'unsubscribed_at'])
+
+        return Response({
+            'detail': 'Te has suscrito correctamente al boletín del autor.',
+            'is_subscribed': True,
+            'active_subscribers_count': newsletter.active_subscribers_count,
+        }, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
+    def unsubscribe(self, request, pk=None):
+        from django.utils import timezone
+        newsletter = self.get_object()
+        sub = AuthorNewsletterSubscriber.objects.filter(newsletter=newsletter, user=request.user).first()
+        if sub and sub.is_active:
+            sub.is_active = False
+            sub.unsubscribed_at = timezone.now()
+            sub.save(update_fields=['is_active', 'unsubscribed_at'])
+
+        return Response({
+            'detail': 'Te has desuscrito del boletín.',
+            'is_subscribed': False,
+            'active_subscribers_count': newsletter.active_subscribers_count,
+        }, status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated])
+    def my_subscriptions(self, request):
+        subs = AuthorNewsletterSubscriber.objects.filter(
+            user=request.user,
+            is_active=True
+        ).select_related('newsletter__author')
+        newsletters = [sub.newsletter for sub in subs if sub.newsletter.is_active]
+        serializer = AuthorNewsletterSerializer(newsletters, many=True, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['get'], permission_classes=[permissions.IsAuthenticated])
+    def subscribers(self, request, pk=None):
+        newsletter = self.get_object()
+        user = request.user
+        is_owner = (
+            (newsletter.author_profile and newsletter.author_profile.user_id == user.id) or
+            (newsletter.author and newsletter.author.claimed_by_id == user.id) or
+            user.is_staff or getattr(user, 'role', '') in ('ADMIN', 'MODERATOR')
+        )
+        if not is_owner:
+            return Response({'detail': 'No tienes permisos para consultar la lista de suscriptores.'}, status=status.HTTP_403_FORBIDDEN)
+
+        subs = newsletter.subscribers.filter(is_active=True).select_related('user').order_by('-subscribed_at')
+        page = self.paginate_queryset(subs)
+        if page is not None:
+            serializer = AuthorNewsletterSubscriberSerializer(page, many=True, context={'request': request})
+            return self.get_paginated_response(serializer.data)
+
+        serializer = AuthorNewsletterSubscriberSerializer(subs, many=True, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class AuthorNewsletterIssueViewSet(viewsets.ModelViewSet):
+    """
+    Gestión de entregas de boletines (borradores, programados y enviados) y acción de envío inmediato.
+    """
+    queryset = AuthorNewsletterIssue.objects.select_related('newsletter__author')
+    pagination_class = StandardResultsSetPagination
+
+    def get_serializer_class(self):
+        if self.action in ('create', 'update', 'partial_update'):
+            return AuthorNewsletterIssueCreateUpdateSerializer
+        return AuthorNewsletterIssueSerializer
+
+    def get_permissions(self):
+        if self.action in ('list', 'retrieve'):
+            return [permissions.AllowAny()]
+        return [permissions.IsAuthenticated()]
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        newsletter_id = self.request.query_params.get('newsletter') or self.request.query_params.get('newsletter_id')
+        if newsletter_id:
+            qs = qs.filter(newsletter_id=newsletter_id)
+
+        user = self.request.user
+        # Si no es staff ni autor de la newsletter, solo puede ver entregas enviadas (SENT)
+        if not user.is_staff and getattr(user, 'role', '') not in ('ADMIN', 'MODERATOR'):
+            if user.is_authenticated:
+                qs = qs.filter(
+                    Q(status=AuthorNewsletterIssue.IssueStatus.SENT) |
+                    Q(newsletter__author__claimed_by=user) |
+                    Q(newsletter__author_profile__user=user)
+                )
+            else:
+                qs = qs.filter(status=AuthorNewsletterIssue.IssueStatus.SENT)
+
+        return qs.order_by('-sent_at', '-created_at')
+
+    def perform_create(self, serializer):
+        serializer.save()
+
+    def perform_update(self, serializer):
+        user = self.request.user
+        instance = self.get_object()
+        author = instance.newsletter.author
+        is_owner = (
+            (instance.newsletter.author_profile and instance.newsletter.author_profile.user_id == user.id) or
+            (author and author.claimed_by_id == user.id) or
+            user.is_staff or getattr(user, 'role', '') in ('ADMIN', 'MODERATOR')
+        )
+        if not is_owner:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("No tienes permisos para modificar esta entrega.")
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        user = self.request.user
+        author = instance.newsletter.author
+        is_owner = (
+            (instance.newsletter.author_profile and instance.newsletter.author_profile.user_id == user.id) or
+            (author and author.claimed_by_id == user.id) or
+            user.is_staff or getattr(user, 'role', '') in ('ADMIN', 'MODERATOR')
+        )
+        if not is_owner:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("No tienes permisos para eliminar esta entrega.")
+        instance.delete()
+
+    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
+    def send_issue(self, request, pk=None):
+        from django.utils import timezone
+        issue = self.get_object()
+        user = request.user
+        author = issue.newsletter.author
+        is_owner = (
+            (issue.newsletter.author_profile and issue.newsletter.author_profile.user_id == user.id) or
+            (author and author.claimed_by_id == user.id) or
+            user.is_staff or getattr(user, 'role', '') in ('ADMIN', 'MODERATOR')
+        )
+        if not is_owner:
+            return Response({'detail': 'No tienes permisos para enviar esta entrega.'}, status=status.HTTP_403_FORBIDDEN)
+
+        recipients_count = issue.newsletter.subscribers.filter(is_active=True).count()
+        issue.status = AuthorNewsletterIssue.IssueStatus.SENT
+        issue.sent_at = timezone.now()
+        issue.recipients_count = recipients_count
+        issue.save(update_fields=['status', 'sent_at', 'recipients_count', 'updated_at'])
+
+        serializer = AuthorNewsletterIssueSerializer(issue, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
 
 
 

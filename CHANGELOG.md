@@ -7,6 +7,26 @@ y este proyecto se adhiere a [Semantic Versioning 2.0.0](https://semver.org/lang
 
 ## [Unreleased]
 
+### Added / Author Newsletters & Broadcasts (RoadmapV3 - Sección 30: Newsletters y Boletines Literarios de Autores)
+- **Modelos de Dominio y Base de Datos**:
+  - `AuthorNewsletter`: Configuración del boletín oficial por autor literario (`title`, `description`, `frequency` [`WEEKLY`, `BIWEEKLY`, `MONTHLY`, `OCCASIONAL`], `is_active`) con recuento automático de suscriptores y boletines emitidos.
+  - `AuthorNewsletterSubscriber`: Registro de suscripción con token seguro (`unsubscribe_token` UUID) para desuscripción en un clic sin requerir contraseñas, estado activo indexado y trazabilidad temporal.
+  - `AuthorNewsletterIssue`: Entregas y números de la newsletter con estados `DRAFT`, `SCHEDULED`, `SENT`, soporte de programación futura, fecha de envío y métricas de alcance de lectores.
+  - Migración aplicada en PostgreSQL: `0037_authornewsletter_authornewsletterissue_and_more.py`.
+- **Endpoints API REST (`/api/v1/books/author-newsletters/` y `author-newsletter-issues/`)**:
+  - ViewSet `AuthorNewsletterViewSet` con acciones `@action subscribe` (suscripción o reactivación en 1 clic), `@action unsubscribe` (cancelación inmediata), `@action my_subscriptions` (consulta de boletines suscritos por el lector) y `@action subscribers` (listado paginado exclusivo para el autor).
+  - ViewSet `AuthorNewsletterIssueViewSet` con filtrado por newsletter, control estricto de visibilidad (solo entregas enviadas para público general) y acción `@action send_issue` para emisión inmediata a todos los suscriptores activos.
+- **Frontend y UX (`Author.tsx` / `AuthorNewsletterSection.tsx`)**:
+  - Componente accesible `AuthorNewsletterSection` con diseño editorial y paleta armónica integrado en la ficha del autor.
+  - Tarjeta de suscripción destacada con selector dinámico de frecuencia, recuento en vivo de lectores suscritos y botón con retroalimentación instantánea ("Suscribirme con 1 clic" / "✓ Suscrito (Cancelar)").
+  - Lector desplegable de entregas publicadas con formateo de fechas y métricas de audiencia.
+  - Panel de autor verificado con modales interactivos para configurar la newsletter y redactar/enviar nuevas entregas con opción de borrador o publicación inmediata.
+- **Pruebas y Verificación Integral**:
+  - Creada suite `backend/tests/test_sprint13_author_newsletters.py` (7/7 tests al 100%).
+  - Creada suite `frontend/src/features/books/__tests__/AuthorNewsletterSection.test.tsx` (4/4 tests al 100%).
+  - Regresión secuencial completa de backend superada (88/88 pruebas pasando al 100% de Sprints 1 al 13).
+  - Frontend verificado: TypeScript estricto con 0 errores (`tsc --noEmit`), 58 tests en Vitest pasando al 100% en 17 suites y build de producción Vite exitoso.
+
 ### Added / Author Publications & Chapter Previews (RoadmapV3 - Sección 30: Publicaciones Avanzadas de Autores y Adelantos Literarios)
 - **Modelos de Dominio y Base de Datos**:
   - `AuthorAnnouncement`: Enriquecido con clasificación tipológica (`publication_type`: `ANNOUNCEMENT`, `CHAPTER_PREVIEW`, `AUTHOR_DIARY`, `DELETED_SCENE`, `Q_AND_A`), vinculación opcional directa al catálogo de autores (`catalog_author`), generación automática de extractos (`excerpt`), cálculo dinámico de tiempo estimado de lectura (`estimated_reading_time`), aviso y delimitación de spoilers (`has_spoilers`, `spoiler_warning`) y soporte para borradores privados (`is_draft`).

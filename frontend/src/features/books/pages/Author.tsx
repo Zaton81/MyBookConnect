@@ -15,6 +15,7 @@ import {
 import { BsTwitterX, BsInstagram, BsWikipedia } from 'react-icons/bs';
 import { AuthorEventsSection } from '../components/AuthorEventsSection';
 import { AuthorPublicationsSection } from '../components/AuthorPublicationsSection';
+import { AuthorNewsletterSection } from '../components/AuthorNewsletterSection';
 
 interface AuthorData {
   id: number;
@@ -532,6 +533,15 @@ export function Author() {
           (user && (author.claimed_by === user.id || (user as any).role === 'ADMIN' || (user as any).role === 'MODERATOR' || user.is_staff))
         )}
         books={localBooks}
+      />
+
+      {/* Boletín Literario y Newsletters del Autor */}
+      <AuthorNewsletterSection
+        authorId={author.id}
+        authorName={author.name}
+        isAuthorOwner={Boolean(
+          (user && (author.claimed_by === user.id || (user as any).role === 'ADMIN' || (user as any).role === 'MODERATOR' || user.is_staff))
+        )}
       />
 
       {/* Formulario de Erratas / Sugerencias */}
