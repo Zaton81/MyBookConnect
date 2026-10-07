@@ -350,6 +350,26 @@ Cualquier agente de IA o desarrollador que se incorpore a la base de código **D
   - Regresión secuencial completa backend (Sprints 1 al 11): 79/79 tests pasando al 100%.
   - Frontend: `npm run typecheck` limpio (0 errores), 15 suites / 50 tests Vitest pasando al 100%, y `npm run build` generado sin incidencias.
 
+### 4.32. Publicaciones Avanzadas de Autores y Adelantos Literarios (Sprint 12 — Futuro)
+- **Modelos de Dominio y Base de Datos:**
+  - `AuthorAnnouncement`: enriquecido con tipos literarios (`publication_type`: `ANNOUNCEMENT`, `CHAPTER_PREVIEW`, `AUTHOR_DIARY`, `DELETED_SCENE`, `Q_AND_A`), relación opcional directa a `Author` (`catalog_author`), extracto automático (`excerpt`), cálculo automático de tiempo de lectura (`estimated_reading_time` basado en 200 ppm), advertencias y flags de spoiler (`has_spoilers`, `spoiler_warning`) y soporte para borradores (`is_draft`).
+  - Migración aplicada en PostgreSQL: `0036_alter_authorannouncement_options_and_more.py`.
+- **API REST y Lógica de Negocio:**
+  - ViewSet unificado `AuthorPublicationViewSet` en `/api/v1/books/author-publications/` con soporte para filtrado por autor, catálogo, tipo de publicación, libro asociado y parámetros para ver borradores (`include_drafts`).
+  - Acción `@action toggle_pin` para fijar o desfijar comunicados en el perfil de autor.
+  - Mantenimiento y compatibilidad retroactiva total de `AuthorAnnouncementListView` y `AuthorAnnouncementCreateView` en `/api/v1/books/authors/<author_id>/announcements/`.
+- **Frontend React y Experiencia de Usuario:**
+  - Componente modular `AuthorPublicationsSection.tsx` integrado en `Author.tsx`.
+  - Filtros interactivos por tipo de publicación (Todos, Comunicados, Adelantos, Diarios, Escenas eliminadas, Preguntas y respuestas).
+  - Lector interactivo de publicaciones con extracto inicial, botón "Leer más / Colapsar", advertencia visual y botón de revelación/ocultación de spoilers.
+  - Soporte de borradores con toggle para autores propietarios ("Ver borradores") e insignias de borrador y fijado.
+  - Modales accesibles para crear y editar publicaciones con control granular de tipo, libro relacionado, spoiler warning y borrador.
+- **Calidad y Regresión Total:**
+  - Suite `backend/tests/test_sprint12_author_publications.py`: 7/7 tests pasando al 100%.
+  - Suite `frontend/src/features/books/__tests__/AuthorPublicationsSection.test.tsx`: 4/4 tests pasando al 100%.
+  - Regresión secuencial completa backend (Sprints 1 al 12): 86/86 tests pasando al 100% consecutivamente en 79s.
+  - Frontend: `npm run typecheck` limpio (0 errores), 16 suites / 54 tests Vitest pasando al 100%, y `npm run build` generado sin incidencias en 11s.
+
 ---
 
 ## 5. Ubicación de Documentación Relevante

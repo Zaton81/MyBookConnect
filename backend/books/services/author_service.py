@@ -353,26 +353,50 @@ class AuthorService:
         content: str,
         book_id: int | None = None,
         is_pinned: bool = False,
+        publication_type: str = "ANNOUNCEMENT",
+        excerpt: str = "",
+        has_spoilers: bool = False,
+        spoiler_warning: str = "",
+        estimated_reading_time: int | None = None,
+        is_draft: bool = False,
+        author_id: int | None = None,
     ):
-        """Crea un comunicado oficial emitido por el autor."""
+        """Crea una publicación oficial o comunicado emitido por el autor."""
         from django.utils import timezone
-
-        from books.models import AuthorAnnouncement, Book
+        from books.models import Author, AuthorAnnouncement, Book
 
         book = Book.objects.filter(id=book_id).first() if book_id else None
-        return AuthorAnnouncement.objects.create(
+        author = Author.objects.filter(id=author_id).first() if author_id else (author_profile.author if author_profile else None)
+
+        announcement = AuthorAnnouncement(
             author_profile=author_profile,
+            author=author,
             book=book,
             title=title.strip(),
             content=content.strip(),
+            excerpt=excerpt.strip(),
+            publication_type=publication_type,
+            has_spoilers=has_spoilers,
+            spoiler_warning=spoiler_warning.strip(),
             is_pinned=is_pinned,
+            is_draft=is_draft,
             created_at=timezone.now(),
         )
+        if estimated_reading_time:
+            announcement.estimated_reading_time = estimated_reading_time
+        announcement.save()
+        return announcement
 
     @classmethod
-    def get_announcements_for_author(cls, author_id: int):
-        """Obtiene los comunicados públicos asociados a un autor del catálogo."""
+    def get_announcements_for_author(cls, author_id: int, include_drafts: bool = False, publication_type: str | None = None):
+        """Obtiene las publicaciones asociadas a un autor del catálogo."""
+        from django.db.models import Q
         from books.models import AuthorAnnouncement
-        return AuthorAnnouncement.objects.filter(
-            author_profile__author_id=author_id,
-        ).select_related('author_profile', 'book').order_by('-is_pinned', '-created_at')
+        qs = AuthorAnnouncement.objects.filter(
+            Q(author_id=author_id) | Q(author_profile__author_id=author_id)
+        ).select_related('author_profile', 'author', 'book')
+        if not include_drafts:
+            qs = qs.filter(is_draft=False)
+        if publication_type:
+            qs = qs.filter(publication_type=publication_type)
+        return qs.order_by('-is_pinned', '-created_at')

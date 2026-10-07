@@ -5,6 +5,7 @@ from django.utils.html import format_html
 
 from .models import (
     Author,
+    AuthorAnnouncement,
     AuthorEvent,
     AuthorEventAttendee,
     Book,
@@ -289,3 +290,12 @@ class AuthorEventAttendeeAdmin(admin.ModelAdmin):
     list_display = ('id', 'event', 'user', 'status', 'created_at')
     list_filter = ('status', 'created_at')
     search_fields = ('user__username', 'event__title', 'notes')
+
+
+@admin.register(AuthorAnnouncement)
+class AuthorAnnouncementAdmin(admin.ModelAdmin):
+    list_display = ('id', 'title', 'author', 'author_profile', 'publication_type', 'is_pinned', 'is_draft', 'created_at')
+    list_filter = ('publication_type', 'is_pinned', 'is_draft', 'created_at')
+    search_fields = ('title', 'content', 'author__name')
+    date_hierarchy = 'created_at'
+

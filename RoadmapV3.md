@@ -935,7 +935,7 @@ Después:
 # 30. 🔮 Futuro — No bloquea el lanzamiento
 
 - [x] eventos de autores (presentaciones, firmas, Q&A, aforo y lista de espera automática);
-- [ ] publicaciones avanzadas de autores;
+- [x] publicaciones avanzadas de autores (adelantos de capítulos, diarios de escritura, escenas eliminadas, control de spoilers y borradores);
 - [ ] newsletters;
 - [x] clubs de lectura (`/api/v1/clubs/`, lecturas conjuntas y debates con spoilers);
 - [x] grupos (comunidades literarias con roles ADMIN/MODERATOR/MEMBER y gestión de aprobación);
@@ -1104,6 +1104,13 @@ No comenzar estas funcionalidades mientras existan tareas P0/P1 pendientes.
 2. [x] Endpoints API REST: `AuthorEventViewSet` en `/api/v1/books/author-events/` con filtrado (`upcoming`, `past`, `author`, `book`, `event_type`, `format`, `search`), acciones `@action` para reserva `/register/`, cancelación `/cancel_registration/` con autopromoción de lista de espera, y gestión de asistentes `/attendees/`.
 3. [x] Frontend interactivo: componente `AuthorEventsSection.tsx` integrado en `Author.tsx`, selector de eventos próximos e históricos, reserva con envío de preguntas al autor, panel de aforo dinámico y modales para creación de eventos y visualización de asistentes para autores y administradores.
 4. [x] Pruebas y verificación integral: suite backend `test_sprint11_author_events.py` (7/7 tests), suite frontend `AuthorEventsSection.test.tsx` (4/4 tests), regresión completa Sprints 1 al 11 (79/79 tests pasando), typecheck estricto con 0 errores y build de producción validado.
+
+## Sprint 12 — Publicaciones Avanzadas de Autores (COMPLETADO)
+
+1. [x] Modelado de datos: ampliación de `AuthorAnnouncement` con tipos de publicación (`ANNOUNCEMENT`, `CHAPTER_PREVIEW`, `AUTHOR_DIARY`, `DELETED_SCENE`, `Q_AND_A`), relación directa a `Author`, cálculo automático de `excerpt` y `estimated_reading_time`, protección contra spoilers (`has_spoilers`, `spoiler_warning`) y gestión de borradores privados (`is_draft`).
+2. [x] Endpoints API REST: `AuthorPublicationViewSet` en `/api/v1/books/author-publications/` con soporte CRUD, filtrado por autor, libro, tipo, destacados (`pinned`) y borradores para el autor, y acción `@action toggle_pin` para fijar publicaciones destacadas en la cabecera.
+3. [x] Frontend interactivo: componente `AuthorPublicationsSection.tsx` en `Author.tsx` con selector de filtros por categoría, visor de texto desplegable, bloqueador de spoilers con botón de revelación, conmutador de borradores y modal para crear y editar publicaciones para el autor.
+4. [x] Pruebas y verificación integral: suite backend `test_sprint12_author_publications.py` (7/7 tests), suite frontend `AuthorPublicationsSection.test.tsx` (4/4 tests), regresión completa Sprints 1 a 12 (86/86 tests pasando al 100%), typecheck 0 errores y build de producción validado.
 
 ---
 

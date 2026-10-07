@@ -7,6 +7,26 @@ y este proyecto se adhiere a [Semantic Versioning 2.0.0](https://semver.org/lang
 
 ## [Unreleased]
 
+### Added / Author Publications & Chapter Previews (RoadmapV3 - Sección 30: Publicaciones Avanzadas de Autores y Adelantos Literarios)
+- **Modelos de Dominio y Base de Datos**:
+  - `AuthorAnnouncement`: Enriquecido con clasificación tipológica (`publication_type`: `ANNOUNCEMENT`, `CHAPTER_PREVIEW`, `AUTHOR_DIARY`, `DELETED_SCENE`, `Q_AND_A`), vinculación opcional directa al catálogo de autores (`catalog_author`), generación automática de extractos (`excerpt`), cálculo dinámico de tiempo estimado de lectura (`estimated_reading_time`), aviso y delimitación de spoilers (`has_spoilers`, `spoiler_warning`) y soporte para borradores privados (`is_draft`).
+  - Migración aplicada en PostgreSQL: `0036_alter_authorannouncement_options_and_more.py`.
+- **Endpoints API REST (`/api/v1/books/author-publications/`)**:
+  - ViewSet completo `AuthorPublicationViewSet` con filtrado por autor, catálogo, tipo de contenido, libro vinculado y soporte de visualización de borradores (`include_drafts`) para autores propietarios.
+  - Acción `@action toggle_pin`: Permite anclar/desanclar publicaciones destacadas en la parte superior del perfil del autor.
+  - Compatibilidad retroactiva garantizada para vistas existentes de comunicados (`AuthorAnnouncementListView` y `AuthorAnnouncementCreateView`).
+- **Frontend y UX (`Author.tsx` / `AuthorPublicationsSection.tsx`)**:
+  - Componente accesible `AuthorPublicationsSection` integrado en el perfil de autor.
+  - Filtro por categorías literarias con botones de píldora interactivos.
+  - Lector desplegable con truncado elegante de texto, advertencia explícita de spoilers con botón de revelación interactivo y etiquetas de tiempo de lectura.
+  - Interruptor para visualizar borradores en tiempo real por parte del creador.
+  - Modales accesibles para crear y editar publicaciones con control granular de tipo, libro relacionado, spoiler warning y borrador.
+- **Pruebas y Verificación Integral**:
+  - Creada suite `backend/tests/test_sprint12_author_publications.py` (7/7 tests al 100%).
+  - Creada suite `frontend/src/features/books/__tests__/AuthorPublicationsSection.test.tsx` (4/4 tests al 100%).
+  - Regresión secuencial completa de backend superada (86/86 pruebas pasando al 100% de Sprints 1 al 12).
+  - Frontend verificado: TypeScript estricto con 0 errores (`tsc --noEmit`), 54 tests en Vitest pasando al 100% en 16 suites y build de producción Vite exitoso.
+
 ### Added / Author Events & Encounters (RoadmapV3 - Sección 30: Eventos de Autores, Presentaciones y Reservas)
 - **Modelos de Dominio y Base de Datos**:
   - `AuthorEvent`: Modelo para eventos literarios (presentaciones, firmas, Q&A, lecturas, talleres). Soporta formatos `ONLINE`, `IN_PERSON`, `HYBRID`, enlace a libro presentado, zona horaria y aforo máximo (`max_attendees`).

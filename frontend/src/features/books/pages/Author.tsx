@@ -14,6 +14,7 @@ import {
 } from 'react-icons/hi';
 import { BsTwitterX, BsInstagram, BsWikipedia } from 'react-icons/bs';
 import { AuthorEventsSection } from '../components/AuthorEventsSection';
+import { AuthorPublicationsSection } from '../components/AuthorPublicationsSection';
 
 interface AuthorData {
   id: number;
@@ -515,6 +516,16 @@ export function Author() {
 
       {/* Encuentros y Eventos Literarios del Autor */}
       <AuthorEventsSection
+        authorId={author.id}
+        authorName={author.name}
+        isAuthorOwner={Boolean(
+          (user && (author.claimed_by === user.id || (user as any).role === 'ADMIN' || (user as any).role === 'MODERATOR' || user.is_staff))
+        )}
+        books={localBooks}
+      />
+
+      {/* Publicaciones y Adelantos del Autor */}
+      <AuthorPublicationsSection
         authorId={author.id}
         authorName={author.name}
         isAuthorOwner={Boolean(

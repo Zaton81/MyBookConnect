@@ -782,29 +782,102 @@ class AuthorProfileSerializer(serializers.ModelSerializer):
 
 class AuthorAnnouncementSerializer(serializers.ModelSerializer):
     author_name = serializers.SerializerMethodField()
+    author_photo = serializers.SerializerMethodField()
     book_title = serializers.CharField(source='book.title', read_only=True, allow_null=True)
+    book_cover = serializers.SerializerMethodField()
+    publication_type_display = serializers.CharField(source='get_publication_type_display', read_only=True)
 
     class Meta:
         model = AuthorAnnouncement
         fields = (
             'id',
             'author_profile',
+            'author',
             'author_name',
+            'author_photo',
             'book',
             'book_title',
+            'book_cover',
             'title',
             'content',
+            'excerpt',
+            'publication_type',
+            'publication_type_display',
+            'has_spoilers',
+            'spoiler_warning',
+            'estimated_reading_time',
             'is_pinned',
+            'is_draft',
             'created_at',
+            'updated_at',
         )
-        read_only_fields = ('id', 'author_profile', 'author_name', 'book_title', 'created_at')
+        read_only_fields = (
+            'id',
+            'author_profile',
+            'author_name',
+            'author_photo',
+            'book_title',
+            'book_cover',
+            'publication_type_display',
+            'created_at',
+            'updated_at',
+        )
 
     def get_author_name(self, obj) -> str:
+        if obj.author:
+            return obj.author.name
         if obj.author_profile.pen_name:
             return obj.author_profile.pen_name
         if obj.author_profile.author:
             return obj.author_profile.author.name
         return obj.author_profile.user.username
+
+    def get_author_photo(self, obj):
+        request = self.context.get('request')
+        photo = None
+        if obj.author and obj.author.photo:
+            photo = obj.author.photo
+        elif obj.author_profile and obj.author_profile.author and obj.author_profile.author.photo:
+            photo = obj.author_profile.author.photo
+        if photo:
+            from .media_utils import build_media_url
+            return build_media_url(photo, request=request)
+        return None
+
+    def get_book_cover(self, obj):
+        request = self.context.get('request')
+        if obj.book and obj.book.cover:
+            from .media_utils import build_media_url
+            return build_media_url(obj.book.cover, request=request)
+        return None
+
+
+class AuthorAnnouncementCreateUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AuthorAnnouncement
+        fields = (
+            'id',
+            'author',
+            'book',
+            'title',
+            'content',
+            'excerpt',
+            'publication_type',
+            'has_spoilers',
+            'spoiler_warning',
+            'estimated_reading_time',
+            'is_pinned',
+            'is_draft',
+        )
+
+    def validate(self, attrs):
+        title = attrs.get('title')
+        content = attrs.get('content')
+        if title is not None and not title.strip():
+            raise serializers.ValidationError({'title': 'El título no puede estar vacío.'})
+        if content is not None and not content.strip():
+            raise serializers.ValidationError({'content': 'El contenido no puede estar vacío.'})
+        return attrs
 
 
 class AuthorClaimCreateSerializer(serializers.ModelSerializer):

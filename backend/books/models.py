@@ -917,13 +917,29 @@ class AuthorProfile(models.Model):
 
 class AuthorAnnouncement(models.Model):
     """
-    Comunicado oficial o novedad publicada por un autor verificado para sus lectores.
+    Publicación oficial, comunicado o adelanto literario publicado por un autor para sus lectores.
+    RoadmapV3 Sección 30 — Sprint 12 (Publicaciones avanzadas de autores).
     """
+    class PublicationType(models.TextChoices):
+        ANNOUNCEMENT = 'ANNOUNCEMENT', 'Comunicado oficial'
+        CHAPTER_PREVIEW = 'CHAPTER_PREVIEW', 'Adelanto de capítulo'
+        AUTHOR_DIARY = 'AUTHOR_DIARY', 'Diario de escritura'
+        DELETED_SCENE = 'DELETED_SCENE', 'Escena eliminada / Extra'
+        Q_AND_A = 'Q_AND_A', 'Preguntas y Respuestas'
+
     author_profile = models.ForeignKey(
         AuthorProfile,
         on_delete=models.CASCADE,
         related_name='announcements',
         verbose_name='Perfil de autor',
+    )
+    author = models.ForeignKey(
+        Author,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='announcements',
+        verbose_name='Autor del catálogo',
     )
     book = models.ForeignKey(
         Book,
@@ -933,18 +949,42 @@ class AuthorAnnouncement(models.Model):
         related_name='author_announcements',
         verbose_name='Libro relacionado',
     )
-    title = models.CharField(max_length=200, verbose_name='Título del comunicado')
-    content = models.TextField(verbose_name='Contenido del comunicado')
+    title = models.CharField(max_length=200, verbose_name='Título de la publicación')
+    content = models.TextField(verbose_name='Contenido completo')
+    excerpt = models.CharField(max_length=500, blank=True, verbose_name='Extracto / Resumen previo')
+    publication_type = models.CharField(
+        max_length=30,
+        choices=PublicationType.choices,
+        default=PublicationType.ANNOUNCEMENT,
+        verbose_name='Tipo de publicación',
+    )
+    has_spoilers = models.BooleanField(default=False, verbose_name='Contiene spoilers')
+    spoiler_warning = models.CharField(max_length=255, blank=True, verbose_name='Aviso de spoiler')
+    estimated_reading_time = models.PositiveIntegerField(default=1, verbose_name='Minutos estimados de lectura')
     is_pinned = models.BooleanField(default=False, verbose_name='Fijado en el perfil')
+    is_draft = models.BooleanField(default=False, db_index=True, verbose_name='Es borrador')
     created_at = models.DateTimeField(default=timezone.now, db_index=True, verbose_name='Fecha de publicación')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='Última actualización')
 
     class Meta:
-        verbose_name = 'Comunicado de Autor'
-        verbose_name_plural = 'Comunicados de Autores'
+        verbose_name = 'Publicación de Autor'
+        verbose_name_plural = 'Publicaciones de Autores'
         ordering = ['-is_pinned', '-created_at']
 
     def __str__(self) -> str:
-        return f"[{self.author_profile.pen_name or self.author_profile.user.username}] {self.title}"
+        author_name = self.author.name if self.author else (self.author_profile.pen_name or self.author_profile.user.username)
+        return f"[{self.get_publication_type_display()}] {author_name} - {self.title}"
+
+    def save(self, *args, **kwargs):
+        if not self.excerpt and self.content:
+            clean_text = self.content.strip().replace('\n', ' ')
+            self.excerpt = clean_text[:280] + ('...' if len(clean_text) > 280 else '')
+        if not self.estimated_reading_time and self.content:
+            words = len(self.content.split())
+            self.estimated_reading_time = max(1, round(words / 200))
+        if not self.author and self.author_profile and self.author_profile.author:
+            self.author = self.author_profile.author
+        super().save(*args, **kwargs)
 
 
 class AuthorEvent(models.Model):

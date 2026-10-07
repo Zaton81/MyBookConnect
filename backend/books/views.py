@@ -2313,7 +2313,7 @@ class AuthorDashboardView(APIView):
 
 class AuthorAnnouncementCreateView(APIView):
     """
-    Publicación de comunicados oficiales por parte de un autor.
+    Publicación de comunicados y publicaciones avanzadas por parte de un autor.
     """
     permission_classes = [permissions.IsAuthenticated]
 
@@ -2326,6 +2326,13 @@ class AuthorAnnouncementCreateView(APIView):
         content = request.data.get('content', '').strip()
         book_id = request.data.get('book_id')
         is_pinned = bool(request.data.get('is_pinned', False))
+        publication_type = request.data.get('publication_type', 'ANNOUNCEMENT')
+        excerpt = request.data.get('excerpt', '').strip()
+        has_spoilers = bool(request.data.get('has_spoilers', False))
+        spoiler_warning = request.data.get('spoiler_warning', '').strip()
+        estimated_reading_time = request.data.get('estimated_reading_time')
+        is_draft = bool(request.data.get('is_draft', False))
+        author_id = request.data.get('author_id') or request.data.get('author')
 
         if not title or not content:
             return Response(
@@ -2339,6 +2346,13 @@ class AuthorAnnouncementCreateView(APIView):
             content=content,
             book_id=int(book_id) if book_id else None,
             is_pinned=is_pinned,
+            publication_type=publication_type,
+            excerpt=excerpt,
+            has_spoilers=has_spoilers,
+            spoiler_warning=spoiler_warning,
+            estimated_reading_time=int(estimated_reading_time) if estimated_reading_time else None,
+            is_draft=is_draft,
+            author_id=int(author_id) if author_id else None,
         )
         serializer = AuthorAnnouncementSerializer(announcement, context={'request': request})
         return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -2346,7 +2360,7 @@ class AuthorAnnouncementCreateView(APIView):
 
 class AuthorAnnouncementListView(APIView):
     """
-    Listado público de comunicados emitidos para un autor del catálogo.
+    Listado público de comunicados y publicaciones avanzadas para un autor del catálogo.
     """
     permission_classes = [permissions.AllowAny]
 
@@ -2354,7 +2368,16 @@ class AuthorAnnouncementListView(APIView):
         from .serializers import AuthorAnnouncementSerializer
         from .services.author_service import AuthorService
 
-        announcements = AuthorService.get_announcements_for_author(author_id=pk)
+        include_drafts = False
+        if request.user.is_authenticated and request.query_params.get('drafts') == 'true':
+            include_drafts = True
+
+        pub_type = request.query_params.get('type') or request.query_params.get('publication_type')
+        announcements = AuthorService.get_announcements_for_author(
+            author_id=pk,
+            include_drafts=include_drafts,
+            publication_type=pub_type,
+        )
         serializer = AuthorAnnouncementSerializer(announcements, many=True, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -2605,6 +2628,121 @@ class AuthorEventViewSet(viewsets.ModelViewSet):
 
         serializer = AuthorEventAttendeeSerializer(attendees, many=True, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class AuthorPublicationViewSet(viewsets.ModelViewSet):
+    """
+    Gestión CRUD completa y consulta de publicaciones avanzadas de autor (adelantos, notas, comunicados).
+    RoadmapV3 Sección 30 — Sprint 12.
+    """
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+
+    def get_serializer_class(self):
+        from .serializers import AuthorAnnouncementCreateUpdateSerializer, AuthorAnnouncementSerializer
+        if self.action in ('create', 'update', 'partial_update'):
+            return AuthorAnnouncementCreateUpdateSerializer
+        return AuthorAnnouncementSerializer
+
+    def get_queryset(self):
+        from django.db.models import Q
+        from .models import AuthorAnnouncement
+        qs = AuthorAnnouncement.objects.select_related('author_profile', 'author', 'book')
+
+        author_id = self.request.query_params.get('author') or self.request.query_params.get('author_id')
+        if author_id:
+            qs = qs.filter(Q(author_id=author_id) | Q(author_profile__author_id=author_id))
+
+        book_id = self.request.query_params.get('book') or self.request.query_params.get('book_id')
+        if book_id:
+            qs = qs.filter(book_id=book_id)
+
+        pub_type = self.request.query_params.get('type') or self.request.query_params.get('publication_type')
+        if pub_type:
+            qs = qs.filter(publication_type=pub_type)
+
+        is_pinned = self.request.query_params.get('pinned')
+        if is_pinned in ('true', '1'):
+            qs = qs.filter(is_pinned=True)
+
+        user = self.request.user
+        drafts_param = self.request.query_params.get('drafts')
+        if drafts_param in ('true', '1') and user.is_authenticated:
+            qs = qs.filter(Q(is_draft=False) | Q(author_profile__user=user) | Q(author__claimed_by=user))
+        else:
+            qs = qs.filter(is_draft=False)
+
+        search = self.request.query_params.get('search')
+        if search:
+            from django.db.models import Q
+            qs = qs.filter(Q(title__icontains=search) | Q(content__icontains=search) | Q(excerpt__icontains=search))
+
+        return qs.order_by('-is_pinned', '-created_at')
+
+    def perform_create(self, serializer):
+        from .models import Author, AuthorProfile
+        from .services.author_service import AuthorService
+        user = self.request.user
+        author = serializer.validated_data.get('author')
+        profile = AuthorService.get_or_create_profile(user)
+
+        if not author:
+            if profile.author:
+                author = profile.author
+            elif Author.objects.filter(claimed_by=user).exists():
+                author = Author.objects.filter(claimed_by=user).first()
+
+        if author:
+            is_owner = (
+                author.claimed_by_id == user.id or
+                (profile.author_id == author.id and profile.is_verified) or
+                user.is_staff or getattr(user, 'role', '') in ('ADMIN', 'MODERATOR')
+            )
+            if not is_owner:
+                from rest_framework.exceptions import PermissionDenied
+                raise PermissionDenied("No tienes permisos para publicar en nombre de este autor.")
+
+        serializer.save(author_profile=profile, author=author)
+
+    def perform_update(self, serializer):
+        user = self.request.user
+        instance = self.get_object()
+        is_owner = (
+            instance.author_profile.user_id == user.id or
+            (instance.author and instance.author.claimed_by_id == user.id) or
+            user.is_staff or getattr(user, 'role', '') in ('ADMIN', 'MODERATOR')
+        )
+        if not is_owner:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("No tienes permisos para modificar esta publicación.")
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        user = self.request.user
+        is_owner = (
+            instance.author_profile.user_id == user.id or
+            (instance.author and instance.author.claimed_by_id == user.id) or
+            user.is_staff or getattr(user, 'role', '') in ('ADMIN', 'MODERATOR')
+        )
+        if not is_owner:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("No tienes permisos para eliminar esta publicación.")
+        instance.delete()
+
+    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
+    def toggle_pin(self, request, pk=None):
+        instance = self.get_object()
+        user = request.user
+        is_owner = (
+            instance.author_profile.user_id == user.id or
+            (instance.author and instance.author.claimed_by_id == user.id) or
+            user.is_staff or getattr(user, 'role', '') in ('ADMIN', 'MODERATOR')
+        )
+        if not is_owner:
+            return Response({'detail': 'No tienes permisos.'}, status=status.HTTP_403_FORBIDDEN)
+        instance.is_pinned = not instance.is_pinned
+        instance.save()
+        return Response({'id': instance.id, 'is_pinned': instance.is_pinned}, status=status.HTTP_200_OK)
+
 
 
 
