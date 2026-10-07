@@ -213,6 +213,13 @@ class ReadingChallengeListView(APIView):
         tags=['Gamification'],
     )
     def get(self, request, *args, **kwargs):
+        from books.services.gamification_service import ensure_default_challenges
+        ensure_default_challenges()
+
+        if request.user.is_authenticated:
+            for uc in UserChallenge.objects.filter(user=request.user):
+                GamificationService.sync_user_challenge_progress(request.user, uc)
+
         challenges = ReadingChallenge.objects.filter(is_active=True).order_by('-end_date')
         serializer = ReadingChallengeSerializer(challenges, many=True, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
@@ -239,6 +246,8 @@ class JoinChallengeView(APIView):
             challenge=challenge,
         )
 
+        GamificationService.sync_user_challenge_progress(request.user, user_challenge)
+
         return Response({
             'detail': '¡Te has unido al reto con éxito!' if created else 'Ya estabas inscrito en este reto.',
             'challenge_title': challenge.title,
@@ -246,6 +255,23 @@ class JoinChallengeView(APIView):
             'target_count': challenge.target_count,
             'is_completed': user_challenge.is_completed,
         }, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+
+
+class LeaveChallengeView(APIView):
+    """
+    Permite al usuario abandonar un reto de lectura activo.
+    """
+    permission_classes = (permissions.IsAuthenticated,)
+
+    @extend_schema(
+        summary="Abandonar un reto de lectura",
+        tags=['Gamification'],
+    )
+    def post(self, request, slug, *args, **kwargs):
+        success = GamificationService.leave_challenge(request.user, slug)
+        if not success:
+            return Response({'detail': 'No estabas inscrito en este reto o no existe.'}, status=status.HTTP_404_NOT_FOUND)
+        return Response({'detail': 'Has abandonado el reto de lectura.', 'challenge_slug': slug}, status=status.HTTP_200_OK)
 
 
 class GamificationPreferenceView(APIView):

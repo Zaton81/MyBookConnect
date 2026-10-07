@@ -940,11 +940,11 @@ Después:
 - [x] clubs de lectura (`/api/v1/clubs/`, lecturas conjuntas y debates con spoilers);
 - [x] grupos (comunidades literarias con roles ADMIN/MODERATOR/MEMBER y gestión de aprobación);
 - [x] listas colaborativas (invitaciones, permisos EDITOR/VIEWER, atribución de autoría por libro y filtrado colaborativo);
+- [x] gamificación avanzada (retos de lectura anuales y temáticos, sincronización dinámica por libros/páginas/géneros, ritmo y proyección, racha diaria y medallero);
 - [ ] recomendaciones avanzadas;
 - [ ] IA multimodal;
 - [ ] audiolibros/TTS;
 - [ ] estadísticas avanzadas;
-- [ ] gamificación avanzada;
 - [ ] aplicaciones móviles;
 - [ ] integración con redes sociales;
 - [ ] marketplace/editoriales.
@@ -1118,6 +1118,14 @@ No comenzar estas funcionalidades mientras existan tareas P0/P1 pendientes.
 2. [x] Endpoints API REST: `AuthorNewsletterViewSet` (`/api/v1/books/author-newsletters/`) con acciones `@action subscribe`, `@action unsubscribe`, `@action my_subscriptions`, `@action subscribers` y `AuthorNewsletterIssueViewSet` (`/api/v1/books/author-newsletter-issues/`) con acción `@action send_issue`.
 3. [x] Frontend interactivo: componente `AuthorNewsletterSection.tsx` integrado en `Author.tsx` con tarjeta de suscripción 1-clic para lectores, contador dinámico de suscriptores, lector desplegable de entregas y panel para el autor propietario con modales para configurar la newsletter y redactar/enviar nuevas entregas.
 4. [x] Pruebas y verificación integral: suite backend `test_sprint13_author_newsletters.py` (7/7 tests), suite frontend `AuthorNewsletterSection.test.tsx` (4/4 tests), regresión secuencial backend completa Sprints 1 a 13 (88/88 tests pasando al 100%), typecheck estricto 0 errores, vitest completo (17 suites / 58 tests) y build de producción validado.
+
+## Sprint 14 — Gamificación Avanzada y Retos de Lectura (COMPLETADO)
+
+1. [x] Motor de Sincronización Dinámica de Retos: `GamificationService.sync_user_challenge_progress()` calcula automáticamente el progreso de cada participante según el tipo de meta (`books_count`, `pages_count`, `reviews_count`, `genre_books`), otorgando las insignias de recompensa y completando retos automáticamente sin intervención manual.
+2. [x] Siembra Automática de Retos y Abandono: `GamificationService.ensure_default_challenges()` asegura la existencia de retos anuales y temáticos (Sprint de Novela, Maratón de Páginas, Clásicos). Endpoint `POST /api/v1/gamification/challenges/<slug>/leave/` permite desapuntarse de retos y actualizar métricas de participantes en tiempo real.
+3. [x] Ritmo de Meta Anual y Racha Diaria: cálculo reactivo de libros por mes requeridos, estado de ritmo (adelantado/a tiempo/atrasado) y logging de sesiones de lectura en `ReadingStreak` con cálculo de rachas continuas y congelaciones.
+4. [x] Interfaz Frontend Dedicada: página `/challenges` (`ChallengesPage.tsx`) con 4 pestañas accesibles WAI-ARIA (🏆 Retos Comunitarios, 🎯 Mi Meta Anual, 🔥 Racha & Registro, 🎖️ Medallero), modales para fijar meta anual y registrar sesión de lectura diaria, filtros por categoría de medalla y enlace directo en la barra de navegación superior (`Header.tsx`).
+5. [x] Pruebas y Verificación Integral: suite backend `test_sprint14_gamification_challenges.py` (7/7 tests), suite frontend `ChallengesPage.test.tsx` (4/4 tests), regresión secuencial backend completa Sprints 1 a 14 (95/95 tests pasando al 100%), typecheck estricto con 0 errores, vitest completo (18 suites / 62 tests pasando) y build de producción limpio en Vite.
 
 ---
 

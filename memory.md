@@ -397,6 +397,33 @@ Cualquier agente de IA o desarrollador que se incorpore a la base de código **D
   - Regresión secuencial completa backend (Sprints 1 al 13): 88/88 tests pasando consecutivamente al 100% en 98s.
   - Frontend: `npm run typecheck` limpio (0 errores), 17 suites / 58 tests Vitest pasando al 100%, y build de producción Vite generado limpiamente en 12s.
 
+### 4.34. Gamificación Avanzada y Retos de Lectura (Sprint 14 — Futuro)
+- **Modelos de Dominio y Sincronización Automática:**
+  - `ReadingChallenge`: retos comunitarios y anuales por libros (`books_count`), páginas (`pages_count`), reseñas (`reviews_count`) o género (`genre_books`).
+  - `UserChallenge`: participación del lector, progreso actualizado en vivo (`current_count`), estado `is_completed` y fecha de finalización.
+  - `ReadingStreak`: registro de racha actual, racha récord más larga, días congelados y registro de sesiones de lectura (`log_reading_session`).
+  - `GamificationService`:
+    - `sync_user_challenge_progress()`: motor reactivo de sincronización que calcula el progreso exacto según los `UserBook` completados en el rango del reto, finaliza el reto automáticamente si se alcanza la meta y concede la insignia asociada.
+    - `ensure_default_challenges()`: siembra automática e idempotente de retos comunitarios clave (Reto Anual 2026, Sprint de Novela, Maratón de Páginas, Clásicos Inolvidables).
+    - `leave_challenge()`: lógica transaccional para abandonar un reto y decrementar participantes.
+- **API REST y Endpoints:**
+  - `ReadingChallengeListView` en `/api/v1/gamification/challenges/`: sincroniza el progreso del usuario autenticado en caliente y devuelve catálogo de retos con flags `has_joined`, `is_completed` y progreso porcentual.
+  - `LeaveChallengeView` en `POST /api/v1/gamification/challenges/<slug>/leave/`: endpoint para abandonar retos con actualización inmediata.
+  - `ReadingGoalViewSet` en `/api/v1/gamification/goal/`: cálculo de ritmo anual (`books_per_month_required`, `status` [ahead, on_track, behind]).
+  - `GamificationOverviewView` en `/api/v1/gamification/overview/`: vista unificada de nivel, puntos, racha, insignias y retos activos.
+- **Frontend React y Experiencia de Usuario:**
+  - Página dedicada `ChallengesPage.tsx` (`/challenges`) accesible en la barra de navegación superior (`Header.tsx`) y registrada en `router.tsx`.
+  - 4 Pestañas WAI-ARIA completas:
+    - 🏆 **Retos Comunitarios**: catálogo de retos, tarjetas con barras de progreso, métricas de participantes y botones dinámicos para Unirse / Abandonar reto.
+    - 🎯 **Mi Meta Anual**: tarjeta de meta del año actual con progreso de libros leídos, proyección de ritmo (adelantado/a tiempo) y modal para configurar libros y páginas objetivo.
+    - 🔥 **Racha & Registro**: visualización de racha actual en días, racha histórica récord, congeladores disponibles y modal para registrar lecturas diarias con páginas y minutos leídos.
+    - 🎖️ **Medallero**: catálogo completo de insignias con filtros por categoría (Todas, Lectura, Racha, Retos, Social), estado de desbloqueo y fecha de obtención.
+- **Calidad y Regresión Total:**
+  - Suite `backend/tests/test_sprint14_gamification_challenges.py`: 7/7 tests pasando al 100%.
+  - Suite `frontend/src/features/books/__tests__/ChallengesPage.test.tsx`: 4/4 tests pasando al 100%.
+  - Regresión secuencial completa backend (Sprints 1 al 14): 95/95 tests pasando consecutivamente al 100% en 85s.
+  - Frontend: `npm run typecheck` estricto con 0 errores, suite completa Vitest (18 suites / 62 tests pasando al 100%) y build de producción Vite generado limpiamente en 29s.
+
 ---
 
 ## 5. Ubicación de Documentación Relevante

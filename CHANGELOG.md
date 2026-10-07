@@ -7,6 +7,27 @@ y este proyecto se adhiere a [Semantic Versioning 2.0.0](https://semver.org/lang
 
 ## [Unreleased]
 
+### Added / Advanced Gamification & Reading Challenges (RoadmapV3 - Sección 30: Gamificación Avanzada y Retos de Lectura)
+- **Motor de Sincronización Dinámica de Retos**:
+  - `GamificationService.sync_user_challenge_progress()`: cálculo reactivo de progreso según libros leídos (`books_count`), páginas leídas (`pages_count`), reseñas (`reviews_count`) o género literario (`genre_books`), concediendo las insignias correspondientes y completando el reto automáticamente.
+  - `GamificationService.ensure_default_challenges()`: siembra automática e idempotente de retos comunitarios ("Reto de Lectura Anual 2026", "Sprint de Novela Corta", "Maratón de Páginas 2026", "Clásicos Inolvidables").
+  - `GamificationService.leave_challenge()`: lógica transaccional para abandonar un reto y decrementar el contador de participantes.
+- **Endpoints API REST (`/api/v1/gamification/challenges/`)**:
+  - `ReadingChallengeListView`: sincroniza en caliente el progreso del usuario autenticado y expone el listado completo de retos con progreso y estado de inscripción.
+  - `LeaveChallengeView` en `POST /api/v1/gamification/challenges/<slug>/leave/`: permite al lector desapuntarse de un reto.
+  - Integración en `ReadingGoalViewSet` y `GamificationOverviewView` para ritmo y proyección de lectura anual y estado de racha diaria.
+- **Frontend y UX (`ChallengesPage.tsx` / `/challenges`)**:
+  - Página dedicada `/challenges` accesible desde el `Header.tsx` con navegación WAI-ARIA en 4 pestañas interactivas.
+  - Pestaña **🏆 Retos Comunitarios**: visualización de tarjetas de reto con porcentaje de avance, metas, participantes y botones dinámicos para Unirse / Abandonar.
+  - Pestaña **🎯 Mi Meta Anual**: tarjeta de meta del año con libros leídos, ritmo proyectado (adelantado/a tiempo) y modal para configurar libros y páginas objetivo.
+  - Pestaña **🔥 Racha & Registro**: contador de racha actual en días, racha histórica récord, días congelados y modal para registrar lecturas diarias con páginas y minutos.
+  - Pestaña **🎖️ Medallero**: catálogo filtrable de medallas (Todas, Lectura, Racha, Retos, Social) con insignias desbloqueadas y pendientes.
+- **Pruebas y Verificación Integral**:
+  - Suite backend `backend/tests/test_sprint14_gamification_challenges.py`: 7/7 tests pasando al 100%.
+  - Suite frontend `frontend/src/features/books/__tests__/ChallengesPage.test.tsx`: 4/4 tests pasando al 100%.
+  - Regresión secuencial completa backend (Sprints 1 al 14): 95/95 tests pasando consecutivamente al 100% en 85s.
+  - Frontend verificado: TypeScript estricto con 0 errores (`tsc --noEmit`), Vitest completo con 62/62 tests pasando en 18 suites y build de producción limpio generado en 29s.
+
 ### Added / Author Newsletters & Broadcasts (RoadmapV3 - Sección 30: Newsletters y Boletines Literarios de Autores)
 - **Modelos de Dominio y Base de Datos**:
   - `AuthorNewsletter`: Configuración del boletín oficial por autor literario (`title`, `description`, `frequency` [`WEEKLY`, `BIWEEKLY`, `MONTHLY`, `OCCASIONAL`], `is_active`) con recuento automático de suscriptores y boletines emitidos.
