@@ -941,10 +941,10 @@ Después:
 - [x] grupos (comunidades literarias con roles ADMIN/MODERATOR/MEMBER y gestión de aprobación);
 - [x] listas colaborativas (invitaciones, permisos EDITOR/VIEWER, atribución de autoría por libro y filtrado colaborativo);
 - [x] gamificación avanzada (retos de lectura anuales y temáticos, sincronización dinámica por libros/páginas/géneros, ritmo y proyección, racha diaria y medallero);
+- [x] estadísticas avanzadas (ritmo y velocidad días/libro, desglose por longitud y formato, doble evolución mensual y memoria anual retrospectiva);
 - [ ] recomendaciones avanzadas;
 - [ ] IA multimodal;
 - [ ] audiolibros/TTS;
-- [ ] estadísticas avanzadas;
 - [ ] aplicaciones móviles;
 - [ ] integración con redes sociales;
 - [ ] marketplace/editoriales.
@@ -1126,6 +1126,15 @@ No comenzar estas funcionalidades mientras existan tareas P0/P1 pendientes.
 3. [x] Ritmo de Meta Anual y Racha Diaria: cálculo reactivo de libros por mes requeridos, estado de ritmo (adelantado/a tiempo/atrasado) y logging de sesiones de lectura en `ReadingStreak` con cálculo de rachas continuas y congelaciones.
 4. [x] Interfaz Frontend Dedicada: página `/challenges` (`ChallengesPage.tsx`) con 4 pestañas accesibles WAI-ARIA (🏆 Retos Comunitarios, 🎯 Mi Meta Anual, 🔥 Racha & Registro, 🎖️ Medallero), modales para fijar meta anual y registrar sesión de lectura diaria, filtros por categoría de medalla y enlace directo en la barra de navegación superior (`Header.tsx`).
 5. [x] Pruebas y Verificación Integral: suite backend `test_sprint14_gamification_challenges.py` (7/7 tests), suite frontend `ChallengesPage.test.tsx` (4/4 tests), regresión secuencial backend completa Sprints 1 a 14 (95/95 tests pasando al 100%), typecheck estricto con 0 errores, vitest completo (18 suites / 62 tests pasando) y build de producción limpio en Vite.
+
+## Sprint 15 — Estadísticas Avanzadas de Lectura, Ritmo y Memoria Anual (COMPLETADO)
+
+1. [x] Motor Backend Granular y Filtrado Temporal: ampliación de `stats_service.py` con parámetro `year` (`?year=YYYY` o `?year=all`), auto-descubrimiento de catálogo de años disponibles con actividad (`available_years`) y clave de caché Redis estructurada (`stats:user:<id>:year:<year>`).
+2. [x] Métricas de Ritmo y Velocidad (`reading_pace`): cálculo de días promedio por libro (`avg_days_per_book`), libro más rápido (`fastest_book`), libro más sosegado (`slowest_book`), promedio de páginas al día y al mes, y detección automática del mes cumbre de lectura (`highest_reading_month`).
+3. [x] Desglose por Longitud y Formatos: clasificación en 4 rangos de volumen (`short` <200p, `medium` 200-399p, `long` 400-599p, `epic` 600+p) con porcentajes y extremos leídos (`longest_book` y `shortest_book`), más distribución física vs digital y posesión en propiedad vs prestado.
+4. [x] Memoria Anual y Doble Evolución: retrospectiva del año ("Year in Review") con libro cumbre mejor puntuado, autor y género predilectos, comparativa interanual frente al año previo (+libros y +páginas), y gráfico mensual con selector interactivo de métrica (Libros vs Páginas).
+5. [x] Frontend React Accesible: rediseño integral de `ReadingStats.tsx` con selector de año en la cabecera, navegación en 4 pestañas WAI-ARIA (Resumen General, Ritmo & Velocidad, Longitud & Formatos, Memoria Anual) y tooltips flotantes.
+6. [x] Pruebas y Verificación Integral: suite backend `test_sprint15_advanced_reading_stats.py` (7/7 tests), suite frontend `ReadingStats.test.tsx` (4/4 tests), regresión secuencial backend completa Sprints 1 a 15 (107/107 tests pasando al 100%), typecheck estricto 0 errores, vitest completo (19 suites / 66 tests pasando) y build de producción limpio en 13.88s.
 
 ---
 

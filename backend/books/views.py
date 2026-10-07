@@ -2062,7 +2062,8 @@ class ReadingStatsView(APIView):
                 return Response({'detail': 'Autenticación requerida para ver tus estadísticas.'}, status=status.HTTP_401_UNAUTHORIZED)
             target_user_id = request.user.id
 
-        stats = services.get_user_reading_stats(target_user_id)
+        year_param = request.query_params.get('year')
+        stats = services.get_user_reading_stats(target_user_id, year=year_param)
         return Response(stats)
 
 

@@ -141,8 +141,10 @@ def invalidate_user_profile_cache(user_id: int | str) -> None:
         logger.warning(f"Error invalidando caché de perfil para usuario {user_id}: {exc}")
 
 
-def user_stats_key(user_id: int | str) -> str:
-    """Namespace de estadísticas de lectura del usuario: stats:user:{user_id}"""
+def user_stats_key(user_id: int | str, year: int | str | None = None) -> str:
+    """Namespace de estadísticas de lectura del usuario: stats:user:{user_id}[:year:{year}]"""
+    if year is not None and str(year).lower() != 'all':
+        return f"stats:user:{user_id}:year:{year}"
     return f"stats:user:{user_id}"
 
 
@@ -153,6 +155,11 @@ def invalidate_user_stats_cache(user_id: int | str) -> None:
     """
     try:
         cache.delete(user_stats_key(user_id))
+        # Invalidar también claves anuales comunes
+        import datetime
+        current_year = datetime.date.today().year
+        for y in range(current_year - 5, current_year + 2):
+            cache.delete(user_stats_key(user_id, year=y))
         logger.debug(f"Caché de estadísticas invalidada para usuario {user_id}")
     except Exception as exc:
         logger.warning(f"Error invalidando caché de estadísticas para usuario {user_id}: {exc}")

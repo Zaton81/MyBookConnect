@@ -424,6 +424,29 @@ Cualquier agente de IA o desarrollador que se incorpore a la base de código **D
   - Regresión secuencial completa backend (Sprints 1 al 14): 95/95 tests pasando consecutivamente al 100% en 85s.
   - Frontend: `npm run typecheck` estricto con 0 errores, suite completa Vitest (18 suites / 62 tests pasando al 100%) y build de producción Vite generado limpiamente en 29s.
 
+### 4.35. Estadísticas Avanzadas de Lectura, Ritmo y Memoria Anual (Sprint 15 — Futuro)
+- **Motor de Dominio y Estadísticas Granulares (`stats_service.py`):**
+  - Parámetro de filtrado temporal `year` (`?year=YYYY` o `?year=all`) y descubrimiento automático de `available_years`.
+  - Clave de caché Redis adaptada: `stats:user:<id>[:year:<year>]` con invalidación atómica multianual en `cache_utils.py`.
+  - Métricas de Ritmo y Velocidad (`reading_pace`): días promedio por libro (`avg_days_per_book`), libro más veloz (`fastest_book`), libro más pausado (`slowest_book`), páginas al día y al mes, y mes pico de lectura (`highest_reading_month`).
+  - Distribución por Longitud (`length_distribution`): clasificación en Cortos (<200p), Medios (200-399p), Largos (400-599p) y Épicos (600+p) junto a los extremos leídos (`longest_book` y `shortest_book`).
+  - Distribución por Formato y Posesión (`format_distribution`): proporción física vs digital/ebook y en propiedad vs prestado.
+  - Memoria Anual / "Year in Review" (`year_in_review`): retrospectiva anual con libro mejor calificado, género y autor predilectos, y comparativa interanual frente al año previo (+libros y +páginas).
+- **API REST y Vistas:**
+  - `ReadingStatsView` en `/api/v1/books/statistics/`: acepta parámetro `year`, delega en `services.get_user_reading_stats(target_user_id, year=year)` y respeta estrictamente los niveles de privacidad del perfil.
+- **Frontend React y Experiencia de Usuario (`ReadingStats.tsx`):**
+  - Selector dinámico de año en la cabecera (píldoras interactivas con `Histórico`, `2026`, `2025`, etc.).
+  - 4 Pestañas WAI-ARIA completas:
+    - 📊 **Resumen General**: KPIs principales, gráfico de barras mensual con alternancia entre métrica de **Libros** y **Páginas**, distribución de estrellas (1..5), preferencias literarias y autores predilectos.
+    - ⚡ **Ritmo & Velocidad**: tarjetas de duración media por libro, páginas diarias/mensuales, mes récord y tarjetas destacadas de lectura más veloz y más pausada.
+    - 📐 **Longitud & Formatos**: barras visuales de tramos de páginas, libros extremos completados y comparativas de formato (papel vs digital) y posesión.
+    - 🏆 **Memoria Anual**: tarjeta editorial retrospectiva del año con destacados, libro cumbre mejor valorado y comparativa de crecimiento frente al año previo (+/- libros y páginas).
+- **Calidad y Regresión Total:**
+  - Suite backend `backend/tests/test_sprint15_advanced_reading_stats.py`: 7/7 tests pasando al 100%.
+  - Suite frontend `frontend/src/features/books/__tests__/ReadingStats.test.tsx`: 4/4 tests pasando al 100%.
+  - Regresión secuencial completa backend (Sprints 1 al 15): 107/107 tests pasando consecutivamente al 100% en 126s.
+  - Frontend: `npm run typecheck` estricto 0 errores, Vitest completo (19 suites / 66 tests pasando al 100%) y build de producción Vite limpio generado en 13.88s.
+
 ---
 
 ## 5. Ubicación de Documentación Relevante

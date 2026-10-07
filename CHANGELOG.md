@@ -7,6 +7,28 @@ y este proyecto se adhiere a [Semantic Versioning 2.0.0](https://semver.org/lang
 
 ## [Unreleased]
 
+### Added / Advanced Reading Statistics & Year in Review (RoadmapV3 - Sección 30: Estadísticas Avanzadas de Lectura, Ritmo y Memoria Anual)
+- **Motor de Dominio y Estadísticas Granulares (`stats_service.py` & `cache_utils.py`)**:
+  - Soporte de filtrado por año (`?year=YYYY` o `?year=all`) con lista de años disponibles con actividad (`available_years`) y clave de caché Redis adaptada `stats:user:<id>[:year:<year>]` con invalidación atómica multianual.
+  - Métricas de Ritmo y Velocidad (`reading_pace`): días promedio por libro (`avg_days_per_book`), libro más rápido (`fastest_book`), libro más pausado (`slowest_book`), promedio de páginas al día y al mes, y detección automática del mes cumbre de lectura (`highest_reading_month`).
+  - Distribución por Longitud (`length_distribution`): clasificación de lecturas en Cortos (<200p), Medios (200-399p), Largos (400-599p) y Épicos (600+p) con libros extremos completados (`longest_book` y `shortest_book`).
+  - Distribución por Formato y Posesión (`format_distribution`): físico vs digital/ebook y en propiedad vs prestado.
+  - Memoria Anual / "Year in Review" (`year_in_review`): retrospectiva anual con libro mejor calificado, género y autor predilectos, y comparativa interanual frente al año previo (+libros y +páginas).
+- **Endpoints API REST (`/api/v1/books/statistics/`)**:
+  - `ReadingStatsView`: acepta parámetro `year`, delega en `services.get_user_reading_stats(target_user_id, year=year)` y valida estrictamente la privacidad del perfil (público, solo amigos o privado).
+- **Frontend y UX (`ReadingStats.tsx` / `/statistics`)**:
+  - Selector dinámico de año en la cabecera (píldoras interactivas con `Histórico`, `2026`, `2025`, etc.).
+  - 4 Pestañas WAI-ARIA completas:
+    - 📊 **Resumen General**: KPIs principales, gráfico de barras mensual con alternancia entre métrica de **Libros** y **Páginas**, distribución de estrellas (1..5), preferencias literarias y autores predilectos.
+    - ⚡ **Ritmo & Velocidad**: tarjetas de duración media por libro, páginas diarias/mensuales, mes récord y tarjetas destacadas de lectura más veloz y más pausada.
+    - 📐 **Longitud & Formatos**: barras visuales de tramos de páginas, libros extremos completados y comparativas de formato (papel vs digital) y posesión.
+    - 🏆 **Memoria Anual**: tarjeta editorial retrospectiva del año con destacados, libro cumbre mejor valorado y comparativa de crecimiento frente al año previo (+/- libros y páginas).
+- **Pruebas y Verificación Integral**:
+  - Suite backend `backend/tests/test_sprint15_advanced_reading_stats.py`: 7/7 tests pasando al 100%.
+  - Suite frontend `frontend/src/features/books/__tests__/ReadingStats.test.tsx`: 4/4 tests pasando al 100%.
+  - Regresión secuencial completa backend (Sprints 1 al 15): 107/107 tests pasando consecutivamente al 100% en 126s.
+  - Frontend verificado: TypeScript estricto con 0 errores (`tsc --noEmit`), Vitest completo (19 suites / 66 tests pasando) y build de producción limpio generado en 13.88s.
+
 ### Added / Advanced Gamification & Reading Challenges (RoadmapV3 - Sección 30: Gamificación Avanzada y Retos de Lectura)
 - **Motor de Sincronización Dinámica de Retos**:
   - `GamificationService.sync_user_challenge_progress()`: cálculo reactivo de progreso según libros leídos (`books_count`), páginas leídas (`pages_count`), reseñas (`reviews_count`) o género literario (`genre_books`), concediendo las insignias correspondientes y completando el reto automáticamente.
