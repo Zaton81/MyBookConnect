@@ -103,9 +103,11 @@ from .audiobook_service import (
     get_user_listening_shelf,
     get_audiobook_catalog,
 )
+from .marketplace_service import MarketplaceService
 
 __all__ = [
     # Funciones públicas principales
+    'MarketplaceService',
     'get_book_audiobook_details',
     'save_audiobook_progress',
     'get_user_listening_shelf',

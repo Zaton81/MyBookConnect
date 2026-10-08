@@ -530,6 +530,38 @@ Cualquier agente de IA o desarrollador que se incorpore a la base de código **D
   - Regresión secuencial completa backend (Sprints 1 al 18): **128/128 tests pasando consecutivamente al 100%** en 133.23s.
   - Frontend verificado: TypeScript estricto con 0 errores (`tsc --noEmit`), Vitest completo (**22 suites / 80 tests pasando al 100%**) y build de producción Vite generado limpiamente en 33.17s.
 
+### 4.39. Sprint 19: Marketplace y Enlaces Editoriales
+
+- **Modelado de Datos y Entidad Editorial (`marketplace_models.py`):**
+  - Modelo `Publisher`: entidad editorial con nombre, slug canónico, descripción, web oficial, logotipo, país de origen, acreditación verificada (`is_verified`) y usuario representante oficial (`claimed_by`).
+  - Campo `publisher` en `Book`: relación directa de clave foránea a la editorial catalogada.
+  - Modelo `BookBuyLink`: oferta comercial para la obra con denominación de comercio, tipo (`indie_network`, `online_retailer`, `publisher_direct`, `ebook_store`, `audio_store`), formato (`paperback`, `hardcover`, `ebook`, `audiobook`), enlace directo, precio estimado opcional, moneda, acreditación oficial del autor y flag de afiliación.
+  - Modelo `MarketplaceClick`: registro anónimo de clics hacia tiendas y opciones de compra para telemetría y conversión sin registrar datos personales ni IP (RGPD compliant).
+  - Migración `0039_bookbuylink_marketplaceclick_publisher_and_more.py` aplicada limpiamente en PostgreSQL.
+- **Capa de Servicios de Dominio (`marketplace_service.py`):**
+  - `get_book_marketplace_offers(book, user)`: agregador multitienda con prioridad a librerías de proximidad (**TodosTusLibros**), grandes superficies (**Casa del Libro**, **Fnac**), tiendas digitales (**Amazon**, **Kindle**, **Audible**, **Google Play Books**) y enlaces directos de autor/editorial.
+  - `record_marketplace_click(book_id, merchant_name, format_type, buy_link_id)`: telemetría anónima sin PII y compatibilidad con `AffiliateClick` para Amazon.
+  - `create_or_update_buy_link(book_id, user, data)`: gestión con control de acceso estricto (autor verificado o admin).
+  - `delete_buy_link(buy_link_id, user)`: eliminación segura de enlace comercial.
+  - `get_publishers_catalog(search, country)` y `get_publisher_detail(identifier)`: catálogo público de editoriales.
+- **Endpoints API REST (`/api/v1/books/`):**
+  - `GET /api/v1/books/<id>/marketplace/`: opciones agregadas multitienda y desglose por formato.
+  - `POST /api/v1/books/<id>/marketplace/click/`: registro de intención de compra anónimo.
+  - `POST /api/v1/books/<id>/marketplace/links/`: creación/edición de enlaces oficiales para autores propietarios.
+  - `DELETE /api/v1/books/marketplace/links/<id>/`: borrado de enlaces comerciales oficiales.
+  - `GET /api/v1/books/publishers/` y `GET /api/v1/books/publishers/<slug>/`: catálogo y ficha de editoriales.
+- **Frontend y Experiencia de Usuario (`BookMarketplaceModal.tsx`):**
+  - Modal accesible WAI-ARIA con pestañas de filtrado (Todas, Librerías de Barrio, Papel, Ebook, Audiolibro).
+  - Tarjetas de tiendas con badges informativos, precio estimado y enlaces seguros `rel="noopener noreferrer sponsored"`.
+  - Botón directo "🛍️ Dónde comprar / Librerías" integrado en `BookDetail.tsx`.
+  - Mención de la editorial asociada a la obra en los metadatos de cabecera.
+  - Formulario integrado para que autores verificados puedan añadir sus enlaces de venta directa.
+- **Calidad y Regresión Total:**
+  - Suite backend `backend/tests/test_sprint19_marketplace_editoriales.py`: **7/7 tests pasando al 100%**.
+  - Suite frontend `frontend/src/features/books/__tests__/BookMarketplace.test.tsx`: **5/5 tests pasando al 100%**.
+  - Regresión secuencial completa backend (Sprints 1 al 19): **135/135 tests pasando consecutivamente al 100%** en 134.34s.
+  - Frontend verificado: TypeScript estricto con 0 errores (`tsc --noEmit`), Vitest completo (**23 suites / 85 tests pasando al 100%**) y build de producción Vite generado limpiamente en 13.01s.
+
 ---
 
 ## 5. Ubicación de Documentación Relevante

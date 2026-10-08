@@ -947,7 +947,7 @@ Después:
 - [ ] IA multimodal;
 - [x] audiolibros/TTS (reproductor global flotante, streaming de pistas, persistencia de progreso por usuario y narrador sintético Web Speech API);
 - [ ] aplicaciones móviles;
-- [ ] marketplace/editoriales.
+- [x] marketplace/editoriales (red multitienda, TodosTusLibros de proximidad, grandes cadenas, venta directa editorial y telemetría ética anonimizada).
 
 No comenzar estas funcionalidades mientras existan tareas P0/P1 pendientes.
 
@@ -1163,6 +1163,18 @@ No comenzar estas funcionalidades mientras existan tareas P0/P1 pendientes.
    - Componente `BookAudiobookSection.tsx` integrado en `BookDetail.tsx` con lista de pistas, duración total formateada, botón de muestra y fallback TTS 1-clic.
    - Sección "🎧 Audiolibros en curso" integrada en `Library.tsx` con tarjetas interactivas y acceso directo a reanudar escucha.
 5. [x] Pruebas y Verificación Integral: suite backend `test_sprint18_audiobooks_tts.py` (7/7 tests pasando al 100%), suite frontend `AudiobookPlayer.test.tsx` (5/5 tests pasando al 100%), regresión secuencial backend completa Sprints 1 a 18 (**128/128 tests pasando al 100%** consecutivamente), typecheck estricto 0 errores, suite completa de Vitest (**22 suites / 80 tests pasando al 100%**) y build de producción Vite limpio.
+
+## Sprint 19 — Marketplace y Enlaces Editoriales (COMPLETADO)
+
+1. [x] Modelado de Datos y Entidad Editorial: modelos `Publisher` (identidad URL, descripción, país, web y verificación), campo `publisher` en `Book`, `BookBuyLink` (enlaces de compra con formatos, moneda, tipo de comercio y flag de oficialidad verificado) y `MarketplaceClick` (telemetría anónima sin PII compatible con RGPD), con migración `0039` aplicada en PostgreSQL.
+2. [x] Capa de Servicios y Neutralidad Ética (`marketplace_service.py`): agregador inteligente multitienda con soporte prioritario a la red de librerías de barrio (**TodosTusLibros**), grandes cadenas (**Casa del Libro**, **Fnac**), tiendas digitales (**Amazon**, **Kindle**, **Audible**, **Google Play Books**) y venta directa de editoriales/autores. Registro de clics ético y validación estricta de permisos para autores propietarios.
+3. [x] Endpoints API REST: rutas `/api/v1/books/<id>/marketplace/`, `/api/v1/books/<id>/marketplace/click/`, `/api/v1/books/<id>/marketplace/links/`, `/api/v1/books/marketplace/links/<id>/`, `/api/v1/books/publishers/` y `/api/v1/books/publishers/<slug>/`.
+4. [x] Experiencia Frontend y Modal Accesible (`BookMarketplaceModal.tsx`):
+   - Modal WAI-ARIA accesible con selector de pestañas (Todas, Librerías de Barrio, Papel, Ebook, Audiolibro).
+   - Tarjetas de comercios con badges informativos, precios y apertura segura con `rel="noopener noreferrer sponsored"`.
+   - Botón directo "🛍️ Dónde comprar / Librerías" integrado en `BookDetail.tsx` junto con metadatos de editorial vinculada.
+   - Panel integrado para autores verificados para publicar y eliminar enlaces comerciales oficiales de sus obras.
+5. [x] Pruebas y Verificación Integral: suite backend `test_sprint19_marketplace_editoriales.py` (7/7 tests pasando al 100%), suite frontend `BookMarketplace.test.tsx` (5/5 tests pasando al 100%), regresión secuencial acumulativa completa Sprints 1 a 19 (**135/135 tests pasando al 100%** de forma consecutiva), typecheck estricto con 0 errores, suite Vitest completa (**23 suites / 85 tests pasando al 100%**) y build de producción limpio en Vite (13.01s).
 
 ---
 

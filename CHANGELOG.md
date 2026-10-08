@@ -7,6 +7,35 @@ y este proyecto se adhiere a [Semantic Versioning 2.0.0](https://semver.org/lang
 
 ## [Unreleased]
 
+### Added / Marketplace & Editorial Buy Links (RoadmapV3 - Sección 30: Marketplace / Editoriales)
+- **Modelado de Datos y Entidad Editorial (`marketplace_models.py`)**:
+  - Modelo `Publisher` con atributos de país, descripción, web oficial, logotipo y acreditación oficial verificada.
+  - Atributo de relación `publisher` en el modelo principal `Book`.
+  - Modelo `BookBuyLink` para opciones de compra con denominación de tienda, categorización de canal (`indie_network`, `online_retailer`, `publisher_direct`, etc.), formato de obra, precio estimado y badge de acreditación oficial.
+  - Modelo `MarketplaceClick` para telemetría de conversión y seguimiento de intención de compra totalmente anonimizado (compatible con RGPD).
+  - Migración `0039_bookbuylink_marketplaceclick_publisher_and_more.py` ejecutada en PostgreSQL.
+- **Servicio de Dominio y Agregación Multitienda (`marketplace_service.py`)**:
+  - Agregación ética de ofertas comerciales con soporte preferente para la red de librerías locales e independientes (**TodosTusLibros / CEGAL**), grandes librerías (**Casa del Libro**, **Fnac**), plataformas digitales (**Amazon**, **Kindle**, **Audible**, **Google Play Books**) y venta directa del autor o sello editorial.
+  - Generación dinámica inteligente de enlaces canónicos a partir de ISBN y título/autor.
+  - Registro de clics éticos sin almacenar PII y compatibilidad retroactiva con `AffiliateClick`.
+  - Gestión y validación de permisos de autor verificado para agregar o revocar enlaces oficiales.
+- **Endpoints API REST (`/api/v1/books/`)**:
+  - `GET /api/v1/books/<id>/marketplace/`: opciones agregadas multitienda y agrupadas por formato.
+  - `POST /api/v1/books/<id>/marketplace/click/`: telemetría anónima de clics de compra.
+  - `POST /api/v1/books/<id>/marketplace/links/`: gestión de enlaces oficiales para autores propietarios.
+  - `DELETE /api/v1/books/marketplace/links/<id>/`: eliminación de enlaces oficiales de compra.
+  - `GET /api/v1/books/publishers/` y `GET /api/v1/books/publishers/<slug>/`: catálogo y ficha de editoriales.
+- **Frontend y Experiencia de Usuario (`BookMarketplaceModal.tsx`)**:
+  - Modal interactivo WAI-ARIA accesible con pestañas de filtrado (Todas, Librerías de Barrio, Papel, Ebook, Audiolibro).
+  - Apertura segura con atributos `rel="noopener noreferrer sponsored"` y telemetría no intrusiva.
+  - Botón "🛍️ Dónde comprar / Librerías" y mención de editorial en la ficha de libro (`BookDetail.tsx`).
+  - Formulario integrado para que autores verificados publiquen sus enlaces de venta directa.
+- **Pruebas y Verificación Integral**:
+  - Suite backend `test_sprint19_marketplace_editoriales.py`: 7/7 tests pasando al 100%.
+  - Suite frontend `BookMarketplace.test.tsx`: 5/5 tests pasando al 100%.
+  - Regresión secuencial completa backend (Sprints 1 al 19): 135/135 tests pasando consecutivamente al 100% en 134.34s.
+  - Frontend verificado: TypeScript estricto con 0 errores (`tsc --noEmit`), Vitest completo (23 suites / 85 tests pasando al 100%) y build de producción limpio generado en 13.01s.
+
 ### Added / Audiobooks & Text-to-Speech (TTS) (RoadmapV3 - Sección 30: Audiolibros y TTS)
 - **Modelado de Datos y Persistencia de Escucha (`audiobook_models.py`)**:
   - Modelo `AudiobookTrack` para pistas narradas con metadatos de duración, orden secuencial, narrador y muestra previa (`is_sample`).

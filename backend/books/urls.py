@@ -64,6 +64,12 @@ from .views import (
     BookAudiobookProgressView,
     AudiobookCatalogView,
     UserAudiobookShelfView,
+    BookMarketplaceView,
+    BookMarketplaceClickView,
+    BookMarketplaceLinksView,
+    BookMarketplaceLinkDetailView,
+    PublisherListView,
+    PublisherDetailView,
 )
 
 router = DefaultRouter()
@@ -153,4 +159,15 @@ urlpatterns = [
     path('books/<int:pk>/audiobook/progress/', BookAudiobookProgressView.as_view(), name='book-audiobook-progress-prefixed'),
     path('audiobooks/', AudiobookCatalogView.as_view(), name='audiobook-catalog'),
     path('audiobooks/in-progress/', UserAudiobookShelfView.as_view(), name='audiobook-in-progress'),
+
+    # Marketplace y Enlaces Editoriales — Sprint 19
+    path('<int:pk>/marketplace/', BookMarketplaceView.as_view(), name='book-marketplace'),
+    path('<int:pk>/marketplace/click/', BookMarketplaceClickView.as_view(), name='book-marketplace-click'),
+    path('<int:pk>/marketplace/links/', BookMarketplaceLinksView.as_view(), name='book-marketplace-links'),
+    path('books/<int:pk>/marketplace/', BookMarketplaceView.as_view(), name='book-marketplace-prefixed'),
+    path('books/<int:pk>/marketplace/click/', BookMarketplaceClickView.as_view(), name='book-marketplace-click-prefixed'),
+    path('books/<int:pk>/marketplace/links/', BookMarketplaceLinksView.as_view(), name='book-marketplace-links-prefixed'),
+    path('marketplace/links/<int:link_id>/', BookMarketplaceLinkDetailView.as_view(), name='book-marketplace-link-detail'),
+    path('publishers/', PublisherListView.as_view(), name='publisher-list'),
+    path('publishers/<str:identifier>/', PublisherDetailView.as_view(), name='publisher-detail'),
 ] + router.urls

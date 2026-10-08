@@ -107,6 +107,14 @@ class Book(models.Model):
     published_date = models.DateField(blank=True, null=True)
     created_at = models.DateTimeField(default=timezone.now)
     average_rating = models.FloatField(null=True, blank=True)
+    publisher = models.ForeignKey(
+        'books.Publisher',
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='books',
+        verbose_name='Editorial',
+    )
     categories = models.ManyToManyField(Category, related_name='books', blank=True)
     enrichment_attempted = models.BooleanField(default=False)
     embedding = models.JSONField(null=True, blank=True, help_text="Vector de embedding semántico de la obra")
@@ -1421,6 +1429,13 @@ from .club_models import (  # noqa: E402, F401
 from .audiobook_models import (  # noqa: E402, F401
     AudiobookTrack,
     UserAudiobookProgress,
+)
+
+# Modelos de Marketplace, Editoriales y Opciones de Compra (RoadmapV3 Sección 30 — Sprint 19)
+from .marketplace_models import (  # noqa: E402, F401
+    Publisher,
+    BookBuyLink,
+    MarketplaceClick,
 )
 
 

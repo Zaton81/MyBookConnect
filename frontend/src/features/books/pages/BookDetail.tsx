@@ -10,6 +10,7 @@ import { BookReviewsSection } from '../../reviews';
 import { resolveMediaUrl } from '../../../utils/media';
 import { SocialShareModal } from '../../social/components/SocialShareModal';
 import { BookAudiobookSection } from '../components/BookAudiobookSection';
+import { BookMarketplaceModal } from '../components/BookMarketplaceModal';
 
 interface ContextualRecommendation {
   id: number;
@@ -56,6 +57,7 @@ export function BookDetail() {
   const [activeAiTab, setActiveAiTab] = useState<'summary' | 'explain'>('summary');
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [isMarketplaceModalOpen, setIsMarketplaceModalOpen] = useState(false);
 
   // Reporte de Erratas
   const [errataText, setErrataText] = useState<string>('');
@@ -651,6 +653,15 @@ export function BookDetail() {
               <span>🔗</span>
               <span>Compartir este libro</span>
             </button>
+
+            {/* Botón Dónde Comprar / Marketplace (Sprint 19) */}
+            <button
+              onClick={() => setIsMarketplaceModalOpen(true)}
+              className="w-full max-w-xs bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/50 text-emerald-800 dark:text-emerald-300 font-bold py-2.5 px-4 rounded-2xl text-xs transition-colors flex items-center justify-center gap-2 border border-emerald-300 dark:border-emerald-700/80 shadow-xs"
+            >
+              <span>🛍️</span>
+              <span>Dónde comprar / Librerías</span>
+            </button>
           </div>
 
           {/* Columna Derecha: Información & Sinopsis */}
@@ -700,6 +711,17 @@ export function BookDetail() {
                   <>
                     <span className="text-slate-300 dark:text-slate-600">•</span>
                     <span className="text-xs text-slate-400 font-mono">ISBN: {book.isbn}</span>
+                  </>
+                )}
+                {book.publisher && (
+                  <>
+                    <span className="text-slate-300 dark:text-slate-600">•</span>
+                    <span className="text-xs text-slate-500 dark:text-slate-400">
+                      Editorial:{' '}
+                      <span className="font-semibold text-slate-700 dark:text-slate-300">
+                        {book.publisher.name}
+                      </span>
+                    </span>
                   </>
                 )}
               </div>
@@ -1024,6 +1046,15 @@ export function BookDetail() {
         shareType="book"
         objectId={book.id}
         initialTitle={book.title}
+      />
+
+      {/* Modal de Marketplace y Librerías (Sprint 19) */}
+      <BookMarketplaceModal
+        isOpen={isMarketplaceModalOpen}
+        onClose={() => setIsMarketplaceModalOpen(false)}
+        bookId={Number(id || book.id)}
+        bookTitle={book.title}
+        authorName={book.author?.name || (book.authors && book.authors[0]?.name)}
       />
     </div>
   );
