@@ -58,6 +58,7 @@ from .recommendation_explanation_service import (
     explain_recommendation,
 )
 from .recommendation_feedback_service import (
+    dismiss_recommendation,
     get_recommendation_metrics,
     record_recommendation_event,
 )
@@ -133,6 +134,7 @@ __all__ = [
     'SimilarUserPeer',
     'get_similar_readers',
     'get_book_recommendations',
+    'dismiss_recommendation',
     'record_recommendation_event',
     'get_recommendation_metrics',
     'maybe_enrich_author',

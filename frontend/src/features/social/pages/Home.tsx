@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuthStore } from '../../../store/auth';
 import { Spinner } from 'flowbite-react';
 import { AIAssistantModal } from '../../ai';
@@ -448,6 +448,13 @@ export const Home = () => {
                   Sugerencias personalizadas basadas en tus afinidades, lecturas y amigos
                 </p>
               </div>
+              <Link
+                to="/recommendations"
+                className="text-xs sm:text-sm font-semibold text-teal-600 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-300 hover:underline flex items-center gap-1"
+              >
+                <span>Ver todas</span>
+                <span>→</span>
+              </Link>
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 sm:gap-6">

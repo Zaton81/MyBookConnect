@@ -243,3 +243,26 @@ def get_recommendation_metrics(
 
 
 get_feedback_metrics = get_recommendation_metrics
+
+
+def dismiss_recommendation(
+    user: Any,
+    book_id: int,
+    reason: str = 'not_interested',
+) -> RecommendationFeedback:
+    """
+    Registra un evento explícito de descarte (dismissed) sobre un libro recomendado
+    e invalida inmediatamente la caché de recomendaciones de dicho usuario.
+    """
+    from books.cache_utils import invalidate_user_recommendations_cache
+
+    feedback = record_recommendation_event(
+        user=user,
+        book_id=book_id,
+        action=RecommendationFeedbackAction.DISMISSED,
+        metadata={'reason': reason},
+    )
+    if hasattr(user, 'id'):
+        invalidate_user_recommendations_cache(user.id)
+    return feedback
+

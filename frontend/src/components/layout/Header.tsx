@@ -304,6 +304,9 @@ export function Header() {
             <NavLink to="/search" className={navLinkClasses}>
               Buscar
             </NavLink>
+            <NavLink to="/recommendations" className={navLinkClasses}>
+              Descubre
+            </NavLink>
             <NavLink to="/library" className={navLinkClasses}>
               Mi Biblioteca
             </NavLink>

@@ -943,7 +943,7 @@ Después:
 - [x] gamificación avanzada (retos de lectura anuales y temáticos, sincronización dinámica por libros/páginas/géneros, ritmo y proyección, racha diaria y medallero);
 - [x] estadísticas avanzadas (ritmo y velocidad días/libro, desglose por longitud y formato, doble evolución mensual y memoria anual retrospectiva);
 - [x] integración con redes sociales (tarjetas gráficas sociales, memoria anual compartible, deep links directos de 1 clic para X, WhatsApp, Telegram, LinkedIn y Facebook, y métricas de analítica de difusión);
-- [ ] recomendaciones avanzadas;
+- [x] recomendaciones avanzadas (motor híbrido multimodal con afinidad semántica, gemelos lectores, filtros por género y páginas, descarte en 1 clic y lectores afines);
 - [ ] IA multimodal;
 - [ ] audiolibros/TTS;
 - [ ] aplicaciones móviles;
@@ -1143,6 +1143,14 @@ No comenzar estas funcionalidades mientras existan tareas P0/P1 pendientes.
 3. [x] Componente Frontend Accesible (`SocialShareModal.tsx`): modal interactivo con vista previa en tiempo real de "Social Card Preview" estilo tarjeta gráfica con gradientes, insignias métricas y badges temáticos; selector de 5 redes con apertura segura (`noopener,noreferrer`), botón de copiado de URL y botón de copiado de texto enriquecido con emojis y hashtags con feedback háptico/visual.
 4. [x] Integración en Páginas Clave: botones directos de "Compartir" integrados en la cabecera y en la sección de Memoria Anual de `ReadingStats.tsx`, así como en la ficha principal de `BookDetail.tsx`.
 5. [x] Pruebas y Verificación Integral: suite backend `test_sprint16_social_sharing.py` (7/7 tests), suite frontend `SocialShareModal.test.tsx` (4/4 tests), regresión secuencial backend completa Sprints 1 a 16 (114/114 tests pasando al 100%), typecheck con 0 errores, suite completa de Vitest (20 suites / 70 tests pasando al 100%) y build de producción limpio en Vite (16.05s).
+
+## Sprint 17 — Recomendaciones Avanzadas y Lectores Afines (COMPLETADO)
+
+1. [x] Algoritmos Multimodales Backend (`recommendation_service.py`): motor ampliado con soporte de 7 estrategias (`hybrid`, `collab`, `semantic`, `serendipity`, `rules`, `social`, `v1`), cálculo transparente de afinidad porcentual (`affinity_percentage`, 65-98%), desglose vectorial (`breakdown`), justificación explicable (`reason`), estimación de páginas mediante `Max(user_entries__current_page)` y filtros granulares por género (`category_id`) y longitud de páginas (`length_tier`: short, medium, long, epic).
+2. [x] Endpoint de Descarte Rápido y Caché Redis: implementación de `POST /api/v1/books/recommendations/dismiss/` respaldado por `dismiss_recommendation` en `recommendation_feedback_service.py`, persistencia de evento `DISMISSED` en `RecommendationFeedback` e invalidación quirúrgica de claves de caché Redis por usuario y variantes combinatorias en `cache_utils.py`.
+3. [x] Red de Gemelos Lectores: endpoint `GET /api/v1/books/recommendations/similar-readers/` funcional que calcula la similitud de coseno/patrones de valoración entre lectores y libros compartidos.
+4. [x] Interfaz Frontend Dedicada (`RecommendationsPage.tsx`): página completa en `/recommendations` con selector interactivo de modos ("Híbrido IA", "Gemelos Lectores", "Estilo y Temática", "Descubrimiento"), barras de filtros por género y extensión de páginas, tarjetas interactivas de libros con badge de % de afinidad, botón de 1 clic a "Quiero leer" y botón de descarte instantáneo; widget lateral de "Gemelos Lectores" con enlaces a perfiles; e integración en el menú principal (`Header.tsx`), enrutador (`router.tsx`) y bloque de recomendaciones de `Home.tsx`.
+5. [x] Pruebas y Verificación Integral: suite backend `test_sprint17_advanced_recommendations.py` (7/7 tests pasando al 100%), suite frontend `RecommendationsPage.test.tsx` (5/5 tests pasando al 100%), regresión secuencial backend completa Sprints 1 a 17 (121/121 tests pasando al 100%), typecheck con 0 errores, suite completa de Vitest (21 suites / 75 tests pasando al 100%) y build de producción limpio en Vite (14.88s).
 
 ---
 

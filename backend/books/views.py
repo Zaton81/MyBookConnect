@@ -916,6 +916,28 @@ class UserRecommendationsView(APIView):
                 default='v1',
                 description="Versión del motor de recomendaciones (ej. 'v1').",
             ),
+            OpenApiParameter(
+                name='category_id',
+                type=int,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                description="Filtrar recomendaciones por ID de categoría/género.",
+            ),
+            OpenApiParameter(
+                name='length_tier',
+                type=str,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                description="Filtrar por longitud de páginas ('short', 'medium', 'long', 'epic').",
+            ),
+            OpenApiParameter(
+                name='exclude_dismissed',
+                type=bool,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                default=True,
+                description="Excluir libros marcados como no interesados (default: true).",
+            ),
         ],
         responses={200: inline_serializer(
             name='UserRecommendationResponse',
@@ -949,16 +971,29 @@ class UserRecommendationsView(APIView):
         else:
             strategy = strategy.lower().strip()
 
-        if strategy not in ('v1', 'canonical_v1', 'v2', 'collab', 'collaborative', 'v3', 'semantic_v3', 'vector', 'hybrid', 'rules', 'social', 'semantic'):
+        valid_strategies = (
+            'v1', 'canonical_v1', 'v2', 'collab', 'collaborative',
+            'v3', 'semantic_v3', 'vector', 'hybrid_v3', 'hybrid',
+            'rules', 'social', 'semantic', 'serendipity', 'discovery',
+        )
+        if strategy not in valid_strategies:
             strategy = 'v3' if version_param == 'v3' else ('v2' if version_param == 'v2' else 'v1')
+
+        category_id = request.query_params.get('category_id') or request.query_params.get('category')
+        length_tier = request.query_params.get('length_tier') or request.query_params.get('length')
+        exclude_dismissed_raw = request.query_params.get('exclude_dismissed', 'true').lower().strip()
+        exclude_dismissed = exclude_dismissed_raw not in ('false', '0', 'no')
 
         results = services.get_user_recommendations(
             user=request.user,
             limit=limit,
             strategy=strategy,
+            category_id=category_id,
+            length_tier=length_tier,
+            exclude_dismissed=exclude_dismissed,
             request=request,
         )
-        if strategy in ('v3', 'semantic_v3', 'vector') or version_param == 'v3':
+        if strategy in ('v3', 'semantic_v3', 'vector', 'hybrid_v3') or version_param == 'v3':
             algo_version = 'v3'
         elif strategy in ('v2', 'collab', 'collaborative') or version_param == 'v2':
             algo_version = 'v2'
@@ -971,6 +1006,56 @@ class UserRecommendationsView(APIView):
             'algorithm_version': algo_version,
             'results': results,
         })
+
+
+class RecommendationDismissView(APIView):
+    """
+    Endpoint para descartar un libro recomendado ('not_interested').
+    Registra el evento en RecommendationFeedback e invalida la caché de recomendaciones del usuario.
+    """
+    permission_classes = (permissions.IsAuthenticated,)
+
+    @extend_schema(
+        summary="Descartar recomendación de libro",
+        description="Marca un libro como descartado para que no vuelva a ser sugerido al usuario.",
+        request=inline_serializer(
+            name='RecommendationDismissInput',
+            fields={
+                'book_id': serializers.IntegerField(),
+                'reason': serializers.CharField(required=False, default='not_interested'),
+            },
+        ),
+        responses={200: inline_serializer(
+            name='RecommendationDismissResponse',
+            fields={
+                'success': serializers.BooleanField(),
+                'dismissed_book_id': serializers.IntegerField(),
+                'message': serializers.CharField(),
+            },
+        )},
+        tags=['Books'],
+    )
+    def post(self, request):
+        book_id = request.data.get('book_id')
+        reason = request.data.get('reason', 'not_interested')
+        if not book_id:
+            return Response(
+                {'detail': 'El campo "book_id" es obligatorio.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            services.dismiss_recommendation(
+                user=request.user,
+                book_id=int(book_id),
+                reason=reason,
+            )
+            return Response({
+                'success': True,
+                'dismissed_book_id': int(book_id),
+                'message': 'Libro descartado correctamente de tus recomendaciones.',
+            }, status=status.HTTP_200_OK)
+        except ValueError as exc:
+            return Response({'detail': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class UserPreferenceEmbeddingView(APIView):

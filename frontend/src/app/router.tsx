@@ -67,6 +67,9 @@ const PublicLandingPage = lazy(() =>
 const SearchPage = lazy(() =>
   import('../features/discovery').then((m) => ({ default: m.SearchPage }))
 );
+const RecommendationsPage = lazy(() =>
+  import('../features/discovery').then((m) => ({ default: m.RecommendationsPage }))
+);
 
 function ProfileIdRedirect() {
   const { id } = useParams();
@@ -104,6 +107,7 @@ export function AppRouter() {
         <Route element={<ProtectedLayout />}>
           <Route path="/home" element={<Home />} />
           <Route path="/search" element={<SearchPage />} />
+          <Route path="/recommendations" element={<RecommendationsPage />} />
           <Route path="/clubs" element={<ClubsPage />} />
           <Route path="/clubs/:slug" element={<ClubDetailPage />} />
           <Route path="/challenges" element={<ChallengesPage />} />

@@ -104,6 +104,9 @@ def get_user_recommendations(
     limit: int = 10,
     strategy: str = 'hybrid',
     weights: dict | None = None,
+    category_id: int | str | None = None,
+    length_tier: str | None = None,
+    exclude_dismissed: bool = True,
     request=None,
 ) -> list[dict]:
     """
@@ -111,39 +114,130 @@ def get_user_recommendations(
 
     :param user: Instancia del modelo User solicitante.
     :param limit: Número máximo de libros a recomendar.
-    :param strategy: Estrategia de scoring ('hybrid', 'rules', 'social', 'semantic').
+    :param strategy: Estrategia de scoring ('hybrid', 'rules', 'social', 'semantic', 'serendipity', 'v1', 'v2', 'v3').
     :param weights: Diccionario opcional para sobreescribir los pesos de factores.
+    :param category_id: Filtro opcional por ID de categoría/género.
+    :param length_tier: Filtro opcional por volumen ('short', 'medium', 'long', 'epic').
+    :param exclude_dismissed: Excluir obras marcadas como descartadas ('not_interested').
     :param request: HttpRequest opcional para construir URLs absolutas de carátulas.
-    :return: Lista de diccionarios con book, score y reason.
+    :return: Lista de diccionarios con book, score, affinity_percentage, reason, etc.
     """
     if not user or not user.is_authenticated:
         return []
 
-    if strategy in ('v1', 'canonical_v1'):
-        from .recommendation_v1_service import recommend_books_v1
-        return recommend_books_v1(user=user, limit=limit, weights=weights, request=request)
-
-    if strategy in ('v2', 'collab', 'collaborative'):
-        from .recommendation_v2_service import recommend_books_v2
-        return recommend_books_v2(user=user, limit=limit, request=request)
-
-    if strategy in ('v3', 'semantic_v3', 'vector'):
-        from .recommendation_v3_service import recommend_books_v3
-        return recommend_books_v3(user=user, limit=limit, request=request)
-
-    cache_key = user_recommendations_key(user.id, strategy)
+    cache_key = user_recommendations_key(
+        user.id,
+        strategy=strategy,
+        category_id=category_id,
+        length_tier=length_tier,
+    )
     cached_data = cache.get(cache_key)
     if cached_data is not None:
         return cached_data
+
+    # Helper para enriquecer items con affinity_percentage, categories y aplicar filtros
+    def _post_process_items(raw_items: list[dict]) -> list[dict]:
+        processed = []
+        from books.models import RecommendationFeedback, RecommendationFeedbackAction
+        dismissed_ids = set()
+        if exclude_dismissed and hasattr(user, 'id'):
+            dismissed_ids = set(
+                RecommendationFeedback.objects.filter(
+                    user=user,
+                    action=RecommendationFeedbackAction.DISMISSED,
+                ).values_list('book_id', flat=True)
+            )
+
+        for it in raw_items:
+            bid = it.get('id')
+            if bid in dismissed_ids:
+                continue
+
+            # Verificación de filtros de categoría y longitud si vienen del motor delegado
+            book_obj = None
+            if category_id or length_tier or 'categories' not in it or not it.get('categories'):
+                book_obj = Book.objects.filter(id=bid).prefetch_related('categories').first()
+
+            if category_id and book_obj:
+                try:
+                    cid = int(category_id)
+                    if not book_obj.categories.filter(id=cid).exists():
+                        continue
+                except (ValueError, TypeError):
+                    pass
+
+            if length_tier and book_obj:
+                from django.db.models import Max
+                pages = getattr(book_obj, 'pages', None)
+                if pages is None:
+                    pages = book_obj.user_entries.aggregate(m=Max('current_page'))['m'] or 0
+                lt = str(length_tier).lower().strip()
+                if lt == 'short' and not (0 < pages < 200):
+                    continue
+                elif lt == 'medium' and not (200 <= pages <= 399):
+                    continue
+                elif lt == 'long' and not (400 <= pages <= 599):
+                    continue
+                elif lt == 'epic' and pages < 600:
+                    continue
+
+            # Cálculo de affinity_percentage
+            score_val = float(it.get('score', 0.5))
+            aff_pct = min(98, max(65, int(68 + score_val * 30)))
+            it['affinity_percentage'] = aff_pct
+
+            if book_obj:
+                pages_val = getattr(book_obj, 'pages', None)
+                if pages_val is None:
+                    from django.db.models import Max
+                    pages_val = book_obj.user_entries.aggregate(m=Max('current_page'))['m'] or 0
+                it['pages'] = pages_val
+                if 'categories' not in it or not it.get('categories'):
+                    it['categories'] = [{'id': c.id, 'name': c.name} for c in book_obj.categories.all()]
+
+            processed.append(it)
+            if len(processed) >= limit:
+                break
+        return processed
+
+    if strategy in ('v1', 'canonical_v1'):
+        from .recommendation_v1_service import recommend_books_v1
+        res = recommend_books_v1(user=user, limit=limit * 2, weights=weights, request=request)
+        final_res = _post_process_items(res)
+        cache.set(cache_key, final_res, timeout=TTL_RECOMMENDATIONS)
+        return final_res
+
+    if strategy in ('v2', 'collab', 'collaborative'):
+        from .recommendation_v2_service import recommend_books_v2
+        res = recommend_books_v2(user=user, limit=limit * 2, request=request)
+        final_res = _post_process_items(res)
+        cache.set(cache_key, final_res, timeout=TTL_RECOMMENDATIONS)
+        return final_res
+
+    if strategy in ('v3', 'semantic_v3', 'vector', 'hybrid_v3'):
+        from .recommendation_v3_service import recommend_books_v3
+        res = recommend_books_v3(user=user, limit=limit * 2, request=request)
+        final_res = _post_process_items(res)
+        cache.set(cache_key, final_res, timeout=TTL_RECOMMENDATIONS)
+        return final_res
 
     w = dict(DEFAULT_WEIGHTS)
     if weights and isinstance(weights, dict):
         w.update(weights)
 
-    # 1. Libros que deben ser estrictamente excluidos (ya en biblioteca del usuario)
+    # 1. Libros que deben ser estrictamente excluidos (ya en biblioteca del usuario o descartados)
     excluded_book_ids = set(
         UserBook.objects.filter(user=user).values_list('book_id', flat=True)
     )
+    if exclude_dismissed and hasattr(user, 'id'):
+        from books.models import RecommendationFeedback, RecommendationFeedbackAction
+        dismissed_ids = set(
+            RecommendationFeedback.objects.filter(
+                user=user,
+                action=RecommendationFeedbackAction.DISMISSED,
+            ).values_list('book_id', flat=True)
+        )
+        excluded_book_ids.update(dismissed_ids)
 
     # 2. Análisis del perfil y afinidades del usuario
     cat_affinity, auth_affinity, fav_keywords = _calculate_user_affinity(user)
@@ -191,6 +285,29 @@ def get_user_recommendations(
         .prefetch_related('categories', 'authors')
     )
 
+    if category_id:
+        try:
+            cid = int(category_id)
+            candidate_qs = candidate_qs.filter(categories__id=cid)
+        except (ValueError, TypeError):
+            pass
+
+    if length_tier:
+        from django.db.models import Max, Value
+        from django.db.models.functions import Coalesce
+        candidate_qs = candidate_qs.annotate(
+            est_pages=Coalesce(Max('user_entries__current_page'), Value(0))
+        )
+        lt = str(length_tier).lower().strip()
+        if lt == 'short':
+            candidate_qs = candidate_qs.filter(est_pages__gt=0, est_pages__lt=200)
+        elif lt == 'medium':
+            candidate_qs = candidate_qs.filter(est_pages__gte=200, est_pages__lte=399)
+        elif lt == 'long':
+            candidate_qs = candidate_qs.filter(est_pages__gte=400, est_pages__lte=599)
+        elif lt == 'epic':
+            candidate_qs = candidate_qs.filter(est_pages__gte=600)
+
     # Puntuación de cada candidato
     scored_candidates: list[dict] = []
 
@@ -234,6 +351,9 @@ def get_user_recommendations(
             total = (score_social * 0.7) + (score_genre * 0.3)
         elif strategy == 'semantic':
             total = (score_semantic * 0.7) + (score_genre * 0.3)
+        elif strategy == 'serendipity':
+            author_novelty = 1.0 if score_author < 0.2 else 0.4
+            total = ((score_discovery * 0.6) + (score_genre * 0.4)) * author_novelty
         else:  # hybrid
             total = (
                 (score_genre * w['genre_preferences'])
@@ -245,7 +365,9 @@ def get_user_recommendations(
 
         # Determinación del motivo explicativo principal (Explainability)
         reason = "Aclamado por la comunidad de lectores"
-        if score_author > 0.4 and book.author:
+        if strategy == 'serendipity':
+            reason = "Descubrimiento recomendado: alta valoración y nuevo autor para explorar"
+        elif score_author > 0.4 and book.author:
             reason = f"Porque te gustó el estilo de {book.author.name}"
         elif score_social > 0.3 and book.id in social_book_friends:
             friends = social_book_friends[book.id]
@@ -293,15 +415,20 @@ def get_user_recommendations(
     results = []
     for item in diversified_candidates:
         b = item['book']
+        score_f = float(item['score'])
+        aff_pct = min(98, max(65, int(68 + score_f * 30)))
         results.append({
             'id': b.id,
             'title': b.title,
             'author_name': b.author.name if b.author else 'Autor desconocido',
             'cover': build_media_url(b.cover.name if b.cover else None, request=request),
             'average_rating': b.average_rating,
-            'score': round(float(item['score']), 2),
+            'score': round(score_f, 2),
+            'affinity_percentage': aff_pct,
             'algorithm_version': 'v1',
             'strategy': strategy,
+            'pages': getattr(b, 'pages', 0) or getattr(b, 'est_pages', 0),
+            'categories': [{'id': c.id, 'name': c.name} for c in b.categories.all()],
             'metadata': item.get('metadata', {
                 'reasons_count': 1,
                 'author_id': b.author_id,

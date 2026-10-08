@@ -478,6 +478,31 @@ Cualquier agente de IA o desarrollador que se incorpore a la base de código **D
   - Regresión secuencial completa backend (Sprints 1 al 16): 114/114 tests pasando consecutivamente al 100% en 101s.
   - Frontend: `npm run typecheck` estricto con 0 errores, Vitest completo (20 suites / 70 tests pasando al 100%) y build de producción Vite limpio generado en 16.05s.
 
+### 4.37. Sprint 17: Recomendaciones Avanzadas y Lectores Afines
+
+- **Motor Multimodal y Algoritmos Granulares (`recommendation_service.py`):**
+  - Soporte de 7 estrategias de recomendación: `hybrid` (v3 fusionando señales semánticas, colaborativas y de temática), `collab` (v2 colaborativo), `semantic` (vectores de embedding y trama), `serendipity` (descubrimiento de joyas altamente valoradas de autores no leídos por el usuario), `rules`, `social` y `v1`.
+  - Exposición de porcentaje de match transparente (`affinity_percentage`, escala calibrada 65% - 98%), vector de desglose de contribución (`breakdown`) y motivo contextual explicable (`reason`).
+  - Estimación robusta de número de páginas en el catálogo mediante `user_entries__current_page` (`Max('user_entries__current_page')`).
+  - Filtros granulares por género (`category_id`) y extensión de lectura (`length_tier`: `short` <200p, `medium` 200-399p, `long` 400-599p, `epic` 600+p).
+  - Exclusión automática de obras descartadas por el usuario (`exclude_dismissed=true`).
+- **Endpoint de Descarte Rápido y Caché Redis:**
+  - `POST /api/v1/books/recommendations/dismiss/` con función de servicio `dismiss_recommendation` en `recommendation_feedback_service.py`. Registra la interacción `DISMISSED` en el modelo `RecommendationFeedback`.
+  - Invalidación quirúrgica e instantánea de la caché Redis del usuario para todas las combinaciones y variantes de estrategias en `cache_utils.py`.
+- **Red de Gemelos Lectores (`similar-readers`):**
+  - Endpoint `GET /api/v1/books/recommendations/similar-readers/` operativo que compara vectores y valoraciones para encontrar usuarios con máxima afinidad de gustos literarios y libros compartidos.
+- **Frontend Interactivo Dedicado (`RecommendationsPage.tsx`):**
+  - Página completa en `/recommendations` integrada en `router.tsx` bajo `ProtectedLayout`, con enlace principal "Descubre" en `Header.tsx` y enlace rápido "Ver todas →" desde el muro principal `Home.tsx`.
+  - Selector de 4 modos con estética premium: "Híbrido IA", "Gemelos Lectores", "Estilo y Temática", "Descubrimiento".
+  - Barra de filtros combinados de género y extensión con contador reactivo de obras encontradas.
+  - Tarjetas de libros con portadas adaptables, badges con degradados del `% Afinidad`, justificación explicable, botón de 1 clic a "Quiero leer" (con transición inmediata a "En tu biblioteca") y botón de descarte rápido (remoción fluida de la tarjeta).
+  - Panel lateral de "Gemelos Lectores" con avatars, porcentaje de similitud y libros en común.
+- **Calidad y Regresión Total:**
+  - Suite backend `backend/tests/test_sprint17_advanced_recommendations.py`: 7/7 tests pasando al 100%.
+  - Suite frontend `frontend/src/features/discovery/__tests__/RecommendationsPage.test.tsx`: 5/5 tests pasando al 100%.
+  - Regresión secuencial completa backend (Sprints 1 al 17): **121/121 tests pasando consecutivamente al 100%** en 107.97s.
+  - Frontend: `npm run typecheck` estricto con 0 errores, Vitest completo (**21 suites / 75 tests pasando al 100%**) y bundle de producción Vite generado limpiamente en 14.88s.
+
 ---
 
 ## 5. Ubicación de Documentación Relevante
