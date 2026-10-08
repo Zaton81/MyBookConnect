@@ -60,6 +60,10 @@ from .views import (
     UserBookListCreateView,
     UserPreferenceEmbeddingView,
     UserRecommendationsView,
+    BookAudiobookDetailView,
+    BookAudiobookProgressView,
+    AudiobookCatalogView,
+    UserAudiobookShelfView,
 )
 
 router = DefaultRouter()
@@ -141,4 +145,12 @@ urlpatterns = [
     path('authors/dashboard/', AuthorDashboardView.as_view(), name='authors-dashboard'),
     path('authors/announcements/', AuthorAnnouncementCreateView.as_view(), name='authors-announcement-create'),
     path('authors/<int:pk>/announcements/', AuthorAnnouncementListView.as_view(), name='authors-announcements'),
+
+    # Audiolibros y Text-to-Speech (TTS) — Sprint 18
+    path('<int:pk>/audiobook/', BookAudiobookDetailView.as_view(), name='book-audiobook-detail'),
+    path('<int:pk>/audiobook/progress/', BookAudiobookProgressView.as_view(), name='book-audiobook-progress'),
+    path('books/<int:pk>/audiobook/', BookAudiobookDetailView.as_view(), name='book-audiobook-detail-prefixed'),
+    path('books/<int:pk>/audiobook/progress/', BookAudiobookProgressView.as_view(), name='book-audiobook-progress-prefixed'),
+    path('audiobooks/', AudiobookCatalogView.as_view(), name='audiobook-catalog'),
+    path('audiobooks/in-progress/', UserAudiobookShelfView.as_view(), name='audiobook-in-progress'),
 ] + router.urls

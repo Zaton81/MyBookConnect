@@ -97,9 +97,19 @@ from .unified_search_service import (
     UnifiedSearchEngine,
     unified_book_search,
 )
+from .audiobook_service import (
+    get_book_audiobook_details,
+    save_audiobook_progress,
+    get_user_listening_shelf,
+    get_audiobook_catalog,
+)
 
 __all__ = [
     # Funciones públicas principales
+    'get_book_audiobook_details',
+    'save_audiobook_progress',
+    'get_user_listening_shelf',
+    'get_audiobook_catalog',
     'generate_social_share_card',
     'track_social_share',
     'AffiliateService',

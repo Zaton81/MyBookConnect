@@ -6,6 +6,7 @@ import { FooterSection } from './Footer';
 import { CookieBanner } from '../ui/CookieBanner';
 import { AuthModal } from '../../features/auth';
 import { useAuthStore } from '../../store/auth';
+import { AudioPlayerBar } from '../audio/AudioPlayerBar';
 
 function PageLoadingFallback() {
   return (
@@ -38,6 +39,8 @@ export function PublicLayout() {
       </main>
       <FooterSection />
       <CookieBanner />
+
+      <AudioPlayerBar />
 
       {/* Modal accesible desde el PublicHeader de cualquier página pública */}
       <AuthModal

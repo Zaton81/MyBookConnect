@@ -945,7 +945,7 @@ Después:
 - [x] integración con redes sociales (tarjetas gráficas sociales, memoria anual compartible, deep links directos de 1 clic para X, WhatsApp, Telegram, LinkedIn y Facebook, y métricas de analítica de difusión);
 - [x] recomendaciones avanzadas (motor híbrido multimodal con afinidad semántica, gemelos lectores, filtros por género y páginas, descarte en 1 clic y lectores afines);
 - [ ] IA multimodal;
-- [ ] audiolibros/TTS;
+- [x] audiolibros/TTS (reproductor global flotante, streaming de pistas, persistencia de progreso por usuario y narrador sintético Web Speech API);
 - [ ] aplicaciones móviles;
 - [ ] marketplace/editoriales.
 
@@ -1151,6 +1151,18 @@ No comenzar estas funcionalidades mientras existan tareas P0/P1 pendientes.
 3. [x] Red de Gemelos Lectores: endpoint `GET /api/v1/books/recommendations/similar-readers/` funcional que calcula la similitud de coseno/patrones de valoración entre lectores y libros compartidos.
 4. [x] Interfaz Frontend Dedicada (`RecommendationsPage.tsx`): página completa en `/recommendations` con selector interactivo de modos ("Híbrido IA", "Gemelos Lectores", "Estilo y Temática", "Descubrimiento"), barras de filtros por género y extensión de páginas, tarjetas interactivas de libros con badge de % de afinidad, botón de 1 clic a "Quiero leer" y botón de descarte instantáneo; widget lateral de "Gemelos Lectores" con enlaces a perfiles; e integración en el menú principal (`Header.tsx`), enrutador (`router.tsx`) y bloque de recomendaciones de `Home.tsx`.
 5. [x] Pruebas y Verificación Integral: suite backend `test_sprint17_advanced_recommendations.py` (7/7 tests pasando al 100%), suite frontend `RecommendationsPage.test.tsx` (5/5 tests pasando al 100%), regresión secuencial backend completa Sprints 1 a 17 (121/121 tests pasando al 100%), typecheck con 0 errores, suite completa de Vitest (21 suites / 75 tests pasando al 100%) y build de producción limpio en Vite (14.88s).
+
+## Sprint 18 — Audiolibros y Text-to-Speech (TTS) (COMPLETADO)
+
+1. [x] Modelado de Datos y Persistencia de Escucha: modelos `AudiobookTrack` (orden, título, narrador, duración en segundos, URL de audio y flag de muestra gratuita `is_sample`) y `UserAudiobookProgress` (última pista escuchada, timestamp de reproducción en segundos, porcentaje completado y flag `is_completed`), con índices optimizados y migración `0038` aplicada en PostgreSQL.
+2. [x] Capa de Servicios y Lógica de Dominio (`audiobook_service.py`): funciones completas para detalles de audiolibro (`get_book_audiobook_details`), sincronización y guardado de progreso (`save_audiobook_progress`), catálogo de audiolibros disponibles (`get_audiobook_catalog`), estantería de escucha en curso (`get_user_listening_shelf`) y soporte de fallback a síntesis de voz inteligente ("BookVoice TTS").
+3. [x] Endpoints API REST: rutas `/api/v1/books/<id>/audiobook/`, `/api/v1/books/<id>/audiobook/progress/`, `/api/v1/books/audiobooks/` y `/api/v1/books/audiobooks/in-progress/` con RBAC, respuestas seguras y cálculo dinámico de duración y progreso de escucha.
+4. [x] Reproductor Global y Experiencia Frontend:
+   - Store Zustand `audioPlayer.ts` con control de pistas, cola de reproducción, velocidad (0.75x a 2.0x), volumen, silenciamiento y motor Web Speech API (TTS).
+   - Componente flotante global `AudioPlayerBar.tsx` persistente en `ProtectedLayout.tsx` y `PublicLayout.tsx`, con saltos rápidos ±15s, barra de progreso interactiva, badge de TTS activo y guardado periódico de posición en backend.
+   - Componente `BookAudiobookSection.tsx` integrado en `BookDetail.tsx` con lista de pistas, duración total formateada, botón de muestra y fallback TTS 1-clic.
+   - Sección "🎧 Audiolibros en curso" integrada en `Library.tsx` con tarjetas interactivas y acceso directo a reanudar escucha.
+5. [x] Pruebas y Verificación Integral: suite backend `test_sprint18_audiobooks_tts.py` (7/7 tests pasando al 100%), suite frontend `AudiobookPlayer.test.tsx` (5/5 tests pasando al 100%), regresión secuencial backend completa Sprints 1 a 18 (**128/128 tests pasando al 100%** consecutivamente), typecheck estricto 0 errores, suite completa de Vitest (**22 suites / 80 tests pasando al 100%**) y build de producción Vite limpio.
 
 ---
 

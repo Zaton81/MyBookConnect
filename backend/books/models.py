@@ -1417,6 +1417,12 @@ from .club_models import (  # noqa: E402, F401
     ReadingClubDiscussionComment,
 )
 
+# Modelos de Audiolibros y Reproducción / TTS (RoadmapV3 Sección 30 — Sprint 18)
+from .audiobook_models import (  # noqa: E402, F401
+    AudiobookTrack,
+    UserAudiobookProgress,
+)
+
 
 
 

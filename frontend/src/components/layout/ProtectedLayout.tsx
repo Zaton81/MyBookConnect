@@ -5,6 +5,7 @@ import { FooterSection } from './Footer';
 import { CookieBanner } from '../ui/CookieBanner';
 import { BetaFeedbackModal } from '../ui/BetaFeedbackModal';
 import { useAuthStore } from '../../store/auth';
+import { AudioPlayerBar } from '../audio/AudioPlayerBar';
 
 function PageLoadingFallback() {
   return (
@@ -48,6 +49,8 @@ export function ProtectedLayout() {
         <span className="text-sm">🚀</span>
         <span className="hidden sm:inline">Beta Feedback</span>
       </button>
+
+      <AudioPlayerBar />
 
       <BetaFeedbackModal
         isOpen={isFeedbackModalOpen}

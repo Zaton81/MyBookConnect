@@ -503,6 +503,33 @@ Cualquier agente de IA o desarrollador que se incorpore a la base de código **D
   - Regresión secuencial completa backend (Sprints 1 al 17): **121/121 tests pasando consecutivamente al 100%** en 107.97s.
   - Frontend: `npm run typecheck` estricto con 0 errores, Vitest completo (**21 suites / 75 tests pasando al 100%**) y bundle de producción Vite generado limpiamente en 14.88s.
 
+### 4.38. Sprint 18: Audiolibros y Text-to-Speech (TTS)
+
+- **Modelado de Datos y Persistencia de Escucha (`audiobook_models.py`):**
+  - Modelo `AudiobookTrack`: orden de pista (`track_number`), título (`title`), narrador (`narrator`), duración en segundos (`duration_seconds`), URL de audio (`audio_url`) y bandera de muestra gratuita (`is_sample`).
+  - Modelo `UserAudiobookProgress`: seguimiento por usuario y libro, última pista escuchada (`last_track`), timestamp de reproducción en segundos (`current_seconds`), porcentaje completado (`completion_percentage`), timestamp de última escucha y bandera `is_completed`.
+  - Migración `0038_audiobooktrack_useraudiobookprogress_and_more.py` aplicada limpiamente en PostgreSQL.
+- **Capa de Servicios de Dominio (`audiobook_service.py`):**
+  - `get_book_audiobook_details(book_id, user)`: cálculo de duración total, formateo HH:MM:SS, obtención de pistas ordenadas, progreso persistido y fallback inteligente a BookVoice TTS con sample sintético si no hay audio comercial grabado.
+  - `save_audiobook_progress(book_id, user, track_id, current_seconds, is_completed)`: sincronización y actualización atómica del progreso con recálculo dinámico de porcentaje de compleción.
+  - `get_audiobook_catalog(category_id, narrator, search)`: catálogo de obras con narración y metadatos de pistas.
+  - `get_user_listening_shelf(user)`: estantería de escucha en curso del lector para acceso y reanudación inmediata.
+- **Endpoints API REST (`/api/v1/books/`):**
+  - `GET /api/v1/books/<id>/audiobook/`: detalles de audiolibro, pistas y progreso del usuario autenticado.
+  - `POST /api/v1/books/<id>/audiobook/progress/`: guardado periódico de timestamp y pista escuchada.
+  - `GET /api/v1/books/audiobooks/`: catálogo general de audiolibros.
+  - `GET /api/v1/books/audiobooks/in-progress/`: audiolibros en progreso para la biblioteca del usuario.
+- **Frontend y Reproductor Global Interactivo:**
+  - Store Zustand `audioPlayer.ts`: estado reactivo de pista actual, reproducción, velocidad (0.75x a 2.0x), volumen, silenciamiento, modo TTS y cola de pistas.
+  - `AudioPlayerBar.tsx`: barra de reproducción flotante global integrada en `ProtectedLayout.tsx` y `PublicLayout.tsx`. Dispone de botones ±15 segundos, barra de scrubber interactiva, selector de velocidad, indicador visual de narrador sintético y sincronización automática de progreso con el backend.
+  - `BookAudiobookSection.tsx`: sección en la ficha de libro (`BookDetail.tsx`) con listado de pistas, duración total, botón de reproducción de muestra y fallback 1-clic a narrador BookVoice TTS.
+  - Sección "🎧 Audiolibros en curso" en `Library.tsx` con barras de progreso y enlace para continuar la escucha.
+- **Calidad y Regresión Total:**
+  - Suite backend `backend/tests/test_sprint18_audiobooks_tts.py`: **7/7 tests pasando al 100%**.
+  - Suite frontend `frontend/src/features/books/__tests__/AudiobookPlayer.test.tsx`: **5/5 tests pasando al 100%**.
+  - Regresión secuencial completa backend (Sprints 1 al 18): **128/128 tests pasando consecutivamente al 100%** en 133.23s.
+  - Frontend verificado: TypeScript estricto con 0 errores (`tsc --noEmit`), Vitest completo (**22 suites / 80 tests pasando al 100%**) y build de producción Vite generado limpiamente en 33.17s.
+
 ---
 
 ## 5. Ubicación de Documentación Relevante

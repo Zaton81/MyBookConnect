@@ -9,6 +9,7 @@ import { AmazonAdSlot, StarRating } from '../../../components/ui';
 import { BookReviewsSection } from '../../reviews';
 import { resolveMediaUrl } from '../../../utils/media';
 import { SocialShareModal } from '../../social/components/SocialShareModal';
+import { BookAudiobookSection } from '../components/BookAudiobookSection';
 
 interface ContextualRecommendation {
   id: number;
@@ -878,6 +879,15 @@ export function BookDetail() {
           </div>
         </div>
       </div>
+
+      {/* ── Sección de Audiolibro y Text-to-Speech (Sprint 18) ── */}
+      <BookAudiobookSection
+        bookId={book.id}
+        bookTitle={book.title}
+        authorName={book.authors?.map((a: any) => a.name).join(', ') || book.author?.name}
+        coverUrl={book.cover}
+        description={book.description}
+      />
 
       {/* ── Recomendación / Compra en Amazon (Afiliados Multiformato: Papel, Kindle, Audible) ── */}
       <AmazonAdSlot

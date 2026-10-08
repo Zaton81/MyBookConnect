@@ -7,6 +7,33 @@ y este proyecto se adhiere a [Semantic Versioning 2.0.0](https://semver.org/lang
 
 ## [Unreleased]
 
+### Added / Audiobooks & Text-to-Speech (TTS) (RoadmapV3 - Sección 30: Audiolibros y TTS)
+- **Modelado de Datos y Persistencia de Escucha (`audiobook_models.py`)**:
+  - Modelo `AudiobookTrack` para pistas narradas con metadatos de duración, orden secuencial, narrador y muestra previa (`is_sample`).
+  - Modelo `UserAudiobookProgress` para el seguimiento del timestamp de escucha, porcentaje completado y finalización por usuario y libro.
+  - Migración `0038_audiobooktrack_useraudiobookprogress_and_more.py` aplicada en base de datos PostgreSQL.
+- **Servicio de Dominio y Lógica de Escucha (`audiobook_service.py`)**:
+  - Formateo y cómputo de duración total de audiolibros con soporte para fragmentos de muestra.
+  - Sincronización y actualización atómica del progreso de escucha del lector con recálculo dinámico de porcentaje completado.
+  - Fallback automático e inteligente a Text-to-Speech ("BookVoice TTS") con síntesis por párrafos cuando el libro no cuenta con pistas comerciales grabadas.
+  - Catálogo de audiolibros con filtros por género, narrador y búsqueda por título/autor.
+  - Estantería de audiolibros en progreso para reanudación inmediata desde la biblioteca personal.
+- **Endpoints API REST (`/api/v1/books/`)**:
+  - `GET /api/v1/books/<id>/audiobook/`: detalle de pistas y progreso de escucha del usuario.
+  - `POST /api/v1/books/<id>/audiobook/progress/`: guardado de posición y estado de escucha.
+  - `GET /api/v1/books/audiobooks/`: catálogo general de audiolibros disponibles.
+  - `GET /api/v1/books/audiobooks/in-progress/`: estantería de audiolibros en curso del usuario autenticado.
+- **Frontend y Reproductor Global Interactivo**:
+  - Store global Zustand `audioPlayer.ts` con control de audio nativo y motor Web Speech API (TTS).
+  - Reproductor flotante persistente `AudioPlayerBar.tsx` integrado en layouts protegidos y públicos con controles de salto ±15s, slider de tiempo, selector de velocidad (0.75x a 2.0x) y guardado en backend.
+  - Componente `BookAudiobookSection.tsx` integrado en `BookDetail.tsx` con listado de pistas y activación de modo narración.
+  - Sección "🎧 Audiolibros en curso" en `Library.tsx` con barras de progreso y enlace para continuar la escucha.
+- **Pruebas y Verificación Integral**:
+  - Suite backend `backend/tests/test_sprint18_audiobooks_tts.py`: 7/7 tests pasando al 100%.
+  - Suite frontend `frontend/src/features/books/__tests__/AudiobookPlayer.test.tsx`: 5/5 tests pasando al 100%.
+  - Regresión secuencial completa backend (Sprints 1 al 18): 128/128 tests pasando consecutivamente al 100% en 133.23s.
+  - Frontend verificado: TypeScript estricto con 0 errores (`tsc --noEmit`), Vitest completo (22 suites / 80 tests pasando al 100%) y build de producción limpio generado en 33.17s.
+
 ### Added / Multimodal Recommendations & Similar Readers (RoadmapV3 - Sección 30: Recomendaciones Avanzadas y Lectores Afines)
 - **Motor Multimodal y Algoritmos Granulares (`recommendation_service.py` & `cache_utils.py`)**:
   - Soporte completo de 7 estrategias de recomendación: `hybrid` (v3 multimodal tri-vectorial), `collab` (v2 colaborativo), `semantic` (vectores de embedding y trama), `serendipity` (joyas altamente valoradas de autores no leídos por el usuario), `rules`, `social` y `v1`.
