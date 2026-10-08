@@ -9,6 +9,9 @@ from .models import (
     AuthorClaimStatus,
     AuthorEvent,
     AuthorEventAttendee,
+    AuthorNewsletter,
+    AuthorNewsletterIssue,
+    AuthorNewsletterSubscriber,
     AuthorProfile,
     Book,
     Category,
@@ -782,29 +785,102 @@ class AuthorProfileSerializer(serializers.ModelSerializer):
 
 class AuthorAnnouncementSerializer(serializers.ModelSerializer):
     author_name = serializers.SerializerMethodField()
+    author_photo = serializers.SerializerMethodField()
     book_title = serializers.CharField(source='book.title', read_only=True, allow_null=True)
+    book_cover = serializers.SerializerMethodField()
+    publication_type_display = serializers.CharField(source='get_publication_type_display', read_only=True)
 
     class Meta:
         model = AuthorAnnouncement
         fields = (
             'id',
             'author_profile',
+            'author',
             'author_name',
+            'author_photo',
             'book',
             'book_title',
+            'book_cover',
             'title',
             'content',
+            'excerpt',
+            'publication_type',
+            'publication_type_display',
+            'has_spoilers',
+            'spoiler_warning',
+            'estimated_reading_time',
             'is_pinned',
+            'is_draft',
             'created_at',
+            'updated_at',
         )
-        read_only_fields = ('id', 'author_profile', 'author_name', 'book_title', 'created_at')
+        read_only_fields = (
+            'id',
+            'author_profile',
+            'author_name',
+            'author_photo',
+            'book_title',
+            'book_cover',
+            'publication_type_display',
+            'created_at',
+            'updated_at',
+        )
 
     def get_author_name(self, obj) -> str:
+        if obj.author:
+            return obj.author.name
         if obj.author_profile.pen_name:
             return obj.author_profile.pen_name
         if obj.author_profile.author:
             return obj.author_profile.author.name
         return obj.author_profile.user.username
+
+    def get_author_photo(self, obj):
+        request = self.context.get('request')
+        photo = None
+        if obj.author and obj.author.photo:
+            photo = obj.author.photo
+        elif obj.author_profile and obj.author_profile.author and obj.author_profile.author.photo:
+            photo = obj.author_profile.author.photo
+        if photo:
+            from .media_utils import build_media_url
+            return build_media_url(photo, request=request)
+        return None
+
+    def get_book_cover(self, obj):
+        request = self.context.get('request')
+        if obj.book and obj.book.cover:
+            from .media_utils import build_media_url
+            return build_media_url(obj.book.cover, request=request)
+        return None
+
+
+class AuthorAnnouncementCreateUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AuthorAnnouncement
+        fields = (
+            'id',
+            'author',
+            'book',
+            'title',
+            'content',
+            'excerpt',
+            'publication_type',
+            'has_spoilers',
+            'spoiler_warning',
+            'estimated_reading_time',
+            'is_pinned',
+            'is_draft',
+        )
+
+    def validate(self, attrs):
+        title = attrs.get('title')
+        content = attrs.get('content')
+        if title is not None and not title.strip():
+            raise serializers.ValidationError({'title': 'El título no puede estar vacío.'})
+        if content is not None and not content.strip():
+            raise serializers.ValidationError({'content': 'El contenido no puede estar vacío.'})
+        return attrs
 
 
 class AuthorClaimCreateSerializer(serializers.ModelSerializer):
@@ -995,6 +1071,133 @@ class AuthorEventCreateUpdateSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError({"author": "No tienes permisos para organizar eventos para este autor."})
 
         return attrs
+
+
+class AuthorNewsletterSubscriberSerializer(serializers.ModelSerializer):
+    username = serializers.CharField(source='user.username', read_only=True)
+    user_avatar = serializers.SerializerMethodField()
+
+    class Meta:
+        model = AuthorNewsletterSubscriber
+        fields = (
+            'id', 'newsletter', 'user', 'username', 'user_avatar',
+            'is_active', 'subscribed_at', 'unsubscribed_at'
+        )
+        read_only_fields = ('id', 'subscribed_at', 'unsubscribed_at')
+
+    @extend_schema_field(serializers.CharField(allow_null=True))
+    def get_user_avatar(self, obj):
+        request = self.context.get('request')
+        avatar = getattr(obj.user, 'avatar', None)
+        if avatar:
+            from .media_utils import build_media_url
+            return build_media_url(avatar, request=request)
+        return None
+
+
+class AuthorNewsletterIssueSerializer(serializers.ModelSerializer):
+    newsletter_title = serializers.CharField(source='newsletter.title', read_only=True)
+    author_name = serializers.CharField(source='newsletter.author.name', read_only=True)
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+
+    class Meta:
+        model = AuthorNewsletterIssue
+        fields = (
+            'id', 'newsletter', 'newsletter_title', 'author_name',
+            'title', 'subject', 'content', 'status', 'status_display',
+            'scheduled_for', 'sent_at', 'recipients_count', 'views_count',
+            'created_at', 'updated_at'
+        )
+        read_only_fields = ('id', 'sent_at', 'recipients_count', 'views_count', 'created_at', 'updated_at')
+
+
+class AuthorNewsletterIssueCreateUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AuthorNewsletterIssue
+        fields = (
+            'id', 'newsletter', 'title', 'subject', 'content', 'status', 'scheduled_for',
+            'sent_at', 'recipients_count', 'views_count', 'created_at', 'updated_at'
+        )
+        read_only_fields = ('id', 'sent_at', 'recipients_count', 'views_count', 'created_at', 'updated_at')
+
+    def validate(self, attrs):
+        request = self.context.get('request')
+        newsletter = attrs.get('newsletter') or (self.instance.newsletter if self.instance else None)
+        if request and newsletter:
+            user = request.user
+            author = newsletter.author
+            is_claimed_owner = (author.claimed_by_id == user.id)
+            is_profile_owner = hasattr(user, 'author_profile') and user.author_profile.author_id == author.id and user.author_profile.is_verified
+            is_staff = user.is_staff or getattr(user, 'role', '') in ('ADMIN', 'MODERATOR')
+            if not (is_claimed_owner or is_profile_owner or is_staff):
+                raise serializers.ValidationError({"newsletter": "No tienes permisos para redactar o emitir boletines para este autor."})
+        return attrs
+
+
+class AuthorNewsletterSerializer(serializers.ModelSerializer):
+    author_name = serializers.CharField(source='author.name', read_only=True)
+    author_photo = serializers.SerializerMethodField()
+    frequency_display = serializers.CharField(source='get_frequency_display', read_only=True)
+    active_subscribers_count = serializers.IntegerField(read_only=True)
+    sent_issues_count = serializers.IntegerField(read_only=True)
+    is_subscribed = serializers.SerializerMethodField()
+    latest_issues = serializers.SerializerMethodField()
+
+    class Meta:
+        model = AuthorNewsletter
+        fields = (
+            'id', 'author', 'author_name', 'author_photo', 'author_profile',
+            'title', 'description', 'frequency', 'frequency_display',
+            'is_active', 'active_subscribers_count', 'sent_issues_count',
+            'is_subscribed', 'latest_issues', 'created_at', 'updated_at'
+        )
+        read_only_fields = ('id', 'created_at', 'updated_at')
+
+    @extend_schema_field(serializers.CharField(allow_null=True))
+    def get_author_photo(self, obj):
+        request = self.context.get('request')
+        if obj.author and obj.author.photo:
+            from .media_utils import build_media_url
+            return build_media_url(obj.author.photo, request=request)
+        return None
+
+    @extend_schema_field(serializers.BooleanField)
+    def get_is_subscribed(self, obj):
+        request = self.context.get('request')
+        if not request or not request.user or not request.user.is_authenticated:
+            return False
+        return obj.subscribers.filter(user=request.user, is_active=True).exists()
+
+    @extend_schema_field(AuthorNewsletterIssueSerializer(many=True))
+    def get_latest_issues(self, obj):
+        issues = obj.issues.filter(status=AuthorNewsletterIssue.IssueStatus.SENT)[:5]
+        return AuthorNewsletterIssueSerializer(issues, many=True, context=self.context).data
+
+
+class AuthorNewsletterCreateUpdateSerializer(serializers.ModelSerializer):
+    active_subscribers_count = serializers.IntegerField(read_only=True)
+    sent_issues_count = serializers.IntegerField(read_only=True)
+
+    class Meta:
+        model = AuthorNewsletter
+        fields = (
+            'id', 'author', 'title', 'description', 'frequency', 'is_active',
+            'active_subscribers_count', 'sent_issues_count', 'created_at', 'updated_at'
+        )
+        read_only_fields = ('id', 'active_subscribers_count', 'sent_issues_count', 'created_at', 'updated_at')
+
+    def validate(self, attrs):
+        request = self.context.get('request')
+        author = attrs.get('author') or (self.instance.author if self.instance else None)
+        if request and author:
+            user = request.user
+            is_claimed_owner = (author.claimed_by_id == user.id)
+            is_profile_owner = hasattr(user, 'author_profile') and user.author_profile.author_id == author.id and user.author_profile.is_verified
+            is_staff = user.is_staff or getattr(user, 'role', '') in ('ADMIN', 'MODERATOR')
+            if not (is_claimed_owner or is_profile_owner or is_staff):
+                raise serializers.ValidationError({"author": "No tienes permisos para configurar el boletín de este autor."})
+        return attrs
+
 
 
 

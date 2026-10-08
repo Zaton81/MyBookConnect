@@ -141,8 +141,10 @@ def invalidate_user_profile_cache(user_id: int | str) -> None:
         logger.warning(f"Error invalidando caché de perfil para usuario {user_id}: {exc}")
 
 
-def user_stats_key(user_id: int | str) -> str:
-    """Namespace de estadísticas de lectura del usuario: stats:user:{user_id}"""
+def user_stats_key(user_id: int | str, year: int | str | None = None) -> str:
+    """Namespace de estadísticas de lectura del usuario: stats:user:{user_id}[:year:{year}]"""
+    if year is not None and str(year).lower() != 'all':
+        return f"stats:user:{user_id}:year:{year}"
     return f"stats:user:{user_id}"
 
 
@@ -153,14 +155,29 @@ def invalidate_user_stats_cache(user_id: int | str) -> None:
     """
     try:
         cache.delete(user_stats_key(user_id))
+        # Invalidar también claves anuales comunes
+        import datetime
+        current_year = datetime.date.today().year
+        for y in range(current_year - 5, current_year + 2):
+            cache.delete(user_stats_key(user_id, year=y))
         logger.debug(f"Caché de estadísticas invalidada para usuario {user_id}")
     except Exception as exc:
         logger.warning(f"Error invalidando caché de estadísticas para usuario {user_id}: {exc}")
 
 
-def user_recommendations_key(user_id: int | str, strategy: str = 'hybrid') -> str:
-    """Namespace de recomendaciones de usuario: recommendations:user:{user_id}:{strategy}"""
-    return f"recommendations:user:{user_id}:{_sanitize_key_part(strategy)}"
+def user_recommendations_key(
+    user_id: int | str,
+    strategy: str = 'hybrid',
+    category_id: int | str | None = None,
+    length_tier: str | None = None,
+) -> str:
+    """Namespace de recomendaciones de usuario: recommendations:user:{user_id}:{strategy}[:cat_{id}][:len_{tier}]"""
+    parts = [f"recommendations:user:{user_id}:{_sanitize_key_part(strategy)}"]
+    if category_id:
+        parts.append(f"cat_{category_id}")
+    if length_tier:
+        parts.append(f"len_{_sanitize_key_part(length_tier)}")
+    return ":".join(parts)
 
 
 def book_recommendations_key(book_id: int | str) -> str:
@@ -173,8 +190,14 @@ def invalidate_user_recommendations_cache(user_id: int | str) -> None:
     Invalida la caché de recomendaciones de un usuario para todas sus estrategias y embeddings.
     """
     try:
-        for strat in ('hybrid', 'rules', 'social', 'semantic', 'v1', 'v2', 'v3', 'all'):
+        strategies = (
+            'hybrid', 'rules', 'social', 'semantic', 'serendipity',
+            'v1', 'v2', 'v3', 'collab', 'collaborative', 'hybrid_v3', 'all',
+        )
+        for strat in strategies:
             cache.delete(user_recommendations_key(user_id, strat))
+            for ltier in ('short', 'medium', 'long', 'epic'):
+                cache.delete(user_recommendations_key(user_id, strat, length_tier=ltier))
         cache.delete(f"user_pref_embedding_{user_id}")
         cache.delete(f"user_pref_vector_{user_id}")
         logger.debug(f"Caché de recomendaciones y vectores invalidada para usuario {user_id}")

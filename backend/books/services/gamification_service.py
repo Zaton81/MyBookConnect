@@ -2,6 +2,7 @@ import calendar
 from datetime import date, timedelta
 
 from django.db import IntegrityError, transaction
+from django.db.models import Sum
 from django.utils import timezone
 
 from books.gamification_models import (
@@ -9,6 +10,7 @@ from books.gamification_models import (
     BadgeCategory,
     ChallengeType,
     DailyReadingLog,
+    ReadingChallenge,
     ReadingGoal,
     ReadingStreak,
     UserBadge,
@@ -114,6 +116,57 @@ def ensure_default_badges():
         Badge.objects.get_or_create(
             slug=badge_data['slug'],
             defaults=badge_data,
+        )
+
+
+def ensure_default_challenges():
+    """Siembra los retos comunitarios del año corriente si no existen."""
+    ensure_default_badges()
+    year = timezone.now().year
+    badge_lector = Badge.objects.filter(slug='lector-en-marcha').first()
+    badge_voraz = Badge.objects.filter(slug='lector-voraz').first()
+    badge_critico = Badge.objects.filter(slug='critico-prolifico').first()
+
+    default_challenges = [
+        {
+            'slug': f'reto-anual-{year}',
+            'title': f'Reto Anual de Lectura {year}',
+            'description': f'Completa 12 o más libros durante el año {year} y expande tus horizontes literarios.',
+            'challenge_type': ChallengeType.BOOKS_COUNT,
+            'target_count': 12,
+            'start_date': date(year, 1, 1),
+            'end_date': date(year, 12, 31),
+            'badge_reward': badge_voraz,
+            'is_active': True,
+        },
+        {
+            'slug': f'maraton-paginas-{year}',
+            'title': f'Maratón de 1000 Páginas {year}',
+            'description': 'Acumula un mínimo de 1.000 páginas leídas registradas en tus sesiones de lectura.',
+            'challenge_type': ChallengeType.PAGES_COUNT,
+            'target_count': 1000,
+            'start_date': date(year, 1, 1),
+            'end_date': date(year, 12, 31),
+            'badge_reward': badge_lector,
+            'is_active': True,
+        },
+        {
+            'slug': f'critico-literario-{year}',
+            'title': f'Reto Crítico Literario {year}',
+            'description': 'Publica al menos 5 reseñas elaboradas para guiar a la comunidad lectora.',
+            'challenge_type': ChallengeType.REVIEWS_COUNT,
+            'target_count': 5,
+            'start_date': date(year, 1, 1),
+            'end_date': date(year, 12, 31),
+            'badge_reward': badge_critico,
+            'is_active': True,
+        },
+    ]
+
+    for ch_data in default_challenges:
+        ReadingChallenge.objects.get_or_create(
+            slug=ch_data['slug'],
+            defaults=ch_data,
         )
 
 
@@ -446,12 +499,81 @@ class GamificationService:
         return created
 
     @classmethod
+    def sync_user_challenge_progress(cls, user, user_challenge):
+        """
+        Calcula y actualiza el progreso real de un usuario en un reto según su actividad.
+        """
+        ch = user_challenge.challenge
+        progress = 0
+
+        if ch.challenge_type == ChallengeType.BOOKS_COUNT:
+            entries = UserBook.objects.filter(
+                user=user,
+                status=ReadingStatus.READ,
+            )
+            for entry in entries:
+                finish_val = entry.finished_at or entry.updated_at
+                finish_date = finish_val.date() if hasattr(finish_val, 'date') else finish_val
+                if finish_date and ch.start_date <= finish_date <= ch.end_date:
+                    progress += 1
+
+        elif ch.challenge_type == ChallengeType.PAGES_COUNT:
+            total_pages = DailyReadingLog.objects.filter(
+                user=user,
+                date__gte=ch.start_date,
+                date__lte=ch.end_date,
+            ).aggregate(total=Sum('pages_read'))['total'] or 0
+            progress = total_pages
+
+        elif ch.challenge_type == ChallengeType.REVIEWS_COUNT:
+            reviews_count = Review.objects.filter(
+                user=user,
+                created_at__date__gte=ch.start_date,
+                created_at__date__lte=ch.end_date,
+            ).count()
+            progress = reviews_count
+
+        elif ch.challenge_type == ChallengeType.GENRE_BOOKS and ch.category:
+            entries = UserBook.objects.filter(
+                user=user,
+                status=ReadingStatus.READ,
+                book__categories=ch.category,
+            ).distinct()
+            for entry in entries:
+                finish_val = entry.finished_at or entry.updated_at
+                finish_date = finish_val.date() if hasattr(finish_val, 'date') else finish_val
+                if finish_date and ch.start_date <= finish_date <= ch.end_date:
+                    progress += 1
+
+        user_challenge.current_progress = progress
+        if user_challenge.current_progress >= ch.target_count and not user_challenge.is_completed:
+            user_challenge.is_completed = True
+            user_challenge.completed_at = timezone.now()
+            if ch.badge_reward:
+                cls._award_badge(user, ch.badge_reward.slug)
+            cls._award_badge(user, 'reto-superado')
+
+        user_challenge.save(update_fields=['current_progress', 'is_completed', 'completed_at'])
+        return user_challenge
+
+    @classmethod
+    def leave_challenge(cls, user, challenge_slug):
+        """
+        Permite al usuario abandonar un reto de lectura.
+        """
+        deleted_count, _ = UserChallenge.objects.filter(
+            user=user,
+            challenge__slug=challenge_slug,
+        ).delete()
+        return deleted_count > 0
+
+    @classmethod
     def get_gamification_overview(cls, target_user, requesting_user=None):
         """
         Genera el compendio completo de gamificación del usuario.
         Respeta la bandera opcional `gamification_enabled`.
         """
-        ensure_default_badges()
+        ensure_default_challenges()
 
         if not getattr(target_user, 'gamification_enabled', True):
             return {
@@ -488,7 +610,7 @@ class GamificationService:
                 'awarded_at': user_badge_map.get(b.id),
             })
 
-        # Retos del usuario
+        # Retos del usuario con sincronización en tiempo real
         today = timezone.now().date()
         user_challenges = UserChallenge.objects.filter(
             user=target_user,
@@ -496,6 +618,7 @@ class GamificationService:
 
         challenges_list = []
         for uc in user_challenges:
+            cls.sync_user_challenge_progress(target_user, uc)
             ch = uc.challenge
             pct = round((uc.current_progress / ch.target_count) * 100, 1) if ch.target_count > 0 else 0
             challenges_list.append({

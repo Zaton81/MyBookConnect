@@ -935,19 +935,19 @@ Después:
 # 30. 🔮 Futuro — No bloquea el lanzamiento
 
 - [x] eventos de autores (presentaciones, firmas, Q&A, aforo y lista de espera automática);
-- [ ] publicaciones avanzadas de autores;
-- [ ] newsletters;
+- [x] publicaciones avanzadas de autores (adelantos de capítulos, diarios de escritura, escenas eliminadas, control de spoilers y borradores);
+- [x] newsletters (boletines periódicos de autores, suscripción 1-clic de lectores, gestión de entregas, borradores y envíos);
 - [x] clubs de lectura (`/api/v1/clubs/`, lecturas conjuntas y debates con spoilers);
 - [x] grupos (comunidades literarias con roles ADMIN/MODERATOR/MEMBER y gestión de aprobación);
 - [x] listas colaborativas (invitaciones, permisos EDITOR/VIEWER, atribución de autoría por libro y filtrado colaborativo);
-- [ ] recomendaciones avanzadas;
+- [x] gamificación avanzada (retos de lectura anuales y temáticos, sincronización dinámica por libros/páginas/géneros, ritmo y proyección, racha diaria y medallero);
+- [x] estadísticas avanzadas (ritmo y velocidad días/libro, desglose por longitud y formato, doble evolución mensual y memoria anual retrospectiva);
+- [x] integración con redes sociales (tarjetas gráficas sociales, memoria anual compartible, deep links directos de 1 clic para X, WhatsApp, Telegram, LinkedIn y Facebook, y métricas de analítica de difusión);
+- [x] recomendaciones avanzadas (motor híbrido multimodal con afinidad semántica, gemelos lectores, filtros por género y páginas, descarte en 1 clic y lectores afines);
 - [ ] IA multimodal;
-- [ ] audiolibros/TTS;
-- [ ] estadísticas avanzadas;
-- [ ] gamificación avanzada;
+- [x] audiolibros/TTS (reproductor global flotante, streaming de pistas, persistencia de progreso por usuario y narrador sintético Web Speech API);
 - [ ] aplicaciones móviles;
-- [ ] integración con redes sociales;
-- [ ] marketplace/editoriales.
+- [x] marketplace/editoriales (red multitienda, TodosTusLibros de proximidad, grandes cadenas, venta directa editorial y telemetría ética anonimizada).
 
 No comenzar estas funcionalidades mientras existan tareas P0/P1 pendientes.
 
@@ -1104,6 +1104,77 @@ No comenzar estas funcionalidades mientras existan tareas P0/P1 pendientes.
 2. [x] Endpoints API REST: `AuthorEventViewSet` en `/api/v1/books/author-events/` con filtrado (`upcoming`, `past`, `author`, `book`, `event_type`, `format`, `search`), acciones `@action` para reserva `/register/`, cancelación `/cancel_registration/` con autopromoción de lista de espera, y gestión de asistentes `/attendees/`.
 3. [x] Frontend interactivo: componente `AuthorEventsSection.tsx` integrado en `Author.tsx`, selector de eventos próximos e históricos, reserva con envío de preguntas al autor, panel de aforo dinámico y modales para creación de eventos y visualización de asistentes para autores y administradores.
 4. [x] Pruebas y verificación integral: suite backend `test_sprint11_author_events.py` (7/7 tests), suite frontend `AuthorEventsSection.test.tsx` (4/4 tests), regresión completa Sprints 1 al 11 (79/79 tests pasando), typecheck estricto con 0 errores y build de producción validado.
+
+## Sprint 12 — Publicaciones Avanzadas de Autores (COMPLETADO)
+
+1. [x] Modelado de datos: ampliación de `AuthorAnnouncement` con tipos de publicación (`ANNOUNCEMENT`, `CHAPTER_PREVIEW`, `AUTHOR_DIARY`, `DELETED_SCENE`, `Q_AND_A`), relación directa a `Author`, cálculo automático de `excerpt` y `estimated_reading_time`, protección contra spoilers (`has_spoilers`, `spoiler_warning`) y gestión de borradores privados (`is_draft`).
+2. [x] Endpoints API REST: `AuthorPublicationViewSet` en `/api/v1/books/author-publications/` con soporte CRUD, filtrado por autor, libro, tipo, destacados (`pinned`) y borradores para el autor, y acción `@action toggle_pin` para fijar publicaciones destacadas en la cabecera.
+3. [x] Frontend interactivo: componente `AuthorPublicationsSection.tsx` en `Author.tsx` con selector de filtros por categoría, visor de texto desplegable, bloqueador de spoilers con botón de revelación, conmutador de borradores y modal para crear y editar publicaciones para el autor.
+4. [x] Pruebas y verificación integral: suite backend `test_sprint12_author_publications.py` (7/7 tests), suite frontend `AuthorPublicationsSection.test.tsx` (4/4 tests), regresión completa Sprints 1 a 12 (86/86 tests pasando al 100%), typecheck 0 errores y build de producción validado.
+
+## Sprint 13 — Newsletters y Boletines de Autores (COMPLETADO)
+
+1. [x] Modelado de datos: `AuthorNewsletter` (vínculo a autor y perfil oficial, título, descripción, frecuencia y estado), `AuthorNewsletterSubscriber` (suscripción con token seguro para baja 1-clic y timestamps), `AuthorNewsletterIssue` (ediciones con estado `DRAFT`/`SCHEDULED`/`SENT`, recuento de destinatarios y fecha de envío). Migración `0037` aplicada en PostgreSQL.
+2. [x] Endpoints API REST: `AuthorNewsletterViewSet` (`/api/v1/books/author-newsletters/`) con acciones `@action subscribe`, `@action unsubscribe`, `@action my_subscriptions`, `@action subscribers` y `AuthorNewsletterIssueViewSet` (`/api/v1/books/author-newsletter-issues/`) con acción `@action send_issue`.
+3. [x] Frontend interactivo: componente `AuthorNewsletterSection.tsx` integrado en `Author.tsx` con tarjeta de suscripción 1-clic para lectores, contador dinámico de suscriptores, lector desplegable de entregas y panel para el autor propietario con modales para configurar la newsletter y redactar/enviar nuevas entregas.
+4. [x] Pruebas y verificación integral: suite backend `test_sprint13_author_newsletters.py` (7/7 tests), suite frontend `AuthorNewsletterSection.test.tsx` (4/4 tests), regresión secuencial backend completa Sprints 1 a 13 (88/88 tests pasando al 100%), typecheck estricto 0 errores, vitest completo (17 suites / 58 tests) y build de producción validado.
+
+## Sprint 14 — Gamificación Avanzada y Retos de Lectura (COMPLETADO)
+
+1. [x] Motor de Sincronización Dinámica de Retos: `GamificationService.sync_user_challenge_progress()` calcula automáticamente el progreso de cada participante según el tipo de meta (`books_count`, `pages_count`, `reviews_count`, `genre_books`), otorgando las insignias de recompensa y completando retos automáticamente sin intervención manual.
+2. [x] Siembra Automática de Retos y Abandono: `GamificationService.ensure_default_challenges()` asegura la existencia de retos anuales y temáticos (Sprint de Novela, Maratón de Páginas, Clásicos). Endpoint `POST /api/v1/gamification/challenges/<slug>/leave/` permite desapuntarse de retos y actualizar métricas de participantes en tiempo real.
+3. [x] Ritmo de Meta Anual y Racha Diaria: cálculo reactivo de libros por mes requeridos, estado de ritmo (adelantado/a tiempo/atrasado) y logging de sesiones de lectura en `ReadingStreak` con cálculo de rachas continuas y congelaciones.
+4. [x] Interfaz Frontend Dedicada: página `/challenges` (`ChallengesPage.tsx`) con 4 pestañas accesibles WAI-ARIA (🏆 Retos Comunitarios, 🎯 Mi Meta Anual, 🔥 Racha & Registro, 🎖️ Medallero), modales para fijar meta anual y registrar sesión de lectura diaria, filtros por categoría de medalla y enlace directo en la barra de navegación superior (`Header.tsx`).
+5. [x] Pruebas y Verificación Integral: suite backend `test_sprint14_gamification_challenges.py` (7/7 tests), suite frontend `ChallengesPage.test.tsx` (4/4 tests), regresión secuencial backend completa Sprints 1 a 14 (95/95 tests pasando al 100%), typecheck estricto con 0 errores, vitest completo (18 suites / 62 tests pasando) y build de producción limpio en Vite.
+
+## Sprint 15 — Estadísticas Avanzadas de Lectura, Ritmo y Memoria Anual (COMPLETADO)
+
+1. [x] Motor Backend Granular y Filtrado Temporal: ampliación de `stats_service.py` con parámetro `year` (`?year=YYYY` o `?year=all`), auto-descubrimiento de catálogo de años disponibles con actividad (`available_years`) y clave de caché Redis estructurada (`stats:user:<id>:year:<year>`).
+2. [x] Métricas de Ritmo y Velocidad (`reading_pace`): cálculo de días promedio por libro (`avg_days_per_book`), libro más rápido (`fastest_book`), libro más sosegado (`slowest_book`), promedio de páginas al día y al mes, y detección automática del mes cumbre de lectura (`highest_reading_month`).
+3. [x] Desglose por Longitud y Formatos: clasificación en 4 rangos de volumen (`short` <200p, `medium` 200-399p, `long` 400-599p, `epic` 600+p) con porcentajes y extremos leídos (`longest_book` y `shortest_book`), más distribución física vs digital y posesión en propiedad vs prestado.
+4. [x] Memoria Anual y Doble Evolución: retrospectiva del año ("Year in Review") con libro cumbre mejor puntuado, autor y género predilectos, comparativa interanual frente al año previo (+libros y +páginas), y gráfico mensual con selector interactivo de métrica (Libros vs Páginas).
+5. [x] Frontend React Accesible: rediseño integral de `ReadingStats.tsx` con selector de año en la cabecera, navegación en 4 pestañas WAI-ARIA (Resumen General, Ritmo & Velocidad, Longitud & Formatos, Memoria Anual) y tooltips flotantes.
+6. [x] Pruebas y Verificación Integral: suite backend `test_sprint15_advanced_reading_stats.py` (7/7 tests), suite frontend `ReadingStats.test.tsx` (4/4 tests), regresión secuencial backend completa Sprints 1 a 15 (107/107 tests pasando al 100%), typecheck estricto 0 errores, vitest completo (19 suites / 66 tests pasando) y build de producción limpio en 13.88s.
+
+## Sprint 16 — Integración con Redes Sociales y Compartición Gráfica (COMPLETADO)
+
+1. [x] Motor de Compartición Backend (`social_share_service.py`): generación dinámica de metadatos sociales (`generate_social_share_card`) con soporte para 5 tipos de entidad (`book`, `reading_stats`, `challenge`, `badge`, `reading_list`), títulos adaptados, descripciones con emojis, hashtags inteligentes y deep links directos a X (Twitter), WhatsApp, Telegram, LinkedIn, Facebook y correo electrónico.
+2. [x] Endpoints API REST de Compartición: `GET /api/v1/books/share/card/` (`SocialShareCardView`) para obtener la carga útil social enriquecida y `POST /api/v1/books/share/track/` (`SocialShareTrackView`) para registrar eventos de analítica y difusión con auditoría de plataforma.
+3. [x] Componente Frontend Accesible (`SocialShareModal.tsx`): modal interactivo con vista previa en tiempo real de "Social Card Preview" estilo tarjeta gráfica con gradientes, insignias métricas y badges temáticos; selector de 5 redes con apertura segura (`noopener,noreferrer`), botón de copiado de URL y botón de copiado de texto enriquecido con emojis y hashtags con feedback háptico/visual.
+4. [x] Integración en Páginas Clave: botones directos de "Compartir" integrados en la cabecera y en la sección de Memoria Anual de `ReadingStats.tsx`, así como en la ficha principal de `BookDetail.tsx`.
+5. [x] Pruebas y Verificación Integral: suite backend `test_sprint16_social_sharing.py` (7/7 tests), suite frontend `SocialShareModal.test.tsx` (4/4 tests), regresión secuencial backend completa Sprints 1 a 16 (114/114 tests pasando al 100%), typecheck con 0 errores, suite completa de Vitest (20 suites / 70 tests pasando al 100%) y build de producción limpio en Vite (16.05s).
+
+## Sprint 17 — Recomendaciones Avanzadas y Lectores Afines (COMPLETADO)
+
+1. [x] Algoritmos Multimodales Backend (`recommendation_service.py`): motor ampliado con soporte de 7 estrategias (`hybrid`, `collab`, `semantic`, `serendipity`, `rules`, `social`, `v1`), cálculo transparente de afinidad porcentual (`affinity_percentage`, 65-98%), desglose vectorial (`breakdown`), justificación explicable (`reason`), estimación de páginas mediante `Max(user_entries__current_page)` y filtros granulares por género (`category_id`) y longitud de páginas (`length_tier`: short, medium, long, epic).
+2. [x] Endpoint de Descarte Rápido y Caché Redis: implementación de `POST /api/v1/books/recommendations/dismiss/` respaldado por `dismiss_recommendation` en `recommendation_feedback_service.py`, persistencia de evento `DISMISSED` en `RecommendationFeedback` e invalidación quirúrgica de claves de caché Redis por usuario y variantes combinatorias en `cache_utils.py`.
+3. [x] Red de Gemelos Lectores: endpoint `GET /api/v1/books/recommendations/similar-readers/` funcional que calcula la similitud de coseno/patrones de valoración entre lectores y libros compartidos.
+4. [x] Interfaz Frontend Dedicada (`RecommendationsPage.tsx`): página completa en `/recommendations` con selector interactivo de modos ("Híbrido IA", "Gemelos Lectores", "Estilo y Temática", "Descubrimiento"), barras de filtros por género y extensión de páginas, tarjetas interactivas de libros con badge de % de afinidad, botón de 1 clic a "Quiero leer" y botón de descarte instantáneo; widget lateral de "Gemelos Lectores" con enlaces a perfiles; e integración en el menú principal (`Header.tsx`), enrutador (`router.tsx`) y bloque de recomendaciones de `Home.tsx`.
+5. [x] Pruebas y Verificación Integral: suite backend `test_sprint17_advanced_recommendations.py` (7/7 tests pasando al 100%), suite frontend `RecommendationsPage.test.tsx` (5/5 tests pasando al 100%), regresión secuencial backend completa Sprints 1 a 17 (121/121 tests pasando al 100%), typecheck con 0 errores, suite completa de Vitest (21 suites / 75 tests pasando al 100%) y build de producción limpio en Vite (14.88s).
+
+## Sprint 18 — Audiolibros y Text-to-Speech (TTS) (COMPLETADO)
+
+1. [x] Modelado de Datos y Persistencia de Escucha: modelos `AudiobookTrack` (orden, título, narrador, duración en segundos, URL de audio y flag de muestra gratuita `is_sample`) y `UserAudiobookProgress` (última pista escuchada, timestamp de reproducción en segundos, porcentaje completado y flag `is_completed`), con índices optimizados y migración `0038` aplicada en PostgreSQL.
+2. [x] Capa de Servicios y Lógica de Dominio (`audiobook_service.py`): funciones completas para detalles de audiolibro (`get_book_audiobook_details`), sincronización y guardado de progreso (`save_audiobook_progress`), catálogo de audiolibros disponibles (`get_audiobook_catalog`), estantería de escucha en curso (`get_user_listening_shelf`) y soporte de fallback a síntesis de voz inteligente ("BookVoice TTS").
+3. [x] Endpoints API REST: rutas `/api/v1/books/<id>/audiobook/`, `/api/v1/books/<id>/audiobook/progress/`, `/api/v1/books/audiobooks/` y `/api/v1/books/audiobooks/in-progress/` con RBAC, respuestas seguras y cálculo dinámico de duración y progreso de escucha.
+4. [x] Reproductor Global y Experiencia Frontend:
+   - Store Zustand `audioPlayer.ts` con control de pistas, cola de reproducción, velocidad (0.75x a 2.0x), volumen, silenciamiento y motor Web Speech API (TTS).
+   - Componente flotante global `AudioPlayerBar.tsx` persistente en `ProtectedLayout.tsx` y `PublicLayout.tsx`, con saltos rápidos ±15s, barra de progreso interactiva, badge de TTS activo y guardado periódico de posición en backend.
+   - Componente `BookAudiobookSection.tsx` integrado en `BookDetail.tsx` con lista de pistas, duración total formateada, botón de muestra y fallback TTS 1-clic.
+   - Sección "🎧 Audiolibros en curso" integrada en `Library.tsx` con tarjetas interactivas y acceso directo a reanudar escucha.
+5. [x] Pruebas y Verificación Integral: suite backend `test_sprint18_audiobooks_tts.py` (7/7 tests pasando al 100%), suite frontend `AudiobookPlayer.test.tsx` (5/5 tests pasando al 100%), regresión secuencial backend completa Sprints 1 a 18 (**128/128 tests pasando al 100%** consecutivamente), typecheck estricto 0 errores, suite completa de Vitest (**22 suites / 80 tests pasando al 100%**) y build de producción Vite limpio.
+
+## Sprint 19 — Marketplace y Enlaces Editoriales (COMPLETADO)
+
+1. [x] Modelado de Datos y Entidad Editorial: modelos `Publisher` (identidad URL, descripción, país, web y verificación), campo `publisher` en `Book`, `BookBuyLink` (enlaces de compra con formatos, moneda, tipo de comercio y flag de oficialidad verificado) y `MarketplaceClick` (telemetría anónima sin PII compatible con RGPD), con migración `0039` aplicada en PostgreSQL.
+2. [x] Capa de Servicios y Neutralidad Ética (`marketplace_service.py`): agregador inteligente multitienda con soporte prioritario a la red de librerías de barrio (**TodosTusLibros**), grandes cadenas (**Casa del Libro**, **Fnac**), tiendas digitales (**Amazon**, **Kindle**, **Audible**, **Google Play Books**) y venta directa de editoriales/autores. Registro de clics ético y validación estricta de permisos para autores propietarios.
+3. [x] Endpoints API REST: rutas `/api/v1/books/<id>/marketplace/`, `/api/v1/books/<id>/marketplace/click/`, `/api/v1/books/<id>/marketplace/links/`, `/api/v1/books/marketplace/links/<id>/`, `/api/v1/books/publishers/` y `/api/v1/books/publishers/<slug>/`.
+4. [x] Experiencia Frontend y Modal Accesible (`BookMarketplaceModal.tsx`):
+   - Modal WAI-ARIA accesible con selector de pestañas (Todas, Librerías de Barrio, Papel, Ebook, Audiolibro).
+   - Tarjetas de comercios con badges informativos, precios y apertura segura con `rel="noopener noreferrer sponsored"`.
+   - Botón directo "🛍️ Dónde comprar / Librerías" integrado en `BookDetail.tsx` junto con metadatos de editorial vinculada.
+   - Panel integrado para autores verificados para publicar y eliminar enlaces comerciales oficiales de sus obras.
+5. [x] Pruebas y Verificación Integral: suite backend `test_sprint19_marketplace_editoriales.py` (7/7 tests pasando al 100%), suite frontend `BookMarketplace.test.tsx` (5/5 tests pasando al 100%), regresión secuencial acumulativa completa Sprints 1 a 19 (**135/135 tests pasando al 100%** de forma consecutiva), typecheck estricto con 0 errores, suite Vitest completa (**23 suites / 85 tests pasando al 100%**) y build de producción limpio en Vite (13.01s).
 
 ---
 

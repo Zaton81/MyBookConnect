@@ -58,6 +58,7 @@ from .recommendation_explanation_service import (
     explain_recommendation,
 )
 from .recommendation_feedback_service import (
+    dismiss_recommendation,
     get_recommendation_metrics,
     record_recommendation_event,
 )
@@ -88,6 +89,7 @@ from .recommendation_v3_service import (
     get_user_preference_vector,
     recommend_books_v3,
 )
+from .social_share_service import generate_social_share_card, track_social_share
 from .stats_service import get_user_reading_stats
 from .trending_service import get_trending_books
 from .unified_search_service import (
@@ -95,9 +97,23 @@ from .unified_search_service import (
     UnifiedSearchEngine,
     unified_book_search,
 )
+from .audiobook_service import (
+    get_book_audiobook_details,
+    save_audiobook_progress,
+    get_user_listening_shelf,
+    get_audiobook_catalog,
+)
+from .marketplace_service import MarketplaceService
 
 __all__ = [
     # Funciones públicas principales
+    'MarketplaceService',
+    'get_book_audiobook_details',
+    'save_audiobook_progress',
+    'get_user_listening_shelf',
+    'get_audiobook_catalog',
+    'generate_social_share_card',
+    'track_social_share',
     'AffiliateService',
     'AuthorService',
     'UnifiedSearchEngine',
@@ -130,6 +146,7 @@ __all__ = [
     'SimilarUserPeer',
     'get_similar_readers',
     'get_book_recommendations',
+    'dismiss_recommendation',
     'record_recommendation_event',
     'get_recommendation_metrics',
     'maybe_enrich_author',

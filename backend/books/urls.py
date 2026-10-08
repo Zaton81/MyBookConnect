@@ -30,7 +30,10 @@ from .views import (
     AuthorDetailView,
     AuthorEventViewSet,
     AuthorListCreateView,
+    AuthorNewsletterIssueViewSet,
+    AuthorNewsletterViewSet,
     AuthorProfileMeView,
+    AuthorPublicationViewSet,
     BookAffiliateClickView,
     BookAffiliateLinksView,
     BookDetailView,
@@ -43,10 +46,13 @@ from .views import (
     ReadingListViewSet,
     ReadingMatchView,
     ReadingStatsView,
+    RecommendationDismissView,
     RecommendationFeedbackView,
     RecommendationMetricsView,
     RecommendationView,
     SimilarReadersView,
+    SocialShareCardView,
+    SocialShareTrackView,
     TrendingBooksView,
     UnifiedBookSearchView,
     UserBookByBookView,
@@ -54,11 +60,24 @@ from .views import (
     UserBookListCreateView,
     UserPreferenceEmbeddingView,
     UserRecommendationsView,
+    BookAudiobookDetailView,
+    BookAudiobookProgressView,
+    AudiobookCatalogView,
+    UserAudiobookShelfView,
+    BookMarketplaceView,
+    BookMarketplaceClickView,
+    BookMarketplaceLinksView,
+    BookMarketplaceLinkDetailView,
+    PublisherListView,
+    PublisherDetailView,
 )
 
 router = DefaultRouter()
 router.register('reading-lists', ReadingListViewSet, basename='reading-lists')
 router.register('author-events', AuthorEventViewSet, basename='author-events')
+router.register('author-publications', AuthorPublicationViewSet, basename='author-publications')
+router.register('author-newsletters', AuthorNewsletterViewSet, basename='author-newsletters')
+router.register('author-newsletter-issues', AuthorNewsletterIssueViewSet, basename='author-newsletter-issues')
 
 urlpatterns = [
     path('legal/', PublicLegalDocumentListView.as_view(), name='books-legal-list'),
@@ -74,8 +93,11 @@ urlpatterns = [
     path('recommendations/user-embedding/', UserPreferenceEmbeddingView.as_view(), name='user-recommendations-embedding'),
     path('recommendations/similar-readers/', SimilarReadersView.as_view(), name='user-recommendations-similar-readers'),
     path('recommendations/feedback/', RecommendationFeedbackView.as_view(), name='recommendation-feedback'),
+    path('recommendations/dismiss/', RecommendationDismissView.as_view(), name='recommendation-dismiss'),
     path('recommendations/metrics/', RecommendationMetricsView.as_view(), name='recommendation-metrics'),
     path('statistics/', ReadingStatsView.as_view(), name='books-statistics'),
+    path('share/card/', SocialShareCardView.as_view(), name='books-share-card'),
+    path('share/track/', SocialShareTrackView.as_view(), name='books-share-track'),
     path('gamification/', include('books.gamification_urls')),
     path('match/<int:user_id>/', ReadingMatchView.as_view(), name='user-reading-match'),
     path('import/', ImportBookView.as_view(), name='books-import-root'),
@@ -129,4 +151,23 @@ urlpatterns = [
     path('authors/dashboard/', AuthorDashboardView.as_view(), name='authors-dashboard'),
     path('authors/announcements/', AuthorAnnouncementCreateView.as_view(), name='authors-announcement-create'),
     path('authors/<int:pk>/announcements/', AuthorAnnouncementListView.as_view(), name='authors-announcements'),
+
+    # Audiolibros y Text-to-Speech (TTS) — Sprint 18
+    path('<int:pk>/audiobook/', BookAudiobookDetailView.as_view(), name='book-audiobook-detail'),
+    path('<int:pk>/audiobook/progress/', BookAudiobookProgressView.as_view(), name='book-audiobook-progress'),
+    path('books/<int:pk>/audiobook/', BookAudiobookDetailView.as_view(), name='book-audiobook-detail-prefixed'),
+    path('books/<int:pk>/audiobook/progress/', BookAudiobookProgressView.as_view(), name='book-audiobook-progress-prefixed'),
+    path('audiobooks/', AudiobookCatalogView.as_view(), name='audiobook-catalog'),
+    path('audiobooks/in-progress/', UserAudiobookShelfView.as_view(), name='audiobook-in-progress'),
+
+    # Marketplace y Enlaces Editoriales — Sprint 19
+    path('<int:pk>/marketplace/', BookMarketplaceView.as_view(), name='book-marketplace'),
+    path('<int:pk>/marketplace/click/', BookMarketplaceClickView.as_view(), name='book-marketplace-click'),
+    path('<int:pk>/marketplace/links/', BookMarketplaceLinksView.as_view(), name='book-marketplace-links'),
+    path('books/<int:pk>/marketplace/', BookMarketplaceView.as_view(), name='book-marketplace-prefixed'),
+    path('books/<int:pk>/marketplace/click/', BookMarketplaceClickView.as_view(), name='book-marketplace-click-prefixed'),
+    path('books/<int:pk>/marketplace/links/', BookMarketplaceLinksView.as_view(), name='book-marketplace-links-prefixed'),
+    path('marketplace/links/<int:link_id>/', BookMarketplaceLinkDetailView.as_view(), name='book-marketplace-link-detail'),
+    path('publishers/', PublisherListView.as_view(), name='publisher-list'),
+    path('publishers/<str:identifier>/', PublisherDetailView.as_view(), name='publisher-detail'),
 ] + router.urls

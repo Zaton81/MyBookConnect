@@ -1,6 +1,7 @@
 import logging
 
 from django.core.cache import cache
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import IntegrityError, transaction
 from django.db.models import F, Q
 from django.shortcuts import get_object_or_404
@@ -19,6 +20,10 @@ from .cache_utils import TTL_BOOK_DETAIL, book_detail_key
 from .media_utils import build_media_url
 from .models import (
     Author,
+    AuthorAnnouncement,
+    AuthorNewsletter,
+    AuthorNewsletterIssue,
+    AuthorNewsletterSubscriber,
     Book,
     Errata,
     ErrataStatus,
@@ -35,6 +40,11 @@ from .models import (
 )
 from .pagination import StandardResultsSetPagination
 from .serializers import (
+    AuthorNewsletterCreateUpdateSerializer,
+    AuthorNewsletterIssueCreateUpdateSerializer,
+    AuthorNewsletterIssueSerializer,
+    AuthorNewsletterSerializer,
+    AuthorNewsletterSubscriberSerializer,
     AuthorSerializer,
     BookSerializer,
     ErrataSerializer,
@@ -907,6 +917,28 @@ class UserRecommendationsView(APIView):
                 default='v1',
                 description="Versión del motor de recomendaciones (ej. 'v1').",
             ),
+            OpenApiParameter(
+                name='category_id',
+                type=int,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                description="Filtrar recomendaciones por ID de categoría/género.",
+            ),
+            OpenApiParameter(
+                name='length_tier',
+                type=str,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                description="Filtrar por longitud de páginas ('short', 'medium', 'long', 'epic').",
+            ),
+            OpenApiParameter(
+                name='exclude_dismissed',
+                type=bool,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                default=True,
+                description="Excluir libros marcados como no interesados (default: true).",
+            ),
         ],
         responses={200: inline_serializer(
             name='UserRecommendationResponse',
@@ -940,16 +972,29 @@ class UserRecommendationsView(APIView):
         else:
             strategy = strategy.lower().strip()
 
-        if strategy not in ('v1', 'canonical_v1', 'v2', 'collab', 'collaborative', 'v3', 'semantic_v3', 'vector', 'hybrid', 'rules', 'social', 'semantic'):
+        valid_strategies = (
+            'v1', 'canonical_v1', 'v2', 'collab', 'collaborative',
+            'v3', 'semantic_v3', 'vector', 'hybrid_v3', 'hybrid',
+            'rules', 'social', 'semantic', 'serendipity', 'discovery',
+        )
+        if strategy not in valid_strategies:
             strategy = 'v3' if version_param == 'v3' else ('v2' if version_param == 'v2' else 'v1')
+
+        category_id = request.query_params.get('category_id') or request.query_params.get('category')
+        length_tier = request.query_params.get('length_tier') or request.query_params.get('length')
+        exclude_dismissed_raw = request.query_params.get('exclude_dismissed', 'true').lower().strip()
+        exclude_dismissed = exclude_dismissed_raw not in ('false', '0', 'no')
 
         results = services.get_user_recommendations(
             user=request.user,
             limit=limit,
             strategy=strategy,
+            category_id=category_id,
+            length_tier=length_tier,
+            exclude_dismissed=exclude_dismissed,
             request=request,
         )
-        if strategy in ('v3', 'semantic_v3', 'vector') or version_param == 'v3':
+        if strategy in ('v3', 'semantic_v3', 'vector', 'hybrid_v3') or version_param == 'v3':
             algo_version = 'v3'
         elif strategy in ('v2', 'collab', 'collaborative') or version_param == 'v2':
             algo_version = 'v2'
@@ -962,6 +1007,56 @@ class UserRecommendationsView(APIView):
             'algorithm_version': algo_version,
             'results': results,
         })
+
+
+class RecommendationDismissView(APIView):
+    """
+    Endpoint para descartar un libro recomendado ('not_interested').
+    Registra el evento en RecommendationFeedback e invalida la caché de recomendaciones del usuario.
+    """
+    permission_classes = (permissions.IsAuthenticated,)
+
+    @extend_schema(
+        summary="Descartar recomendación de libro",
+        description="Marca un libro como descartado para que no vuelva a ser sugerido al usuario.",
+        request=inline_serializer(
+            name='RecommendationDismissInput',
+            fields={
+                'book_id': serializers.IntegerField(),
+                'reason': serializers.CharField(required=False, default='not_interested'),
+            },
+        ),
+        responses={200: inline_serializer(
+            name='RecommendationDismissResponse',
+            fields={
+                'success': serializers.BooleanField(),
+                'dismissed_book_id': serializers.IntegerField(),
+                'message': serializers.CharField(),
+            },
+        )},
+        tags=['Books'],
+    )
+    def post(self, request):
+        book_id = request.data.get('book_id')
+        reason = request.data.get('reason', 'not_interested')
+        if not book_id:
+            return Response(
+                {'detail': 'El campo "book_id" es obligatorio.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            services.dismiss_recommendation(
+                user=request.user,
+                book_id=int(book_id),
+                reason=reason,
+            )
+            return Response({
+                'success': True,
+                'dismissed_book_id': int(book_id),
+                'message': 'Libro descartado correctamente de tus recomendaciones.',
+            }, status=status.HTTP_200_OK)
+        except ValueError as exc:
+            return Response({'detail': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class UserPreferenceEmbeddingView(APIView):
@@ -2053,8 +2148,60 @@ class ReadingStatsView(APIView):
                 return Response({'detail': 'Autenticación requerida para ver tus estadísticas.'}, status=status.HTTP_401_UNAUTHORIZED)
             target_user_id = request.user.id
 
-        stats = services.get_user_reading_stats(target_user_id)
+        year_param = request.query_params.get('year')
+        stats = services.get_user_reading_stats(target_user_id, year=year_param)
         return Response(stats)
+
+
+class SocialShareCardView(APIView):
+    """
+    Endpoint para obtener metadatos y deep links de compartición en redes sociales (Sprint 16).
+    Soporta tipos: 'book', 'reading_stats', 'challenge', 'badge', 'reading_list'.
+    """
+    permission_classes = (permissions.AllowAny,)
+
+    def get(self, request, *args, **kwargs):
+        share_type = request.query_params.get('type', 'book')
+        object_id = request.query_params.get('id')
+        year = request.query_params.get('year')
+        user_id = request.query_params.get('user_id') or (request.user.id if request.user.is_authenticated else None)
+
+        base_url = request.build_absolute_uri('/')[:-1]
+        try:
+            card_info = services.generate_social_share_card(
+                share_type=share_type,
+                object_id=object_id,
+                year=year,
+                user_id=user_id,
+                base_url=base_url,
+            )
+            return Response(card_info, status=status.HTTP_200_OK)
+        except ValueError as exc:
+            return Response({'detail': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as exc:
+            logger.exception(f"Error generando tarjeta social: {exc}")
+            return Response({'detail': 'Error procesando solicitud de compartición.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class SocialShareTrackView(APIView):
+    """
+    Endpoint para registrar eventos de compartición en redes sociales (Sprint 16).
+    """
+    permission_classes = (permissions.AllowAny,)
+
+    def post(self, request, *args, **kwargs):
+        share_type = request.data.get('type') or request.data.get('share_type', 'unknown')
+        object_id = request.data.get('id') or request.data.get('object_id')
+        platform = request.data.get('platform', 'unknown')
+        user_id = request.user.id if request.user.is_authenticated else None
+
+        result = services.track_social_share(
+            share_type=share_type,
+            object_id=object_id,
+            platform=platform,
+            user_id=user_id,
+        )
+        return Response(result, status=status.HTTP_201_CREATED)
 
 
 class UnifiedBookSearchView(APIView):
@@ -2313,7 +2460,7 @@ class AuthorDashboardView(APIView):
 
 class AuthorAnnouncementCreateView(APIView):
     """
-    Publicación de comunicados oficiales por parte de un autor.
+    Publicación de comunicados y publicaciones avanzadas por parte de un autor.
     """
     permission_classes = [permissions.IsAuthenticated]
 
@@ -2326,6 +2473,13 @@ class AuthorAnnouncementCreateView(APIView):
         content = request.data.get('content', '').strip()
         book_id = request.data.get('book_id')
         is_pinned = bool(request.data.get('is_pinned', False))
+        publication_type = request.data.get('publication_type', 'ANNOUNCEMENT')
+        excerpt = request.data.get('excerpt', '').strip()
+        has_spoilers = bool(request.data.get('has_spoilers', False))
+        spoiler_warning = request.data.get('spoiler_warning', '').strip()
+        estimated_reading_time = request.data.get('estimated_reading_time')
+        is_draft = bool(request.data.get('is_draft', False))
+        author_id = request.data.get('author_id') or request.data.get('author')
 
         if not title or not content:
             return Response(
@@ -2339,6 +2493,13 @@ class AuthorAnnouncementCreateView(APIView):
             content=content,
             book_id=int(book_id) if book_id else None,
             is_pinned=is_pinned,
+            publication_type=publication_type,
+            excerpt=excerpt,
+            has_spoilers=has_spoilers,
+            spoiler_warning=spoiler_warning,
+            estimated_reading_time=int(estimated_reading_time) if estimated_reading_time else None,
+            is_draft=is_draft,
+            author_id=int(author_id) if author_id else None,
         )
         serializer = AuthorAnnouncementSerializer(announcement, context={'request': request})
         return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -2346,7 +2507,7 @@ class AuthorAnnouncementCreateView(APIView):
 
 class AuthorAnnouncementListView(APIView):
     """
-    Listado público de comunicados emitidos para un autor del catálogo.
+    Listado público de comunicados y publicaciones avanzadas para un autor del catálogo.
     """
     permission_classes = [permissions.AllowAny]
 
@@ -2354,7 +2515,16 @@ class AuthorAnnouncementListView(APIView):
         from .serializers import AuthorAnnouncementSerializer
         from .services.author_service import AuthorService
 
-        announcements = AuthorService.get_announcements_for_author(author_id=pk)
+        include_drafts = False
+        if request.user.is_authenticated and request.query_params.get('drafts') == 'true':
+            include_drafts = True
+
+        pub_type = request.query_params.get('type') or request.query_params.get('publication_type')
+        announcements = AuthorService.get_announcements_for_author(
+            author_id=pk,
+            include_drafts=include_drafts,
+            publication_type=pub_type,
+        )
         serializer = AuthorAnnouncementSerializer(announcements, many=True, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -2607,5 +2777,566 @@ class AuthorEventViewSet(viewsets.ModelViewSet):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
+class AuthorPublicationViewSet(viewsets.ModelViewSet):
+    """
+    Gestión CRUD completa y consulta de publicaciones avanzadas de autor (adelantos, notas, comunicados).
+    RoadmapV3 Sección 30 — Sprint 12.
+    """
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
 
+    def get_serializer_class(self):
+        from .serializers import AuthorAnnouncementCreateUpdateSerializer, AuthorAnnouncementSerializer
+        if self.action in ('create', 'update', 'partial_update'):
+            return AuthorAnnouncementCreateUpdateSerializer
+        return AuthorAnnouncementSerializer
+
+    def get_queryset(self):
+        from django.db.models import Q
+        from .models import AuthorAnnouncement
+        qs = AuthorAnnouncement.objects.select_related('author_profile', 'author', 'book')
+
+        author_id = self.request.query_params.get('author') or self.request.query_params.get('author_id')
+        if author_id:
+            qs = qs.filter(Q(author_id=author_id) | Q(author_profile__author_id=author_id))
+
+        book_id = self.request.query_params.get('book') or self.request.query_params.get('book_id')
+        if book_id:
+            qs = qs.filter(book_id=book_id)
+
+        pub_type = self.request.query_params.get('type') or self.request.query_params.get('publication_type')
+        if pub_type:
+            qs = qs.filter(publication_type=pub_type)
+
+        is_pinned = self.request.query_params.get('pinned')
+        if is_pinned in ('true', '1'):
+            qs = qs.filter(is_pinned=True)
+
+        user = self.request.user
+        drafts_param = self.request.query_params.get('drafts')
+        if drafts_param in ('true', '1') and user.is_authenticated:
+            qs = qs.filter(Q(is_draft=False) | Q(author_profile__user=user) | Q(author__claimed_by=user))
+        else:
+            qs = qs.filter(is_draft=False)
+
+        search = self.request.query_params.get('search')
+        if search:
+            from django.db.models import Q
+            qs = qs.filter(Q(title__icontains=search) | Q(content__icontains=search) | Q(excerpt__icontains=search))
+
+        return qs.order_by('-is_pinned', '-created_at')
+
+    def perform_create(self, serializer):
+        from .models import Author, AuthorProfile
+        from .services.author_service import AuthorService
+        user = self.request.user
+        author = serializer.validated_data.get('author')
+        profile = AuthorService.get_or_create_profile(user)
+
+        if not author:
+            if profile.author:
+                author = profile.author
+            elif Author.objects.filter(claimed_by=user).exists():
+                author = Author.objects.filter(claimed_by=user).first()
+
+        if author:
+            is_owner = (
+                author.claimed_by_id == user.id or
+                (profile.author_id == author.id and profile.is_verified) or
+                user.is_staff or getattr(user, 'role', '') in ('ADMIN', 'MODERATOR')
+            )
+            if not is_owner:
+                from rest_framework.exceptions import PermissionDenied
+                raise PermissionDenied("No tienes permisos para publicar en nombre de este autor.")
+
+        serializer.save(author_profile=profile, author=author)
+
+    def perform_update(self, serializer):
+        user = self.request.user
+        instance = self.get_object()
+        is_owner = (
+            instance.author_profile.user_id == user.id or
+            (instance.author and instance.author.claimed_by_id == user.id) or
+            user.is_staff or getattr(user, 'role', '') in ('ADMIN', 'MODERATOR')
+        )
+        if not is_owner:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("No tienes permisos para modificar esta publicación.")
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        user = self.request.user
+        is_owner = (
+            instance.author_profile.user_id == user.id or
+            (instance.author and instance.author.claimed_by_id == user.id) or
+            user.is_staff or getattr(user, 'role', '') in ('ADMIN', 'MODERATOR')
+        )
+        if not is_owner:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("No tienes permisos para eliminar esta publicación.")
+        instance.delete()
+
+    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
+    def toggle_pin(self, request, pk=None):
+        instance = self.get_object()
+        user = request.user
+        is_owner = (
+            instance.author_profile.user_id == user.id or
+            (instance.author and instance.author.claimed_by_id == user.id) or
+            user.is_staff or getattr(user, 'role', '') in ('ADMIN', 'MODERATOR')
+        )
+        if not is_owner:
+            return Response({'detail': 'No tienes permisos.'}, status=status.HTTP_403_FORBIDDEN)
+        instance.is_pinned = not instance.is_pinned
+        instance.save()
+        return Response({'id': instance.id, 'is_pinned': instance.is_pinned}, status=status.HTTP_200_OK)
+
+
+class AuthorNewsletterViewSet(viewsets.ModelViewSet):
+    """
+    CRUD y gestión de newsletters/boletines literarios de autores, con suscripción 1-clic y consulta de suscriptores.
+    """
+    queryset = AuthorNewsletter.objects.select_related('author', 'author_profile').prefetch_related('subscribers', 'issues')
+    pagination_class = StandardResultsSetPagination
+
+    def get_serializer_class(self):
+        if self.action in ('create', 'update', 'partial_update'):
+            return AuthorNewsletterCreateUpdateSerializer
+        return AuthorNewsletterSerializer
+
+    def get_permissions(self):
+        if self.action in ('list', 'retrieve'):
+            return [permissions.AllowAny()]
+        return [permissions.IsAuthenticated()]
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        author_id = self.request.query_params.get('author') or self.request.query_params.get('author_id')
+        if author_id:
+            qs = qs.filter(Q(author_id=author_id) | Q(author_profile__author_id=author_id))
+
+        user = self.request.user
+        if not user.is_staff and getattr(user, 'role', '') not in ('ADMIN', 'MODERATOR'):
+            # Los usuarios no administradores solo ven newsletters activas o las propias
+            if user.is_authenticated:
+                qs = qs.filter(Q(is_active=True) | Q(author__claimed_by=user) | Q(author_profile__user=user))
+            else:
+                qs = qs.filter(is_active=True)
+        return qs.order_by('-created_at')
+
+    def perform_create(self, serializer):
+        from .models import AuthorProfile
+        from .services.author_service import AuthorService
+        user = self.request.user
+        author = serializer.validated_data.get('author')
+        profile = AuthorService.get_or_create_profile(user)
+        if not author and profile.author:
+            author = profile.author
+        serializer.save(author=author, author_profile=profile)
+
+    def perform_update(self, serializer):
+        user = self.request.user
+        instance = self.get_object()
+        is_owner = (
+            (instance.author_profile and instance.author_profile.user_id == user.id) or
+            (instance.author and instance.author.claimed_by_id == user.id) or
+            user.is_staff or getattr(user, 'role', '') in ('ADMIN', 'MODERATOR')
+        )
+        if not is_owner:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("No tienes permisos para modificar este boletín.")
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        user = self.request.user
+        is_owner = (
+            (instance.author_profile and instance.author_profile.user_id == user.id) or
+            (instance.author and instance.author.claimed_by_id == user.id) or
+            user.is_staff or getattr(user, 'role', '') in ('ADMIN', 'MODERATOR')
+        )
+        if not is_owner:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("No tienes permisos para eliminar este boletín.")
+        instance.delete()
+
+    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
+    def subscribe(self, request, pk=None):
+        newsletter = self.get_object()
+        sub, created = AuthorNewsletterSubscriber.objects.get_or_create(
+            newsletter=newsletter,
+            user=request.user,
+            defaults={'is_active': True}
+        )
+        if not created and not sub.is_active:
+            sub.is_active = True
+            sub.unsubscribed_at = None
+            sub.save(update_fields=['is_active', 'unsubscribed_at'])
+
+        return Response({
+            'detail': 'Te has suscrito correctamente al boletín del autor.',
+            'is_subscribed': True,
+            'active_subscribers_count': newsletter.active_subscribers_count,
+        }, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
+    def unsubscribe(self, request, pk=None):
+        from django.utils import timezone
+        newsletter = self.get_object()
+        sub = AuthorNewsletterSubscriber.objects.filter(newsletter=newsletter, user=request.user).first()
+        if sub and sub.is_active:
+            sub.is_active = False
+            sub.unsubscribed_at = timezone.now()
+            sub.save(update_fields=['is_active', 'unsubscribed_at'])
+
+        return Response({
+            'detail': 'Te has desuscrito del boletín.',
+            'is_subscribed': False,
+            'active_subscribers_count': newsletter.active_subscribers_count,
+        }, status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated])
+    def my_subscriptions(self, request):
+        subs = AuthorNewsletterSubscriber.objects.filter(
+            user=request.user,
+            is_active=True
+        ).select_related('newsletter__author')
+        newsletters = [sub.newsletter for sub in subs if sub.newsletter.is_active]
+        serializer = AuthorNewsletterSerializer(newsletters, many=True, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['get'], permission_classes=[permissions.IsAuthenticated])
+    def subscribers(self, request, pk=None):
+        newsletter = self.get_object()
+        user = request.user
+        is_owner = (
+            (newsletter.author_profile and newsletter.author_profile.user_id == user.id) or
+            (newsletter.author and newsletter.author.claimed_by_id == user.id) or
+            user.is_staff or getattr(user, 'role', '') in ('ADMIN', 'MODERATOR')
+        )
+        if not is_owner:
+            return Response({'detail': 'No tienes permisos para consultar la lista de suscriptores.'}, status=status.HTTP_403_FORBIDDEN)
+
+        subs = newsletter.subscribers.filter(is_active=True).select_related('user').order_by('-subscribed_at')
+        page = self.paginate_queryset(subs)
+        if page is not None:
+            serializer = AuthorNewsletterSubscriberSerializer(page, many=True, context={'request': request})
+            return self.get_paginated_response(serializer.data)
+
+        serializer = AuthorNewsletterSubscriberSerializer(subs, many=True, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class AuthorNewsletterIssueViewSet(viewsets.ModelViewSet):
+    """
+    Gestión de entregas de boletines (borradores, programados y enviados) y acción de envío inmediato.
+    """
+    queryset = AuthorNewsletterIssue.objects.select_related('newsletter__author')
+    pagination_class = StandardResultsSetPagination
+
+    def get_serializer_class(self):
+        if self.action in ('create', 'update', 'partial_update'):
+            return AuthorNewsletterIssueCreateUpdateSerializer
+        return AuthorNewsletterIssueSerializer
+
+    def get_permissions(self):
+        if self.action in ('list', 'retrieve'):
+            return [permissions.AllowAny()]
+        return [permissions.IsAuthenticated()]
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        newsletter_id = self.request.query_params.get('newsletter') or self.request.query_params.get('newsletter_id')
+        if newsletter_id:
+            qs = qs.filter(newsletter_id=newsletter_id)
+
+        user = self.request.user
+        # Si no es staff ni autor de la newsletter, solo puede ver entregas enviadas (SENT)
+        if not user.is_staff and getattr(user, 'role', '') not in ('ADMIN', 'MODERATOR'):
+            if user.is_authenticated:
+                qs = qs.filter(
+                    Q(status=AuthorNewsletterIssue.IssueStatus.SENT) |
+                    Q(newsletter__author__claimed_by=user) |
+                    Q(newsletter__author_profile__user=user)
+                )
+            else:
+                qs = qs.filter(status=AuthorNewsletterIssue.IssueStatus.SENT)
+
+        return qs.order_by('-sent_at', '-created_at')
+
+    def perform_create(self, serializer):
+        serializer.save()
+
+    def perform_update(self, serializer):
+        user = self.request.user
+        instance = self.get_object()
+        author = instance.newsletter.author
+        is_owner = (
+            (instance.newsletter.author_profile and instance.newsletter.author_profile.user_id == user.id) or
+            (author and author.claimed_by_id == user.id) or
+            user.is_staff or getattr(user, 'role', '') in ('ADMIN', 'MODERATOR')
+        )
+        if not is_owner:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("No tienes permisos para modificar esta entrega.")
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        user = self.request.user
+        author = instance.newsletter.author
+        is_owner = (
+            (instance.newsletter.author_profile and instance.newsletter.author_profile.user_id == user.id) or
+            (author and author.claimed_by_id == user.id) or
+            user.is_staff or getattr(user, 'role', '') in ('ADMIN', 'MODERATOR')
+        )
+        if not is_owner:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("No tienes permisos para eliminar esta entrega.")
+        instance.delete()
+
+    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
+    def send_issue(self, request, pk=None):
+        from django.utils import timezone
+        issue = self.get_object()
+        user = request.user
+        author = issue.newsletter.author
+        is_owner = (
+            (issue.newsletter.author_profile and issue.newsletter.author_profile.user_id == user.id) or
+            (author and author.claimed_by_id == user.id) or
+            user.is_staff or getattr(user, 'role', '') in ('ADMIN', 'MODERATOR')
+        )
+        if not is_owner:
+            return Response({'detail': 'No tienes permisos para enviar esta entrega.'}, status=status.HTTP_403_FORBIDDEN)
+
+        recipients_count = issue.newsletter.subscribers.filter(is_active=True).count()
+        issue.status = AuthorNewsletterIssue.IssueStatus.SENT
+        issue.sent_at = timezone.now()
+        issue.recipients_count = recipients_count
+        issue.save(update_fields=['status', 'sent_at', 'recipients_count', 'updated_at'])
+
+        serializer = AuthorNewsletterIssueSerializer(issue, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+# ── Audiolibros y Text-to-Speech (TTS) — Sprint 18 ─────────────────────────────
+
+class BookAudiobookDetailView(APIView):
+    """
+    Obtiene el detalle del audiolibro de una obra: pistas, narradores,
+    muestra gratuita, duración total y progreso del usuario autenticado.
+    RoadmapV3 Sección 30 — Sprint 18.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request, pk):
+        try:
+            data = services.get_book_audiobook_details(pk, user=request.user)
+            return Response(data, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({'detail': str(e)}, status=status.HTTP_404_NOT_FOUND)
+
+
+class BookAudiobookProgressView(APIView):
+    """
+    Sincroniza y persiste el punto de escucha del usuario:
+    segundo actual, pista en curso, velocidad de reproducción y completitud.
+    RoadmapV3 Sección 30 — Sprint 18.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, pk):
+        try:
+            track_id = request.data.get('track_id')
+            position_seconds = int(request.data.get('position_seconds', 0))
+            playback_speed = float(request.data.get('playback_speed', 1.0))
+            is_completed = bool(request.data.get('is_completed', False))
+
+            res = services.save_audiobook_progress(
+                user=request.user,
+                book_id=pk,
+                track_id=track_id,
+                position_seconds=position_seconds,
+                playback_speed=playback_speed,
+                is_completed=is_completed,
+            )
+            return Response(res, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class AudiobookCatalogView(APIView):
+    """
+    Explorador/catálogo público de audiolibros con filtros por categoría.
+    RoadmapV3 Sección 30 — Sprint 18.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        category_id = request.query_params.get('category_id')
+        limit = min(50, int(request.query_params.get('limit', 20)))
+        offset = max(0, int(request.query_params.get('offset', 0)))
+
+        cat_id_int = int(category_id) if category_id and category_id.isdigit() else None
+        catalog = services.get_audiobook_catalog(
+            category_id=cat_id_int,
+            limit=limit,
+            offset=offset,
+            user=request.user,
+        )
+        return Response(catalog, status=status.HTTP_200_OK)
+
+
+class UserAudiobookShelfView(APIView):
+    """
+    Devuelve los audiolibros en progreso del lector autenticado.
+    RoadmapV3 Sección 30 — Sprint 18.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        limit = min(50, int(request.query_params.get('limit', 15)))
+        items = services.get_user_listening_shelf(request.user, limit=limit)
+        return Response({'results': items, 'count': len(items)}, status=status.HTTP_200_OK)
+
+
+# ==============================================================================
+# SPRINT 19: MARKETPLACE Y ENLACES EDITORIALES (RoadmapV3 Sección 30)
+# ==============================================================================
+
+class BookMarketplaceView(APIView):
+    """
+    Retorna las opciones de compra agregadas multitienda para una obra (librerías locales,
+    tiendas online, formatos digital/audiolibro y venta directa oficial).
+    RoadmapV3 Sección 30 — Sprint 19.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request, pk):
+        book = get_object_or_404(
+            Book.objects.select_related('author', 'publisher'),
+            pk=pk
+        )
+        data = services.MarketplaceService.get_book_marketplace_offers(book, user=request.user)
+        return Response(data, status=status.HTTP_200_OK)
+
+
+class BookMarketplaceClickView(APIView):
+    """
+    Registra de forma anónima el clic hacia una tienda o librería para estadísticas de conversión,
+    garantizando neutralidad editorial y cumplimiento RGPD sin almacenar PII.
+    RoadmapV3 Sección 30 — Sprint 19.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request, pk):
+        merchant_name = request.data.get('merchant_name', 'Tienda')
+        format_type = request.data.get('format', 'paperback')
+        buy_link_id = request.data.get('buy_link_id')
+
+        try:
+            click = services.MarketplaceService.record_marketplace_click(
+                book_id=pk,
+                merchant_name=merchant_name,
+                format_type=format_type,
+                buy_link_id=buy_link_id,
+            )
+            return Response(
+                {
+                    'status': 'recorded',
+                    'click_id': click.id,
+                    'merchant_name': click.merchant_name,
+                    'format': click.format,
+                },
+                status=status.HTTP_201_CREATED,
+            )
+        except Book.DoesNotExist:
+            return Response({'detail': 'Libro no encontrado'}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class BookMarketplaceLinksView(APIView):
+    """
+    Permite al autor verificado de la obra o a un administrador añadir o modificar
+    un enlace oficial de compra o preventa.
+    RoadmapV3 Sección 30 — Sprint 19.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, pk):
+        try:
+            link = services.MarketplaceService.create_or_update_buy_link(
+                book_id=pk,
+                user=request.user,
+                data=request.data,
+            )
+            return Response(
+                {
+                    'id': link.id,
+                    'merchant_name': link.merchant_name,
+                    'merchant_type': link.merchant_type,
+                    'format': link.format,
+                    'url': link.url,
+                    'price': float(link.price) if link.price else None,
+                    'currency': link.currency,
+                    'is_official': link.is_official,
+                },
+                status=status.HTTP_201_CREATED,
+            )
+        except Book.DoesNotExist:
+            return Response({'detail': 'Libro no encontrado'}, status=status.HTTP_404_NOT_FOUND)
+        except PermissionDenied as e:
+            return Response({'detail': str(e)}, status=status.HTTP_403_FORBIDDEN)
+        except ValidationError as e:
+            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class BookMarketplaceLinkDetailView(APIView):
+    """
+    Elimina un enlace de compra oficial gestionado por un autor verificado o administrador.
+    RoadmapV3 Sección 30 — Sprint 19.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def delete(self, request, link_id):
+        try:
+            services.MarketplaceService.delete_buy_link(buy_link_id=link_id, user=request.user)
+            return Response({'status': 'deleted'}, status=status.HTTP_204_NO_CONTENT)
+        except BookBuyLink.DoesNotExist:
+            return Response({'detail': 'Enlace no encontrado'}, status=status.HTTP_404_NOT_FOUND)
+        except PermissionDenied as e:
+            return Response({'detail': str(e)}, status=status.HTTP_403_FORBIDDEN)
+        except Exception as e:
+            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class PublisherListView(APIView):
+    """
+    Catálogo y buscador público de editoriales.
+    RoadmapV3 Sección 30 — Sprint 19.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        search = request.query_params.get('search')
+        country = request.query_params.get('country')
+        publishers = services.MarketplaceService.get_publishers_catalog(search=search, country=country)
+        return Response({'results': publishers, 'count': len(publishers)}, status=status.HTTP_200_OK)
+
+
+class PublisherDetailView(APIView):
+    """
+    Ficha pública detallada de una editorial con su catálogo de publicaciones destacadas.
+    RoadmapV3 Sección 30 — Sprint 19.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request, identifier):
+        try:
+            pub_data = services.MarketplaceService.get_publisher_detail(identifier)
+            return Response(pub_data, status=status.HTTP_200_OK)
+        except Publisher.DoesNotExist:
+            return Response({'detail': 'Editorial no encontrada'}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 

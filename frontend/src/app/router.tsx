@@ -52,6 +52,9 @@ const ReadingLists = lazy(() =>
 const ReadingStats = lazy(() =>
   import('../features/books').then((m) => ({ default: m.ReadingStats }))
 );
+const ChallengesPage = lazy(() =>
+  import('../features/books/pages/ChallengesPage').then((m) => ({ default: m.ChallengesPage }))
+);
 const NotificationsPage = lazy(() =>
   import('../features/social').then((m) => ({ default: m.NotificationsPage }))
 );
@@ -63,6 +66,9 @@ const PublicLandingPage = lazy(() =>
 );
 const SearchPage = lazy(() =>
   import('../features/discovery').then((m) => ({ default: m.SearchPage }))
+);
+const RecommendationsPage = lazy(() =>
+  import('../features/discovery').then((m) => ({ default: m.RecommendationsPage }))
 );
 
 function ProfileIdRedirect() {
@@ -93,6 +99,7 @@ export function AppRouter() {
           <Route path="/faqs" element={<FaqsPage />} />
           <Route path="/clubs" element={<ClubsPage />} />
           <Route path="/clubs/:slug" element={<ClubDetailPage />} />
+          <Route path="/challenges" element={<ChallengesPage />} />
           <Route path="/search" element={<SearchPage />} />
         </Route>
 
@@ -100,8 +107,10 @@ export function AppRouter() {
         <Route element={<ProtectedLayout />}>
           <Route path="/home" element={<Home />} />
           <Route path="/search" element={<SearchPage />} />
+          <Route path="/recommendations" element={<RecommendationsPage />} />
           <Route path="/clubs" element={<ClubsPage />} />
           <Route path="/clubs/:slug" element={<ClubDetailPage />} />
+          <Route path="/challenges" element={<ChallengesPage />} />
           <Route path="/books/add" element={<AddBook />} />
           <Route path="/books/:id" element={<BookDetail />} />
           <Route path="/authors/:id" element={<Author />} />

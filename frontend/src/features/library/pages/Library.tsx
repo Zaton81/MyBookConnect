@@ -2,8 +2,10 @@ import { useEffect, useState } from 'react';
 import { useAuthStore } from '../../../store/auth';
 import { useNavigate, Link } from 'react-router-dom';
 import { Spinner } from 'flowbite-react';
+import { HiPlay } from 'react-icons/hi';
 import { resolveMediaUrl } from '../../../utils/media';
 import { ImportBooksModal } from '../components/ImportBooksModal';
+import { useAudioPlayerStore } from '../../../store/audioPlayer';
 
 const DEFAULT_PAGE_SIZE = 12;
 
@@ -57,8 +59,22 @@ export function Library() {
   const [selectedBooks, setSelectedBooks] = useState<Set<number>>(new Set());
   const [refreshKey, setRefreshKey] = useState(0);
   const [showImportModal, setShowImportModal] = useState(false);
+  const [activeAudiobooks, setActiveAudiobooks] = useState<any[]>([]);
+  const { playTrack } = useAudioPlayerStore();
 
   const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
+  useEffect(() => {
+    if (!token) return;
+    fetch(`${apiUrl}/api/v1/books/audiobooks/in-progress/`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data && data.results) setActiveAudiobooks(data.results);
+      })
+      .catch(() => {});
+  }, [apiUrl, token, refreshKey]);
 
   useEffect(() => {
     if (!token) return;
@@ -217,6 +233,75 @@ export function Library() {
           </button>
         </div>
       </div>
+
+      {/* ── Audiolibros en curso (Sprint 18) ── */}
+      {activeAudiobooks.length > 0 && (
+        <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-slate-900 to-teal-950 text-white shadow-lg border border-teal-500/20 space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs sm:text-sm font-bold flex items-center gap-2">
+              <span>🎧</span>
+              <span>Audiolibros en curso</span>
+            </h3>
+            <span className="text-[11px] text-teal-300 font-medium">
+              {activeAudiobooks.length} {activeAudiobooks.length === 1 ? 'obra activa' : 'obras activas'}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+            {activeAudiobooks.map((ab) => (
+              <div
+                key={ab.book_id}
+                className="flex items-center justify-between p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-800 border border-slate-700/60 transition-colors"
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-10 h-10 rounded-lg overflow-hidden bg-slate-700 shrink-0">
+                    {ab.cover_url ? (
+                      <img
+                        src={resolveMediaUrl(ab.cover_url)}
+                        alt={ab.book_title}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-xs">🎧</div>
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <h4 className="font-bold text-xs text-white truncate" title={ab.book_title}>
+                      {ab.book_title}
+                    </h4>
+                    <p className="text-[11px] text-teal-300 truncate">
+                      {ab.formatted_position} ({ab.completion_percentage}%)
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    playTrack(
+                      { id: ab.book_id, title: ab.book_title, author_name: ab.author_name, cover_url: ab.cover_url },
+                      {
+                        id: ab.current_track_id || 1,
+                        title: ab.current_track_title || 'Capítulo',
+                        track_number: 1,
+                        duration_seconds: ab.total_duration_seconds,
+                        stream_url: '',
+                      },
+                      ab.position_seconds,
+                      ab.playback_speed || 1.0
+                    )
+                  }
+                  className="w-8 h-8 rounded-full bg-teal-500 hover:bg-teal-400 text-slate-950 flex items-center justify-center shrink-0 ml-2 transition-transform active:scale-95 shadow-md"
+                  title="Continuar escuchando"
+                  aria-label={`Continuar escuchando ${ab.book_title}`}
+                >
+                  <HiPlay className="w-4 h-4 ml-0.5" />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* ── Pestañas Rápidas de Estados de Lectura ── */}
       <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">

@@ -1,5 +1,6 @@
 import re
 import unicodedata
+import uuid
 
 from django.conf import settings
 from django.contrib.postgres.indexes import GinIndex
@@ -106,6 +107,14 @@ class Book(models.Model):
     published_date = models.DateField(blank=True, null=True)
     created_at = models.DateTimeField(default=timezone.now)
     average_rating = models.FloatField(null=True, blank=True)
+    publisher = models.ForeignKey(
+        'books.Publisher',
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='books',
+        verbose_name='Editorial',
+    )
     categories = models.ManyToManyField(Category, related_name='books', blank=True)
     enrichment_attempted = models.BooleanField(default=False)
     embedding = models.JSONField(null=True, blank=True, help_text="Vector de embedding semántico de la obra")
@@ -917,13 +926,29 @@ class AuthorProfile(models.Model):
 
 class AuthorAnnouncement(models.Model):
     """
-    Comunicado oficial o novedad publicada por un autor verificado para sus lectores.
+    Publicación oficial, comunicado o adelanto literario publicado por un autor para sus lectores.
+    RoadmapV3 Sección 30 — Sprint 12 (Publicaciones avanzadas de autores).
     """
+    class PublicationType(models.TextChoices):
+        ANNOUNCEMENT = 'ANNOUNCEMENT', 'Comunicado oficial'
+        CHAPTER_PREVIEW = 'CHAPTER_PREVIEW', 'Adelanto de capítulo'
+        AUTHOR_DIARY = 'AUTHOR_DIARY', 'Diario de escritura'
+        DELETED_SCENE = 'DELETED_SCENE', 'Escena eliminada / Extra'
+        Q_AND_A = 'Q_AND_A', 'Preguntas y Respuestas'
+
     author_profile = models.ForeignKey(
         AuthorProfile,
         on_delete=models.CASCADE,
         related_name='announcements',
         verbose_name='Perfil de autor',
+    )
+    author = models.ForeignKey(
+        Author,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='announcements',
+        verbose_name='Autor del catálogo',
     )
     book = models.ForeignKey(
         Book,
@@ -933,18 +958,42 @@ class AuthorAnnouncement(models.Model):
         related_name='author_announcements',
         verbose_name='Libro relacionado',
     )
-    title = models.CharField(max_length=200, verbose_name='Título del comunicado')
-    content = models.TextField(verbose_name='Contenido del comunicado')
+    title = models.CharField(max_length=200, verbose_name='Título de la publicación')
+    content = models.TextField(verbose_name='Contenido completo')
+    excerpt = models.CharField(max_length=500, blank=True, verbose_name='Extracto / Resumen previo')
+    publication_type = models.CharField(
+        max_length=30,
+        choices=PublicationType.choices,
+        default=PublicationType.ANNOUNCEMENT,
+        verbose_name='Tipo de publicación',
+    )
+    has_spoilers = models.BooleanField(default=False, verbose_name='Contiene spoilers')
+    spoiler_warning = models.CharField(max_length=255, blank=True, verbose_name='Aviso de spoiler')
+    estimated_reading_time = models.PositiveIntegerField(default=1, verbose_name='Minutos estimados de lectura')
     is_pinned = models.BooleanField(default=False, verbose_name='Fijado en el perfil')
+    is_draft = models.BooleanField(default=False, db_index=True, verbose_name='Es borrador')
     created_at = models.DateTimeField(default=timezone.now, db_index=True, verbose_name='Fecha de publicación')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='Última actualización')
 
     class Meta:
-        verbose_name = 'Comunicado de Autor'
-        verbose_name_plural = 'Comunicados de Autores'
+        verbose_name = 'Publicación de Autor'
+        verbose_name_plural = 'Publicaciones de Autores'
         ordering = ['-is_pinned', '-created_at']
 
     def __str__(self) -> str:
-        return f"[{self.author_profile.pen_name or self.author_profile.user.username}] {self.title}"
+        author_name = self.author.name if self.author else (self.author_profile.pen_name or self.author_profile.user.username)
+        return f"[{self.get_publication_type_display()}] {author_name} - {self.title}"
+
+    def save(self, *args, **kwargs):
+        if not self.excerpt and self.content:
+            clean_text = self.content.strip().replace('\n', ' ')
+            self.excerpt = clean_text[:280] + ('...' if len(clean_text) > 280 else '')
+        if not self.estimated_reading_time and self.content:
+            words = len(self.content.split())
+            self.estimated_reading_time = max(1, round(words / 200))
+        if not self.author and self.author_profile and self.author_profile.author:
+            self.author = self.author_profile.author
+        super().save(*args, **kwargs)
 
 
 class AuthorEvent(models.Model):
@@ -1086,6 +1135,134 @@ class AuthorEventAttendee(models.Model):
 
     def __str__(self) -> str:
         return f"{self.user.username} -> {self.event.title} ({self.get_status_display()})"
+
+
+class AuthorNewsletter(models.Model):
+    """
+    Boletín periódico o canal de novedades de un autor literario.
+    """
+    class Frequency(models.TextChoices):
+        WEEKLY = 'WEEKLY', 'Semanal'
+        BIWEEKLY = 'BIWEEKLY', 'Quincenal'
+        MONTHLY = 'MONTHLY', 'Mensual'
+        OCCASIONAL = 'OCCASIONAL', 'Ocasional'
+
+    author = models.ForeignKey(
+        Author,
+        on_delete=models.CASCADE,
+        related_name='newsletters',
+        verbose_name='Autor del catálogo',
+    )
+    author_profile = models.ForeignKey(
+        AuthorProfile,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='newsletters',
+        verbose_name='Perfil oficial del autor',
+    )
+    title = models.CharField(max_length=255, verbose_name='Título del boletín')
+    description = models.TextField(blank=True, verbose_name='Descripción del boletín')
+    frequency = models.CharField(
+        max_length=20,
+        choices=Frequency.choices,
+        default=Frequency.MONTHLY,
+        verbose_name='Frecuencia estimada',
+    )
+    is_active = models.BooleanField(default=True, verbose_name='Boletín activo')
+    created_at = models.DateTimeField(default=timezone.now, verbose_name='Fecha de creación')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='Última actualización')
+
+    class Meta:
+        verbose_name = 'Boletín de Autor'
+        verbose_name_plural = 'Boletines de Autores'
+        ordering = ['-created_at']
+
+    def __str__(self) -> str:
+        return f"Newsletter: {self.title} ({self.author.name})"
+
+    @property
+    def active_subscribers_count(self) -> int:
+        return self.subscribers.filter(is_active=True).count()
+
+    @property
+    def sent_issues_count(self) -> int:
+        return self.issues.filter(status=AuthorNewsletterIssue.IssueStatus.SENT).count()
+
+
+class AuthorNewsletterSubscriber(models.Model):
+    """
+    Suscripción de un lector al boletín de un autor, con token seguro para baja inmediata.
+    """
+    newsletter = models.ForeignKey(
+        AuthorNewsletter,
+        on_delete=models.CASCADE,
+        related_name='subscribers',
+        verbose_name='Boletín',
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='author_newsletter_subscriptions',
+        verbose_name='Lector suscriptor',
+    )
+    is_active = models.BooleanField(default=True, db_index=True, verbose_name='Suscripción activa')
+    unsubscribe_token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False, verbose_name='Token de cancelación')
+    subscribed_at = models.DateTimeField(default=timezone.now, verbose_name='Fecha de suscripción')
+    unsubscribed_at = models.DateTimeField(null=True, blank=True, verbose_name='Fecha de baja')
+
+    class Meta:
+        verbose_name = 'Suscriptor de Boletín'
+        verbose_name_plural = 'Suscriptores de Boletines'
+        constraints = [
+            models.UniqueConstraint(fields=['newsletter', 'user'], name='unique_newsletter_user_subscription'),
+        ]
+        ordering = ['-subscribed_at']
+
+    def __str__(self) -> str:
+        status_label = "Activo" if self.is_active else "Baja"
+        return f"{self.user.username} -> {self.newsletter.title} ({status_label})"
+
+
+class AuthorNewsletterIssue(models.Model):
+    """
+    Entrega o edición específica del boletín de un autor (borrador, programada o enviada).
+    """
+    class IssueStatus(models.TextChoices):
+        DRAFT = 'DRAFT', 'Borrador'
+        SCHEDULED = 'SCHEDULED', 'Programado'
+        SENT = 'SENT', 'Enviado'
+
+    newsletter = models.ForeignKey(
+        AuthorNewsletter,
+        on_delete=models.CASCADE,
+        related_name='issues',
+        verbose_name='Boletín',
+    )
+    title = models.CharField(max_length=255, verbose_name='Título de la entrega')
+    subject = models.CharField(max_length=255, verbose_name='Asunto / Cabecera')
+    content = models.TextField(verbose_name='Contenido del boletín')
+    status = models.CharField(
+        max_length=20,
+        choices=IssueStatus.choices,
+        default=IssueStatus.DRAFT,
+        db_index=True,
+        verbose_name='Estado',
+    )
+    scheduled_for = models.DateTimeField(null=True, blank=True, verbose_name='Fecha programada')
+    sent_at = models.DateTimeField(null=True, blank=True, db_index=True, verbose_name='Fecha de envío')
+    recipients_count = models.PositiveIntegerField(default=0, verbose_name='Destinatarios alcanzados')
+    views_count = models.PositiveIntegerField(default=0, verbose_name='Aperturas registradas')
+    created_at = models.DateTimeField(default=timezone.now, verbose_name='Fecha de creación')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='Última actualización')
+
+    class Meta:
+        verbose_name = 'Entrega de Boletín'
+        verbose_name_plural = 'Entregas de Boletines'
+        ordering = ['-sent_at', '-created_at']
+
+    def __str__(self) -> str:
+        return f"[{self.get_status_display()}] {self.newsletter.title} - {self.title}"
 
 
 class AffiliateClick(models.Model):
@@ -1246,6 +1423,19 @@ from .club_models import (  # noqa: E402, F401
     ReadingClubBook,
     ReadingClubDiscussion,
     ReadingClubDiscussionComment,
+)
+
+# Modelos de Audiolibros y Reproducción / TTS (RoadmapV3 Sección 30 — Sprint 18)
+from .audiobook_models import (  # noqa: E402, F401
+    AudiobookTrack,
+    UserAudiobookProgress,
+)
+
+# Modelos de Marketplace, Editoriales y Opciones de Compra (RoadmapV3 Sección 30 — Sprint 19)
+from .marketplace_models import (  # noqa: E402, F401
+    Publisher,
+    BookBuyLink,
+    MarketplaceClick,
 )
 
 
