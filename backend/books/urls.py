@@ -15,6 +15,9 @@ from .ai_views import (
     AIStatusView,
     AIToolExecuteView,
     AIToolsListView,
+    AIMultimodalCoverAnalysisView,
+    AIMultimodalAssistantView,
+    AIBookVisualInsightsView,
 )
 from .discovery_views import BookDiscoveryView
 from .import_views import CSVImportConfirmView, CSVImportPreviewView
@@ -115,7 +118,10 @@ urlpatterns = [
     path('ai/tools/execute/', AIToolExecuteView.as_view(), name='book-ai-tools-execute'),
     path('<int:pk>/ai/summary/', AIBookSummaryView.as_view(), name='book-ai-summary'),
     path('<int:pk>/ai/explain/', AIExplainBookView.as_view(), name='book-ai-explain'),
+    path('<int:pk>/ai/visual-insights/', AIBookVisualInsightsView.as_view(), name='book-ai-visual-insights'),
     path('<int:pk>/ai/embeddings/generate/', AIGenerateBookEmbeddingView.as_view(), name='book-ai-embeddings-generate'),
+    path('ai/multimodal/analyze-cover/', AIMultimodalCoverAnalysisView.as_view(), name='book-ai-multimodal-analyze-cover'),
+    path('ai/multimodal/assistant/', AIMultimodalAssistantView.as_view(), name='book-ai-multimodal-assistant'),
 
     path('<int:pk>/', BookDetailView.as_view(), name='books-detail-root'),
     path('<int:pk>/recommendations/', RecommendationView.as_view(), name='book-recommendations-root'),

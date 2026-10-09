@@ -943,8 +943,7 @@ Después:
 - [x] gamificación avanzada (retos de lectura anuales y temáticos, sincronización dinámica por libros/páginas/géneros, ritmo y proyección, racha diaria y medallero);
 - [x] estadísticas avanzadas (ritmo y velocidad días/libro, desglose por longitud y formato, doble evolución mensual y memoria anual retrospectiva);
 - [x] integración con redes sociales (tarjetas gráficas sociales, memoria anual compartible, deep links directos de 1 clic para X, WhatsApp, Telegram, LinkedIn y Facebook, y métricas de analítica de difusión);
-- [x] recomendaciones avanzadas (motor híbrido multimodal con afinidad semántica, gemelos lectores, filtros por género y páginas, descarte en 1 clic y lectores afines);
-- [ ] IA multimodal;
+- [x] IA multimodal (visión computacional para análisis de cubiertas, extracción de paleta cromática, estilo artístico, atmósfera, texto accesible WCAG, asistente literario con soporte de imágenes y búsqueda visual inversa por foto de portada);
 - [x] audiolibros/TTS (reproductor global flotante, streaming de pistas, persistencia de progreso por usuario y narrador sintético Web Speech API);
 - [ ] aplicaciones móviles;
 - [x] marketplace/editoriales (red multitienda, TodosTusLibros de proximidad, grandes cadenas, venta directa editorial y telemetría ética anonimizada).
@@ -1175,6 +1174,27 @@ No comenzar estas funcionalidades mientras existan tareas P0/P1 pendientes.
    - Botón directo "🛍️ Dónde comprar / Librerías" integrado en `BookDetail.tsx` junto con metadatos de editorial vinculada.
    - Panel integrado para autores verificados para publicar y eliminar enlaces comerciales oficiales de sus obras.
 5. [x] Pruebas y Verificación Integral: suite backend `test_sprint19_marketplace_editoriales.py` (7/7 tests pasando al 100%), suite frontend `BookMarketplace.test.tsx` (5/5 tests pasando al 100%), regresión secuencial acumulativa completa Sprints 1 a 19 (**135/135 tests pasando al 100%** de forma consecutiva), typecheck estricto con 0 errores, suite Vitest completa (**23 suites / 85 tests pasando al 100%**) y build de producción limpio en Vite (13.01s).
+
+## Sprint 20 — IA Multimodal y Asistente Literario Ampliado (COMPLETADO)
+
+1. [x] Motor de Visión Computacional Literaria (`multimodal_service.py`):
+   - Extracción de paleta cromática dominante en formato hexadecimal y nombres descriptivos con fallback heurístico determinista y validación PIL.
+   - Clasificación de estilo artístico (ilustración, minimalismo, fotografía, óleo, diseño tipográfico) y atmósfera/tono predominante.
+   - Generación de texto alternativo accesible (Alt-Text descriptivo) alineado con pautas WCAG 2.1 AA.
+   - Búsqueda visual inversa por similitud de cubierta (`analyze_cover_image`) vinculando la imagen con obras del catálogo existente.
+2. [x] Endpoints API REST Multimodales:
+   - `POST /api/v1/books/ai/multimodal/analyze-cover/`: análisis visual completo y detección de coincidencias en catálogo.
+   - `POST /api/v1/books/ai/multimodal/assistant/`: diálogo interactivo con asistente literario con soporte de adjuntos de imagen.
+   - `GET /api/v1/books/<id>/ai/visual-insights/`: análisis cromático y artístico específico de la portada de un libro registrado.
+3. [x] Experiencia Frontend y Componentes Accesibles:
+   - Componente `VisualBookSearchModal.tsx` con drag & drop de imágenes, vista previa, análisis visual, desglose de paleta cromática con copia de códigos HEX al portapapeles y navegación 1-clic a la ficha de la obra detectada.
+   - Ampliación de `AIAssistantModal.tsx` con botón 📷 para adjuntar portadas/páginas, miniatura previa en burbujas de diálogo y consultas multimodales asistidas por IA.
+   - Pestaña interactiva "🎨 Arte & Portada" integrada en la tarjeta BookAI de `BookDetail.tsx` con swatches de color copiables, estilo, atmósfera y descripción accesible.
+4. [x] Pruebas y Verificación Integral:
+   - Suite backend `test_sprint20_multimodal_ai.py` (**7/7 tests pasando al 100%**).
+   - Regresión backend acumulativa completa Sprints 1 a 20 (**142/142 tests pasando al 100%** de forma consecutiva).
+   - Suite frontend `MultimodalAI.test.tsx` (**6/6 tests pasando al 100%**).
+   - Verificación global frontend: `npm run typecheck` (0 errores de TypeScript), suite completa de Vitest (**24 suites / 91 tests pasando al 100%**) y build de producción limpio en Vite (13.06s).
 
 ---
 

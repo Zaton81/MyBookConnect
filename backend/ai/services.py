@@ -548,3 +548,14 @@ def get_available_assistant_tools() -> list[dict[str, Any]]:
     :return: Lista de esquemas JSON de las herramientas registradas.
     """
     return get_tools_definitions()
+
+
+# ==============================================================================
+# SPRINT 20: IA MULTIMODAL, VISIÓN Y ARTE LITERARIO (RoadmapV3 Sección 30)
+# ==============================================================================
+from ai.multimodal_service import (  # noqa: E402
+    analyze_cover_image,
+    multimodal_chat,
+    get_book_visual_insights,
+)
+

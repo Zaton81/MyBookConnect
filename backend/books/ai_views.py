@@ -610,3 +610,100 @@ class AIGenerateBookEmbeddingView(APIView):
         )
 
 
+# ==============================================================================
+# SPRINT 20: IA MULTIMODAL, VISIÓN Y ARTE LITERARIO (RoadmapV3 Sección 30)
+# ==============================================================================
+
+class AIMultimodalCoverAnalysisView(APIView):
+    """
+    Analiza una imagen de portada o fotografía, detecta el estilo visual,
+    paleta cromática y busca coincidencias con el catálogo.
+    RoadmapV3 Sección 30 — Sprint 20.
+    """
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def post(self, request):
+        image_data = request.FILES.get('image') or request.data.get('image') or request.data.get('image_base64')
+        if not image_data:
+            return Response(
+                {'detail': "Se requiere una imagen en el parámetro 'image' o 'image_base64'."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        book_id = request.data.get('book_id')
+        if book_id and str(book_id).isdigit():
+            book_id = int(book_id)
+        else:
+            book_id = None
+
+        try:
+            from ai.multimodal_service import analyze_cover_image
+            analysis = analyze_cover_image(
+                image_data=image_data,
+                book_id=book_id,
+                user=request.user,
+            )
+            return Response(analysis, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.exception("Error al analizar imagen de portada: %s", e)
+            return Response(
+                {'detail': f'Error en el procesamiento multimodal: {str(e)}'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+
+class AIMultimodalAssistantView(APIView):
+    """
+    Chat literario multimodal con el asistente BookAI (texto + imagen opcional adjunta).
+    RoadmapV3 Sección 30 — Sprint 20.
+    """
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def post(self, request):
+        messages = request.data.get('messages', [])
+        image_data = request.FILES.get('image') or request.data.get('image') or request.data.get('image_base64')
+        book_id = request.data.get('book_id')
+        if book_id and str(book_id).isdigit():
+            book_id = int(book_id)
+        else:
+            book_id = None
+
+        req_id = request.headers.get('X-Request-ID')
+
+        try:
+            from ai.multimodal_service import multimodal_chat
+            reply_data = multimodal_chat(
+                user=request.user,
+                messages=messages,
+                image_data=image_data,
+                book_id=book_id,
+                request_id=req_id,
+            )
+            return Response(reply_data, status=status.HTTP_200_OK)
+        except AIRateLimitExceededError as rle:
+            return Response({'detail': str(rle)}, status=status.HTTP_429_TOO_MANY_REQUESTS)
+        except AIPolicyViolationError as pve:
+            return Response({'detail': str(pve)}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            logger.exception("Error en diálogo multimodal: %s", e)
+            return Response(
+                {'detail': f'Error al procesar consulta multimodal: {str(e)}'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+
+class AIBookVisualInsightsView(APIView):
+    """
+    Consulta los metadatos estéticos, cromáticos y de accesibilidad de la portada del libro.
+    RoadmapV3 Sección 30 — Sprint 20.
+    """
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get(self, request, pk):
+        book = get_object_or_404(Book.objects.select_related('author'), pk=pk)
+        from ai.multimodal_service import get_book_visual_insights
+        insights = get_book_visual_insights(book=book, user=request.user)
+        return Response(insights, status=status.HTTP_200_OK)
+
+
+
