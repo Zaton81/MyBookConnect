@@ -1196,6 +1196,22 @@ No comenzar estas funcionalidades mientras existan tareas P0/P1 pendientes.
    - Suite frontend `MultimodalAI.test.tsx` (**6/6 tests pasando al 100%**).
    - Verificación global frontend: `npm run typecheck` (0 errores de TypeScript), suite completa de Vitest (**24 suites / 91 tests pasando al 100%**) y build de producción limpio en Vite (13.06s).
 
+## Integración de Búsqueda de Libros — Amazon PA-API v5 y Soporte de Número de Páginas (COMPLETADO)
+
+1. [x] **Configuración y Proveedor Amazon Product Advertising API v5 (`AmazonBooksProvider`)**:
+   - Implementado con firma canónica AWS SigV4 (`AWS4-HMAC-SHA256`) nativa mediante `hashlib` y `hmac` sin dependencias externas pesadas.
+   - Configurado como la **1ª opción en la cadena jerárquica de búsqueda e importación**: 1º Amazon PA-API → 2º Google Books → 3º Wikipedia → 4º OpenLibrary.
+   - Método `is_configured()` defensivo: si no hay credenciales (situación previa a activación de cuenta de afiliados), realiza fallback transparente e instantáneo sin latencia ni excepciones.
+   - Asociación automática de oferta de compra comercial `BookBuyLink` al marketplace al importar desde Amazon.
+2. [x] **Soporte Global de Recuento de Páginas (`page_count`)**:
+   - Campo `page_count` (`PositiveIntegerField(null=True, blank=True)`) añadido a `Book` con migración `0040_book_page_count.py` aplicada en PostgreSQL.
+   - Extracción de número de páginas en todos los proveedores de catálogo: Amazon (`TechnicalInfo.NumberOfPages`), Google Books (`pageCount`) y OpenLibrary (`number_of_pages` / `number_of_pages_median`).
+   - Exposición en `BookSerializer` y renderizado en la cabecera de `BookDetail.tsx` (`📖 {book.page_count} páginas`).
+3. [x] **Pruebas y Verificación Integral**:
+   - Suite backend `test_amazon_books_provider.py` (**12/12 tests pasando al 100%**).
+   - Regresión de catálogo e importación (`test_services_providers.py`, `test_sprint4_catalog_deduplication.py`, `test_phase55_advanced_import.py`, `test_sprint19_marketplace_editoriales.py` al 100%).
+   - Frontend: `npm run typecheck` (0 errores), Vitest (**24 suites / 91 tests pasando al 100%**) y build de producción Vite exitoso.
+
 ---
 
 # 33. 🚦 Prioridades

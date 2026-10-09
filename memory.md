@@ -582,6 +582,22 @@ Cualquier agente de IA o desarrollador que se incorpore a la base de código **D
   - Suite frontend `frontend/src/features/ai/__tests__/MultimodalAI.test.tsx`: **6/6 tests pasando al 100%**.
   - Frontend verificado: TypeScript estricto con 0 errores (`tsc --noEmit`), suite completa de Vitest (**24 suites / 91 tests pasando al 100%**) y build de producción Vite limpio en 13.06s.
 
+### Integración de Búsqueda Externa: Amazon PA-API v5 y Soporte de `page_count` (Libros)
+- **Proveedor Amazon PA-API v5 (`backend/books/services/providers/amazon.py`):**
+  - Configurado como la **1ª opción en la cadena de búsqueda e importación de libros** (`import_service.py`), con fallback transparente a Google Books, Wikipedia y OpenLibrary cuando `is_configured()` es `False` o ante fallos externos.
+  - Firma canónica AWS SigV4 (`AWS4-HMAC-SHA256`) nativa con `hashlib` y `hmac`.
+  - Settings configurados: `AMAZON_PAAPI_ACCESS_KEY`, `AMAZON_PAAPI_SECRET_KEY`, `AMAZON_PAAPI_TAG`, `AMAZON_PAAPI_REGION`, `AMAZON_PAAPI_HOST`.
+  - Extracción y persistencia de `page_count` (`TechnicalInfo.NumberOfPages`) y generación automática de `BookBuyLink` de afiliado.
+- **Soporte de Páginas (`page_count`):**
+  - Modelo `Book`: campo `page_count = models.PositiveIntegerField(null=True, blank=True)`. Migración `0040_book_page_count.py` aplicada en PostgreSQL.
+  - Proveedores adaptados: `GoogleBooksProvider` (`volumeInfo.pageCount`) y `OpenLibraryProvider` (`number_of_pages` / `number_of_pages_median`).
+  - Serializer `BookSerializer` exponiendo `page_count`.
+  - Frontend `BookDetail.tsx` renderizando el número de páginas (`📖 {book.page_count} páginas`).
+- **Pruebas y Verificación:**
+  - Suite backend `backend/tests/test_amazon_books_provider.py`: **12/12 tests pasando al 100%**.
+  - Regresión combinada de importación y catálogo: **17/17 tests pasando al 100%**.
+  - Frontend verificado: `npm run typecheck` (0 errores), Vitest (**24 suites / 91 tests pasando al 100%**) y build de producción Vite limpio.
+
 ---
 
 ## 5. Ubicación de Documentación Relevante

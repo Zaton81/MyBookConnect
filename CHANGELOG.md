@@ -7,6 +7,25 @@ y este proyecto se adhiere a [Semantic Versioning 2.0.0](https://semver.org/lang
 
 ## [Unreleased]
 
+### Added / Amazon PA-API Affiliate Provider & Book Page Count Support
+- **Proveedor Amazon Product Advertising API v5 (`backend/books/services/providers/amazon.py`)**:
+  - Implementación de firma canónica AWS Signature Version 4 (`AWS4-HMAC-SHA256`) sin dependencias externas mediante `hashlib` y `hmac`.
+  - Configuración preparada en Django settings (`AMAZON_PAAPI_ACCESS_KEY`, `AMAZON_PAAPI_SECRET_KEY`, `AMAZON_PAAPI_TAG`, `AMAZON_PAAPI_REGION`, `AMAZON_PAAPI_HOST`).
+  - Detección reactiva mediante `is_configured()` con fallback transparente e inmediato a Google Books cuando no hay credenciales activas.
+  - Métodos `search_by_title` y `get_by_isbn` extrayendo título, autor, portada en alta resolución, recuento de páginas (`TechnicalInfo.NumberOfPages`) y enlace de afiliado (`DetailPageURL`).
+- **Soporte Global de Recuento de Páginas (`page_count`)**:
+  - Campo `page_count = models.PositiveIntegerField(null=True, blank=True)` añadido a `Book` con migración `0040_book_page_count.py` aplicada en PostgreSQL.
+  - Extracción de número de páginas en `GoogleBooksProvider` (`volumeInfo.pageCount`) y `OpenLibraryProvider` (`number_of_pages` / `number_of_pages_median`).
+  - Exposición de `page_count` en `BookSerializer` y en la cabecera de la ficha del libro en frontend (`BookDetail.tsx` con icono `📖 {book.page_count} páginas`).
+- **Cadena Jerárquica de Importación y Monetización (`import_service.py`)**:
+  - Orden prioritario de búsqueda externa: 1º Amazon PA-API, 2º Google Books, 3º Wikipedia, 4º OpenLibrary.
+  - Creación automática de oferta comercial `BookBuyLink` en el marketplace al importar libros desde Amazon.
+  - Corrección de deduplicación de ISBN principal al actualizar obras existentes.
+- **Verificación y Pruebas**:
+  - Suite de pruebas backend `backend/tests/test_amazon_books_provider.py` (**12/12 tests pasando al 100%**).
+  - Regresión combinada de importación y catálogo (**17/17 tests pasando al 100%**).
+  - Verificación global frontend: `npm run typecheck` limpio (0 errores), Vitest (**24 suites / 91 tests pasando al 100%**) y build de producción Vite exitoso.
+
 ### Added / Multimodal AI & Enhanced Literary Assistant (RoadmapV3 - Sección 30: IA Multimodal - Sprint 20)
 - **Motor de Visión Computacional Literaria (`backend/ai/multimodal_service.py`)**:
   - Análisis cromático avanzado: extracción de paleta de colores dominantes en formato hexadecimal y nombres descriptivos con fallback heurístico determinista y validación PIL.

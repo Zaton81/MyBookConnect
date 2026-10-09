@@ -105,6 +105,11 @@ class Book(models.Model):
     )
     description = models.TextField(blank=True, null=True)
     published_date = models.DateField(blank=True, null=True)
+    page_count = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text="Número de páginas de la obra",
+    )
     created_at = models.DateTimeField(default=timezone.now)
     average_rating = models.FloatField(null=True, blank=True)
     publisher = models.ForeignKey(

@@ -52,6 +52,17 @@ class GoogleBooksProvider:
                     if p not in categories:
                         categories.append(p)
 
+        # Extraer número de páginas
+        page_count = None
+        raw_page_count = info.get('pageCount')
+        if raw_page_count is not None:
+            try:
+                page_count = int(raw_page_count)
+                if page_count <= 0:
+                    page_count = None
+            except (ValueError, TypeError):
+                page_count = None
+
         return ProviderBookData(
             title=title,
             author_name=author_name,
@@ -59,6 +70,7 @@ class GoogleBooksProvider:
             description=description,
             published_date_raw=published_date_raw,
             cover_url=cover_url,
+            page_count=page_count,
             google_volume_id=google_vol_id,
             categories=categories,
             raw_payload=volume,

@@ -211,7 +211,7 @@ class BookSerializer(serializers.ModelSerializer):
         fields = (
             'id', 'title', 'author', 'author_id', 'authors', 'author_ids', 'author_names', 'isbn',
             'additional_isbns', 'google_volume_id', 'openlibrary_work_id', 'openlibrary_edition_id',
-            'cover', 'description', 'published_date', 'average_rating', 'created_at',
+            'cover', 'description', 'published_date', 'page_count', 'average_rating', 'created_at',
             'categories', 'category_ids', 'rating_distribution', 'reviews_count'
         )
         read_only_fields = ('additional_isbns',)
@@ -260,6 +260,9 @@ class BookSerializer(serializers.ModelSerializer):
                 changed = True
             if not existing.cover and validated_data.get('cover'):
                 existing.cover = validated_data.get('cover')
+                changed = True
+            if not existing.page_count and validated_data.get('page_count'):
+                existing.page_count = validated_data.get('page_count')
                 changed = True
             if not existing.author and resolved_author:
                 existing.author = resolved_author

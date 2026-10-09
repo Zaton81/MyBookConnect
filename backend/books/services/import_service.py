@@ -2,6 +2,7 @@ import logging
 import re
 from datetime import datetime
 
+from django.conf import settings
 from django.db import IntegrityError, transaction
 from django.utils.text import slugify
 
@@ -11,10 +12,12 @@ from .author_service import maybe_enrich_author
 from .base import (
     DEFAULT_HEADERS,
     GOOGLE_BOOKS_API_URL,
+    ProviderBookData,
     get_google_books_api_key,
 )
 from .cover_service import attach_best_cover, download_and_attach_image
 from .enrichment_service import attach_categories_to_book
+from .providers.amazon import AmazonBooksProvider
 from .providers.google_books import GoogleBooksProvider
 from .providers.openlibrary import OpenLibraryProvider
 from .providers.wikipedia import WikipediaProvider
@@ -37,10 +40,27 @@ def _create_or_get_from_volume(volume: dict, fallback_isbn: str | None = None) -
     google_vol_id = volume.get('id')
     clean_isbn = re.sub(r'[^\dX]', '', isbn.upper().strip()) if isbn else None
 
+    # Extraer número de páginas si está disponible
+    page_count = None
+    raw_pages = info.get('pageCount')
+    if raw_pages is not None:
+        try:
+            page_count = int(raw_pages)
+            if page_count <= 0:
+                page_count = None
+        except (ValueError, TypeError):
+            page_count = None
+
     with transaction.atomic():
         if google_vol_id:
             existing_vol = Book.objects.select_for_update().filter(google_volume_id=google_vol_id).first()
             if existing_vol:
+                updated_fields = []
+                if page_count and not existing_vol.page_count:
+                    existing_vol.page_count = page_count
+                    updated_fields.append('page_count')
+                if updated_fields:
+                    existing_vol.save(update_fields=updated_fields)
                 if not existing_vol.cover:
                     attach_best_cover(book=existing_vol, info=info, isbn=isbn)
                 return existing_vol
@@ -52,6 +72,9 @@ def _create_or_get_from_volume(volume: dict, fallback_isbn: str | None = None) -
                 if google_vol_id and not existing.google_volume_id:
                     existing.google_volume_id = google_vol_id
                     updated_fields.append('google_volume_id')
+                if page_count and not existing.page_count:
+                    existing.page_count = page_count
+                    updated_fields.append('page_count')
                 if updated_fields:
                     existing.save(update_fields=updated_fields)
                 if not existing.cover:
@@ -85,13 +108,17 @@ def _create_or_get_from_volume(volume: dict, fallback_isbn: str | None = None) -
 
         if found:
             updated_fields = []
+            had_no_isbn = not bool(found.isbn)
             if clean_isbn and found.add_isbn(clean_isbn):
-                updated_fields.append('additional_isbns')
-                if not found.isbn:
+                if had_no_isbn:
                     updated_fields.append('isbn')
+                updated_fields.append('additional_isbns')
             if google_vol_id and not found.google_volume_id:
                 found.google_volume_id = google_vol_id
                 updated_fields.append('google_volume_id')
+            if page_count and not found.page_count:
+                found.page_count = page_count
+                updated_fields.append('page_count')
             if not found.description and info.get('description'):
                 found.description = info.get('description')
                 updated_fields.append('description')
@@ -120,6 +147,7 @@ def _create_or_get_from_volume(volume: dict, fallback_isbn: str | None = None) -
             isbn=isbn,
             google_volume_id=google_vol_id,
             description=info.get('description'),
+            page_count=page_count,
         )
         published = info.get('publishedDate')
         if published:
@@ -164,9 +192,152 @@ def _create_or_get_from_volume(volume: dict, fallback_isbn: str | None = None) -
         return book
 
 
+def _maybe_attach_amazon_buy_link(book: Book, data: ProviderBookData) -> None:
+    """Si el proveedor trajo un enlace de afiliado o ASIN de Amazon, asocia la oferta al marketplace."""
+    if not book or not data or not data.affiliate_url:
+        return
+    try:
+        from books.marketplace_models import BookBuyLink
+        tag = getattr(settings, 'AMAZON_PAAPI_TAG', '') or getattr(settings, 'AMAZON_AFFILIATE_TAG', 'mybooksocial-21')
+        BookBuyLink.objects.get_or_create(
+            book=book,
+            merchant_name="Amazon",
+            format="paperback",
+            defaults={
+                'url': data.affiliate_url,
+                'merchant_type': 'online_retailer',
+                'is_official': True,
+                'is_affiliate': True,
+                'affiliate_tag': tag,
+            },
+        )
+    except Exception as exc:
+        logger.debug(f"No se pudo asociar BookBuyLink de Amazon para '{book.title}': {exc}")
+
+
+def _create_or_get_from_provider_data(data: ProviderBookData, fallback_isbn: str | None = None) -> Book | None:
+    """
+    Crea o recupera un libro a partir de un DTO ProviderBookData (Amazon, OpenLibrary, etc.).
+    Aplica deduplicación multi-nivel por ISBN, título/autor, hidratación de páginas y enlace de afiliado.
+    """
+    if not data or not data.title:
+        return None
+
+    isbn = data.isbn or fallback_isbn
+    clean_isbn = re.sub(r'[^\dX]', '', isbn.upper().strip()) if isbn else None
+    title = data.title.strip()
+    author_name = data.author_name.strip() if data.author_name else None
+
+    with transaction.atomic():
+        # 1. Deduplicación por ISBN
+        if clean_isbn:
+            existing = Book.find_by_isbn(clean_isbn)
+            if existing:
+                updated_fields = []
+                if data.page_count and not existing.page_count:
+                    existing.page_count = data.page_count
+                    updated_fields.append('page_count')
+                if not existing.description and data.description:
+                    existing.description = data.description
+                    updated_fields.append('description')
+                if updated_fields:
+                    existing.save(update_fields=updated_fields)
+                if not existing.cover and data.cover_url:
+                    download_and_attach_image(existing, 'cover', data.cover_url, f"{slugify(existing.title)}-{existing.id}.jpg")
+                if data.categories:
+                    attach_categories_to_book(existing, data.categories)
+                _maybe_attach_amazon_buy_link(existing, data)
+                return existing
+
+        # 2. Resolver autor
+        author_obj = None
+        if author_name:
+            try:
+                with transaction.atomic():
+                    author_obj, _ = Author.objects.get_or_create(name=author_name)
+            except IntegrityError:
+                author_obj = Author.objects.filter(name=author_name).first()
+
+        # 3. Deduplicación por Título Normalizado y Autor
+        norm_title = normalize_title(title)
+        found = None
+        if author_obj:
+            candidates = Book.objects.select_for_update().filter(author=author_obj)
+            for c in candidates:
+                if normalize_title(c.title) == norm_title:
+                    found = c
+                    break
+        elif norm_title:
+            candidates = Book.objects.select_for_update().filter(title__iexact=title)
+            found = candidates.first()
+
+        if found:
+            updated_fields = []
+            if clean_isbn and found.add_isbn(clean_isbn):
+                updated_fields.append('additional_isbns')
+                if not found.isbn:
+                    updated_fields.append('isbn')
+            if data.page_count and not found.page_count:
+                found.page_count = data.page_count
+                updated_fields.append('page_count')
+            if not found.description and data.description:
+                found.description = data.description
+                updated_fields.append('description')
+            if updated_fields:
+                found.save(update_fields=updated_fields)
+            if not found.cover and data.cover_url:
+                download_and_attach_image(found, 'cover', data.cover_url, f"{slugify(found.title)}-{found.id}.jpg")
+            if data.categories:
+                attach_categories_to_book(found, data.categories)
+            _maybe_attach_amazon_buy_link(found, data)
+            return found
+
+        # 4. Crear nuevo libro
+        book = Book(
+            title=title,
+            author=author_obj,
+            isbn=clean_isbn or isbn,
+            description=data.description,
+            page_count=data.page_count,
+            openlibrary_work_id=data.openlibrary_work_id,
+            openlibrary_edition_id=data.openlibrary_edition_id,
+        )
+        if data.published_date_raw:
+            for fmt in ('%Y-%m-%d', '%Y-%m', '%Y'):
+                try:
+                    dt = datetime.strptime(data.published_date_raw[:10], fmt)
+                    book.published_date = dt.date()
+                    break
+                except ValueError:
+                    continue
+
+        try:
+            with transaction.atomic():
+                book.save()
+        except IntegrityError:
+            recovered = None
+            if clean_isbn:
+                recovered = Book.objects.select_for_update().filter(isbn=clean_isbn).first()
+            if not recovered and author_obj:
+                recovered = Book.objects.select_for_update().filter(title__iexact=title, author=author_obj).first()
+            if recovered:
+                return recovered
+            raise
+
+        if data.cover_url:
+            download_and_attach_image(book, 'cover', data.cover_url, f"{slugify(book.title)}-{book.id}.jpg")
+        if data.categories:
+            attach_categories_to_book(book, data.categories)
+        _maybe_attach_amazon_buy_link(book, data)
+        return book
+
+
 def import_single_by_query(query_isbn: str) -> Book | None:
     """
-    Importa un libro específico mediante su ISBN consultando Google Books u OpenLibrary con protección de concurrencia.
+    Importa un libro específico mediante su ISBN con arquitectura multi-proveedor jerárquica:
+    1. Amazon PA-API (Primer proveedor prioritario de afiliados)
+    2. Google Books
+    3. OpenLibrary
     """
     clean_isbn = re.sub(r'[^\dX]', '', query_isbn.upper().strip())
     with transaction.atomic():
@@ -174,7 +345,19 @@ def import_single_by_query(query_isbn: str) -> Book | None:
         if existing:
             return existing
 
-    # 1. Google Books Provider
+    # 1. Amazon PA-API Provider (Prioridad 1)
+    try:
+        amazon_provider = AmazonBooksProvider()
+        if amazon_provider.is_configured():
+            amz_data = amazon_provider.get_by_isbn(clean_isbn)
+            if amz_data:
+                book = _create_or_get_from_provider_data(amz_data, fallback_isbn=clean_isbn)
+                if book:
+                    return book
+    except Exception as e:
+        logger.warning(f"Error consultando Amazon PA-API para isbn {clean_isbn}: {e}")
+
+    # 2. Google Books Provider (Prioridad 2)
     try:
         gb_provider = GoogleBooksProvider()
         book_data = gb_provider.get_by_isbn(clean_isbn)
@@ -183,39 +366,13 @@ def import_single_by_query(query_isbn: str) -> Book | None:
     except Exception as e:
         logger.warning(f"Error consultando Google Books para isbn {clean_isbn}: {e}")
 
-    # 2. Fallback por ISBN en OpenLibrary
+    # 3. Fallback por ISBN en OpenLibrary (Prioridad 3)
     try:
         ol_provider = OpenLibraryProvider()
         ol_data = ol_provider.get_by_isbn(clean_isbn)
         if ol_data:
-            with transaction.atomic():
-                existing = Book.objects.select_for_update().filter(isbn=clean_isbn).first()
-                if existing:
-                    return existing
-
-                author_obj = None
-                if ol_data.author_name:
-                    try:
-                        with transaction.atomic():
-                            author_obj, _ = Author.objects.get_or_create(name=ol_data.author_name)
-                    except IntegrityError:
-                        author_obj = Author.objects.filter(name=ol_data.author_name).first()
-
-                try:
-                    with transaction.atomic():
-                        book = Book.objects.create(
-                            title=ol_data.title,
-                            author=author_obj,
-                            isbn=clean_isbn,
-                            description=ol_data.description,
-                        )
-                except IntegrityError:
-                    return Book.objects.select_for_update().filter(isbn=clean_isbn).first()
-
-                if ol_data.categories:
-                    attach_categories_to_book(book, ol_data.categories)
-                if ol_data.cover_url:
-                    download_and_attach_image(book, 'cover', ol_data.cover_url, f"{slugify(book.title)}-{book.id}.jpg")
+            book = _create_or_get_from_provider_data(ol_data, fallback_isbn=clean_isbn)
+            if book:
                 return book
     except Exception as e:
         logger.warning(f"Error consultando OpenLibrary para isbn {clean_isbn}: {e}")
@@ -355,15 +512,30 @@ def _import_from_openlibrary_by_title(title: str, offset: int = 0) -> list[Book]
 
 def import_multiple_by_title(title: str, offset: int = 0) -> list[Book]:
     """
-    Busca libros externamente con arquitectura multi-proveedor:
-    1. Google Books (con soporte de API Key y langRestrict)
-    2. Fallback a Wikipedia (búsqueda estructurada + sinopsis + portada oficial)
-    3. Fallback a OpenLibrary
+    Busca libros externamente con arquitectura multi-proveedor jerárquica:
+    1. Amazon PA-API (Primer proveedor prioritario de afiliados)
+    2. Google Books (con soporte de API Key y langRestrict)
+    3. Fallback a Wikipedia (búsqueda estructurada + sinopsis + portada oficial)
+    4. Fallback a OpenLibrary
     """
     books = []
     clean_title = title.strip()
 
-    # 1. Intentar Google Books
+    # 1. Intentar Amazon PA-API (Prioridad 1)
+    try:
+        amazon_provider = AmazonBooksProvider()
+        if amazon_provider.is_configured():
+            amz_dtos = amazon_provider.search_by_title(clean_title, offset=offset, limit=8)
+            for dto in amz_dtos:
+                book = _create_or_get_from_provider_data(dto)
+                if book and book not in books:
+                    books.append(book)
+            if books:
+                return books
+    except Exception as e:
+        logger.warning(f"Error consultando Amazon PA-API para título '{clean_title}': {e}")
+
+    # 2. Intentar Google Books (Prioridad 2)
     try:
         gb_provider = GoogleBooksProvider()
         book_dtos = gb_provider.search_by_title(clean_title, offset=offset, limit=8)
