@@ -48,13 +48,15 @@ export function BookDetail() {
   const [isEditing, setIsEditing] = useState(false);
   const [savingShelf, setSavingShelf] = useState(false);
 
-  // Análisis y Explicación de BookAI (Fase 24)
+  // Análisis y Explicación de BookAI (Fase 24 & Sprint 20)
   const [aiSummary, setAiSummary] = useState<string | null>(null);
   const [aiExplanation, setAiExplanation] = useState<string | null>(null);
+  const [visualInsights, setVisualInsights] = useState<any | null>(null);
   const [aiDisclaimer, setAiDisclaimer] = useState<string | null>(null);
   const [loadingAi, setLoadingAi] = useState(false);
   const [loadingExplain, setLoadingExplain] = useState(false);
-  const [activeAiTab, setActiveAiTab] = useState<'summary' | 'explain'>('summary');
+  const [loadingVisual, setLoadingVisual] = useState(false);
+  const [activeAiTab, setActiveAiTab] = useState<'summary' | 'explain' | 'visual'>('summary');
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [isMarketplaceModalOpen, setIsMarketplaceModalOpen] = useState(false);
@@ -286,6 +288,26 @@ export function BookDetail() {
       console.error(e);
     } finally {
       setLoadingExplain(false);
+    }
+  };
+
+  const handleFetchVisualInsights = async () => {
+    if (!token || !id) return;
+    setLoadingVisual(true);
+    setActiveAiTab('visual');
+    try {
+      const res = await fetch(`${apiUrl}/api/v1/books/${id}/ai/visual-insights/`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setVisualInsights(data);
+        if (data.disclaimer) setAiDisclaimer(data.disclaimer);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoadingVisual(false);
     }
   };
 
@@ -803,7 +825,7 @@ export function BookDetail() {
                   </button>
                   <button
                     onClick={handleFetchAiExplain}
-                    disabled={loadingAi || loadingExplain}
+                    disabled={loadingAi || loadingExplain || loadingVisual}
                     className={`text-xs font-bold px-3 py-1.5 rounded-xl transition-all backdrop-blur-sm flex items-center gap-1.5 ${
                       activeAiTab === 'explain' && aiExplanation
                         ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/30'
@@ -812,11 +834,22 @@ export function BookDetail() {
                   >
                     {loadingExplain ? 'Analizando contexto...' : 'Explicación en profundidad'}
                   </button>
+                  <button
+                    onClick={handleFetchVisualInsights}
+                    disabled={loadingAi || loadingExplain || loadingVisual}
+                    className={`text-xs font-bold px-3 py-1.5 rounded-xl transition-all backdrop-blur-sm flex items-center gap-1.5 ${
+                      activeAiTab === 'visual' && visualInsights
+                        ? 'bg-indigo-500 text-white shadow-md shadow-indigo-500/30'
+                        : 'bg-white/10 hover:bg-white/20 text-indigo-100'
+                    }`}
+                  >
+                    {loadingVisual ? 'Analizando arte...' : '🎨 Arte & Portada'}
+                  </button>
                 </div>
               </div>
 
-              {/* Pestañas cuando ambos contenidos han sido solicitados */}
-              {(aiSummary || aiExplanation) && (
+              {/* Pestañas cuando al menos un contenido ha sido solicitado */}
+              {(aiSummary || aiExplanation || visualInsights) && (
                 <div className="flex gap-2 border-b border-white/10 pb-2 text-xs font-semibold">
                   {aiSummary && (
                     <button
@@ -842,23 +875,37 @@ export function BookDetail() {
                       Explicación y claves
                     </button>
                   )}
+                  {visualInsights && (
+                    <button
+                      onClick={() => setActiveAiTab('visual')}
+                      className={`pb-1 transition-colors ${
+                        activeAiTab === 'visual'
+                          ? 'text-indigo-300 border-b-2 border-indigo-400 font-bold'
+                          : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      🎨 Arte & Portada
+                    </button>
+                  )}
                 </div>
               )}
 
               {/* Indicador de carga */}
-              {(loadingAi || loadingExplain) && (
+              {(loadingAi || loadingExplain || loadingVisual) && (
                 <div className="flex items-center gap-2.5 text-xs text-teal-200 py-3 bg-white/5 rounded-xl px-4 border border-white/5">
                   <Spinner size="sm" color="info" />
                   <span>
                     {loadingExplain
                       ? 'Analizando contexto histórico, estilo de autor y claves temáticas...'
-                      : 'Sintetizando ideas principales y ejes conceptuales de la obra...'}
+                      : loadingVisual
+                        ? 'Extrayendo paleta cromática, estilo artístico y análisis visual de la cubierta...'
+                        : 'Sintetizando ideas principales y ejes conceptuales de la obra...'}
                   </span>
                 </div>
               )}
 
               {/* Contenido según pestaña activa */}
-              {!loadingAi && !loadingExplain && (
+              {!loadingAi && !loadingExplain && !loadingVisual && (
                 <>
                   {activeAiTab === 'summary' && aiSummary && (
                     <div className="text-xs sm:text-sm text-teal-50/90 leading-relaxed whitespace-pre-line pt-1">
@@ -872,10 +919,76 @@ export function BookDetail() {
                     </div>
                   )}
 
-                  {!aiSummary && !aiExplanation && (
+                  {activeAiTab === 'visual' && visualInsights && (
+                    <div className="space-y-3 pt-1 text-xs sm:text-sm">
+                      {/* Paleta de colores */}
+                      {visualInsights.color_palette && visualInsights.color_palette.length > 0 && (
+                        <div>
+                          <span className="text-[11px] font-semibold text-indigo-200 uppercase tracking-wider block mb-1.5">
+                            Paleta Cromática Dominante
+                          </span>
+                          <div className="flex flex-wrap items-center gap-2">
+                            {visualInsights.color_palette.map((color: string, idx: number) => (
+                              <div
+                                key={idx}
+                                className="flex items-center gap-1.5 bg-black/30 border border-white/10 rounded-lg px-2 py-1"
+                              >
+                                <span
+                                  className="w-4 h-4 rounded-full border border-white/20 shadow-xs"
+                                  style={{ backgroundColor: color }}
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => navigator.clipboard?.writeText(color)}
+                                  title="Copiar código HEX"
+                                  className="font-mono text-[11px] text-slate-200 hover:text-white transition-colors"
+                                >
+                                  {color}
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Metadatos visuales */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                        {visualInsights.artistic_style && (
+                          <div className="bg-white/5 border border-white/10 rounded-xl p-2.5">
+                            <span className="text-[10px] uppercase font-bold text-indigo-300 block">
+                              Estilo Visual
+                            </span>
+                            <p className="text-slate-100 font-medium mt-0.5">{visualInsights.artistic_style}</p>
+                          </div>
+                        )}
+                        {visualInsights.mood && (
+                          <div className="bg-white/5 border border-white/10 rounded-xl p-2.5">
+                            <span className="text-[10px] uppercase font-bold text-indigo-300 block">
+                              Atmósfera / Tono
+                            </span>
+                            <p className="text-slate-100 font-medium mt-0.5">{visualInsights.mood}</p>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Alt text descriptivo y accesible */}
+                      {visualInsights.accessible_alt_text && (
+                        <div className="bg-white/5 border border-white/10 rounded-xl p-2.5">
+                          <span className="text-[10px] uppercase font-bold text-indigo-300 block">
+                            Descripción Accesible (Alt Text)
+                          </span>
+                          <p className="text-slate-200 text-xs mt-0.5 italic leading-relaxed">
+                            &ldquo;{visualInsights.accessible_alt_text}&rdquo;
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {!aiSummary && !aiExplanation && !visualInsights && (
                     <p className="text-xs text-teal-200/70">
                       Pulsa cualquiera de los botones superiores para que BookAI te revele el
-                      contexto histórico, claves de lectura y recomendaciones de esta obra.
+                      contexto histórico, claves de lectura, o el análisis visual y cromático de la cubierta.
                     </p>
                   )}
                 </>

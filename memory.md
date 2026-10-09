@@ -562,6 +562,26 @@ Cualquier agente de IA o desarrollador que se incorpore a la base de código **D
   - Regresión secuencial completa backend (Sprints 1 al 19): **135/135 tests pasando consecutivamente al 100%** en 134.34s.
   - Frontend verificado: TypeScript estricto con 0 errores (`tsc --noEmit`), Vitest completo (**23 suites / 85 tests pasando al 100%**) y build de producción Vite generado limpiamente en 13.01s.
 
+### 4.40. Sprint 20: IA Multimodal y Asistente Literario Ampliado
+- **Motor de Visión Computacional Literaria (`backend/ai/multimodal_service.py`):**
+  - Análisis cromático avanzado: extracción de paleta de colores dominantes con código hexadecimal, nombres humanos evocadores y contrastes, respaldado por validación de imágenes con Pillow/PIL y fallback determinista.
+  - Clasificación estética y tonal: categorización de estilos artísticos (Realismo Mágico, Ilustración Fantástica, Fotografía Editorial, Minimalista, etc.) y atmósferas sensoriales (nostálgica, épica, misteriosa, etc.).
+  - Accesibilidad Universal: generación de texto alternativo descriptivo enriquecido (`accessible_alt_text`) para personas con discapacidad visual según estándares WCAG 2.1 AA.
+  - Búsqueda visual inversa: coincidencia visual y semántica con obras del catálogo existente (`analyze_cover_image`) calculando el porcentaje de certidumbre (`match_confidence`).
+- **Endpoints API REST (`backend/books/ai_views.py`):**
+  - `POST /api/v1/books/ai/multimodal/analyze-cover/`: análisis visual completo y búsqueda por portada (acepta JSON base64 o multipart/form-data).
+  - `POST /api/v1/books/ai/multimodal/assistant/`: interacción conversacional con IA con soporte de adjuntos de imagen para resolver dudas sobre ediciones, estilos y portadas.
+  - `GET /api/v1/books/<id>/ai/visual-insights/`: análisis cromático y artístico específico de la cubierta de una obra existente.
+- **Frontend y Experiencia de Usuario:**
+  - `VisualBookSearchModal.tsx`: modal interactivo de búsqueda visual con drag & drop de imágenes, vista previa, análisis visual con IA, visualización de paleta cromática con copia de códigos HEX al portapapeles y enlace directo a la ficha del libro detectado.
+  - `AIAssistantModal.tsx`: ampliación con botón de cámara 📷 para adjuntar imágenes, miniaturas en las burbujas de chat y diálogo multimodal.
+  - `BookDetail.tsx`: pestaña interactiva "🎨 Arte & Portada" en la tarjeta BookAI con swatches de color, estilos, atmósferas y descripción accesible.
+- **Calidad y Verificación Integral:**
+  - Suite backend `backend/tests/test_sprint20_multimodal_ai.py`: **7/7 tests pasando al 100%**.
+  - Regresión secuencial completa backend (Sprints 1 al 20): **142/142 tests pasando al 100% de forma consecutiva** (126.59s).
+  - Suite frontend `frontend/src/features/ai/__tests__/MultimodalAI.test.tsx`: **6/6 tests pasando al 100%**.
+  - Frontend verificado: TypeScript estricto con 0 errores (`tsc --noEmit`), suite completa de Vitest (**24 suites / 91 tests pasando al 100%**) y build de producción Vite limpio en 13.06s.
+
 ---
 
 ## 5. Ubicación de Documentación Relevante
