@@ -19,7 +19,7 @@ MyBookConnect/
 ├── architecture.md            # Diagramas y diseño de arquitectura
 ├── structure.md               # Este documento de estructura de directorios
 ├── README.md                  # Documentación principal y guía de inicio rápido
-├── Roadmap.md                 # Hoja de ruta exhaustiva del proyecto (50 fases)
+├── memory.md                  # Memoria técnica del proyecto y contexto operativo
 └── instruccionesAgente.md     # Directrices y principios de ingeniería de software
 ```
 

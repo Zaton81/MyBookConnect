@@ -12,11 +12,10 @@ Cualquier agente de IA o desarrollador que se incorpore a la base de código **D
    - Todo el trabajo de desarrollo e integración se realiza **SIEMPRE en la rama `develop`**.
    - Nunca hacer push directo a `main`.
 2. **Flujo de Fases y Commits:**
-   - Seguir estrictamente el orden de fases definido en [RoadmapV2.md](file:///c:/Users/zaton/Desktop/Escritorio/proyectos/MyBookConnect/RoadmapV2.md).
-   - Redactar y someter a aprobación del usuario un plan detallado en `implementation_plan.md` antes de implementar una nueva fase.
-   - Tras completar cada fase, verificar calidad (100% tests pasando, linters limpios, cero cambios de migración pendientes) y realizar inmediatamente un **commit semántico** y **`git push origin develop`**.
+   - Mantener la integridad de la arquitectura y la suite de pruebas.
+   - Tras completar cada funcionalidad o fase, verificar calidad (100% tests pasando, linters limpios, cero cambios de migración pendientes) y realizar inmediatamente un **commit semántico** y **`git push origin develop`**.
 3. **Cero Regresiones:**
-   - La suite completa de backend (114 tests del Roadmap, >680 tests totales) y frontend (27 tests de Vitest) debe pasar al 100%. Ningún commit debe romper funcionalidad previa.
+   - La suite completa de backend y frontend de Vitest debe pasar al 100%. Ningún commit debe romper funcionalidad previa.
 4. **Seguridad de Base de Datos de Pruebas:**
    - **PROHIBIDO ejecutar comandos concurrentes/paralelos de `pytest`**. La base de datos de test PostgreSQL (`test_booksocial`) entra en bloqueo transaccional (`OperationalError: database is being accessed by other users`) si se ejecutan múltiples instancias a la vez.
 
@@ -31,7 +30,7 @@ Cualquier agente de IA o desarrollador que se incorpore a la base de código **D
 
 ---
 
-## 3. Estado de Ejecución del Roadmap (RoadmapV2.md)
+## 3. Estado de Ejecución de Fases y Funcionalidades (Consolidado)
 
 | Fase | Título | Estado | Hito Clave / Entregable |
 | :--- | :--- | :--- | :--- |
