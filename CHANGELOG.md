@@ -7,6 +7,28 @@ y este proyecto se adhiere a [Semantic Versioning 2.0.0](https://semver.org/lang
 
 ## [Unreleased]
 
+### Added / Verified Author Exclusive Publications & Administration Moderation / Censorship (RoadmapV3)
+- **Autorización Estricta de Publicaciones de Autor (`backend/books/views.py`, `backend/books/serializers.py`)**:
+  - Restricción rigurosa en `AuthorPublicationViewSet.perform_create` y `AuthorAnnouncementCreateView`: únicamente los autores titulares con perfil verificado (`(author.claimed_by == user and author.is_verified) or (profile.author == author and profile.is_verified)`) pueden publicar en el perfil de autor (`403 Forbidden` para usuarios ordinarios, terceros o reclamaciones no verificadas).
+  - Modificación y eliminación (`perform_update`, `perform_destroy`): restringido exclusivamente al autor verificado titular o administradores/moderadores (`403 Forbidden` para terceros).
+- **Campos de Moderación y Monetización en `AuthorAnnouncement` (`backend/books/models.py`)**:
+  - Añadidos `is_paid` (boolean), `price` (decimal positivo), `is_moderated` (boolean), `moderation_reason` (text), `moderated_by` (FK User), `moderated_at` (DateTimeField).
+  - Migración de base de datos `books/migrations/0041_authorannouncement_moderation_and_paid.py` generada y aplicada en PostgreSQL.
+- **Flujo de Censura y Moderación (`censor` endpoint & consola universal)**:
+  - Acción `@action(detail=True, methods=['post'])` en `AuthorPublicationViewSet` (`/api/v1/books/author-publications/<id>/censor/`) que permite a administradores y moderadores alternar o fijar `is_moderated`, especificar `moderation_reason`, y registrar trazas en `AuditLog`.
+  - Integración en la consola de moderación administrativa universal (`AdminContentHideView` y `AdminContentRestoreView` en `/api/v1/admin/moderation/hide/` y `/restore/`) para `target_type='author_publication'` y `'announcement'`.
+  - Ocultación garantizada: los lectores anónimos u ordinarios nunca ven publicaciones con `is_moderated=True` (`get_queryset` y `get_announcements_for_author`), mientras que el autor original y los administradores pueden visualizarlas con advertencia de moderación.
+- **Frontend y Controles de Interfaz (`Author.tsx`, `AuthorPublicationsSection.tsx`)**:
+  - Validación en `Author.tsx` distinguiendo `isVerifiedAuthorOwner` (`author.claimed_by === user.id && author.is_verified`) de `isAdminOrModerator`.
+  - Botón "Nueva Publicación" reservado exclusivamente para el autor verificado titular.
+  - Opciones de monetización en formulario: checkbox para publicaciones de pago (`is_paid`) y campo de precio (€).
+  - Controles de moderación para administradores: botón de edición/eliminación administrativa, botón y modal de censura (`Confirmar Censura` / `Restaurar y Publicar`).
+  - Distintivos visuales: badge `🔒 De pago (X.XX €)`, badge `🚫 Censurada` y alerta de moderación con motivo.
+- **Pruebas y Verificación**:
+  - Suite de pruebas backend exhaustiva `backend/tests/test_author_verified_publications.py` (**9/9 tests PASSED**).
+  - Regresión backend `backend/tests/test_sprint12_author_publications.py` (**7/7 tests PASSED**).
+  - Verificación frontend: `npm run typecheck` limpio (0 errores) y build de producción Vite exitoso.
+
 ### Added / Amazon PA-API Affiliate Provider & Book Page Count Support
 - **Proveedor Amazon Product Advertising API v5 (`backend/books/services/providers/amazon.py`)**:
   - Implementación de firma canónica AWS Signature Version 4 (`AWS4-HMAC-SHA256`) sin dependencias externas mediante `hashlib` y `hmac`.

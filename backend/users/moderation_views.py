@@ -297,6 +297,16 @@ class AdminContentHideView(APIView):
                     return Response({'detail': 'Lista de lectura no encontrada.'}, status=status.HTTP_404_NOT_FOUND)
                 target.is_moderated = True
                 target.save(update_fields=['is_moderated'])
+            elif target_type in ('author_publication', 'announcement'):
+                from books.models import AuthorAnnouncement
+                target = AuthorAnnouncement.objects.filter(id=target_id).first()
+                if not target:
+                    return Response({'detail': 'Publicación de autor no encontrada.'}, status=status.HTTP_404_NOT_FOUND)
+                target.is_moderated = True
+                target.moderation_reason = reason
+                target.moderated_by = request.user
+                target.moderated_at = timezone.now()
+                target.save(update_fields=['is_moderated', 'moderation_reason', 'moderated_by', 'moderated_at'])
             else:
                 return Response({'detail': f"target_type no válido: {target_type}"}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -354,6 +364,16 @@ class AdminContentRestoreView(APIView):
                     return Response({'detail': 'Lista de lectura no encontrada.'}, status=status.HTTP_404_NOT_FOUND)
                 target.is_moderated = False
                 target.save(update_fields=['is_moderated'])
+            elif target_type in ('author_publication', 'announcement'):
+                from books.models import AuthorAnnouncement
+                target = AuthorAnnouncement.objects.filter(id=target_id).first()
+                if not target:
+                    return Response({'detail': 'Publicación de autor no encontrada.'}, status=status.HTTP_404_NOT_FOUND)
+                target.is_moderated = False
+                target.moderation_reason = ''
+                target.moderated_by = None
+                target.moderated_at = None
+                target.save(update_fields=['is_moderated', 'moderation_reason', 'moderated_by', 'moderated_at'])
             else:
                 return Response({'detail': f"target_type no válido: {target_type}"}, status=status.HTTP_400_BAD_REQUEST)
 

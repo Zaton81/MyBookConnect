@@ -977,6 +977,19 @@ class AuthorAnnouncement(models.Model):
     estimated_reading_time = models.PositiveIntegerField(default=1, verbose_name='Minutos estimados de lectura')
     is_pinned = models.BooleanField(default=False, verbose_name='Fijado en el perfil')
     is_draft = models.BooleanField(default=False, db_index=True, verbose_name='Es borrador')
+    is_paid = models.BooleanField(default=False, db_index=True, verbose_name='Publicación de pago')
+    price = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True, verbose_name='Precio de acceso')
+    is_moderated = models.BooleanField(default=False, db_index=True, verbose_name='Censurado / Ocultado por moderación')
+    moderation_reason = models.CharField(max_length=255, blank=True, verbose_name='Motivo de moderación')
+    moderated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='moderated_author_announcements',
+        verbose_name='Moderado por',
+    )
+    moderated_at = models.DateTimeField(null=True, blank=True, verbose_name='Fecha de moderación')
     created_at = models.DateTimeField(default=timezone.now, db_index=True, verbose_name='Fecha de publicación')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='Última actualización')
 

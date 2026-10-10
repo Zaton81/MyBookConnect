@@ -360,6 +360,8 @@ class AuthorService:
         estimated_reading_time: int | None = None,
         is_draft: bool = False,
         author_id: int | None = None,
+        is_paid: bool = False,
+        price: float | None = None,
     ):
         """Crea una publicación oficial o comunicado emitido por el autor."""
         from django.utils import timezone
@@ -380,6 +382,8 @@ class AuthorService:
             spoiler_warning=spoiler_warning.strip(),
             is_pinned=is_pinned,
             is_draft=is_draft,
+            is_paid=is_paid,
+            price=price,
             created_at=timezone.now(),
         )
         if estimated_reading_time:
@@ -388,13 +392,21 @@ class AuthorService:
         return announcement
 
     @classmethod
-    def get_announcements_for_author(cls, author_id: int, include_drafts: bool = False, publication_type: str | None = None):
+    def get_announcements_for_author(
+        cls,
+        author_id: int,
+        include_drafts: bool = False,
+        publication_type: str | None = None,
+        include_moderated: bool = False,
+    ):
         """Obtiene las publicaciones asociadas a un autor del catálogo."""
         from django.db.models import Q
         from books.models import AuthorAnnouncement
         qs = AuthorAnnouncement.objects.filter(
             Q(author_id=author_id) | Q(author_profile__author_id=author_id)
         ).select_related('author_profile', 'author', 'book')
+        if not include_moderated:
+            qs = qs.filter(is_moderated=False)
         if not include_drafts:
             qs = qs.filter(is_draft=False)
         if publication_type:

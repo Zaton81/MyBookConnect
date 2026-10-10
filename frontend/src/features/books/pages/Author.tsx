@@ -529,9 +529,8 @@ export function Author() {
       <AuthorPublicationsSection
         authorId={author.id}
         authorName={author.name}
-        isAuthorOwner={Boolean(
-          (user && (author.claimed_by === user.id || (user as any).role === 'ADMIN' || (user as any).role === 'MODERATOR' || user.is_staff))
-        )}
+        isAuthorOwner={Boolean(user && author.claimed_by === user.id && author.is_verified)}
+        isAdmin={Boolean(user && (user.is_staff || (user as any).role === 'ADMIN' || (user as any).role === 'MODERATOR'))}
         books={localBooks}
       />
 

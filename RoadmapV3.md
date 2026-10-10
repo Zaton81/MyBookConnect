@@ -1212,6 +1212,27 @@ No comenzar estas funcionalidades mientras existan tareas P0/P1 pendientes.
    - Regresión de catálogo e importación (`test_services_providers.py`, `test_sprint4_catalog_deduplication.py`, `test_phase55_advanced_import.py`, `test_sprint19_marketplace_editoriales.py` al 100%).
    - Frontend: `npm run typecheck` (0 errores), Vitest (**24 suites / 91 tests pasando al 100%**) y build de producción Vite exitoso.
 
+## Publicaciones de Autores Verificados, Monetización y Moderación/Censura de Administración (COMPLETADO)
+
+1. [x] **Autorización Estricta de Publicaciones de Autor**:
+   - Creación de publicaciones (`AuthorPublicationViewSet.perform_create` y `AuthorAnnouncementCreateView`): restringido con `403 Forbidden` exclusivamente al autor titular verificado (`(author.claimed_by == user and author.is_verified) or (profile.author == author and profile.is_verified)`).
+   - Modificación y eliminación (`perform_update`, `perform_destroy`): permitido únicamente al autor titular verificado o a administradores/moderadores (`403 Forbidden` para terceros).
+2. [x] **Modelo `AuthorAnnouncement`, Monetización y Migración**:
+   - Añadidos `is_paid` (boolean), `price` (decimal positivo), `is_moderated` (boolean), `moderation_reason` (text), `moderated_by` (FK User), `moderated_at` (DateTimeField).
+   - Migración `books/migrations/0041_authorannouncement_moderation_and_paid.py` aplicada en PostgreSQL.
+3. [x] **Flujo y Consola de Moderación/Censura**:
+   - Endpoint `@action(detail=True, methods=['post'])` en `AuthorPublicationViewSet` (`/api/v1/books/author-publications/<id>/censor/`) para alternar censura o fijar `is_moderated`, motivo y autoría con registro de `AuditLog`.
+   - Soporte en consola de moderación administrativa universal (`AdminContentHideView` y `AdminContentRestoreView` en `/api/v1/admin/moderation/hide/` y `/restore/`) para `author_publication` y `announcement`.
+   - Ocultación para lectores comunes en `get_queryset` y `get_announcements_for_author`; visibilidad preservada para autor original (con aviso) y administradores.
+4. [x] **Experiencia Frontend y Controles de Interfaz**:
+   - `Author.tsx`: validación estricta distinguiendo `isVerifiedAuthorOwner` (`author.claimed_by === user.id && author.is_verified`) de `isAdminOrModerator`.
+   - `AuthorPublicationsSection.tsx`: botón "Nueva Publicación" visible exclusivamente para el autor verificado titular. Opciones de monetización (`is_paid`, `price`).
+   - Controles de moderación para administradores: botones de edición/eliminación administrativa, botón "Censurar" / "Restaurar" y modal con motivo de censura. Badges `🔒 De pago (X.XX €)`, `🚫 Censurada` y alerta de moderación con motivo.
+5. [x] **Pruebas y Verificación Integral**:
+   - Suite backend dedicada `test_author_verified_publications.py` (**9/9 tests pasando al 100%**).
+   - Regresión backend `test_sprint12_author_publications.py` (**7/7 tests pasando al 100%**).
+   - Frontend: `npm run typecheck` (0 errores) y build de producción Vite exitoso.
+
 ---
 
 # 33. 🚦 Prioridades

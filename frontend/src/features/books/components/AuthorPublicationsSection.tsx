@@ -11,6 +11,7 @@ import {
   HiOutlineX,
   HiOutlineEye,
   HiOutlineEyeOff,
+  HiOutlineShieldCheck,
 } from 'react-icons/hi';
 import { useAuthStore } from '../../../store/auth';
 
@@ -33,6 +34,10 @@ export interface AuthorPublicationItem {
   estimated_reading_time: number;
   is_pinned: boolean;
   is_draft: boolean;
+  is_paid?: boolean;
+  price?: string | number | null;
+  is_moderated?: boolean;
+  moderation_reason?: string;
   created_at: string;
   updated_at: string;
 }
@@ -41,6 +46,7 @@ interface AuthorPublicationsSectionProps {
   authorId: number;
   authorName: string;
   isAuthorOwner: boolean;
+  isAdmin?: boolean;
   books: { id: number; title: string; cover?: string }[];
 }
 
@@ -48,6 +54,7 @@ export const AuthorPublicationsSection: React.FC<AuthorPublicationsSectionProps>
   authorId,
   authorName,
   isAuthorOwner,
+  isAdmin = false,
   books,
 }) => {
   const { token } = useAuthStore();
@@ -70,9 +77,17 @@ export const AuthorPublicationsSection: React.FC<AuthorPublicationsSectionProps>
     spoiler_warning: '',
     is_pinned: false,
     is_draft: false,
+    is_paid: false,
+    price: '',
   });
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+
+  // Modal de Censura (Solo Administradores/Moderadores)
+  const [isCensorModalOpen, setIsCensorModalOpen] = useState(false);
+  const [censoringItem, setCensoringItem] = useState<AuthorPublicationItem | null>(null);
+  const [censorReason, setCensorReason] = useState('');
+  const [censorSubmitting, setCensorSubmitting] = useState(false);
 
   const apiUrl = (import.meta as any).env.VITE_API_URL || 'http://localhost:8000';
 
@@ -86,7 +101,7 @@ export const AuthorPublicationsSection: React.FC<AuthorPublicationsSectionProps>
       if (selectedType !== 'ALL') {
         url += `&type=${selectedType}`;
       }
-      if (isAuthorOwner && showDrafts) {
+      if ((isAuthorOwner || isAdmin) && showDrafts) {
         url += `&drafts=true`;
       }
 
@@ -118,6 +133,8 @@ export const AuthorPublicationsSection: React.FC<AuthorPublicationsSectionProps>
       spoiler_warning: '',
       is_pinned: false,
       is_draft: false,
+      is_paid: false,
+      price: '',
     });
     setFormError(null);
     setIsModalOpen(true);
@@ -134,9 +151,47 @@ export const AuthorPublicationsSection: React.FC<AuthorPublicationsSectionProps>
       spoiler_warning: item.spoiler_warning,
       is_pinned: item.is_pinned,
       is_draft: item.is_draft,
+      is_paid: Boolean(item.is_paid),
+      price: item.price ? String(item.price) : '',
     });
     setFormError(null);
     setIsModalOpen(true);
+  };
+
+  const handleOpenCensorModal = (item: AuthorPublicationItem) => {
+    setCensoringItem(item);
+    setCensorReason(item.moderation_reason || '');
+    setIsCensorModalOpen(true);
+  };
+
+  const handleConfirmCensor = async (action: 'hide' | 'unhide') => {
+    if (!token || !censoringItem) return;
+    try {
+      setCensorSubmitting(true);
+      const is_moderated = action === 'hide';
+      const res = await fetch(`${apiUrl}/api/v1/books/author-publications/${censoringItem.id}/censor/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          is_moderated,
+          reason: censorReason.trim() || (is_moderated ? 'Contenido censurado por el equipo de administración.' : ''),
+        }),
+      });
+      if (res.ok) {
+        setIsCensorModalOpen(false);
+        await loadPublications();
+      } else {
+        const data = await res.json();
+        alert(data.detail || 'Error al modificar la moderación.');
+      }
+    } catch (e: any) {
+      alert(e.message || 'Error de conexión.');
+    } finally {
+      setCensorSubmitting(false);
+    }
   };
 
   const handleSubmitForm = async (e: React.FormEvent) => {
@@ -161,6 +216,8 @@ export const AuthorPublicationsSection: React.FC<AuthorPublicationsSectionProps>
         spoiler_warning: form.spoiler_warning.trim(),
         is_pinned: form.is_pinned,
         is_draft: form.is_draft,
+        is_paid: form.is_paid,
+        price: form.is_paid && form.price ? parseFloat(form.price) : null,
       };
 
       if (form.book) {
@@ -361,43 +418,84 @@ export const AuthorPublicationsSection: React.FC<AuthorPublicationsSectionProps>
                         Borrador privado
                       </span>
                     )}
+                    {item.is_paid && (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-900 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                        🔒 De pago {item.price ? `(${item.price} €)` : ''}
+                      </span>
+                    )}
+                    {item.is_moderated && (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-100 text-rose-900 dark:bg-rose-950/60 dark:text-rose-300 border border-rose-200 dark:border-rose-800">
+                        🚫 Censurada
+                      </span>
+                    )}
                     <span className="text-xs text-slate-400 flex items-center gap-1">
                       <HiOutlineClock className="w-3.5 h-3.5" />
                       <span>{item.estimated_reading_time} min de lectura</span>
                     </span>
                   </div>
 
-                  {/* Acciones de gestión para el Autor */}
-                  {isAuthorOwner && (
+                  {/* Acciones de gestión para el Autor titular o Administrador */}
+                  {(isAuthorOwner || isAdmin) && (
                     <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => handleTogglePin(item.id)}
-                        title={item.is_pinned ? 'Desfijar de la cabecera' : 'Fijar en cabecera'}
-                        className={`p-1.5 rounded-lg text-xs transition-colors cursor-pointer ${
-                          item.is_pinned
-                            ? 'text-teal-600 hover:bg-teal-50 dark:hover:bg-teal-950/40'
-                            : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800'
-                        }`}
-                      >
-                        <HiOutlineBookmark className="w-4 h-4" />
-                      </button>
+                      {isAuthorOwner && (
+                        <button
+                          onClick={() => handleTogglePin(item.id)}
+                          title={item.is_pinned ? 'Desfijar de la cabecera' : 'Fijar en cabecera'}
+                          className={`p-1.5 rounded-lg text-xs transition-colors cursor-pointer ${
+                            item.is_pinned
+                              ? 'text-teal-600 hover:bg-teal-50 dark:hover:bg-teal-950/40'
+                              : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800'
+                          }`}
+                        >
+                          <HiOutlineBookmark className="w-4 h-4" />
+                        </button>
+                      )}
                       <button
                         onClick={() => handleOpenEditModal(item)}
-                        title="Editar publicación"
+                        title={isAdmin && !isAuthorOwner ? 'Modificar publicación (Admin)' : 'Editar publicación'}
                         className="p-1.5 rounded-lg text-xs text-slate-400 hover:text-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                       >
                         <HiOutlinePencil className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => handleDelete(item.id)}
-                        title="Eliminar publicación"
+                        title={isAdmin && !isAuthorOwner ? 'Eliminar publicación (Admin)' : 'Eliminar publicación'}
                         className="p-1.5 rounded-lg text-xs text-rose-500 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
                       >
                         <HiOutlineTrash className="w-4 h-4" />
                       </button>
+                      {isAdmin && (
+                        <button
+                          onClick={() => handleOpenCensorModal(item)}
+                          title={item.is_moderated ? 'Gestionar o levantar censura (Admin)' : 'Censurar publicación (Admin)'}
+                          className={`p-1.5 px-2 rounded-lg text-xs font-bold transition-colors cursor-pointer flex items-center gap-1 ${
+                            item.is_moderated
+                              ? 'text-emerald-700 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-300'
+                              : 'text-amber-700 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 dark:text-amber-300'
+                          }`}
+                        >
+                          <HiOutlineShieldCheck className="w-3.5 h-3.5" />
+                          <span>{item.is_moderated ? 'Restaurar' : 'Censurar'}</span>
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>
+
+                {/* Banner de Censura / Moderación */}
+                {item.is_moderated && (
+                  <div className="p-3 mb-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 rounded-2xl flex items-center justify-between gap-3 text-xs">
+                    <div className="flex items-center gap-2 text-rose-800 dark:text-rose-300 font-semibold">
+                      <HiOutlineShieldCheck className="w-4 h-4 shrink-0 text-rose-600" />
+                      <span>⚠️ Publicación censurada por moderación: {item.moderation_reason || 'Incumplimiento de las normas de la comunidad.'}</span>
+                    </div>
+                    {isAdmin && (
+                      <span className="text-[10px] text-rose-600 dark:text-rose-400 font-bold uppercase tracking-wider shrink-0">
+                        Oculto a lectores
+                      </span>
+                    )}
+                  </div>
+                )}
 
                 {/* Título */}
                 <h3 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white mb-2">
@@ -590,6 +688,41 @@ export const AuthorPublicationsSection: React.FC<AuthorPublicationsSectionProps>
               )}
             </div>
 
+            {/* Opciones de monetización */}
+            <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-100 dark:border-slate-800 space-y-3">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={form.is_paid}
+                  onChange={(e) => setForm({ ...form, is_paid: e.target.checked })}
+                  className="rounded text-amber-600 focus:ring-amber-500"
+                />
+                <span className="font-bold text-slate-800 dark:text-slate-200">
+                  🔒 Contenido exclusivo de pago (Adelantos prémium)
+                </span>
+              </label>
+
+              {form.is_paid && (
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                    Precio orientativo (€):
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={form.price}
+                    onChange={(e) => setForm({ ...form, price: e.target.value })}
+                    placeholder="Ej. 1.99"
+                    className="w-36 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 py-1.5 px-3 text-slate-900 dark:text-white focus:ring-amber-500"
+                  />
+                  <p className="text-[10px] text-slate-500 mt-1">
+                    El contenido estará protegido y reservado cuando la pasarela de pagos esté activa.
+                  </p>
+                </div>
+              )}
+            </div>
+
             {/* Opciones de publicación */}
             <div className="flex flex-wrap items-center gap-6 pt-1">
               <label className="flex items-center gap-2 cursor-pointer">
@@ -626,6 +759,83 @@ export const AuthorPublicationsSection: React.FC<AuthorPublicationsSectionProps>
               </Button>
             </div>
           </form>
+        </div>
+      </Modal>
+
+      {/* Modal de Censura / Moderación (Admin) */}
+      <Modal show={isCensorModalOpen} onClose={() => setIsCensorModalOpen(false)} size="md">
+        <div className="p-6 space-y-4 bg-white dark:bg-slate-900 rounded-3xl">
+          <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+            <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <HiOutlineShieldCheck className="w-5 h-5 text-amber-600" />
+              <span>Moderación de Publicación</span>
+            </h3>
+            <button
+              onClick={() => setIsCensorModalOpen(false)}
+              className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 cursor-pointer"
+            >
+              <HiOutlineX className="w-5 h-5" />
+            </button>
+          </div>
+
+          <p className="text-xs text-slate-600 dark:text-slate-400">
+            Publicación: <strong className="text-slate-900 dark:text-white">{censoringItem?.title}</strong>
+          </p>
+
+          {censoringItem?.is_moderated ? (
+            <div className="space-y-3 text-xs">
+              <div className="p-3 bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200 rounded-xl">
+                Esta publicación se encuentra actualmente <strong>censurada y oculta</strong> a los lectores.
+              </div>
+              <p className="text-slate-600 dark:text-slate-400">
+                ¿Deseas levantar la censura y restaurarla para que sea visible públicamente?
+              </p>
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+                <Button color="gray" size="sm" onClick={() => setIsCensorModalOpen(false)}>
+                  Cancelar
+                </Button>
+                <Button
+                  color="teal"
+                  size="sm"
+                  disabled={censorSubmitting}
+                  onClick={() => handleConfirmCensor('unhide')}
+                >
+                  {censorSubmitting ? 'Restaurando...' : 'Restaurar y Publicar'}
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-3 text-xs">
+              <div>
+                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Motivo de la censura (opcional):
+                </label>
+                <textarea
+                  rows={3}
+                  value={censorReason}
+                  onChange={(e) => setCensorReason(e.target.value)}
+                  placeholder="Ej. Incumplimiento de las normas de la comunidad o contenido inapropiado..."
+                  className="w-full text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-2.5 text-slate-900 dark:text-white focus:ring-amber-500"
+                />
+              </div>
+              <p className="text-[11px] text-slate-500">
+                Al censurar esta publicación, quedará inmediatamente oculta para todos los lectores comunes. Solo el autor titular y los administradores podrán verla con la advertencia de moderación.
+              </p>
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+                <Button color="gray" size="sm" onClick={() => setIsCensorModalOpen(false)}>
+                  Cancelar
+                </Button>
+                <Button
+                  color="failure"
+                  size="sm"
+                  disabled={censorSubmitting}
+                  onClick={() => handleConfirmCensor('hide')}
+                >
+                  {censorSubmitting ? 'Censurando...' : 'Confirmar Censura'}
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       </Modal>
     </div>

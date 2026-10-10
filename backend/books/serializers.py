@@ -814,6 +814,11 @@ class AuthorAnnouncementSerializer(serializers.ModelSerializer):
             'estimated_reading_time',
             'is_pinned',
             'is_draft',
+            'is_paid',
+            'price',
+            'is_moderated',
+            'moderation_reason',
+            'moderated_at',
             'created_at',
             'updated_at',
         )
@@ -825,6 +830,9 @@ class AuthorAnnouncementSerializer(serializers.ModelSerializer):
             'book_title',
             'book_cover',
             'publication_type_display',
+            'is_moderated',
+            'moderation_reason',
+            'moderated_at',
             'created_at',
             'updated_at',
         )
@@ -874,15 +882,31 @@ class AuthorAnnouncementCreateUpdateSerializer(serializers.ModelSerializer):
             'estimated_reading_time',
             'is_pinned',
             'is_draft',
+            'is_paid',
+            'price',
+            'is_moderated',
+            'moderation_reason',
         )
 
     def validate(self, attrs):
         title = attrs.get('title')
         content = attrs.get('content')
+        price = attrs.get('price')
         if title is not None and not title.strip():
             raise serializers.ValidationError({'title': 'El título no puede estar vacío.'})
         if content is not None and not content.strip():
             raise serializers.ValidationError({'content': 'El contenido no puede estar vacío.'})
+        if price is not None and price < 0:
+            raise serializers.ValidationError({'price': 'El precio no puede ser negativo.'})
+
+        # Solo administradores o moderadores pueden alterar directamente el estado de moderación/censura
+        request = self.context.get('request')
+        user = getattr(request, 'user', None)
+        is_admin = user and (user.is_staff or getattr(user, 'role', '') in ('ADMIN', 'MODERATOR'))
+        if not is_admin:
+            attrs.pop('is_moderated', None)
+            attrs.pop('moderation_reason', None)
+
         return attrs
 
 

@@ -2460,11 +2460,12 @@ class AuthorDashboardView(APIView):
 
 class AuthorAnnouncementCreateView(APIView):
     """
-    Publicación de comunicados y publicaciones avanzadas por parte de un autor.
+    Publicación de comunicados y publicaciones avanzadas por parte de un autor verificado.
     """
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
+        from .models import Author
         from .serializers import AuthorAnnouncementSerializer
         from .services.author_service import AuthorService
 
@@ -2479,12 +2480,37 @@ class AuthorAnnouncementCreateView(APIView):
         spoiler_warning = request.data.get('spoiler_warning', '').strip()
         estimated_reading_time = request.data.get('estimated_reading_time')
         is_draft = bool(request.data.get('is_draft', False))
+        is_paid = bool(request.data.get('is_paid', False))
+        price = request.data.get('price')
         author_id = request.data.get('author_id') or request.data.get('author')
 
         if not title or not content:
             return Response(
                 {'detail': 'Título y contenido son obligatorios.'},
                 status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        target_author = None
+        if author_id:
+            target_author = Author.objects.filter(id=int(author_id)).first()
+        elif profile.author:
+            target_author = profile.author
+
+        if not target_author:
+            return Response(
+                {'detail': 'Debes especificar un autor del catálogo verificado para publicar.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Regla estricta: Solo el autor verificado titular puede publicar en su perfil
+        is_verified_owner = (
+            (target_author.claimed_by_id == request.user.id and target_author.is_verified) or
+            (profile.author_id == target_author.id and profile.is_verified)
+        )
+        if not is_verified_owner:
+            return Response(
+                {'detail': 'Solo el autor verificado titular de esta página puede publicar en su perfil.'},
+                status=status.HTTP_403_FORBIDDEN,
             )
 
         announcement = AuthorService.create_announcement(
@@ -2499,7 +2525,9 @@ class AuthorAnnouncementCreateView(APIView):
             spoiler_warning=spoiler_warning,
             estimated_reading_time=int(estimated_reading_time) if estimated_reading_time else None,
             is_draft=is_draft,
-            author_id=int(author_id) if author_id else None,
+            author_id=target_author.id,
+            is_paid=is_paid,
+            price=float(price) if price is not None else None,
         )
         serializer = AuthorAnnouncementSerializer(announcement, context={'request': request})
         return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -2519,11 +2547,17 @@ class AuthorAnnouncementListView(APIView):
         if request.user.is_authenticated and request.query_params.get('drafts') == 'true':
             include_drafts = True
 
+        include_moderated = False
+        if request.user.is_authenticated:
+            is_admin = request.user.is_staff or getattr(request.user, 'role', '') in ('ADMIN', 'MODERATOR')
+            include_moderated = is_admin
+
         pub_type = request.query_params.get('type') or request.query_params.get('publication_type')
         announcements = AuthorService.get_announcements_for_author(
             author_id=pk,
             include_drafts=include_drafts,
             publication_type=pub_type,
+            include_moderated=include_moderated,
         )
         serializer = AuthorAnnouncementSerializer(announcements, many=True, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
@@ -2818,6 +2852,14 @@ class AuthorPublicationViewSet(viewsets.ModelViewSet):
         else:
             qs = qs.filter(is_draft=False)
 
+        # Filtrado de moderación/censura: lectores no ven publicaciones censuradas
+        is_admin = user.is_authenticated and (user.is_staff or getattr(user, 'role', '') in ('ADMIN', 'MODERATOR'))
+        if not is_admin:
+            if user.is_authenticated:
+                qs = qs.filter(Q(is_moderated=False) | Q(author_profile__user=user) | Q(author__claimed_by=user))
+            else:
+                qs = qs.filter(is_moderated=False)
+
         search = self.request.query_params.get('search')
         if search:
             from django.db.models import Q
@@ -2826,8 +2868,10 @@ class AuthorPublicationViewSet(viewsets.ModelViewSet):
         return qs.order_by('-is_pinned', '-created_at')
 
     def perform_create(self, serializer):
-        from .models import Author, AuthorProfile
+        from .models import Author
         from .services.author_service import AuthorService
+        from rest_framework.exceptions import PermissionDenied
+
         user = self.request.user
         author = serializer.validated_data.get('author')
         profile = AuthorService.get_or_create_profile(user)
@@ -2838,57 +2882,110 @@ class AuthorPublicationViewSet(viewsets.ModelViewSet):
             elif Author.objects.filter(claimed_by=user).exists():
                 author = Author.objects.filter(claimed_by=user).first()
 
-        if author:
-            is_owner = (
-                author.claimed_by_id == user.id or
-                (profile.author_id == author.id and profile.is_verified) or
-                user.is_staff or getattr(user, 'role', '') in ('ADMIN', 'MODERATOR')
-            )
-            if not is_owner:
-                from rest_framework.exceptions import PermissionDenied
-                raise PermissionDenied("No tienes permisos para publicar en nombre de este autor.")
+        if not author:
+            raise PermissionDenied("Debes estar vinculado a un autor del catálogo verificado para publicar.")
+
+        # Requerimiento estricto: Solo el autor verificado titular puede publicar en su perfil
+        is_verified_author = (
+            (author.claimed_by_id == user.id and author.is_verified) or
+            (profile.author_id == author.id and profile.is_verified)
+        )
+        if not is_verified_author:
+            raise PermissionDenied("Solo el autor verificado titular de esta página puede publicar en su perfil.")
 
         serializer.save(author_profile=profile, author=author)
 
     def perform_update(self, serializer):
+        from rest_framework.exceptions import PermissionDenied
+
         user = self.request.user
         instance = self.get_object()
-        is_owner = (
-            instance.author_profile.user_id == user.id or
-            (instance.author and instance.author.claimed_by_id == user.id) or
-            user.is_staff or getattr(user, 'role', '') in ('ADMIN', 'MODERATOR')
+        is_author_owner = (
+            ((instance.author_profile.user_id == user.id) or (instance.author and instance.author.claimed_by_id == user.id)) and
+            ((instance.author and instance.author.is_verified) or instance.author_profile.is_verified)
         )
-        if not is_owner:
-            from rest_framework.exceptions import PermissionDenied
+        is_admin = user.is_staff or getattr(user, 'role', '') in ('ADMIN', 'MODERATOR')
+        if not (is_author_owner or is_admin):
             raise PermissionDenied("No tienes permisos para modificar esta publicación.")
+
         serializer.save()
 
     def perform_destroy(self, instance):
+        from rest_framework.exceptions import PermissionDenied
+
         user = self.request.user
-        is_owner = (
-            instance.author_profile.user_id == user.id or
-            (instance.author and instance.author.claimed_by_id == user.id) or
-            user.is_staff or getattr(user, 'role', '') in ('ADMIN', 'MODERATOR')
+        is_author_owner = (
+            ((instance.author_profile.user_id == user.id) or (instance.author and instance.author.claimed_by_id == user.id)) and
+            ((instance.author and instance.author.is_verified) or instance.author_profile.is_verified)
         )
-        if not is_owner:
-            from rest_framework.exceptions import PermissionDenied
+        is_admin = user.is_staff or getattr(user, 'role', '') in ('ADMIN', 'MODERATOR')
+        if not (is_author_owner or is_admin):
             raise PermissionDenied("No tienes permisos para eliminar esta publicación.")
+
         instance.delete()
 
     @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
     def toggle_pin(self, request, pk=None):
         instance = self.get_object()
         user = request.user
-        is_owner = (
-            instance.author_profile.user_id == user.id or
-            (instance.author and instance.author.claimed_by_id == user.id) or
-            user.is_staff or getattr(user, 'role', '') in ('ADMIN', 'MODERATOR')
+        is_author_owner = (
+            ((instance.author_profile.user_id == user.id) or (instance.author and instance.author.claimed_by_id == user.id)) and
+            ((instance.author and instance.author.is_verified) or instance.author_profile.is_verified)
         )
-        if not is_owner:
+        is_admin = user.is_staff or getattr(user, 'role', '') in ('ADMIN', 'MODERATOR')
+        if not (is_author_owner or is_admin):
             return Response({'detail': 'No tienes permisos.'}, status=status.HTTP_403_FORBIDDEN)
         instance.is_pinned = not instance.is_pinned
         instance.save()
         return Response({'id': instance.id, 'is_pinned': instance.is_pinned}, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
+    def censor(self, request, pk=None):
+        """
+        Permite a un administrador o moderador censurar u ocultar una publicación de autor.
+        """
+        from django.utils import timezone
+        from users.audit_service import log_audit
+        from users.models import AuditAction
+
+        instance = self.get_object()
+        user = request.user
+        is_admin = user.is_staff or getattr(user, 'role', '') in ('ADMIN', 'MODERATOR')
+        if not is_admin:
+            return Response(
+                {'detail': 'Solo los administradores o moderadores pueden censurar publicaciones.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        target_flag = request.data.get('is_moderated')
+        if target_flag is None:
+            instance.is_moderated = not instance.is_moderated
+        else:
+            instance.is_moderated = bool(target_flag)
+
+        reason = request.data.get('reason', request.data.get('moderation_reason', '')).strip()
+        if reason:
+            instance.moderation_reason = reason
+        elif instance.is_moderated and not instance.moderation_reason:
+            instance.moderation_reason = 'Contenido censurado por el equipo de administración.'
+
+        instance.moderated_by = user
+        instance.moderated_at = timezone.now() if instance.is_moderated else None
+        instance.save(update_fields=['is_moderated', 'moderation_reason', 'moderated_by', 'moderated_at'])
+
+        try:
+            log_audit(
+                action=AuditAction.CONTENT_HIDE if instance.is_moderated else AuditAction.CONTENT_RESTORE,
+                actor=user,
+                target=instance,
+                request=request,
+                metadata={'reason': instance.moderation_reason, 'publication_id': instance.id},
+            )
+        except Exception:
+            pass
+
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 class AuthorNewsletterViewSet(viewsets.ModelViewSet):
