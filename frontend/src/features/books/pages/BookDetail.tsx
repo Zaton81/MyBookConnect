@@ -735,6 +735,14 @@ export function BookDetail() {
                     <span className="text-xs text-slate-400 font-mono">ISBN: {book.isbn}</span>
                   </>
                 )}
+                {book.page_count && (
+                  <>
+                    <span className="text-slate-300 dark:text-slate-600">•</span>
+                    <span className="text-xs text-slate-600 dark:text-slate-300 font-medium inline-flex items-center gap-1">
+                      <span>📖</span> {book.page_count} páginas
+                    </span>
+                  </>
+                )}
                 {book.publisher && (
                   <>
                     <span className="text-slate-300 dark:text-slate-600">•</span>

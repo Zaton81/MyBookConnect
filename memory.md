@@ -582,6 +582,44 @@ Cualquier agente de IA o desarrollador que se incorpore a la base de código **D
   - Suite frontend `frontend/src/features/ai/__tests__/MultimodalAI.test.tsx`: **6/6 tests pasando al 100%**.
   - Frontend verificado: TypeScript estricto con 0 errores (`tsc --noEmit`), suite completa de Vitest (**24 suites / 91 tests pasando al 100%**) y build de producción Vite limpio en 13.06s.
 
+### Integración de Búsqueda Externa: Amazon PA-API v5 y Soporte de `page_count` (Libros)
+- **Proveedor Amazon PA-API v5 (`backend/books/services/providers/amazon.py`):**
+  - Configurado como la **1ª opción en la cadena de búsqueda e importación de libros** (`import_service.py`), con fallback transparente a Google Books, Wikipedia y OpenLibrary cuando `is_configured()` es `False` o ante fallos externos.
+  - Firma canónica AWS SigV4 (`AWS4-HMAC-SHA256`) nativa con `hashlib` y `hmac`.
+  - Settings configurados: `AMAZON_PAAPI_ACCESS_KEY`, `AMAZON_PAAPI_SECRET_KEY`, `AMAZON_PAAPI_TAG`, `AMAZON_PAAPI_REGION`, `AMAZON_PAAPI_HOST`.
+  - Extracción y persistencia de `page_count` (`TechnicalInfo.NumberOfPages`) y generación automática de `BookBuyLink` de afiliado.
+- **Soporte de Páginas (`page_count`):**
+  - Modelo `Book`: campo `page_count = models.PositiveIntegerField(null=True, blank=True)`. Migración `0040_book_page_count.py` aplicada en PostgreSQL.
+  - Proveedores adaptados: `GoogleBooksProvider` (`volumeInfo.pageCount`) y `OpenLibraryProvider` (`number_of_pages` / `number_of_pages_median`).
+  - Serializer `BookSerializer` exponiendo `page_count`.
+  - Frontend `BookDetail.tsx` renderizando el número de páginas (`📖 {book.page_count} páginas`).
+- **Pruebas y Verificación:**
+  - Suite backend `backend/tests/test_amazon_books_provider.py`: **12/12 tests pasando al 100%**.
+  - Regresión combinada de importación y catálogo: **17/17 tests pasando al 100%**.
+  - Frontend verificado: `npm run typecheck` (0 errores), Vitest (**24 suites / 91 tests pasando al 100%**) y build de producción Vite limpio.
+
+### Publicaciones de Autores Verificados, Monetización y Moderación/Censura de Administración (RoadmapV3)
+- **Autorización Estricta de Creación y Edición de Publicaciones:**
+  - Solo el **autor verificado titular** (`(author.claimed_by == user and author.is_verified) or (profile.author == author and profile.is_verified)`) tiene permisos para crear publicaciones en su perfil (`AuthorPublicationViewSet.perform_create` y `AuthorAnnouncementCreateView`). Usuarios comunes o solicitudes no aprobadas reciben `403 Forbidden`.
+  - La modificación y eliminación (`perform_update`, `perform_destroy`) quedan restringidas exclusivamente al autor verificado titular o a usuarios con rol `ADMIN` / `MODERATOR`. Terceros reciben `403 Forbidden`.
+- **Evolución del Modelo `AuthorAnnouncement` y Migración:**
+  - Campos incorporados: `is_paid` (boolean), `price` (decimal positivo), `is_moderated` (boolean), `moderation_reason` (text), `moderated_by` (FK User), `moderated_at` (DateTimeField).
+  - Migración aplicada en PostgreSQL: `books/migrations/0041_authorannouncement_moderation_and_paid.py`.
+- **Consola y Flujo de Moderación/Censura:**
+  - Endpoint `@action(detail=True, methods=['post'])` en `AuthorPublicationViewSet` (`/api/v1/books/author-publications/<id>/censor/`) para alternar censura o fijar `is_moderated`, motivo y autoría con registro de `AuditLog`.
+  - Consola universal de moderación administrativa (`AdminContentHideView` y `AdminContentRestoreView` en `/api/v1/admin/moderation/hide/` y `/restore/`) adaptada para `author_publication` y `announcement`.
+  - Filtrado de lectura: publicaciones censuradas (`is_moderated=True`) son excluidas del queryset para lectores anónimos y comunes, permaneciendo visibles para el autor original (con aviso de moderación) y administradores.
+- **Frontend y Controles de Interfaz (`Author.tsx`, `AuthorPublicationsSection.tsx`):**
+  - Distinción rigurosa en `Author.tsx`: `isVerifiedAuthorOwner` (`author.claimed_by === user.id && author.is_verified`) y `isAdminOrModerator`.
+  - Botón "Nueva Publicación" visible exclusivamente para el autor verificado titular.
+  - Formulario modal enriquecido con opciones de monetización (checkbox `🔒 Contenido exclusivo de pago` y campo `precio €`).
+  - Controles de moderación para administradores: botones de edición/eliminación administrativa, botón "Censurar" / "Restaurar" y modal con motivo de censura.
+  - Badges visuales: `🔒 De pago (X.XX €)`, `🚫 Censurada` y cartel de advertencia con motivo de moderación.
+- **Calidad y Verificación Integral:**
+  - Suite backend dedicada `backend/tests/test_author_verified_publications.py`: **9/9 tests pasando al 100%**.
+  - Regresión backend `backend/tests/test_sprint12_author_publications.py`: **7/7 tests pasando al 100%**.
+  - Frontend verificado: `npm run typecheck` limpio (0 errores) y build de producción Vite generado exitosamente.
+
 ---
 
 ## 5. Ubicación de Documentación Relevante

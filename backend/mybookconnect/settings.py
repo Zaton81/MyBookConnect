@@ -422,6 +422,13 @@ AMAZON_AFFILIATE_TAG = os.getenv('AMAZON_AFFILIATE_TAG', 'mybooksocial-21')
 AMAZON_AFFILIATE_BASE_URL = os.getenv('AMAZON_AFFILIATE_BASE_URL', 'https://www.amazon.es/dp/')
 AMAZON_AFFILIATE_SEARCH_URL = os.getenv('AMAZON_AFFILIATE_SEARCH_URL', 'https://www.amazon.es/s')
 
+# Amazon Product Advertising API v5 (Búsqueda de libros externa - Prioridad 1)
+AMAZON_PAAPI_ACCESS_KEY = os.getenv('AMAZON_PAAPI_ACCESS_KEY', os.getenv('AMAZON_AFFILIATE_ACCESS_KEY', ''))
+AMAZON_PAAPI_SECRET_KEY = os.getenv('AMAZON_PAAPI_SECRET_KEY', os.getenv('AMAZON_AFFILIATE_SECRET_KEY', ''))
+AMAZON_PAAPI_TAG = os.getenv('AMAZON_PAAPI_TAG', AMAZON_AFFILIATE_TAG)
+AMAZON_PAAPI_REGION = os.getenv('AMAZON_PAAPI_REGION', 'eu-west-1')
+AMAZON_PAAPI_HOST = os.getenv('AMAZON_PAAPI_HOST', 'webservices.amazon.es')
+
 # ─── Configuración Beta Pública y Adopción (Fase 37) ───
 PUBLIC_REGISTRATION_ENABLED = os.getenv('PUBLIC_REGISTRATION_ENABLED', 'true').lower() in ('true', '1', 'yes')
 REQUIRE_BETA_INVITATION = os.getenv('REQUIRE_BETA_INVITATION', 'false').lower() in ('true', '1', 'yes')

@@ -43,9 +43,12 @@ class ProviderBookData:
     description: str | None = None
     published_date_raw: str | None = None
     cover_url: str | None = None
+    page_count: int | None = None
     google_volume_id: str | None = None
     openlibrary_work_id: str | None = None
     openlibrary_edition_id: str | None = None
+    asin: str | None = None
+    affiliate_url: str | None = None
     categories: list[str] = field(default_factory=list)
     raw_payload: dict[str, Any] = field(default_factory=dict)
 

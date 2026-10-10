@@ -52,6 +52,17 @@ class OpenLibraryProvider:
             if len(categories) >= 8:
                 break
 
+        # Extraer número de páginas
+        page_count = None
+        raw_pages = doc.get('number_of_pages_median') or doc.get('number_of_pages')
+        if raw_pages is not None:
+            try:
+                page_count = int(raw_pages)
+                if page_count <= 0:
+                    page_count = None
+            except (ValueError, TypeError):
+                page_count = None
+
         return ProviderBookData(
             title=book_title,
             author_name=author_name,
@@ -59,6 +70,7 @@ class OpenLibraryProvider:
             description=None,
             published_date_raw=published_date_raw,
             cover_url=cover_url,
+            page_count=page_count,
             openlibrary_work_id=work_key,
             openlibrary_edition_id=edition_key,
             categories=categories,
@@ -166,6 +178,17 @@ class OpenLibraryProvider:
             if len(categories) >= 8:
                 break
 
+        # Extraer número de páginas
+        page_count = None
+        raw_pages = book_info.get('number_of_pages')
+        if raw_pages is not None:
+            try:
+                page_count = int(raw_pages)
+                if page_count <= 0:
+                    page_count = None
+            except (ValueError, TypeError):
+                page_count = None
+
         return ProviderBookData(
             title=title,
             author_name=author_name,
@@ -173,6 +196,7 @@ class OpenLibraryProvider:
             description=description,
             published_date_raw=published_date_raw,
             cover_url=cover_url,
+            page_count=page_count,
             categories=categories,
             raw_payload=book_info,
         )

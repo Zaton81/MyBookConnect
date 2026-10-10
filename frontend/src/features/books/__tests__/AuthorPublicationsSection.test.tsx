@@ -128,4 +128,60 @@ describe('AuthorPublicationsSection Component', () => {
       expect(screen.getByText(/Borradores/i)).toBeInTheDocument();
     });
   });
+
+  it('displays Censurar and edit button for admin, but NOT Nueva Publicación if not author owner', async () => {
+    (globalThis.fetch as any).mockResolvedValue({
+      ok: true,
+      json: async () => samplePublications,
+    });
+
+    render(
+      <AuthorPublicationsSection
+        authorId={10}
+        authorName="Gabriel García Márquez"
+        isAuthorOwner={false}
+        isAdmin={true}
+        books={[]}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTitle(/Censurar publicación/i)).toBeInTheDocument();
+      expect(screen.getByTitle(/Modificar publicación \(Admin\)/i)).toBeInTheDocument();
+      expect(screen.queryByText(/Nueva Publicación/i)).not.toBeInTheDocument();
+    });
+  });
+
+  it('renders paid badge and moderated alert when present', async () => {
+    const moderatedPaidPublications: AuthorPublicationItem[] = [
+      {
+        ...samplePublications[0],
+        is_paid: true,
+        price: '2.50',
+        is_moderated: true,
+        moderation_reason: 'Contenido bajo revisión por spoiler explícito.',
+      },
+    ];
+
+    (globalThis.fetch as any).mockResolvedValue({
+      ok: true,
+      json: async () => moderatedPaidPublications,
+    });
+
+    render(
+      <AuthorPublicationsSection
+        authorId={10}
+        authorName="Gabriel García Márquez"
+        isAuthorOwner={false}
+        isAdmin={true}
+        books={[]}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(/🔒 De pago \(2.50 €\)/i)).toBeInTheDocument();
+      expect(screen.getByText(/🚫 Censurada/i)).toBeInTheDocument();
+      expect(screen.getByText(/Publicación censurada por moderación/i)).toBeInTheDocument();
+    });
+  });
 });

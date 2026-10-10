@@ -47,6 +47,7 @@ from .import_service import (
     import_single_by_query,
 )
 from .providers import (
+    AmazonBooksProvider,
     GoogleBooksProvider,
     OpenLibraryProvider,
     WikipediaProvider,
@@ -182,6 +183,7 @@ __all__ = [
     'ProviderAuthorData',
     'BookProvider',
     # Proveedores
+    'AmazonBooksProvider',
     'GoogleBooksProvider',
     'OpenLibraryProvider',
     'WikipediaProvider',
