@@ -7,6 +7,24 @@ y este proyecto se adhiere a [Semantic Versioning 2.0.0](https://semver.org/lang
 
 ## [Unreleased]
 
+### Changed / Baseline Freeze & Security Hardening Foundation (Roadmap Bloque A - Fase A1)
+- **Tag y Punto de Congelación Git**:
+  - Creado y publicado tag git `v1.0.0-pre-hardening` para garantizar reproducibilidad y punto de retorno limpio.
+- **Copia de Seguridad y Recuperación Ante Desastres**:
+  - Volcado de PostgreSQL cifrado mediante AES-256-CBC (`backups/db/db_backup_pre_hardening_20261010.sql.gz.enc`, SHA-256 `39e179...`) acompañado de su manifiesto criptográfico JSON v1.1.
+  - Copia de seguridad comprimida del volumen `media/` (`backups/media/media_backup_pre_hardening_20261010.tar.gz`, 220MB).
+  - Corrección de valores por defecto de usuario y base de datos (`booksocial`) en `scripts/backup/backup_db.sh` y `restore_db.sh`.
+- **Integridad de Migraciones y Código**:
+  - Comprobación de migraciones de base de datos (`makemigrations --check`): 0 discrepancias pendientes.
+  - Auditoría de marcadores de conflicto (`<<<<<<<`): 0 conflictos residuales.
+  - Confirmada la erradicación total de módulos y código muerto (`backend/app`, `backend/config`).
+- **Política de Gestión y Rotación de Secrets**:
+  - Creada política formal en `docs/security/secrets_management_policy.md` con pautas de rotación para `SECRET_KEY`, credenciales de base de datos, APIs de IA y afiliados.
+  - Actualizada plantilla `.env.example` con variables de configuración de Amazon PA-API.
+- **Validación de Pruebas**:
+  - Suite de pruebas de baseline ejecutada al 100% (43 tests pasando sin fallos).
+  - Verificación estricta de TypeScript (`npm run typecheck`) limpia con 0 errores.
+
 ### Added / Verified Author Exclusive Publications & Administration Moderation / Censorship (RoadmapV3)
 - **Autorización Estricta de Publicaciones de Autor (`backend/books/views.py`, `backend/books/serializers.py`)**:
   - Restricción rigurosa en `AuthorPublicationViewSet.perform_create` y `AuthorAnnouncementCreateView`: únicamente los autores titulares con perfil verificado (`(author.claimed_by == user and author.is_verified) or (profile.author == author and profile.is_verified)`) pueden publicar en el perfil de autor (`403 Forbidden` para usuarios ordinarios, terceros o reclamaciones no verificadas).

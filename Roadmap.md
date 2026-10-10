@@ -56,14 +56,14 @@
 **Duración estimada:** 1-2 días  
 **Prioridad:** 🔴 P0
 
-- [ ] Crear tag `v1.0.0-pre-hardening` y branch de protección.
-- [ ] Backup completo de PostgreSQL (cifrado AES-256) + volumen `media/`.
-- [ ] Verificar `makemigrations --check` (0 pendientes).
-- [ ] Ejecutar suite completa de tests de fase y de sprint (100 %).
-- [ ] Auditoría exhaustiva de marcadores de conflicto residuales (`<<<<<<<`, `=======`, `>>>>>>>`).
-- [ ] Eliminación definitiva de código muerto (`backend/app/`, `backend/config/` u otros esqueletos FastAPI).
-- [ ] Rotación de secrets de desarrollo y documentación de política de secrets (nunca en git).
-- [ ] Actualizar `memory.md` con el estado de baseline.
+- [x] Crear tag `v1.0.0-pre-hardening` y branch de protección.
+- [x] Backup completo de PostgreSQL (cifrado AES-256) + volumen `media/`.
+- [x] Verificar `makemigrations --check` (0 pendientes).
+- [x] Ejecutar suite completa de tests de fase y de sprint (100 %).
+- [x] Auditoría exhaustiva de marcadores de conflicto residuales (`<<<<<<<`, `=======`, `>>>>>>>`).
+- [x] Eliminación definitiva de código muerto (`backend/app/`, `backend/config/` u otros esqueletos FastAPI).
+- [x] Rotación de secrets de desarrollo y documentación de política de secrets (nunca en git).
+- [x] Actualizar `memory.md` con el estado de baseline.
 
 **Criterio de salida:** Repo limpio, tests verdes, backup restaurable en entorno limpio.
 

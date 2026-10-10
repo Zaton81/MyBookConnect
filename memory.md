@@ -623,18 +623,30 @@ Cualquier agente de IA o desarrollador que se incorpore a la base de código **D
 
 | Bloque | Objetivo Principal | Prioridad | Estado |
 | :--- | :--- | :--- | :--- |
-| **BLOQUE A** | **Estabilización crítica (P0)**: baseline, JWT/cookies HttpOnly, WebSockets seguros, integridad y superficie de ataque | 🔴 P0 | **EN CURSO (Iniciando Fase A1)** |
+| **BLOQUE A** | **Estabilización crítica (P0)**: baseline, JWT/cookies HttpOnly, WebSockets seguros, integridad y superficie de ataque | 🔴 P0 | **EN CURSO (Fase A1 COMPLETADA, Fase A2 siguiente)** |
 | **BLOQUE B** | **Infraestructura y operación (P0/P1)**: Docker prod, backups/restore, observabilidad, escalabilidad | 🔴/🟠 | Pendiente |
 | **BLOQUE C** | **Calidad y deuda técnica (P1)**: tests e2e/carga, linting estricto, CI/CD, gobernanza | 🟠 P1 | Pendiente |
 | **BLOQUE D** | **Endurecimiento de producto core (P1)**: perfil lector, multi-rol autores/catálogo, reseñas/social, búsqueda híbrida | 🟠 P1 | Pendiente |
 | **BLOQUE E** | **Pre-producción y lanzamiento público (P1)**: staging, soft launch, GA endurecida | 🟠 P1 | Pendiente |
 | **BLOQUE F** | **Evolución post-lanzamiento (P2/P3)**: Core Web Vitals, producto avanzado, escala multi-región | 🟡/🟢 | Posterior |
 
-### Desglose de Fases Inmediatas (Bloque A — P0):
-- **Fase A1 — Congelación y baseline de seguridad (P0):** Tag `v1.0.0-pre-hardening`, branch de protección, backup cifrado PostgreSQL + media, verificación de 0 migraciones pendientes, ejecución de suite 100% verde, auditoría de marcadores de conflicto residuales y limpieza de código muerto.
-- **Fase A2 — Autenticación y sesión segura (P0):** Migración de JWT de `localStorage` a cookies `HttpOnly` + `Secure` + `SameSite=Strict`, eliminación de tokens en query strings de WebSockets, tickets efímeros y tests de robo/XSS.
-- **Fase A3 — Integridad de dominio y permisos (P0):** `UniqueConstraint` en `Review`/`UserBook`, cálculo optimizado de rating sin `save()` completo, validación MIME real en subidas y throttling de endpoints sensibles.
-- **Fase A4 — Health, readiness y superficie de ataque (P0):** Sondas seguras sin fuga de datos, OpenAPI protegido y checklist OWASP Top 10.
+### Desglose y Estado de Fases (Bloque A — P0):
+- **Fase A1 — Congelación y baseline de seguridad (P0) — COMPLETADA:**
+  - Tag git `v1.0.0-pre-hardening` creado y subido a GitHub.
+  - Backup completo de PostgreSQL cifrado AES-256-CBC (`backups/db/db_backup_pre_hardening_20261010.sql.gz.enc`, SHA-256 `39e179...`, con manifest JSON v1.1).
+  - Backup completo del volumen `media/` (`backups/media/media_backup_pre_hardening_20261010.tar.gz`, 220MB).
+  - Verificación `makemigrations --check`: 0 cambios pendientes.
+  - Suite de pruebas de baseline ejecutada al 100% (43 tests pasando sin fallos).
+  - Auditoría de marcadores residuales de conflicto (`<<<<<<<`) limpia al 100%. Código muerto (`backend/app/`, `backend/config/`) erradicado.
+  - Documentada la política de gestión y rotación de secrets en `docs/security/secrets_management_policy.md` y actualizadas las plantillas `.env.example`.
+- **Fase A2 — Autenticación y sesión segura (P0) — SIGUIENTE:**
+  - Migración de JWT de `localStorage` a cookies `HttpOnly` + `Secure` + `SameSite=Strict`.
+  - Eliminación de tokens en query strings de WebSockets (`?token=`), autenticación por cookies/tickets efímeros.
+  - Rotación y blacklist de refresh tokens.
+- **Fase A3 — Integridad de dominio y permisos (P0) — PENDIENTE:**
+  - `UniqueConstraint` en `Review`/`UserBook`, cálculo optimizado de rating sin `save()` completo, validación MIME real en subidas y throttling de endpoints sensibles.
+- **Fase A4 — Health, readiness y superficie de ataque (P0) — PENDIENTE:**
+  - Sondas seguras sin fuga de datos, OpenAPI protegido y checklist OWASP Top 10.
 
 ---
 
