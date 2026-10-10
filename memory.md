@@ -6,18 +6,16 @@ Cualquier agente de IA o desarrollador que se incorpore a la base de código **D
 
 ---
 
-## 1. Reglas de Oro del Proyecto (Invariantes Obligatorias)
+## 1. Reglas de Oro del Proyecto (Invariantes Obligatorias — Roadmap.md)
 
-1. **Rama de trabajo exclusiva:**
-   - Todo el trabajo de desarrollo e integración se realiza **SIEMPRE en la rama `develop`**.
-   - Nunca hacer push directo a `main`.
-2. **Flujo de Fases y Commits:**
-   - Mantener la integridad de la arquitectura y la suite de pruebas.
-   - Tras completar cada funcionalidad o fase, verificar calidad (100% tests pasando, linters limpios, cero cambios de migración pendientes) y realizar inmediatamente un **commit semántico** y **`git push origin develop`**.
-3. **Cero Regresiones:**
-   - La suite completa de backend y frontend de Vitest debe pasar al 100%. Ningún commit debe romper funcionalidad previa.
-4. **Seguridad de Base de Datos de Pruebas:**
-   - **PROHIBIDO ejecutar comandos concurrentes/paralelos de `pytest`**. La base de datos de test PostgreSQL (`test_booksocial`) entra en bloqueo transaccional (`OperationalError: database is being accessed by other users`) si se ejecutan múltiples instancias a la vez.
+1. **Seguridad e integridad primero:** Ninguna feature nueva tiene prioridad sobre vulnerabilidades, autenticación o inconsistencias de dominio.
+2. **Cero regresiones:** Toda fase debe dejar la suite de tests (backend + frontend de Vitest) al 100% y cero migraciones pendientes.
+3. **Operabilidad y Reversibilidad:** Todo cambio debe ser reversible, observable y documentado (ADRs + `memory.md` + `Roadmap.md`).
+4. **IA opcional:** Las capacidades de IA nunca deben bloquear el flujo principal de lectura, social o biblioteca.
+5. **Privacidad por diseño:** Cumplimiento estricto RGPD (Arts. 17 y 20) y minimización de datos son invariantes.
+6. **Trabajo exclusivo en `develop`:** Tras cada fase: commit semántico + push a `develop`. Nunca push directo a `main`.
+7. **Plan antes de código:** Antes de implementar una fase se redacta y somete a aprobación `implementation_plan.md`.
+8. **Seguridad de Base de Datos de Pruebas:** **PROHIBIDO ejecutar comandos concurrentes/paralelos de `pytest`**. La base de datos de test PostgreSQL (`test_booksocial`) entra en bloqueo transaccional (`OperationalError: database is being accessed by other users`) si se ejecutan múltiples instancias a la vez.
 
 ---
 
@@ -621,7 +619,26 @@ Cualquier agente de IA o desarrollador que se incorpore a la base de código **D
 
 ---
 
-## 5. Ubicación de Documentación Relevante
+## 5. Hoja de Ruta Activa: Roadmap de Producción y Evolución (Roadmap.md)
+
+| Bloque | Objetivo Principal | Prioridad | Estado |
+| :--- | :--- | :--- | :--- |
+| **BLOQUE A** | **Estabilización crítica (P0)**: baseline, JWT/cookies HttpOnly, WebSockets seguros, integridad y superficie de ataque | 🔴 P0 | **EN CURSO (Iniciando Fase A1)** |
+| **BLOQUE B** | **Infraestructura y operación (P0/P1)**: Docker prod, backups/restore, observabilidad, escalabilidad | 🔴/🟠 | Pendiente |
+| **BLOQUE C** | **Calidad y deuda técnica (P1)**: tests e2e/carga, linting estricto, CI/CD, gobernanza | 🟠 P1 | Pendiente |
+| **BLOQUE D** | **Endurecimiento de producto core (P1)**: perfil lector, multi-rol autores/catálogo, reseñas/social, búsqueda híbrida | 🟠 P1 | Pendiente |
+| **BLOQUE E** | **Pre-producción y lanzamiento público (P1)**: staging, soft launch, GA endurecida | 🟠 P1 | Pendiente |
+| **BLOQUE F** | **Evolución post-lanzamiento (P2/P3)**: Core Web Vitals, producto avanzado, escala multi-región | 🟡/🟢 | Posterior |
+
+### Desglose de Fases Inmediatas (Bloque A — P0):
+- **Fase A1 — Congelación y baseline de seguridad (P0):** Tag `v1.0.0-pre-hardening`, branch de protección, backup cifrado PostgreSQL + media, verificación de 0 migraciones pendientes, ejecución de suite 100% verde, auditoría de marcadores de conflicto residuales y limpieza de código muerto.
+- **Fase A2 — Autenticación y sesión segura (P0):** Migración de JWT de `localStorage` a cookies `HttpOnly` + `Secure` + `SameSite=Strict`, eliminación de tokens en query strings de WebSockets, tickets efímeros y tests de robo/XSS.
+- **Fase A3 — Integridad de dominio y permisos (P0):** `UniqueConstraint` en `Review`/`UserBook`, cálculo optimizado de rating sin `save()` completo, validación MIME real en subidas y throttling de endpoints sensibles.
+- **Fase A4 — Health, readiness y superficie de ataque (P0):** Sondas seguras sin fuga de datos, OpenAPI protegido y checklist OWASP Top 10.
+
+---
+
+## 6. Ubicación de Documentación Relevante
 
 - **Arquitectura y Rendimiento:** [docs/architecture/database_performance.md](file:///c:/Users/zaton/Desktop/Escritorio/proyectos/MyBookConnect/docs/architecture/database_performance.md)
 - **Estrategia de Escalabilidad y Performance Tuning:** [docs/architecture/scalability_and_performance_tuning.md](file:///c:/Users/zaton/Desktop/Escritorio/proyectos/MyBookConnect/docs/architecture/scalability_and_performance_tuning.md)
