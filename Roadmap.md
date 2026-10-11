@@ -118,13 +118,13 @@
 **Duración estimada:** 1-2 días  
 **Prioridad:** 🔴 P0
 
-- [ ] `/health/live` y `/health/ready` no filtran información interna; códigos 200/503 correctos.
-- [ ] Endpoints de métricas y observabilidad restringidos a personal autorizado.
-- [ ] Eliminación o protección de cualquier endpoint de depuración residual.
-- [ ] Revisión de OpenAPI / schema público (no exponer información sensible).
-- [ ] Checklist OWASP Top 10 aplicado y documentado.
+- [x] `/health/live` y `/health/ready` no filtran información interna; códigos 200/503 correctos.
+- [x] Endpoints de métricas y observabilidad restringidos a personal autorizado.
+- [x] Eliminación o protección de cualquier endpoint de depuración residual.
+- [x] Revisión de OpenAPI / schema público (no exponer información sensible).
+- [x] Checklist OWASP Top 10 aplicado y documentado.
 
-**Criterio de salida:** Smoke de seguridad + healthchecks validados en staging.
+**Criterio de salida:** Smoke de seguridad + healthchecks validados en staging. [COMPLETADO - 2026-10-11]
 
 ---
 

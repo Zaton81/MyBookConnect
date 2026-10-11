@@ -7,6 +7,21 @@ y este proyecto se adhiere a [Semantic Versioning 2.0.0](https://semver.org/lang
 
 ## [Unreleased]
 
+### Added / Health, Readiness & Attack Surface Hardening (Roadmap Bloque A - Fase A4)
+- **Desacoplamiento y Sanitización de Sondas de Salud (`backend/mybookconnect/health.py`)**:
+  - Sonda `/health/live` desacoplada de dependencias externas para evitar reinicios en cascada por latencia de red.
+  - Sonda `/health/ready` con verificación estricta de PostgreSQL y Redis; ante caídas devuelve `503 Service Unavailable` sanitizado sin filtrar trazas de excepción, IPs de base de datos ni cadenas de conexión.
+- **Restricción Estricta de Métricas y Observabilidad (`backend/mybookconnect/observability.py`, `backend/analytics/views.py`, `backend/beta/views.py`)**:
+  - Endpoints de métricas de rendimiento, embudos y alertas operativas (`/api/v1/observability/metrics/`, `/api/v1/analytics/funnel/`, `/api/v1/analytics/summary/`, `/api/v1/analytics/retention/`, `/api/v1/beta/admin/metrics/`, `/api/v1/beta/admin/alerts/`) restringidos exclusivamente a personal con privilegios de administrador (`IsAdminUser`), retornando 401/403 a usuarios no autorizados.
+- **Erradicación de Endpoints de Depuración y Protección Honeypot (`backend/mybookconnect/urls.py`)**:
+  - Auditoría de rutas descartando endpoints residuales de depuración o testing en la superficie pública.
+  - Protección honeypot contra escaneos predecibles (`admin_probe_trap_view` devolviendo 404 y registrando la anomalía).
+- **Extensión OpenAPI y Auditoría de Seguridad de Contratos (`backend/users/authentication.py`, `docs/security/owasp_top_10_checklist.md`)**:
+  - Registrada extensión `RevocationCheckingJWTAuthenticationScheme` para `drf-spectacular`, garantizando validación y documentación formal del esquema de autenticación Bearer JWT.
+  - Generada matriz y checklist de auditoría OWASP Top 10 certificando el cumplimiento de las 10 categorías de seguridad en `docs/security/owasp_top_10_checklist.md`.
+- **Suite de Pruebas de Superficie de Ataque (`backend/tests/test_phase_a4_health_and_attack_surface.py`)**:
+  - 9 pruebas unitarias y de integración al 100% verificando sondas de salud (incluyendo fallback 503 sanitizado), control de acceso en métricas, bloqueo de rutas de depuración y esquema OpenAPI sin fugas de secretos.
+
 ### Added / Security & Domain Integrity Hardening (Roadmap Bloque A - Fase A3)
 - **Prevención Anti-SSRF en Media y Enriquecimiento de Portadas (`backend/books/services/cover_service.py`)**:
   - Implementado validador `validate_safe_external_url` con verificación estricta de esquemas HTTP/HTTPS, resolución DNS y denegación de IPs privadas (RFC 1918), loopback, link-local / cloud metadata (`169.254.169.254`), multicast y direcciones reservadas.
