@@ -61,6 +61,7 @@ from .serializers import (
     UnifiedSearchResultSerializer,
     UserBookSerializer,
 )
+from .throttling import AuthorClaimThrottle, EnrichmentThrottle
 
 logger = logging.getLogger(__name__)
 
@@ -1344,6 +1345,7 @@ class RecommendationMetricsView(APIView):
 
 class AuthorBookRefreshView(APIView):
     permission_classes = (permissions.IsAuthenticated,)
+    throttle_classes = (EnrichmentThrottle,)
 
     @extend_schema(
         summary="Actualizar libros de un autor",
@@ -1377,6 +1379,7 @@ class ExternalSyncView(APIView):
     Protegido con @idempotent para prevenir duplicación o llamadas externas redundantes.
     """
     permission_classes = (permissions.IsAuthenticated,)
+    throttle_classes = (EnrichmentThrottle,)
 
     @extend_schema(
         summary="Sincronización externa de libros bajo demanda",
@@ -2422,6 +2425,7 @@ class AuthorClaimView(APIView):
     Permite a un usuario solicitar la verificación o reclamo de un autor del catálogo.
     """
     permission_classes = [permissions.IsAuthenticated]
+    throttle_classes = [AuthorClaimThrottle]
 
     def post(self, request):
         author_id = request.data.get('author_id')
@@ -2570,6 +2574,7 @@ class AuthorClaimCreateView(APIView):
     RoadmapV3 Sprint 3 (Sección 4.4).
     """
     permission_classes = [permissions.IsAuthenticated]
+    throttle_classes = [AuthorClaimThrottle]
 
     @extend_schema(
         summary="Reclamar página de autor",

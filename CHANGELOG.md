@@ -7,6 +7,36 @@ y este proyecto se adhiere a [Semantic Versioning 2.0.0](https://semver.org/lang
 
 ## [Unreleased]
 
+### Added / Health, Readiness & Attack Surface Hardening (Roadmap Bloque A - Fase A4)
+- **Desacoplamiento y Sanitización de Sondas de Salud (`backend/mybookconnect/health.py`)**:
+  - Sonda `/health/live` desacoplada de dependencias externas para evitar reinicios en cascada por latencia de red.
+  - Sonda `/health/ready` con verificación estricta de PostgreSQL y Redis; ante caídas devuelve `503 Service Unavailable` sanitizado sin filtrar trazas de excepción, IPs de base de datos ni cadenas de conexión.
+- **Restricción Estricta de Métricas y Observabilidad (`backend/mybookconnect/observability.py`, `backend/analytics/views.py`, `backend/beta/views.py`)**:
+  - Endpoints de métricas de rendimiento, embudos y alertas operativas (`/api/v1/observability/metrics/`, `/api/v1/analytics/funnel/`, `/api/v1/analytics/summary/`, `/api/v1/analytics/retention/`, `/api/v1/beta/admin/metrics/`, `/api/v1/beta/admin/alerts/`) restringidos exclusivamente a personal con privilegios de administrador (`IsAdminUser`), retornando 401/403 a usuarios no autorizados.
+- **Erradicación de Endpoints de Depuración y Protección Honeypot (`backend/mybookconnect/urls.py`)**:
+  - Auditoría de rutas descartando endpoints residuales de depuración o testing en la superficie pública.
+  - Protección honeypot contra escaneos predecibles (`admin_probe_trap_view` devolviendo 404 y registrando la anomalía).
+- **Extensión OpenAPI y Auditoría de Seguridad de Contratos (`backend/users/authentication.py`, `docs/security/owasp_top_10_checklist.md`)**:
+  - Registrada extensión `RevocationCheckingJWTAuthenticationScheme` para `drf-spectacular`, garantizando validación y documentación formal del esquema de autenticación Bearer JWT.
+  - Generada matriz y checklist de auditoría OWASP Top 10 certificando el cumplimiento de las 10 categorías de seguridad en `docs/security/owasp_top_10_checklist.md`.
+- **Suite de Pruebas de Superficie de Ataque (`backend/tests/test_phase_a4_health_and_attack_surface.py`)**:
+  - 9 pruebas unitarias y de integración al 100% verificando sondas de salud (incluyendo fallback 503 sanitizado), control de acceso en métricas, bloqueo de rutas de depuración y esquema OpenAPI sin fugas de secretos.
+
+### Added / Security & Domain Integrity Hardening (Roadmap Bloque A - Fase A3)
+- **Prevención Anti-SSRF en Media y Enriquecimiento de Portadas (`backend/books/services/cover_service.py`)**:
+  - Implementado validador `validate_safe_external_url` con verificación estricta de esquemas HTTP/HTTPS, resolución DNS y denegación de IPs privadas (RFC 1918), loopback, link-local / cloud metadata (`169.254.169.254`), multicast y direcciones reservadas.
+  - La función `download_and_attach_image` valida de forma recurrente contra SSRF antes de realizar la descarga y en cada salto de redirección HTTP.
+- **Cálculo Atómico de Rating sin Cascada de Signals (`backend/books/tasks.py`, `backend/books/models.py`)**:
+  - `recalculate_book_rating_task` y `update_book_rating` ejecutan actualización atómica directa mediante `Book.objects.filter(id=...).update(average_rating=...)`, evitando disparar bucles recursivos de `post_save` en `Book` y refrescando deterministamente la caché (`invalidate_book_cache`).
+- **Throttling Agresivo en Endpoints Costosos (`backend/books/throttling.py`, `backend/mybookconnect/settings.py`, `backend/books/views.py`, `backend/books/import_views.py`)**:
+  - Nuevas clases `BookImportThrottle` (10/hora), `EnrichmentThrottle` (20/hora) y `AuthorClaimThrottle` (5/hora) aplicadas a importaciones CSV, sincronización externa bajo demanda y reclamos de autor.
+- **Validación Temprana contra Reseñas Duplicadas (`backend/books/serializers.py`)**:
+  - `ReviewSerializer.validate` comprueba proactivamente si el usuario autenticado ya posee una reseña activa no eliminada (`deleted_at__isnull=True`) para el libro, retornando `ValidationError` con código semántico `duplicate_review`.
+- **Aislamiento Social y Anti-Enumeración (`backend/users/views.py`, `backend/users/privacy_service.py`)**:
+  - Confirmado y blindado el retorno `404 Not Found` en `UserDetailView` para usuarios bloqueados, previniendo enumeración de cuentas.
+- **Suite de Pruebas de Integridad de Dominio (`backend/tests/test_phase_a3_domain_integrity.py`)**:
+  - 24 pruebas unitarias y de integración al 100% cubriendo protección SSRF, cálculo atómico, throttling agresivo, unicidad de reseñas y aislamiento social.
+
 ### Security / Authentication & Session Hardening (Roadmap Bloque A - Fase A2)
 - **Cookies HttpOnly Seguras para JWT (`backend/users/auth_cookies.py`, `backend/mybookconnect/settings.py`)**:
   - Migración y emisión de `access_token` y `refresh_token` como cookies `HttpOnly`, `SameSite=Lax`, `Secure` en `CustomTokenObtainPairView`, `GoogleOAuthLoginView`, `PasswordChangeView` y `CustomTokenRefreshView`.

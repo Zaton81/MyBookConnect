@@ -49,3 +49,20 @@ class RevocationCheckingJWTAuthentication(JWTAuthentication):
                     )
 
         return user
+
+
+try:
+    from drf_spectacular.extensions import OpenApiAuthenticationExtension
+
+    class RevocationCheckingJWTAuthenticationScheme(OpenApiAuthenticationExtension):
+        target_class = 'users.authentication.RevocationCheckingJWTAuthentication'
+        name = 'jwtAuth'
+
+        def get_security_definition(self, auto_schema):
+            return {
+                'type': 'http',
+                'scheme': 'bearer',
+                'bearerFormat': 'JWT',
+            }
+except ImportError:
+    pass

@@ -86,6 +86,17 @@ Cualquier agente de IA o desarrollador que se incorpore a la base de código **D
 
 ---
 
+## 3.2. Estado de Ejecución de Roadmap v2.0 (Endurecimiento Crítico de Producción)
+
+| Fase | Título | Estado | Hito Clave / Entregable |
+| :--- | :--- | :--- | :--- |
+| **Fase A1** | **Congelación y baseline de seguridad** | COMPLETADA | Tag `v1.0.0-pre-hardening`, backup cifrado AES-256 verificado, suite de tests 100% verde, limpieza de código muerto y auditoría de conflictos. |
+| **Fase A2** | **Autenticación y sesión segura** | COMPLETADA | Cookies HttpOnly + Secure + SameSite=Lax para tokens JWT (access y refresh), rotación y blacklist de tokens, eliminación de tokens en localStorage frontend (`partialize` en Zustand), bloqueo estricto de autenticación por query string en WebSockets (`?token=`), tickets efímeros `/api/v1/auth/ws-ticket/` y suite de seguridad (`test_phase_a2_security_auth.py`, 7 tests). |
+| **Fase A3** | **Integridad de dominio y permisos** | COMPLETADA | Recálculo atómico de `average_rating` con `Book.objects.filter().update()` sin bucles de signals `post_save`, prevención Anti-SSRF en descargas de portadas y fotos (`validate_safe_external_url` con filtrado de IPs privadas/loopback/cloud metadata), throttling agresivo en endpoints costosos (`book_import: 10/hour`, `enrichment: 20/hour`, `author_claims: 5/hour`), validación temprana `duplicate_review` en `ReviewSerializer`, y aislamiento de usuarios bloqueados con 404 anti-enumeración (`test_phase_a3_domain_integrity.py`, 24 tests). |
+| **Fase A4** | **Health, readiness y superficie de ataque** | COMPLETADA | Sondas de salud `/health/live` y `/health/ready` desacopladas (503 sanitizado ante fallos sin filtrar credenciales ni trazas), endpoints de observabilidad/métricas protegidos exclusivamente para administradores (`IsAdminUser`), erradicación de endpoints de depuración, OpenAPI schema auditado sin secretos y checklist OWASP Top 10 documentado (`docs/security/owasp_top_10_checklist.md`, `test_phase_a4_health_and_attack_surface.py`, 9 tests). |
+
+---
+
 ## 4. Trampas Conocidas y Lecciones Aprendidas (Gotchas)
 
 ### 4.1. Token de Autenticación en Frontend

@@ -531,6 +531,19 @@ class ReviewSerializer(serializers.ModelSerializer):
             msg = err.messages if hasattr(err, 'messages') else str(err)
             raise serializers.ValidationError(msg) from err
 
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        request = self.context.get('request')
+        user = getattr(request, 'user', None) or attrs.get('user')
+        book = attrs.get('book')
+        if not self.instance and user and getattr(user, 'is_authenticated', False) and book:
+            if Review.objects.filter(user=user, book=book, deleted_at__isnull=True).exists():
+                raise serializers.ValidationError(
+                    {'non_field_errors': ['Ya existe una reseña activa para este libro.']},
+                    code='duplicate_review',
+                )
+        return attrs
+
     def to_representation(self, instance):
         ret = super().to_representation(instance)
         request = self.context.get('request') if hasattr(self, 'context') else None
