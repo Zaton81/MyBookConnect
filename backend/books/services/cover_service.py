@@ -1,5 +1,8 @@
+import ipaddress
 import logging
 import re
+import socket
+from urllib.parse import urljoin, urlparse
 
 import requests
 from django.core.files.base import ContentFile
@@ -10,6 +13,75 @@ from books.models import Book
 from .base import DEFAULT_HEADERS, GOOGLE_BOOKS_API_URL, OPEN_LIBRARY_COVERS_URL, get_google_books_api_key
 
 logger = logging.getLogger(__name__)
+
+
+def validate_safe_external_url(url: str) -> bool:
+    """
+    Verifica que la URL cumpla los requisitos de seguridad Anti-SSRF:
+    - Esquema HTTP o HTTPS.
+    - Hostname no vacío ni localhost/metadatos internos.
+    - Resolución DNS que no apunte a direcciones IP privadas, loopback,
+      reservadas, multicast, link-local (ej. metadatos de cloud 169.254.x.x) o no enrutables.
+    """
+    if not url:
+        return False
+    try:
+        parsed = urlparse(url)
+        if parsed.scheme.lower() not in ('http', 'https'):
+            return False
+        hostname = parsed.hostname
+        if not hostname:
+            return False
+
+        blocked_hostnames = {
+            'localhost',
+            'localhost.localdomain',
+            '127.0.0.1',
+            '::1',
+            '0.0.0.0',
+            'metadata.google.internal',
+            'instance-data',
+        }
+        if hostname.lower() in blocked_hostnames:
+            return False
+
+        # Si el hostname es una IP literal directa
+        try:
+            ip = ipaddress.ip_address(hostname)
+            if (
+                ip.is_private
+                or ip.is_loopback
+                or ip.is_reserved
+                or ip.is_link_local
+                or ip.is_multicast
+                or ip.is_unspecified
+            ):
+                return False
+        except ValueError:
+            # Es un nombre de dominio, resolvemos por DNS
+            try:
+                addr_info = socket.getaddrinfo(hostname, None)
+                if not addr_info:
+                    return False
+                for item in addr_info:
+                    resolved_ip_str = item[4][0]
+                    ip = ipaddress.ip_address(resolved_ip_str)
+                    if (
+                        ip.is_private
+                        or ip.is_loopback
+                        or ip.is_reserved
+                        or ip.is_link_local
+                        or ip.is_multicast
+                        or ip.is_unspecified
+                    ):
+                        return False
+            except socket.gaierror:
+                return False
+
+        return True
+    except Exception as exc:
+        logger.warning(f"Error validando URL segura {url}: {exc}")
+        return False
 
 
 def _is_valid_image(content: bytes, content_type: str) -> bool:
@@ -30,7 +102,7 @@ def _is_valid_image(content: bytes, content_type: str) -> bool:
 def download_and_attach_image(instance, field_name: str, url: str, filename_hint: str) -> bool:
     """
     Descarga una imagen de forma segura con headers de navegador y la adjunta al modelo.
-    Garantiza que URLs HTTP se actualicen a HTTPS y evita bloqueos antibot.
+    Garantiza que URLs HTTP se actualicen a HTTPS, valida contra SSRF y evita bloqueos antibot.
     """
     if not url:
         return False
@@ -40,8 +112,30 @@ def download_and_attach_image(instance, field_name: str, url: str, filename_hint
         url = 'https://' + url[7:]
     url = url.replace('&edge=curl', '').replace('&edge=curl&', '&')
 
+    if not validate_safe_external_url(url):
+        logger.warning(f"URL externa descartada por política Anti-SSRF: {url}")
+        return False
+
     try:
-        r = requests.get(url, timeout=8, headers=DEFAULT_HEADERS, allow_redirects=True)
+        current_url = url
+        max_redirects = 3
+        r = None
+        for _ in range(max_redirects + 1):
+            if not validate_safe_external_url(current_url):
+                logger.warning(f"Redirección descartada por política Anti-SSRF: {current_url}")
+                return False
+            r = requests.get(current_url, timeout=8, headers=DEFAULT_HEADERS, allow_redirects=False)
+            if r.is_redirect or r.status_code in (301, 302, 303, 307, 308):
+                next_loc = r.headers.get('Location')
+                if not next_loc:
+                    return False
+                current_url = urljoin(current_url, next_loc)
+                continue
+            break
+
+        if r is None:
+            return False
+
         r.raise_for_status()
 
         content = r.content

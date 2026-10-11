@@ -93,14 +93,20 @@ def recalculate_book_rating_task(self, book_id: int) -> float | None:
                 book=book, rating__isnull=False, deleted_at__isnull=True, is_moderated=False
             ).aggregate(Avg('rating'))['rating__avg']
             if review_avg is not None:
-                book.average_rating = round(review_avg, 2)
+                new_avg = round(review_avg, 2)
             else:
                 ub_avg = UserBook.objects.filter(book=book, rating__isnull=False).aggregate(Avg('rating'))['rating__avg']
-                book.average_rating = round(ub_avg, 2) if ub_avg else None
+                new_avg = round(ub_avg, 2) if ub_avg else None
 
-            book.save(update_fields=['average_rating'])
-            logger.info(f"recalculate_book_rating_task: Libro {book_id} recalculado: {book.average_rating}")
-            return book.average_rating
+            Book.objects.filter(id=book.id).update(average_rating=new_avg)
+            try:
+                from .cache_utils import invalidate_book_cache
+
+                invalidate_book_cache(book.id)
+            except Exception:
+                pass
+            logger.info(f"recalculate_book_rating_task: Libro {book_id} recalculado: {new_avg}")
+            return new_avg
     except Exception as exc:
         logger.warning(f"recalculate_book_rating_task error para libro {book_id}: {exc}")
         raise self.retry(exc=exc) from exc

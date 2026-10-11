@@ -101,16 +101,16 @@
 **Duración estimada:** 3-4 días  
 **Prioridad:** 🔴 P0
 
-- [ ] Re-auditoría de `UniqueConstraint` en `Review` (user + book) y `UserBook`.
-- [ ] Verificar que no existen signals destructivas o bucles de sincronización rating/notas.
-- [ ] Cálculo eficiente y cacheado de `average_rating` (evitar `book.save()` completo en cada review).
-- [ ] Validación estricta de media (MIME real, tamaño máximo, prevención de SSRF en enrichment de portadas).
-- [ ] Throttling agresivo en endpoints costosos (import, enrichment, claim de autor, reportes).
-- [ ] Revisión de permisos: `IsOwnerOrReadOnly`, roles editor/moderador, IDOR en perfiles, listas y mensajes.
-- [ ] Política de bloqueo social: respuesta 404 (no filtrar existencia) confirmada y testeada.
-- [ ] Soft-delete correcto en reseñas, comentarios y publicaciones de autor.
+- [x] Re-auditoría de `UniqueConstraint` en `Review` (user + book) y `UserBook`.
+- [x] Verificar que no existen signals destructivas o bucles de sincronización rating/notas.
+- [x] Cálculo eficiente y cacheado de `average_rating` (evitar `book.save()` completo en cada review con `Book.objects.filter().update()`).
+- [x] Validación estricta de media (MIME real, tamaño máximo, prevención de SSRF en enrichment de portadas con `validate_safe_external_url`).
+- [x] Throttling agresivo en endpoints costosos (`book_import: 10/hour`, `enrichment: 20/hour`, `author_claims: 5/hour`).
+- [x] Revisión de permisos: `IsOwnerOrReadOnly`, roles editor/moderador, IDOR en perfiles, listas y mensajes.
+- [x] Política de bloqueo social: respuesta 404 (no filtrar existencia) confirmada y testeada.
+- [x] Soft-delete correcto en reseñas, comentarios y publicaciones de autor.
 
-**Criterio de salida:** Tests de integridad + seguridad (IDOR, permisos, injection) al 100 %.
+**Criterio de salida:** Tests de integridad + seguridad (IDOR, permisos, injection) al 100 %. [COMPLETADO - 2026-10-11]
 
 ---
 

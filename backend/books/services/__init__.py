@@ -38,6 +38,7 @@ from .cover_service import (
     attach_best_cover,
     download_and_attach_image,
     ensure_book_cover,
+    validate_safe_external_url,
 )
 from .enrichment_service import (
     enrich_book_metadata,
@@ -160,6 +161,7 @@ __all__ = [
     'get_user_reading_stats',
     'download_and_attach_image',
     '_download_and_attach_image',
+    'validate_safe_external_url',
     'attach_best_cover',
     '_attach_best_cover',
     '_create_or_get_from_volume',

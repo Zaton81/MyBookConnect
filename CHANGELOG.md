@@ -7,6 +7,21 @@ y este proyecto se adhiere a [Semantic Versioning 2.0.0](https://semver.org/lang
 
 ## [Unreleased]
 
+### Added / Security & Domain Integrity Hardening (Roadmap Bloque A - Fase A3)
+- **Prevención Anti-SSRF en Media y Enriquecimiento de Portadas (`backend/books/services/cover_service.py`)**:
+  - Implementado validador `validate_safe_external_url` con verificación estricta de esquemas HTTP/HTTPS, resolución DNS y denegación de IPs privadas (RFC 1918), loopback, link-local / cloud metadata (`169.254.169.254`), multicast y direcciones reservadas.
+  - La función `download_and_attach_image` valida de forma recurrente contra SSRF antes de realizar la descarga y en cada salto de redirección HTTP.
+- **Cálculo Atómico de Rating sin Cascada de Signals (`backend/books/tasks.py`, `backend/books/models.py`)**:
+  - `recalculate_book_rating_task` y `update_book_rating` ejecutan actualización atómica directa mediante `Book.objects.filter(id=...).update(average_rating=...)`, evitando disparar bucles recursivos de `post_save` en `Book` y refrescando deterministamente la caché (`invalidate_book_cache`).
+- **Throttling Agresivo en Endpoints Costosos (`backend/books/throttling.py`, `backend/mybookconnect/settings.py`, `backend/books/views.py`, `backend/books/import_views.py`)**:
+  - Nuevas clases `BookImportThrottle` (10/hora), `EnrichmentThrottle` (20/hora) y `AuthorClaimThrottle` (5/hora) aplicadas a importaciones CSV, sincronización externa bajo demanda y reclamos de autor.
+- **Validación Temprana contra Reseñas Duplicadas (`backend/books/serializers.py`)**:
+  - `ReviewSerializer.validate` comprueba proactivamente si el usuario autenticado ya posee una reseña activa no eliminada (`deleted_at__isnull=True`) para el libro, retornando `ValidationError` con código semántico `duplicate_review`.
+- **Aislamiento Social y Anti-Enumeración (`backend/users/views.py`, `backend/users/privacy_service.py`)**:
+  - Confirmado y blindado el retorno `404 Not Found` en `UserDetailView` para usuarios bloqueados, previniendo enumeración de cuentas.
+- **Suite de Pruebas de Integridad de Dominio (`backend/tests/test_phase_a3_domain_integrity.py`)**:
+  - 24 pruebas unitarias y de integración al 100% cubriendo protección SSRF, cálculo atómico, throttling agresivo, unicidad de reseñas y aislamiento social.
+
 ### Security / Authentication & Session Hardening (Roadmap Bloque A - Fase A2)
 - **Cookies HttpOnly Seguras para JWT (`backend/users/auth_cookies.py`, `backend/mybookconnect/settings.py`)**:
   - Migración y emisión de `access_token` y `refresh_token` como cookies `HttpOnly`, `SameSite=Lax`, `Secure` en `CustomTokenObtainPairView`, `GoogleOAuthLoginView`, `PasswordChangeView` y `CustomTokenRefreshView`.

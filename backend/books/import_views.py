@@ -5,6 +5,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from books.services.csv_import_service import CSVImportService
+from books.throttling import BookImportThrottle
 from mybookconnect.idempotency import idempotent
 
 
@@ -14,6 +15,7 @@ class CSVImportPreviewView(APIView):
     con validaciones, detección de duplicados en catálogo y en biblioteca personal (Fase 55).
     """
     permission_classes = (permissions.IsAuthenticated,)
+    throttle_classes = (BookImportThrottle,)
     parser_classes = (MultiPartParser, FormParser)
 
     @extend_schema(
@@ -69,6 +71,7 @@ class CSVImportConfirmView(APIView):
     Ejecuta la importación atómica e idempotente de los libros previsualizados (Fase 55 y 56).
     """
     permission_classes = (permissions.IsAuthenticated,)
+    throttle_classes = (BookImportThrottle,)
     parser_classes = (JSONParser,)
 
     @extend_schema(
