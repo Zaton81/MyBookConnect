@@ -15,7 +15,8 @@ class MockFileReader {
   result: string | null = null;
   onload: (() => void) | null = null;
   readAsDataURL(_blob: Blob) {
-    this.result = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+    this.result =
+      'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
     if (this.onload) {
       this.onload();
     }

@@ -3,11 +3,11 @@ Servicio de dominio para Audiolibros, streaming y persistencia de progreso de es
 RoadmapV3 Sección 30 — Sprint 18: Audiolibros & TTS.
 """
 from typing import Any, Dict, List, Optional
-from django.db.models import Sum, Count, Q
-from django.core.exceptions import ValidationError
-from django.utils import timezone
 
-from ..models import Book, AudiobookTrack, UserAudiobookProgress
+from django.core.exceptions import ValidationError
+from django.db.models import Sum
+
+from ..models import AudiobookTrack, Book, UserAudiobookProgress
 
 
 def format_seconds(seconds: int) -> str:
@@ -35,8 +35,8 @@ def get_book_audiobook_details(book_id: int, user: Optional[Any] = None) -> Dict
     """
     try:
         book = Book.objects.select_related('author').get(pk=book_id)
-    except Book.DoesNotExist:
-        raise ValidationError(f"No existe ningún libro con el identificador {book_id}")
+    except Book.DoesNotExist as err:
+        raise ValidationError(f"No existe ningún libro con el identificador {book_id}") from err
 
     tracks_qs = AudiobookTrack.objects.filter(book=book).order_by('track_number')
     tracks_list: List[Dict[str, Any]] = []
@@ -102,7 +102,7 @@ def get_book_audiobook_details(book_id: int, user: Optional[Any] = None) -> Dict
         'tracks_count': len(tracks_list),
         'total_duration_seconds': total_seconds,
         'formatted_total_duration': format_seconds(total_seconds),
-        'narrators': sorted(list(narrator_set)),
+        'narrators': sorted(narrator_set),
         'sample_track': sample_track_info,
         'tracks': tracks_list,
         'progress': progress_data,
@@ -132,15 +132,15 @@ def save_audiobook_progress(
 
     try:
         book = Book.objects.get(pk=book_id)
-    except Book.DoesNotExist:
-        raise ValidationError(f"No existe ningún libro con el identificador {book_id}")
+    except Book.DoesNotExist as err:
+        raise ValidationError(f"No existe ningún libro con el identificador {book_id}") from err
 
     track: Optional[AudiobookTrack] = None
     if track_id:
         try:
             track = AudiobookTrack.objects.get(pk=track_id, book=book)
-        except AudiobookTrack.DoesNotExist:
-            raise ValidationError(f"La pista {track_id} no pertenece al libro {book_id}")
+        except AudiobookTrack.DoesNotExist as err:
+            raise ValidationError(f"La pista {track_id} no pertenece al libro {book_id}") from err
 
     # Normalización y validación de parámetros de reproducción
     safe_pos = max(0, int(position_seconds))
@@ -242,7 +242,7 @@ def get_audiobook_catalog(
     for book in books:
         tracks = list(book.audio_tracks.all())
         total_seconds = sum(t.duration_seconds for t in tracks)
-        narrators = sorted(list({t.narrator_name for t in tracks if t.narrator_name}))
+        narrators = sorted({t.narrator_name for t in tracks if t.narrator_name})
         sample = next((t for t in tracks if t.is_sample), tracks[0] if tracks else None)
 
         user_progress: Optional[Dict[str, Any]] = None

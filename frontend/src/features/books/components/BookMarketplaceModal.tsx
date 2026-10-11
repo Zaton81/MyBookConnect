@@ -63,7 +63,9 @@ export const BookMarketplaceModal: React.FC<BookMarketplaceModalProps> = ({
   const [data, setData] = useState<MarketplaceData | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'all' | 'indie' | 'paperback' | 'ebook' | 'audiobook'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | 'indie' | 'paperback' | 'ebook' | 'audiobook'>(
+    'all'
+  );
 
   // Formulario para autores verificados
   const [showAddForm, setShowAddForm] = useState<boolean>(false);
@@ -194,7 +196,8 @@ export const BookMarketplaceModal: React.FC<BookMarketplaceModalProps> = ({
     ? data.offers.filter((offer) => {
         if (activeTab === 'all') return true;
         if (activeTab === 'indie') return offer.merchant_type === 'indie_network';
-        if (activeTab === 'paperback') return offer.format === 'paperback' || offer.format === 'hardcover';
+        if (activeTab === 'paperback')
+          return offer.format === 'paperback' || offer.format === 'hardcover';
         if (activeTab === 'ebook') return offer.format === 'ebook';
         if (activeTab === 'audiobook') return offer.format === 'audiobook';
         return true;
@@ -230,7 +233,10 @@ export const BookMarketplaceModal: React.FC<BookMarketplaceModalProps> = ({
                 Marketplace & Librerías
               </span>
             </div>
-            <h3 id="marketplace-modal-title" className="text-lg sm:text-xl font-black text-slate-900 dark:text-white">
+            <h3
+              id="marketplace-modal-title"
+              className="text-lg sm:text-xl font-black text-slate-900 dark:text-white"
+            >
               Dónde conseguir «{bookTitle}»
             </h3>
             {authorName && (
@@ -322,7 +328,9 @@ export const BookMarketplaceModal: React.FC<BookMarketplaceModalProps> = ({
           {!loading && !error && filteredOffers.length === 0 && (
             <div className="py-10 text-center text-slate-500 dark:text-slate-400 space-y-2">
               <span className="text-3xl">🔍</span>
-              <p className="text-xs font-semibold">No se encontraron opciones para el filtro seleccionado.</p>
+              <p className="text-xs font-semibold">
+                No se encontraron opciones para el filtro seleccionado.
+              </p>
             </div>
           )}
 
@@ -438,7 +446,9 @@ export const BookMarketplaceModal: React.FC<BookMarketplaceModalProps> = ({
                   </div>
 
                   {formError && (
-                    <p className="text-xs text-rose-600 dark:text-rose-400 font-medium">{formError}</p>
+                    <p className="text-xs text-rose-600 dark:text-rose-400 font-medium">
+                      {formError}
+                    </p>
                   )}
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -533,7 +543,8 @@ export const BookMarketplaceModal: React.FC<BookMarketplaceModalProps> = ({
         {/* Pie del modal con declaración ética y legal */}
         <div className="p-4 bg-slate-50 dark:bg-slate-950/80 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-500 dark:text-slate-400 flex flex-col sm:flex-row items-center justify-between gap-2 text-center sm:text-left">
           <p className="max-w-xl">
-            🌿 <span className="font-semibold">Compromiso ético:</span> MyBookConnect apoya las librerías de proximidad. Las compras no condicionan las recomendaciones.
+            🌿 <span className="font-semibold">Compromiso ético:</span> MyBookConnect apoya las
+            librerías de proximidad. Las compras no condicionan las recomendaciones.
           </p>
           <button
             onClick={onClose}

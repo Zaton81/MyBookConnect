@@ -170,9 +170,7 @@ export function AdminFaqsTab() {
       const matchesCat = categoryFilter === 'all' || faq.category === categoryFilter;
       const q = search.toLowerCase().trim();
       const matchesSearch =
-        !q ||
-        faq.question.toLowerCase().includes(q) ||
-        faq.answer.toLowerCase().includes(q);
+        !q || faq.question.toLowerCase().includes(q) || faq.answer.toLowerCase().includes(q);
       return matchesCat && matchesSearch;
     });
   }, [faqs, categoryFilter, search]);
@@ -187,7 +185,8 @@ export function AdminFaqsTab() {
             Gestión de Preguntas Frecuentes (FAQs)
           </h2>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-            Crea, edita y ordena las preguntas y respuestas visualizadas en formato acordeón en el frontend público.
+            Crea, edita y ordena las preguntas y respuestas visualizadas en formato acordeón en el
+            frontend público.
           </p>
         </div>
 
@@ -272,13 +271,15 @@ export function AdminFaqsTab() {
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {filteredFaqs.map((faq) => (
-                  <tr key={faq.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
-                    <td className="px-6 py-4 font-mono text-xs text-slate-400">
-                      #{faq.order}
-                    </td>
+                  <tr
+                    key={faq.id}
+                    className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors"
+                  >
+                    <td className="px-6 py-4 font-mono text-xs text-slate-400">#{faq.order}</td>
                     <td className="px-6 py-4">
                       <span className="inline-flex px-2.5 py-1 rounded-md text-xs font-semibold bg-teal-50 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300 border border-teal-200/60 dark:border-teal-800">
-                        {CATEGORY_OPTIONS.find((c) => c.value === faq.category)?.label || faq.category}
+                        {CATEGORY_OPTIONS.find((c) => c.value === faq.category)?.label ||
+                          faq.category}
                       </span>
                     </td>
                     <td className="px-6 py-4 font-medium text-slate-900 dark:text-white max-w-md">
@@ -374,7 +375,9 @@ export function AdminFaqsTab() {
                 <input
                   type="number"
                   value={formData.order}
-                  onChange={(e) => setFormData({ ...formData, order: parseInt(e.target.value, 10) || 0 })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, order: parseInt(e.target.value, 10) || 0 })
+                  }
                   className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-teal-500"
                 />
               </div>
@@ -402,7 +405,10 @@ export function AdminFaqsTab() {
                 onChange={(e) => setFormData({ ...formData, is_published: e.target.checked })}
                 className="w-4 h-4 text-teal-600 rounded border-slate-300 focus:ring-teal-500"
               />
-              <label htmlFor="is_published" className="text-sm font-medium text-slate-700 dark:text-slate-300">
+              <label
+                htmlFor="is_published"
+                className="text-sm font-medium text-slate-700 dark:text-slate-300"
+              >
                 Publicar inmediatamente (visible para todos los usuarios)
               </label>
             </div>
@@ -411,7 +417,11 @@ export function AdminFaqsTab() {
             <Button color="gray" onClick={() => setShowModal(false)} disabled={saving}>
               Cancelar
             </Button>
-            <Button type="submit" className="bg-teal-600 hover:bg-teal-700 text-white" disabled={saving}>
+            <Button
+              type="submit"
+              className="bg-teal-600 hover:bg-teal-700 text-white"
+              disabled={saving}
+            >
               {saving ? <Spinner size="sm" className="mr-2" /> : null}
               {editingFaq ? 'Guardar Cambios' : 'Crear Pregunta'}
             </Button>

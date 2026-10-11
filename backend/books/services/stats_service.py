@@ -68,7 +68,7 @@ def get_user_reading_stats(user_id: int, year: int | str | None = None) -> dict[
             distinct_years.add(updated_at.year)
     if not distinct_years:
         distinct_years.add(current_year)
-    available_years = sorted(list(distinct_years), reverse=True)
+    available_years = sorted(distinct_years, reverse=True)
 
     # Libros leídos o marcados como finalizados en toda la historia
     all_read_books = user_books.filter(Q(status=ReadingStatus.READ) | Q(is_read=True))

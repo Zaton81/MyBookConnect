@@ -1422,6 +1422,20 @@ class FAQ(models.Model):
 
 
 # Modelos de gamificación opcional (Fase 54)
+# Modelos de Audiolibros y Reproducción / TTS (RoadmapV3 Sección 30 — Sprint 18)
+from .audiobook_models import (  # noqa: E402, F401
+    AudiobookTrack,
+    UserAudiobookProgress,
+)
+
+# Modelos de Clubs de Lectura y Debates (RoadmapV3 Sección 30.1)
+from .club_models import (  # noqa: E402, F401
+    ReadingClub,
+    ReadingClubBook,
+    ReadingClubDiscussion,
+    ReadingClubDiscussionComment,
+    ReadingClubMember,
+)
 from .gamification_models import (  # noqa: E402, F401
     Badge,
     BadgeCategory,
@@ -1434,26 +1448,11 @@ from .gamification_models import (  # noqa: E402, F401
     UserChallenge,
 )
 
-# Modelos de Clubs de Lectura y Debates (RoadmapV3 Sección 30.1)
-from .club_models import (  # noqa: E402, F401
-    ReadingClub,
-    ReadingClubMember,
-    ReadingClubBook,
-    ReadingClubDiscussion,
-    ReadingClubDiscussionComment,
-)
-
-# Modelos de Audiolibros y Reproducción / TTS (RoadmapV3 Sección 30 — Sprint 18)
-from .audiobook_models import (  # noqa: E402, F401
-    AudiobookTrack,
-    UserAudiobookProgress,
-)
-
 # Modelos de Marketplace, Editoriales y Opciones de Compra (RoadmapV3 Sección 30 — Sprint 19)
 from .marketplace_models import (  # noqa: E402, F401
-    Publisher,
     BookBuyLink,
     MarketplaceClick,
+    Publisher,
 )
 
 

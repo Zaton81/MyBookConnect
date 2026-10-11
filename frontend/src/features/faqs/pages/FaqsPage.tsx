@@ -21,7 +21,10 @@ interface FAQ {
   created_at: string;
 }
 
-const CATEGORY_MAP: Record<string, { label: string; icon: React.ComponentType<{ className?: string }> }> = {
+const CATEGORY_MAP: Record<
+  string,
+  { label: string; icon: React.ComponentType<{ className?: string }> }
+> = {
   all: { label: 'Todas las preguntas', icon: HiOutlineSparkles },
   general: { label: 'General', icon: HiOutlineQuestionMarkCircle },
   authors: { label: 'Autores y Perfiles', icon: HiOutlineBookOpen },
@@ -85,9 +88,7 @@ export function FaqsPage() {
         selectedCategory === 'all' || faq.category.toLowerCase() === selectedCategory.toLowerCase();
       const q = searchQuery.toLowerCase().trim();
       const matchesSearch =
-        !q ||
-        faq.question.toLowerCase().includes(q) ||
-        faq.answer.toLowerCase().includes(q);
+        !q || faq.question.toLowerCase().includes(q) || faq.answer.toLowerCase().includes(q);
       return matchesCategory && matchesSearch;
     });
   }, [faqs, selectedCategory, searchQuery]);
@@ -106,8 +107,8 @@ export function FaqsPage() {
             Preguntas Frecuentes
           </h1>
           <p className="text-base sm:text-lg text-slate-600 dark:text-slate-400 max-w-2xl mx-auto leading-relaxed">
-            Encuentra respuestas inmediatas sobre cómo gestionar tu biblioteca, interactuar con autores,
-            reclamar tu perfil y sacar el máximo partido a MyBookSocial.
+            Encuentra respuestas inmediatas sobre cómo gestionar tu biblioteca, interactuar con
+            autores, reclamar tu perfil y sacar el máximo partido a MyBookSocial.
           </p>
 
           {/* Search Bar */}
@@ -161,7 +162,9 @@ export function FaqsPage() {
         {loading ? (
           <div className="flex flex-col items-center justify-center py-20 space-y-4">
             <Spinner size="xl" className="fill-teal-600" />
-            <p className="text-sm text-slate-500 dark:text-slate-400">Cargando preguntas frecuentes...</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              Cargando preguntas frecuentes...
+            </p>
           </div>
         ) : error ? (
           <div className="p-6 rounded-2xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 text-center space-y-2">
@@ -246,7 +249,8 @@ export function FaqsPage() {
               ¿Tienes otra duda que no aparece aquí?
             </h3>
             <p className="text-sm text-teal-100 max-w-lg">
-              Nuestro equipo de soporte y la comunidad de lectores están encantados de ayudarte en cualquier momento.
+              Nuestro equipo de soporte y la comunidad de lectores están encantados de ayudarte en
+              cualquier momento.
             </p>
           </div>
           <Link

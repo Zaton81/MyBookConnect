@@ -1,6 +1,10 @@
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { AuthorNewsletterSection, AuthorNewsletterItem, AuthorNewsletterIssueItem } from '../components/AuthorNewsletterSection';
+import {
+  AuthorNewsletterSection,
+  AuthorNewsletterItem,
+  AuthorNewsletterIssueItem,
+} from '../components/AuthorNewsletterSection';
 import { useAuthStore } from '../../../store/auth';
 
 vi.mock('../../../store/auth', () => ({
@@ -59,11 +63,7 @@ describe('AuthorNewsletterSection Component', () => {
     });
 
     render(
-      <AuthorNewsletterSection
-        authorId={10}
-        authorName="Isabel Allende"
-        isAuthorOwner={false}
-      />
+      <AuthorNewsletterSection authorId={10} authorName="Isabel Allende" isAuthorOwner={false} />
     );
 
     expect(screen.getByText(/Boletín Literario & Novedades/i)).toBeInTheDocument();
@@ -84,11 +84,7 @@ describe('AuthorNewsletterSection Component', () => {
       });
 
     render(
-      <AuthorNewsletterSection
-        authorId={10}
-        authorName="Isabel Allende"
-        isAuthorOwner={false}
-      />
+      <AuthorNewsletterSection authorId={10} authorName="Isabel Allende" isAuthorOwner={false} />
     );
 
     await waitFor(() => {
@@ -126,16 +122,14 @@ describe('AuthorNewsletterSection Component', () => {
       });
 
     render(
-      <AuthorNewsletterSection
-        authorId={10}
-        authorName="Isabel Allende"
-        isAuthorOwner={false}
-      />
+      <AuthorNewsletterSection authorId={10} authorName="Isabel Allende" isAuthorOwner={false} />
     );
 
     await waitFor(() => {
       expect(screen.getByText('Entrega #1: Mis libros favoritos del año')).toBeInTheDocument();
-      expect(screen.getByText(/Asunto: Recomendaciones y secretos de biblioteca/i)).toBeInTheDocument();
+      expect(
+        screen.getByText(/Asunto: Recomendaciones y secretos de biblioteca/i)
+      ).toBeInTheDocument();
     });
 
     const expandButton = screen.getByText(/Leer entrega/i);
@@ -159,11 +153,7 @@ describe('AuthorNewsletterSection Component', () => {
       });
 
     render(
-      <AuthorNewsletterSection
-        authorId={10}
-        authorName="Isabel Allende"
-        isAuthorOwner={true}
-      />
+      <AuthorNewsletterSection authorId={10} authorName="Isabel Allende" isAuthorOwner={true} />
     );
 
     await waitFor(() => {

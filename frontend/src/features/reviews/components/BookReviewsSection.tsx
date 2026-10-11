@@ -47,7 +47,9 @@ function renderFormattedInline(
               ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-700/50'
               : 'bg-slate-300 dark:bg-slate-700 text-transparent select-none hover:bg-slate-400 dark:hover:bg-slate-600'
           }`}
-          title={isRevealed ? 'Haz clic para ocultar spoiler' : 'Spoiler oculto - Haz clic para ver'}
+          title={
+            isRevealed ? 'Haz clic para ocultar spoiler' : 'Spoiler oculto - Haz clic para ver'
+          }
         >
           {isRevealed ? `⚠️ ${inner}` : '⚠️ SPOILER (Click para ver)'}
         </span>
@@ -123,11 +125,7 @@ function RichReviewText({ text }: { text: string }) {
           );
         }
 
-        return (
-          <p key={idx}>
-            {renderFormattedInline(line, idx, revealedSpoilers, toggleSpoiler)}
-          </p>
-        );
+        return <p key={idx}>{renderFormattedInline(line, idx, revealedSpoilers, toggleSpoiler)}</p>;
       })}
     </div>
   );
@@ -470,7 +468,9 @@ export function BookReviewsSection({
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail || (err.image && err.image[0]) || 'No se pudo guardar la reseña.');
+        throw new Error(
+          err.detail || (err.image && err.image[0]) || 'No se pudo guardar la reseña.'
+        );
       }
 
       setShowForm(false);

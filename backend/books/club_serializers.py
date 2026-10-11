@@ -1,14 +1,16 @@
-from mybookconnect.html_sanitizer import sanitize_plain_text, sanitize_html
+from django.contrib.auth import get_user_model
 from rest_framework import serializers
+
+from mybookconnect.html_sanitizer import sanitize_html, sanitize_plain_text
+
 from .club_models import (
     ReadingClub,
-    ReadingClubMember,
     ReadingClubBook,
     ReadingClubDiscussion,
     ReadingClubDiscussionComment,
+    ReadingClubMember,
 )
 from .models import Book
-from django.contrib.auth import get_user_model
 
 User = get_user_model()
 

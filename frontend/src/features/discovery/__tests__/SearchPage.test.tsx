@@ -70,9 +70,7 @@ describe('SearchPage Component', () => {
 
     expect(screen.getByRole('heading', { name: /Búsqueda Global Unificada/i })).toBeInTheDocument();
     expect(screen.getByRole('search')).toBeInTheDocument();
-    expect(
-      screen.getByLabelText(/Término de búsqueda global/i)
-    ).toBeInTheDocument();
+    expect(screen.getByLabelText(/Término de búsqueda global/i)).toBeInTheDocument();
     expect(screen.getByText('Búsquedas populares:')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Dune' })).toBeInTheDocument();
   });

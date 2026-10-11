@@ -197,7 +197,8 @@ describe('Audiobook & TTS Player Suite (Sprint 18)', () => {
         word_count: 280,
         estimated_duration_seconds: 120,
         formatted_estimated_duration: '2 min',
-        text_content: 'El día en que lo iban a matar, Santiago Nasar se levantó a las 5:30 de la mañana.',
+        text_content:
+          'El día en que lo iban a matar, Santiago Nasar se levantó a las 5:30 de la mañana.',
       },
     };
 

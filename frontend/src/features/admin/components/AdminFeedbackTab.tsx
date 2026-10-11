@@ -33,7 +33,9 @@ export function AdminFeedbackTab({ token, apiUrl }: AdminFeedbackTabProps) {
   const [editStatus, setEditStatus] = useState<string>('TRIAGED');
   const [adminNotes, setAdminNotes] = useState<string>('');
   const [saving, setSaving] = useState(false);
-  const [actionMsg, setActionMsg] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+  const [actionMsg, setActionMsg] = useState<{ text: string; type: 'success' | 'error' } | null>(
+    null
+  );
 
   const fetchFeedback = async () => {
     if (!token) return;
@@ -104,27 +106,67 @@ export function AdminFeedbackTab({ token, apiUrl }: AdminFeedbackTabProps) {
 
   const getCategoryBadge = (category: string) => {
     const map: Record<string, { label: string; color: string }> = {
-      BUG: { label: '🐛 Error', color: 'bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-200' },
-      FEATURE: { label: '✨ Función', color: 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-200' },
-      USABILITY: { label: '🎨 UX / Diseño', color: 'bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-200' },
-      CONTENT: { label: '📖 Contenido', color: 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200' },
-      PERFORMANCE: { label: '⚡ Rendimiento', color: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-200' },
-      OTHER: { label: '💬 Otro', color: 'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-200' },
+      BUG: {
+        label: '🐛 Error',
+        color: 'bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-200',
+      },
+      FEATURE: {
+        label: '✨ Función',
+        color: 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-200',
+      },
+      USABILITY: {
+        label: '🎨 UX / Diseño',
+        color: 'bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-200',
+      },
+      CONTENT: {
+        label: '📖 Contenido',
+        color: 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200',
+      },
+      PERFORMANCE: {
+        label: '⚡ Rendimiento',
+        color: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-200',
+      },
+      OTHER: {
+        label: '💬 Otro',
+        color: 'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-200',
+      },
     };
-    const c = map[category.toUpperCase()] || { label: category, color: 'bg-slate-100 text-slate-700' };
-    return <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${c.color}`}>{c.label}</span>;
+    const c = map[category.toUpperCase()] || {
+      label: category,
+      color: 'bg-slate-100 text-slate-700',
+    };
+    return (
+      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${c.color}`}>{c.label}</span>
+    );
   };
 
   const getStatusBadge = (status: string) => {
     const map: Record<string, { label: string; color: string }> = {
-      NEW: { label: '● Nuevo', color: 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200' },
-      TRIAGED: { label: '● En Triaje', color: 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200' },
-      IN_PROGRESS: { label: '● En Desarrollo', color: 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-200' },
-      RESOLVED: { label: '✓ Resuelto', color: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200' },
-      DISMISSED: { label: '✕ Desestimado', color: 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300' },
+      NEW: {
+        label: '● Nuevo',
+        color: 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200',
+      },
+      TRIAGED: {
+        label: '● En Triaje',
+        color: 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200',
+      },
+      IN_PROGRESS: {
+        label: '● En Desarrollo',
+        color: 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-200',
+      },
+      RESOLVED: {
+        label: '✓ Resuelto',
+        color: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200',
+      },
+      DISMISSED: {
+        label: '✕ Desestimado',
+        color: 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300',
+      },
     };
     const s = map[status.toUpperCase()] || { label: status, color: 'bg-slate-100 text-slate-700' };
-    return <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${s.color}`}>{s.label}</span>;
+    return (
+      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${s.color}`}>{s.label}</span>
+    );
   };
 
   return (
@@ -142,7 +184,8 @@ export function AdminFeedbackTab({ token, apiUrl }: AdminFeedbackTabProps) {
             </span>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-xl">
-            Supervisa, prioriza y responde a las sugerencias, errores y opiniones remitidas por la comunidad de beta testers.
+            Supervisa, prioriza y responde a las sugerencias, errores y opiniones remitidas por la
+            comunidad de beta testers.
           </p>
         </div>
 
@@ -291,23 +334,33 @@ export function AdminFeedbackTab({ token, apiUrl }: AdminFeedbackTabProps) {
               </p>
               <div className="pt-2 border-t border-slate-200 dark:border-slate-800 text-[11px] text-slate-500 space-y-1">
                 <div>
-                  <strong>Remitente:</strong> {selectedFeedback.user_username} ({selectedFeedback.user_email || 'Sin email'})
+                  <strong>Remitente:</strong> {selectedFeedback.user_username} (
+                  {selectedFeedback.user_email || 'Sin email'})
                 </div>
                 {selectedFeedback.page_url && (
                   <div>
-                    <strong>Página Origen:</strong> <span className="font-mono text-slate-600 dark:text-slate-400">{selectedFeedback.page_url}</span>
+                    <strong>Página Origen:</strong>{' '}
+                    <span className="font-mono text-slate-600 dark:text-slate-400">
+                      {selectedFeedback.page_url}
+                    </span>
                   </div>
                 )}
                 {selectedFeedback.device_info && (
                   <div>
-                    <strong>Dispositivo:</strong> <span className="font-mono text-slate-600 dark:text-slate-400">{selectedFeedback.device_info}</span>
+                    <strong>Dispositivo:</strong>{' '}
+                    <span className="font-mono text-slate-600 dark:text-slate-400">
+                      {selectedFeedback.device_info}
+                    </span>
                   </div>
                 )}
               </div>
             </div>
 
             {/* Formulario de Triaje */}
-            <form onSubmit={handleSaveTriage} className="space-y-4 pt-2 border-t border-slate-100 dark:border-slate-700">
+            <form
+              onSubmit={handleSaveTriage}
+              className="space-y-4 pt-2 border-t border-slate-100 dark:border-slate-700"
+            >
               <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
                 Resolución de Triaje Administrativo
               </h4>

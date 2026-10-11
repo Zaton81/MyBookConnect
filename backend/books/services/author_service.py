@@ -365,6 +365,7 @@ class AuthorService:
     ):
         """Crea una publicación oficial o comunicado emitido por el autor."""
         from django.utils import timezone
+
         from books.models import Author, AuthorAnnouncement, Book
 
         book = Book.objects.filter(id=book_id).first() if book_id else None
@@ -401,6 +402,7 @@ class AuthorService:
     ):
         """Obtiene las publicaciones asociadas a un autor del catálogo."""
         from django.db.models import Q
+
         from books.models import AuthorAnnouncement
         qs = AuthorAnnouncement.objects.filter(
             Q(author_id=author_id) | Q(author_profile__author_id=author_id)

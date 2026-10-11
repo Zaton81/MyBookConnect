@@ -1,6 +1,7 @@
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
-from .club_views import ReadingClubViewSet, ReadingClubDiscussionViewSet
+
+from .club_views import ReadingClubDiscussionViewSet, ReadingClubViewSet
 
 router = DefaultRouter()
 router.register(r'', ReadingClubViewSet, basename='club')

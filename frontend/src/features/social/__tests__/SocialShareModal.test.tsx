@@ -18,10 +18,12 @@ describe('SocialShareModal Component (Sprint 16)', () => {
   const mockBookData: SocialShareResponse = {
     share_type: 'book',
     title: 'Cien Años de Soledad',
-    description: '¡Acabo de descubrir Cien Años de Soledad por Gabriel García Márquez en @MyBookConnect! 📖✨',
+    description:
+      '¡Acabo de descubrir Cien Años de Soledad por Gabriel García Márquez en @MyBookConnect! 📖✨',
     canonical_url: 'http://localhost:3000/books/1',
     hashtags: ['#MyBookConnect', '#CienAñosDeSoledad', '#LibrosRecomendados'],
-    share_text: '¡Acabo de descubrir Cien Años de Soledad por Gabriel García Márquez en @MyBookConnect! 📖✨ http://localhost:3000/books/1',
+    share_text:
+      '¡Acabo de descubrir Cien Años de Soledad por Gabriel García Márquez en @MyBookConnect! 📖✨ http://localhost:3000/books/1',
     share_urls: {
       twitter: 'https://twitter.com/intent/tweet?text=test',
       whatsapp: 'https://api.whatsapp.com/send?text=test',
@@ -48,7 +50,8 @@ describe('SocialShareModal Component (Sprint 16)', () => {
     description: 'En 2026 he completado 32 libros y 11.200 páginas en @MyBookConnect. 📊✨',
     canonical_url: 'http://localhost:3000/statistics?user_id=1&year=2026',
     hashtags: ['#MyBookConnect', '#MemoriaLectora', '#ReadingGoals'],
-    share_text: 'En 2026 he completado 32 libros y 11.200 páginas en @MyBookConnect. 📊✨ http://localhost:3000/statistics',
+    share_text:
+      'En 2026 he completado 32 libros y 11.200 páginas en @MyBookConnect. 📊✨ http://localhost:3000/statistics',
     share_urls: {
       twitter: 'https://twitter.com/intent/tweet?text=test',
       whatsapp: 'https://api.whatsapp.com/send?text=test',

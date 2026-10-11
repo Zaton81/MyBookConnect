@@ -99,7 +99,8 @@ export function AdminSystemHealthTab({ token, apiUrl }: AdminSystemHealthTabProp
             </h2>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-xl">
-            Inspección de microservicios, sondas de Liveness/Readiness, base de datos PostgreSQL, colas Celery/Redis y alertas de seguridad.
+            Inspección de microservicios, sondas de Liveness/Readiness, base de datos PostgreSQL,
+            colas Celery/Redis y alertas de seguridad.
           </p>
         </div>
 
@@ -129,12 +130,14 @@ export function AdminSystemHealthTab({ token, apiUrl }: AdminSystemHealthTabProp
               <span className="w-3 h-3 rounded-full bg-amber-500" />
             )}
             <span className="text-lg font-bold text-slate-900 dark:text-white">
-              {liveness === 'healthy' ? 'Operativo' : liveness === 'unhealthy' ? 'Fallo de Vida' : 'Comprobando...'}
+              {liveness === 'healthy'
+                ? 'Operativo'
+                : liveness === 'unhealthy'
+                  ? 'Fallo de Vida'
+                  : 'Comprobando...'}
             </span>
           </div>
-          <div className="text-[11px] text-slate-400 font-mono">
-            GET /api/v1/health/
-          </div>
+          <div className="text-[11px] text-slate-400 font-mono">GET /api/v1/health/</div>
         </div>
 
         {/* Readiness Probe */}
@@ -151,7 +154,11 @@ export function AdminSystemHealthTab({ token, apiUrl }: AdminSystemHealthTabProp
               <span className="w-3 h-3 rounded-full bg-amber-500" />
             )}
             <span className="text-lg font-bold text-slate-900 dark:text-white">
-              {readiness === 'ready' ? 'Listo (DB & Cache)' : readiness === 'not_ready' ? 'Degradado' : 'Comprobando...'}
+              {readiness === 'ready'
+                ? 'Listo (DB & Cache)'
+                : readiness === 'not_ready'
+                  ? 'Degradado'
+                  : 'Comprobando...'}
             </span>
           </div>
           <div className="text-[11px] text-slate-400 font-mono">
@@ -164,11 +171,11 @@ export function AdminSystemHealthTab({ token, apiUrl }: AdminSystemHealthTabProp
           <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">
             Alertas Operativas Activas
           </div>
-          <div className="text-2xl font-black text-slate-900 dark:text-white">
-            {alerts.length}
-          </div>
+          <div className="text-2xl font-black text-slate-900 dark:text-white">{alerts.length}</div>
           <div className="text-[11px] text-slate-500">
-            {alerts.length === 0 ? 'Sin incidencias críticas' : `${alerts.length} alertas sin mitigar`}
+            {alerts.length === 0
+              ? 'Sin incidencias críticas'
+              : `${alerts.length} alertas sin mitigar`}
           </div>
         </div>
 

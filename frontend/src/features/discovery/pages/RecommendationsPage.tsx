@@ -577,13 +577,11 @@ export function RecommendationsPage() {
             <span className="px-2.5 py-0.5 bg-white/10 text-teal-300 text-[10px] font-bold rounded-full border border-white/10">
               Motor v3
             </span>
-            <h4 className="font-extrabold text-sm tracking-tight">
-              ¿Cómo calculamos tu afinidad?
-            </h4>
+            <h4 className="font-extrabold text-sm tracking-tight">¿Cómo calculamos tu afinidad?</h4>
             <p className="text-[11px] text-slate-300 leading-relaxed">
               Analizamos tus lecturas con 5 estrellas, libros terminados y autores predilectos para
-              generar tu <strong>vector de preferencias semánticas</strong>, comparándolo con miles de
-              obras en tiempo real.
+              generar tu <strong>vector de preferencias semánticas</strong>, comparándolo con miles
+              de obras en tiempo real.
             </p>
           </div>
         </div>

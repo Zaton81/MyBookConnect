@@ -6,13 +6,7 @@ import {
   HiOutlineShare,
   HiOutlinePhotograph,
 } from 'react-icons/hi';
-import {
-  SiX,
-  SiWhatsapp,
-  SiTelegram,
-  SiLinkedin,
-  SiFacebook,
-} from 'react-icons/si';
+import { SiX, SiWhatsapp, SiTelegram, SiLinkedin, SiFacebook } from 'react-icons/si';
 import { useAuthStore } from '../../../store/auth';
 
 export interface SocialShareCardData {
@@ -204,7 +198,10 @@ export const SocialShareModal: React.FC<SocialShareModalProps> = ({
       <Modal.Header>
         <div className="flex items-center gap-2">
           <HiOutlineShare className="w-5 h-5 text-teal-600 dark:text-teal-400" />
-          <span id="social-share-title" className="text-lg font-bold text-slate-900 dark:text-white">
+          <span
+            id="social-share-title"
+            className="text-lg font-bold text-slate-900 dark:text-white"
+          >
             Compartir en Redes Sociales
           </span>
         </div>

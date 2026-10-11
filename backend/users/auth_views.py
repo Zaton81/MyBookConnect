@@ -19,8 +19,7 @@ from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, Ou
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
-from .auth_cookies import delete_auth_cookies, set_auth_cookies
-
+from .auth_cookies import set_auth_cookies
 from .serializers import (
     EmailVerifyConfirmSerializer,
     GoogleOAuthSerializer,
@@ -101,7 +100,7 @@ class CustomTokenRefreshView(TokenRefreshView):
         try:
             serializer.is_valid(raise_exception=True)
         except TokenError as e:
-            raise InvalidToken(e.args[0])
+            raise InvalidToken(e.args[0]) from e
 
         response = Response(serializer.validated_data, status=status.HTTP_200_OK)
 

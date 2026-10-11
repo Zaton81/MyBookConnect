@@ -7,9 +7,6 @@ from django.db.models import Avg
 from books.models import (
     Book,
     ReadingStatus,
-    Review,
-    UserBook,
-    normalize_isbn,
     normalize_title,
 )
 

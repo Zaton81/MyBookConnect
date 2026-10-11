@@ -10,15 +10,12 @@ import io
 import logging
 import uuid
 from typing import Any
-from PIL import Image
 
 from django.core.files.uploadedfile import UploadedFile
-from django.db.models import Q
+from PIL import Image
 
-from ai.clients.factory import get_ai_provider
 from ai.models import AIUsageLog
 from ai.policies import (
-    AIRateLimitExceededError,
     check_ai_rate_limit,
     detect_prompt_injection,
     validate_and_sanitize_chat_messages,
@@ -66,7 +63,7 @@ def _extract_image_bytes(image_input: Any) -> bytes:
         try:
             return base64.b64decode(clean_str)
         except Exception as e:
-            raise ValueError(f"Cadena base64 de imagen no válida: {e}")
+            raise ValueError(f"Cadena base64 de imagen no válida: {e}") from e
     raise ValueError("Formato de entrada de imagen no reconocido.")
 
 

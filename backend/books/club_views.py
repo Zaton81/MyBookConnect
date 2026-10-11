@@ -1,25 +1,23 @@
-from rest_framework import status, permissions, viewsets
-from rest_framework.decorators import action
-from rest_framework.response import Response
-from rest_framework.views import APIView
-from rest_framework.exceptions import PermissionDenied, NotFound, ValidationError
-from django.db.models import Count, Q, Prefetch
+from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404
+from rest_framework import permissions, status, viewsets
+from rest_framework.decorators import action
+from rest_framework.exceptions import PermissionDenied
+from rest_framework.response import Response
 
 from .club_models import (
     ReadingClub,
-    ReadingClubMember,
     ReadingClubBook,
     ReadingClubDiscussion,
-    ReadingClubDiscussionComment,
+    ReadingClubMember,
 )
 from .club_serializers import (
-    ReadingClubListSerializer,
-    ReadingClubDetailSerializer,
-    ReadingClubMemberSerializer,
     ReadingClubBookSerializer,
-    ReadingClubDiscussionSerializer,
+    ReadingClubDetailSerializer,
     ReadingClubDiscussionCommentSerializer,
+    ReadingClubDiscussionSerializer,
+    ReadingClubListSerializer,
+    ReadingClubMemberSerializer,
 )
 
 
@@ -345,5 +343,5 @@ class ReadingClubDiscussionViewSet(viewsets.ModelViewSet):
 
         serializer = ReadingClubDiscussionCommentSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        comment = serializer.save(discussion=discussion, author=request.user)
+        serializer.save(discussion=discussion, author=request.user)
         return Response(serializer.data, status=status.HTTP_201_CREATED)

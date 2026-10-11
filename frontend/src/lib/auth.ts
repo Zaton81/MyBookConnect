@@ -35,7 +35,6 @@ export async function register(
     }),
   });
 
-
   if (!res.ok) {
     // Intentar parsear errores por campo (DRF devuelve dicts) o mensaje general
     let data: any = null;

@@ -2,7 +2,6 @@
 Modelos para el Marketplace de Libros, Editoriales y Enlaces de Compra Multitienda.
 Sprint 19 — RoadmapV3 (Sección 30: Marketplace / Editoriales).
 """
-import uuid
 from django.conf import settings
 from django.db import models
 from django.utils import timezone

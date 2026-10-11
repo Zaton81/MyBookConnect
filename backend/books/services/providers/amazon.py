@@ -6,12 +6,13 @@ import time
 from datetime import datetime, timezone
 from typing import Any
 
+import requests
 from django.conf import settings
 from django.core.cache import cache
-import requests
 
 from books.cache_utils import TTL_EXTERNAL_API
 from mybookconnect.observability import ObservabilityMetricsService
+
 from ..base import DEFAULT_HEADERS, ProviderBookData
 
 logger = logging.getLogger(__name__)
@@ -33,7 +34,7 @@ class AmazonBooksProvider:
     """
     Proveedor para consultar la API oficial de afiliados de Amazon
     (Amazon Product Advertising API v5 - PA-API v5).
-    
+
     Implementa firma criptográfica AWS Signature Version 4 (SigV4) y
     soporte de fallback limpio cuando las credenciales no están configuradas
     o activas en el entorno.
@@ -215,7 +216,7 @@ class AmazonBooksProvider:
         if not clean_title:
             return []
 
-        cache_key = f"amazon:paapi:search:{hashlib.md5(f'{clean_title}:{offset}:{limit}'.encode()).hexdigest()}"
+        cache_key = f"amazon:paapi:search:{hashlib.sha256(f'{clean_title}:{offset}:{limit}'.encode()).hexdigest()}"
         try:
             cached = cache.get(cache_key)
             if cached is not None:

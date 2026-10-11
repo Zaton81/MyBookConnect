@@ -80,7 +80,8 @@ export const ClubsPage: React.FC = () => {
             Clubs de Lectura y Grupos Literarios
           </h1>
           <p className="mt-2 text-base text-gray-600 dark:text-gray-400">
-            Descubre comunidades de lectores, participa en lecturas conjuntas y comparte debates por capítulos.
+            Descubre comunidades de lectores, participa en lecturas conjuntas y comparte debates por
+            capítulos.
           </p>
         </div>
         <button
@@ -98,7 +99,11 @@ export const ClubsPage: React.FC = () => {
       {/* Pestañas y Búsqueda */}
       <div className="mt-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         {/* WAI-ARIA tablist */}
-        <div role="tablist" aria-label="Filtro de clubs" className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-xl">
+        <div
+          role="tablist"
+          aria-label="Filtro de clubs"
+          className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-xl"
+        >
           <button
             role="tab"
             id="tab-all"
@@ -154,9 +159,15 @@ export const ClubsPage: React.FC = () => {
       {/* Contenido / Listado */}
       <div id="panel-clubs" role="tabpanel" aria-labelledby={`tab-${activeTab}`} className="mt-8">
         {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" data-testid="clubs-loading">
+          <div
+            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+            data-testid="clubs-loading"
+          >
             {[1, 2, 3].map((i) => (
-              <div key={i} className="animate-pulse bg-gray-100 dark:bg-gray-800 rounded-2xl h-56 p-6"></div>
+              <div
+                key={i}
+                className="animate-pulse bg-gray-100 dark:bg-gray-800 rounded-2xl h-56 p-6"
+              ></div>
             ))}
           </div>
         ) : error ? (
@@ -165,11 +176,23 @@ export const ClubsPage: React.FC = () => {
           </div>
         ) : clubs.length === 0 ? (
           <div className="text-center py-16 bg-gray-50 dark:bg-gray-800/50 rounded-2xl border border-dashed border-gray-300 dark:border-gray-700">
-            <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+            <svg
+              className="mx-auto h-12 w-12 text-gray-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="1.5"
+                d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+              />
             </svg>
             <h3 className="mt-4 text-base font-semibold text-gray-900 dark:text-white">
-              {activeTab === 'my' ? 'No perteneces a ningún club aún' : 'No se encontraron clubs de lectura'}
+              {activeTab === 'my'
+                ? 'No perteneces a ningún club aún'
+                : 'No se encontraron clubs de lectura'}
             </h3>
             <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
               {activeTab === 'my'
@@ -178,7 +201,10 @@ export const ClubsPage: React.FC = () => {
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" data-testid="clubs-grid">
+          <div
+            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+            data-testid="clubs-grid"
+          >
             {clubs.map((club) => (
               <div
                 key={club.id}
@@ -201,7 +227,10 @@ export const ClubsPage: React.FC = () => {
                   </div>
 
                   <h2 className="mt-3 text-xl font-bold text-gray-900 dark:text-white line-clamp-1">
-                    <Link to={`/clubs/${club.slug}`} className="hover:text-indigo-600 dark:hover:text-indigo-400">
+                    <Link
+                      to={`/clubs/${club.slug}`}
+                      className="hover:text-indigo-600 dark:hover:text-indigo-400"
+                    >
                       {club.name}
                     </Link>
                   </h2>
@@ -221,8 +250,18 @@ export const ClubsPage: React.FC = () => {
                         />
                       ) : (
                         <div className="w-10 h-14 bg-indigo-100 dark:bg-indigo-900/50 flex items-center justify-center rounded text-indigo-600 dark:text-indigo-400">
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                          <svg
+                            className="w-5 h-5"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth="2"
+                              d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
+                            />
                           </svg>
                         </div>
                       )}
@@ -252,8 +291,18 @@ export const ClubsPage: React.FC = () => {
                     className="inline-flex items-center text-sm font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300"
                   >
                     Ver club
-                    <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+                    <svg
+                      className="w-4 h-4 ml-1"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M9 5l7 7-7 7"
+                      />
                     </svg>
                   </Link>
                 </div>
@@ -273,7 +322,10 @@ export const ClubsPage: React.FC = () => {
         >
           <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-lg w-full p-6 shadow-xl border border-gray-200 dark:border-gray-700">
             <div className="flex items-center justify-between pb-4 border-b border-gray-100 dark:border-gray-700">
-              <h2 id="create-club-title" className="text-xl font-bold text-gray-900 dark:text-white">
+              <h2
+                id="create-club-title"
+                className="text-xl font-bold text-gray-900 dark:text-white"
+              >
                 Crear Nuevo Club de Lectura
               </h2>
               <button
@@ -283,14 +335,22 @@ export const ClubsPage: React.FC = () => {
               >
                 <span className="sr-only">Cerrar</span>
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M6 18L18 6M6 6l12 12"
+                  />
                 </svg>
               </button>
             </div>
 
             <form onSubmit={handleCreateClub} className="mt-4 space-y-4">
               <div>
-                <label htmlFor="club-name" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                <label
+                  htmlFor="club-name"
+                  className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+                >
                   Nombre del Club *
                 </label>
                 <input
@@ -305,7 +365,10 @@ export const ClubsPage: React.FC = () => {
               </div>
 
               <div>
-                <label htmlFor="club-description" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                <label
+                  htmlFor="club-description"
+                  className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+                >
                   Descripción
                 </label>
                 <textarea
@@ -319,7 +382,10 @@ export const ClubsPage: React.FC = () => {
               </div>
 
               <div>
-                <label htmlFor="club-rules" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                <label
+                  htmlFor="club-rules"
+                  className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+                >
                   Reglas o Pautas
                 </label>
                 <textarea
@@ -340,7 +406,10 @@ export const ClubsPage: React.FC = () => {
                   onChange={(e) => setIsPrivate(e.target.checked)}
                   className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 rounded border-gray-300 dark:border-gray-600"
                 />
-                <label htmlFor="is-private" className="text-sm text-gray-700 dark:text-gray-300 font-medium">
+                <label
+                  htmlFor="is-private"
+                  className="text-sm text-gray-700 dark:text-gray-300 font-medium"
+                >
                   Club Privado (requiere que el administrador apruebe a los nuevos miembros)
                 </label>
               </div>

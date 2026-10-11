@@ -12,7 +12,6 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from books.pagination import StandardResultsSetPagination
-from mybookconnect.idempotency import idempotent
 
 from . import policies
 from .auth_cookies import delete_auth_cookies

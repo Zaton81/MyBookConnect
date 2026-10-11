@@ -27,7 +27,8 @@ export interface AuthorPublicationItem {
   title: string;
   content: string;
   excerpt: string;
-  publication_type: 'ANNOUNCEMENT' | 'CHAPTER_PREVIEW' | 'AUTHOR_DIARY' | 'DELETED_SCENE' | 'Q_AND_A';
+  publication_type:
+    'ANNOUNCEMENT' | 'CHAPTER_PREVIEW' | 'AUTHOR_DIARY' | 'DELETED_SCENE' | 'Q_AND_A';
   publication_type_display: string;
   has_spoilers: boolean;
   spoiler_warning: string;
@@ -169,17 +170,22 @@ export const AuthorPublicationsSection: React.FC<AuthorPublicationsSectionProps>
     try {
       setCensorSubmitting(true);
       const is_moderated = action === 'hide';
-      const res = await fetch(`${apiUrl}/api/v1/books/author-publications/${censoringItem.id}/censor/`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          is_moderated,
-          reason: censorReason.trim() || (is_moderated ? 'Contenido censurado por el equipo de administración.' : ''),
-        }),
-      });
+      const res = await fetch(
+        `${apiUrl}/api/v1/books/author-publications/${censoringItem.id}/censor/`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            is_moderated,
+            reason:
+              censorReason.trim() ||
+              (is_moderated ? 'Contenido censurado por el equipo de administración.' : ''),
+          }),
+        }
+      );
       if (res.ok) {
         setIsCensorModalOpen(false);
         await loadPublications();
@@ -298,15 +304,41 @@ export const AuthorPublicationsSection: React.FC<AuthorPublicationsSectionProps>
 
   const getTypeBadge = (type: string) => {
     const map: Record<string, { label: string; icon: string; bg: string }> = {
-      ANNOUNCEMENT: { label: 'Comunicado', icon: '📢', bg: 'bg-teal-50 text-teal-800 dark:bg-teal-950/60 dark:text-teal-300 border-teal-200 dark:border-teal-800' },
-      CHAPTER_PREVIEW: { label: 'Adelanto de capítulo', icon: '📖', bg: 'bg-indigo-50 text-indigo-800 dark:bg-indigo-950/60 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800' },
-      AUTHOR_DIARY: { label: 'Diario de autor', icon: '✍️', bg: 'bg-amber-50 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border-amber-200 dark:border-amber-800' },
-      DELETED_SCENE: { label: 'Escena eliminada / Extra', icon: '✂️', bg: 'bg-purple-50 text-purple-800 dark:bg-purple-950/60 dark:text-purple-300 border-purple-200 dark:border-purple-800' },
-      Q_AND_A: { label: 'Q&A Literario', icon: '💬', bg: 'bg-sky-50 text-sky-800 dark:bg-sky-950/60 dark:text-sky-300 border-sky-200 dark:border-sky-800' },
+      ANNOUNCEMENT: {
+        label: 'Comunicado',
+        icon: '📢',
+        bg: 'bg-teal-50 text-teal-800 dark:bg-teal-950/60 dark:text-teal-300 border-teal-200 dark:border-teal-800',
+      },
+      CHAPTER_PREVIEW: {
+        label: 'Adelanto de capítulo',
+        icon: '📖',
+        bg: 'bg-indigo-50 text-indigo-800 dark:bg-indigo-950/60 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800',
+      },
+      AUTHOR_DIARY: {
+        label: 'Diario de autor',
+        icon: '✍️',
+        bg: 'bg-amber-50 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border-amber-200 dark:border-amber-800',
+      },
+      DELETED_SCENE: {
+        label: 'Escena eliminada / Extra',
+        icon: '✂️',
+        bg: 'bg-purple-50 text-purple-800 dark:bg-purple-950/60 dark:text-purple-300 border-purple-200 dark:border-purple-800',
+      },
+      Q_AND_A: {
+        label: 'Q&A Literario',
+        icon: '💬',
+        bg: 'bg-sky-50 text-sky-800 dark:bg-sky-950/60 dark:text-sky-300 border-sky-200 dark:border-sky-800',
+      },
     };
-    const info = map[type] || { label: type, icon: '📄', bg: 'bg-slate-50 text-slate-800 dark:bg-slate-800 dark:text-slate-200 border-slate-200 dark:border-slate-700' };
+    const info = map[type] || {
+      label: type,
+      icon: '📄',
+      bg: 'bg-slate-50 text-slate-800 dark:bg-slate-800 dark:text-slate-200 border-slate-200 dark:border-slate-700',
+    };
     return (
-      <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold border ${info.bg}`}>
+      <span
+        className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold border ${info.bg}`}
+      >
         <span>{info.icon}</span>
         <span>{info.label}</span>
       </span>
@@ -452,14 +484,22 @@ export const AuthorPublicationsSection: React.FC<AuthorPublicationsSectionProps>
                       )}
                       <button
                         onClick={() => handleOpenEditModal(item)}
-                        title={isAdmin && !isAuthorOwner ? 'Modificar publicación (Admin)' : 'Editar publicación'}
+                        title={
+                          isAdmin && !isAuthorOwner
+                            ? 'Modificar publicación (Admin)'
+                            : 'Editar publicación'
+                        }
                         className="p-1.5 rounded-lg text-xs text-slate-400 hover:text-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                       >
                         <HiOutlinePencil className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => handleDelete(item.id)}
-                        title={isAdmin && !isAuthorOwner ? 'Eliminar publicación (Admin)' : 'Eliminar publicación'}
+                        title={
+                          isAdmin && !isAuthorOwner
+                            ? 'Eliminar publicación (Admin)'
+                            : 'Eliminar publicación'
+                        }
                         className="p-1.5 rounded-lg text-xs text-rose-500 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
                       >
                         <HiOutlineTrash className="w-4 h-4" />
@@ -467,7 +507,11 @@ export const AuthorPublicationsSection: React.FC<AuthorPublicationsSectionProps>
                       {isAdmin && (
                         <button
                           onClick={() => handleOpenCensorModal(item)}
-                          title={item.is_moderated ? 'Gestionar o levantar censura (Admin)' : 'Censurar publicación (Admin)'}
+                          title={
+                            item.is_moderated
+                              ? 'Gestionar o levantar censura (Admin)'
+                              : 'Censurar publicación (Admin)'
+                          }
                           className={`p-1.5 px-2 rounded-lg text-xs font-bold transition-colors cursor-pointer flex items-center gap-1 ${
                             item.is_moderated
                               ? 'text-emerald-700 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-300'
@@ -487,7 +531,10 @@ export const AuthorPublicationsSection: React.FC<AuthorPublicationsSectionProps>
                   <div className="p-3 mb-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 rounded-2xl flex items-center justify-between gap-3 text-xs">
                     <div className="flex items-center gap-2 text-rose-800 dark:text-rose-300 font-semibold">
                       <HiOutlineShieldCheck className="w-4 h-4 shrink-0 text-rose-600" />
-                      <span>⚠️ Publicación censurada por moderación: {item.moderation_reason || 'Incumplimiento de las normas de la comunidad.'}</span>
+                      <span>
+                        ⚠️ Publicación censurada por moderación:{' '}
+                        {item.moderation_reason || 'Incumplimiento de las normas de la comunidad.'}
+                      </span>
                     </div>
                     {isAdmin && (
                       <span className="text-[10px] text-rose-600 dark:text-rose-400 font-bold uppercase tracking-wider shrink-0">
@@ -507,7 +554,9 @@ export const AuthorPublicationsSection: React.FC<AuthorPublicationsSectionProps>
                   <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 text-xs mb-3">
                     <HiOutlineBookOpen className="w-4 h-4 text-teal-600 shrink-0" />
                     <span className="text-slate-500 dark:text-slate-400">Obra vinculada:</span>
-                    <strong className="text-slate-800 dark:text-slate-200">{item.book_title}</strong>
+                    <strong className="text-slate-800 dark:text-slate-200">
+                      {item.book_title}
+                    </strong>
                   </div>
                 )}
 
@@ -516,7 +565,10 @@ export const AuthorPublicationsSection: React.FC<AuthorPublicationsSectionProps>
                   <div className="p-3 mb-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-2xl flex items-center justify-between gap-3 text-xs">
                     <div className="flex items-center gap-2 text-amber-800 dark:text-amber-300 font-semibold">
                       <HiOutlineExclamation className="w-4 h-4 shrink-0 text-amber-600" />
-                      <span>{item.spoiler_warning || 'Esta publicación contiene revelaciones de la trama.'}</span>
+                      <span>
+                        {item.spoiler_warning ||
+                          'Esta publicación contiene revelaciones de la trama.'}
+                      </span>
                     </div>
                     <button
                       onClick={() => toggleSpoilerReveal(item.id)}
@@ -560,7 +612,12 @@ export const AuthorPublicationsSection: React.FC<AuthorPublicationsSectionProps>
 
                 {/* Fecha al pie */}
                 <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-400">
-                  Publicado el {new Date(item.created_at).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}
+                  Publicado el{' '}
+                  {new Date(item.created_at).toLocaleDateString('es-ES', {
+                    day: 'numeric',
+                    month: 'long',
+                    year: 'numeric',
+                  })}
                 </div>
               </article>
             );
@@ -574,7 +631,9 @@ export const AuthorPublicationsSection: React.FC<AuthorPublicationsSectionProps>
           <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
             <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
               <span>✍️</span>
-              <span>{editingItem ? 'Editar Publicación de Autor' : 'Nueva Publicación o Adelanto'}</span>
+              <span>
+                {editingItem ? 'Editar Publicación de Autor' : 'Nueva Publicación o Adelanto'}
+              </span>
             </h3>
             <button
               onClick={() => setIsModalOpen(false)}
@@ -717,7 +776,8 @@ export const AuthorPublicationsSection: React.FC<AuthorPublicationsSectionProps>
                     className="w-36 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 py-1.5 px-3 text-slate-900 dark:text-white focus:ring-amber-500"
                   />
                   <p className="text-[10px] text-slate-500 mt-1">
-                    El contenido estará protegido y reservado cuando la pasarela de pagos esté activa.
+                    El contenido estará protegido y reservado cuando la pasarela de pagos esté
+                    activa.
                   </p>
                 </div>
               )}
@@ -779,13 +839,15 @@ export const AuthorPublicationsSection: React.FC<AuthorPublicationsSectionProps>
           </div>
 
           <p className="text-xs text-slate-600 dark:text-slate-400">
-            Publicación: <strong className="text-slate-900 dark:text-white">{censoringItem?.title}</strong>
+            Publicación:{' '}
+            <strong className="text-slate-900 dark:text-white">{censoringItem?.title}</strong>
           </p>
 
           {censoringItem?.is_moderated ? (
             <div className="space-y-3 text-xs">
               <div className="p-3 bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200 rounded-xl">
-                Esta publicación se encuentra actualmente <strong>censurada y oculta</strong> a los lectores.
+                Esta publicación se encuentra actualmente <strong>censurada y oculta</strong> a los
+                lectores.
               </div>
               <p className="text-slate-600 dark:text-slate-400">
                 ¿Deseas levantar la censura y restaurarla para que sea visible públicamente?
@@ -819,7 +881,9 @@ export const AuthorPublicationsSection: React.FC<AuthorPublicationsSectionProps>
                 />
               </div>
               <p className="text-[11px] text-slate-500">
-                Al censurar esta publicación, quedará inmediatamente oculta para todos los lectores comunes. Solo el autor titular y los administradores podrán verla con la advertencia de moderación.
+                Al censurar esta publicación, quedará inmediatamente oculta para todos los lectores
+                comunes. Solo el autor titular y los administradores podrán verla con la advertencia
+                de moderación.
               </p>
               <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
                 <Button color="gray" size="sm" onClick={() => setIsCensorModalOpen(false)}>

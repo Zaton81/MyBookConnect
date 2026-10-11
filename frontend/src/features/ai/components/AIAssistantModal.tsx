@@ -222,7 +222,9 @@ export function AIAssistantModal({
                     : 'bg-amber-500/20 text-amber-100 border-amber-400/30'
                 }`}
               >
-                <span className={`w-1.5 h-1.5 rounded-full ${isAiOnline ? 'bg-emerald-300' : 'bg-amber-300'}`} />
+                <span
+                  className={`w-1.5 h-1.5 rounded-full ${isAiOnline ? 'bg-emerald-300' : 'bg-amber-300'}`}
+                />
                 {isAiOnline ? 'En línea' : 'Modo local'}
               </span>
             )}
@@ -390,7 +392,8 @@ export function AIAssistantModal({
           <p className="text-[10px] text-gray-500 dark:text-gray-400 text-center mt-2 flex items-center justify-center gap-1">
             <span>ℹ️</span>
             <span>
-              BookAI es una inteligencia artificial literaria multimodal. Las respuestas son orientativas.
+              BookAI es una inteligencia artificial literaria multimodal. Las respuestas son
+              orientativas.
             </span>
           </p>
         </div>

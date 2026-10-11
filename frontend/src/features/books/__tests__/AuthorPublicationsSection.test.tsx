@@ -1,6 +1,9 @@
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { AuthorPublicationsSection, AuthorPublicationItem } from '../components/AuthorPublicationsSection';
+import {
+  AuthorPublicationsSection,
+  AuthorPublicationItem,
+} from '../components/AuthorPublicationsSection';
 import { useAuthStore } from '../../../store/auth';
 
 vi.mock('../../../store/auth', () => ({

@@ -171,7 +171,9 @@ export const ClubDetailPage: React.FC = () => {
       <div className="max-w-4xl mx-auto px-4 py-12">
         <div className="p-6 rounded-2xl bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300">
           <h2 className="text-lg font-bold">No fue posible cargar el club</h2>
-          <p className="mt-1 text-sm">{error || 'El club solicitado no existe o no tienes acceso.'}</p>
+          <p className="mt-1 text-sm">
+            {error || 'El club solicitado no existe o no tienes acceso.'}
+          </p>
           <Link
             to="/clubs"
             className="mt-4 inline-block text-sm font-semibold text-indigo-600 hover:underline"
@@ -195,7 +197,12 @@ export const ClubDetailPage: React.FC = () => {
           className="text-sm font-medium text-gray-500 hover:text-indigo-600 dark:hover:text-indigo-400 inline-flex items-center gap-1 transition"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2"
+              d="M15 19l-7-7 7-7"
+            />
           </svg>
           Todos los Clubs
         </Link>
@@ -220,8 +227,8 @@ export const ClubDetailPage: React.FC = () => {
                   {club.membership.role === 'ADMIN'
                     ? 'Administrador'
                     : club.membership.role === 'MODERATOR'
-                    ? 'Moderador'
-                    : 'Miembro'}
+                      ? 'Moderador'
+                      : 'Miembro'}
                 </span>
               )}
             </div>
@@ -410,9 +417,7 @@ export const ClubDetailPage: React.FC = () => {
       {activeTab === 'discussions' && (
         <div className="mt-8 space-y-6">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-              Hilos de Discusión
-            </h2>
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white">Hilos de Discusión</h2>
             {isMemberActive && (
               <button
                 type="button"
@@ -426,7 +431,9 @@ export const ClubDetailPage: React.FC = () => {
 
           {discussions.length === 0 ? (
             <div className="text-center py-12 bg-gray-50 dark:bg-gray-800/40 rounded-2xl border border-dashed border-gray-300 dark:border-gray-700">
-              <p className="text-sm text-gray-500">Aún no hay debates en este club. ¡Inicia el primero!</p>
+              <p className="text-sm text-gray-500">
+                Aún no hay debates en este club. ¡Inicia el primero!
+              </p>
             </div>
           ) : (
             <div className="space-y-4">
@@ -453,11 +460,13 @@ export const ClubDetailPage: React.FC = () => {
                         {disc.title}
                       </h3>
                       <p className="text-xs text-gray-400">
-                        Por @{disc.author.username} • {new Date(disc.created_at).toLocaleDateString()}
+                        Por @{disc.author.username} •{' '}
+                        {new Date(disc.created_at).toLocaleDateString()}
                       </p>
                     </div>
                     <span className="text-xs font-medium text-gray-500">
-                      {disc.comments_count} {disc.comments_count === 1 ? 'comentario' : 'comentarios'}
+                      {disc.comments_count}{' '}
+                      {disc.comments_count === 1 ? 'comentario' : 'comentarios'}
                     </span>
                   </div>
 
@@ -490,7 +499,9 @@ export const ClubDetailPage: React.FC = () => {
                       }
                       className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline"
                     >
-                      {expandedDiscussionId === disc.id ? 'Ocultar comentarios' : 'Ver y responder comentarios'}
+                      {expandedDiscussionId === disc.id
+                        ? 'Ocultar comentarios'
+                        : 'Ver y responder comentarios'}
                     </button>
 
                     {expandedDiscussionId === disc.id && (
@@ -567,8 +578,8 @@ export const ClubDetailPage: React.FC = () => {
                       m.role === 'ADMIN'
                         ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300'
                         : m.role === 'MODERATOR'
-                        ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300'
-                        : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+                          ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300'
+                          : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
                     }`}
                   >
                     {m.role}
@@ -633,7 +644,10 @@ export const ClubDetailPage: React.FC = () => {
                   onChange={(e) => setDiscHasSpoilers(e.target.checked)}
                   className="rounded text-indigo-600"
                 />
-                <label htmlFor="has-spoilers" className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                <label
+                  htmlFor="has-spoilers"
+                  className="text-xs font-medium text-gray-700 dark:text-gray-300"
+                >
                   Advertir que este debate contiene spoilers de la obra
                 </label>
               </div>

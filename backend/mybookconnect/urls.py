@@ -11,6 +11,7 @@ from drf_spectacular.views import (
     SpectacularRedocView,
     SpectacularSwaggerView,
 )
+
 from books.search_views import GlobalSearchView
 from books.views import PublicFAQListView
 from users.auth_views import CustomTokenObtainPairView, CustomTokenRefreshView

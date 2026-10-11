@@ -162,7 +162,16 @@ export function AudioPlayerBar() {
         window.speechSynthesis.cancel();
       }
     };
-  }, [isTtsActive, isPlaying, ttsText, playbackSpeed, duration, pauseTrack, setCurrentTime, syncProgress]);
+  }, [
+    isTtsActive,
+    isPlaying,
+    ttsText,
+    playbackSpeed,
+    duration,
+    pauseTrack,
+    setCurrentTime,
+    syncProgress,
+  ]);
 
   // Manejadores de eventos de la etiqueta <audio>
   const handleTimeUpdate = () => {
@@ -238,7 +247,11 @@ export function AudioPlayerBar() {
               className="p-1 hover:text-white transition-colors"
               title={isMinimized ? 'Expandir reproductor' : 'Minimizar reproductor'}
             >
-              {isMinimized ? <HiChevronUp className="w-4 h-4" /> : <HiChevronDown className="w-4 h-4" />}
+              {isMinimized ? (
+                <HiChevronUp className="w-4 h-4" />
+              ) : (
+                <HiChevronDown className="w-4 h-4" />
+              )}
             </button>
             <button
               type="button"
@@ -270,7 +283,10 @@ export function AudioPlayerBar() {
               )}
             </div>
             <div className="min-w-0 flex-1">
-              <h4 className="font-bold text-xs sm:text-sm text-white truncate" title={currentBook.title}>
+              <h4
+                className="font-bold text-xs sm:text-sm text-white truncate"
+                title={currentBook.title}
+              >
                 {currentBook.title}
               </h4>
               <p className="text-[11px] text-teal-400 truncate">
@@ -299,7 +315,11 @@ export function AudioPlayerBar() {
                 title={isPlaying ? 'Pausar' : 'Reproducir'}
                 aria-label={isPlaying ? 'Pausar reproducción' : 'Iniciar reproducción'}
               >
-                {isPlaying ? <HiPause className="w-5 h-5" /> : <HiPlay className="w-5 h-5 ml-0.5" />}
+                {isPlaying ? (
+                  <HiPause className="w-5 h-5" />
+                ) : (
+                  <HiPlay className="w-5 h-5 ml-0.5" />
+                )}
               </button>
 
               <button

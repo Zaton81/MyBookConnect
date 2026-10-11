@@ -32,7 +32,10 @@ export function AdminInvitationsTab({ token, apiUrl }: AdminInvitationsTabProps)
   const [maxUses, setMaxUses] = useState(1);
   const [expiresAt, setExpiresAt] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [feedbackMsg, setFeedbackMsg] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+  const [feedbackMsg, setFeedbackMsg] = useState<{
+    text: string;
+    type: 'success' | 'error';
+  } | null>(null);
 
   const fetchInvitations = async () => {
     if (!token) return;
@@ -177,7 +180,9 @@ export function AdminInvitationsTab({ token, apiUrl }: AdminInvitationsTabProps)
                 maxLength={32}
                 className="w-full text-xs rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 p-2.5 focus:ring-2 focus:ring-teal-500 uppercase font-mono"
               />
-              <span className="text-[10px] text-slate-400">Si se deja vacío, se generará aleatoriamente</span>
+              <span className="text-[10px] text-slate-400">
+                Si se deja vacío, se generará aleatoriamente
+              </span>
             </div>
 
             <div>
@@ -252,7 +257,11 @@ export function AdminInvitationsTab({ token, apiUrl }: AdminInvitationsTabProps)
                 : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-100'
             }`}
           >
-            {filter === 'all' ? 'Todas' : filter === 'valid' ? 'Disponibles / Válidas' : 'Agotadas / Expiradas'}
+            {filter === 'all'
+              ? 'Todas'
+              : filter === 'valid'
+                ? 'Disponibles / Válidas'
+                : 'Agotadas / Expiradas'}
           </button>
         ))}
       </div>
@@ -283,19 +292,30 @@ export function AdminInvitationsTab({ token, apiUrl }: AdminInvitationsTabProps)
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
                 {filteredInvitations.map((inv) => (
-                  <tr key={inv.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-700/30 transition-colors">
+                  <tr
+                    key={inv.id}
+                    className="hover:bg-slate-50/70 dark:hover:bg-slate-700/30 transition-colors"
+                  >
                     <td className="py-3 px-4 font-mono font-bold text-slate-900 dark:text-white">
                       {inv.code}
                     </td>
                     <td className="py-3 px-4">
                       {inv.invited_email ? (
-                        <span className="text-slate-700 dark:text-slate-300">{inv.invited_email}</span>
+                        <span className="text-slate-700 dark:text-slate-300">
+                          {inv.invited_email}
+                        </span>
                       ) : (
                         <span className="text-slate-400 italic">Genérico</span>
                       )}
                     </td>
                     <td className="py-3 px-4 text-center font-bold">
-                      <span className={inv.uses_count >= inv.max_uses ? 'text-rose-500' : 'text-teal-600 dark:text-teal-400'}>
+                      <span
+                        className={
+                          inv.uses_count >= inv.max_uses
+                            ? 'text-rose-500'
+                            : 'text-teal-600 dark:text-teal-400'
+                        }
+                      >
                         {inv.uses_count}
                       </span>
                       <span className="text-slate-400"> / {inv.max_uses}</span>
@@ -312,7 +332,9 @@ export function AdminInvitationsTab({ token, apiUrl }: AdminInvitationsTabProps)
                       )}
                     </td>
                     <td className="py-3 px-4 text-slate-500 text-[11px]">
-                      {inv.expires_at ? new Date(inv.expires_at).toLocaleDateString('es-ES') : 'Sin límite'}
+                      {inv.expires_at
+                        ? new Date(inv.expires_at).toLocaleDateString('es-ES')
+                        : 'Sin límite'}
                     </td>
                     <td className="py-3 px-4 text-[11px] text-slate-500">
                       {inv.created_by_username || 'Sistema'}

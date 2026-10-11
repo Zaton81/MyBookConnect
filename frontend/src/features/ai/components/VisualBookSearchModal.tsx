@@ -24,7 +24,10 @@ interface VisualBookSearchModalProps {
   onClose: () => void;
 }
 
-export const VisualBookSearchModal: React.FC<VisualBookSearchModalProps> = ({ isOpen, onClose }) => {
+export const VisualBookSearchModal: React.FC<VisualBookSearchModalProps> = ({
+  isOpen,
+  onClose,
+}) => {
   const { token } = useAuthStore();
   const navigate = useNavigate();
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
@@ -111,11 +114,15 @@ export const VisualBookSearchModal: React.FC<VisualBookSearchModalProps> = ({ is
                 Búsqueda Visual & Portadas
               </span>
             </div>
-            <h3 id="visual-search-title" className="text-lg sm:text-xl font-black text-slate-900 dark:text-white">
+            <h3
+              id="visual-search-title"
+              className="text-lg sm:text-xl font-black text-slate-900 dark:text-white"
+            >
               Identificar libro por foto de portada
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Sube una fotografía de la cubierta o estantería para localizar la obra y analizar su arte.
+              Sube una fotografía de la cubierta o estantería para localizar la obra y analizar su
+              arte.
             </p>
           </div>
 
@@ -148,7 +155,9 @@ export const VisualBookSearchModal: React.FC<VisualBookSearchModalProps> = ({ is
                 <p className="text-sm font-bold text-slate-800 dark:text-slate-200">
                   Haz clic para subir o arrastra una foto
                 </p>
-                <p className="text-xs text-slate-400 mt-0.5">Formatos JPEG, PNG, WebP (máx. 10MB)</p>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Formatos JPEG, PNG, WebP (máx. 10MB)
+                </p>
               </div>
               <input
                 ref={fileInputRef}
@@ -228,9 +237,12 @@ export const VisualBookSearchModal: React.FC<VisualBookSearchModalProps> = ({ is
                       <h4 className="text-xs font-bold text-slate-900 dark:text-white leading-tight">
                         {result.matching_book.title}
                       </h4>
-                      <p className="text-[11px] text-slate-500 mt-0.5">{result.matching_book.author_name}</p>
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        {result.matching_book.author_name}
+                      </p>
                       <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
-                        ✓ Coincidencia detectada ({(result.matching_book.match_confidence * 100).toFixed(0)}%)
+                        ✓ Coincidencia detectada (
+                        {(result.matching_book.match_confidence * 100).toFixed(0)}%)
                       </span>
                     </div>
                   </div>
@@ -262,7 +274,9 @@ export const VisualBookSearchModal: React.FC<VisualBookSearchModalProps> = ({ is
                         className="w-3.5 h-3.5 rounded-full border border-black/10 shrink-0"
                         style={{ backgroundColor: color.hex }}
                       />
-                      <span className="font-semibold text-slate-800 dark:text-slate-200">{color.name}</span>
+                      <span className="font-semibold text-slate-800 dark:text-slate-200">
+                        {color.name}
+                      </span>
                       <span className="text-slate-400 font-mono text-[9px]">{color.hex}</span>
                     </div>
                   ))}
@@ -272,7 +286,9 @@ export const VisualBookSearchModal: React.FC<VisualBookSearchModalProps> = ({ is
               {/* Estilo y atmósfera */}
               <div className="text-xs space-y-1 text-slate-600 dark:text-slate-300">
                 <p>
-                  <span className="font-bold text-slate-800 dark:text-slate-200">Estilo artístico:</span>{' '}
+                  <span className="font-bold text-slate-800 dark:text-slate-200">
+                    Estilo artístico:
+                  </span>{' '}
                   {result.art_style}
                 </p>
                 <p>
@@ -284,7 +300,8 @@ export const VisualBookSearchModal: React.FC<VisualBookSearchModalProps> = ({ is
               {/* Alt-Text accesible */}
               <div className="pt-2 border-t border-teal-100 dark:border-slate-800">
                 <p className="text-[10px] text-slate-400 leading-relaxed italic">
-                  ♿ <span className="font-semibold">Descripción accesible generada:</span> {result.accessible_alt_text}
+                  ♿ <span className="font-semibold">Descripción accesible generada:</span>{' '}
+                  {result.accessible_alt_text}
                 </p>
               </div>
             </div>
