@@ -354,9 +354,7 @@ export function Profile() {
         <h2 className="text-2xl font-bold text-gray-700 dark:text-gray-300">
           {error || 'Usuario no encontrado'}
         </h2>
-        {restrictedDetail && (
-          <p className="text-gray-500 mt-2">{restrictedDetail}</p>
-        )}
+        {restrictedDetail && <p className="text-gray-500 mt-2">{restrictedDetail}</p>}
         <Button className="mt-4 mx-auto" onClick={() => navigate(-1)}>
           Volver
         </Button>
@@ -394,12 +392,15 @@ export function Profile() {
                       Admin
                     </span>
                   )}
-                  {(profileUser.account_type === 'author' || profileUser.account_type === 'both' || profileUser.is_author) && (
+                  {(profileUser.account_type === 'author' ||
+                    profileUser.account_type === 'both' ||
+                    profileUser.is_author) && (
                     <span className="bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200 text-xs px-2.5 py-0.5 rounded-full font-bold flex items-center gap-1 shadow-xs border border-amber-200 dark:border-amber-800">
                       ✍️ Escritor
                     </span>
                   )}
-                  {(profileUser.account_type === 'reader' || profileUser.account_type === 'both') && (
+                  {(profileUser.account_type === 'reader' ||
+                    profileUser.account_type === 'both') && (
                     <span className="bg-sky-100 dark:bg-sky-900/40 text-sky-800 dark:text-sky-200 text-xs px-2.5 py-0.5 rounded-full font-semibold flex items-center gap-1">
                       📖 Lector
                     </span>
@@ -492,7 +493,8 @@ export function Profile() {
                 </span>
                 {readingMatch.common_books_count > 0 && (
                   <span className="text-slate-400">
-                    ({readingMatch.common_books_count} {readingMatch.common_books_count === 1 ? 'libro en común' : 'libros en común'})
+                    ({readingMatch.common_books_count}{' '}
+                    {readingMatch.common_books_count === 1 ? 'libro en común' : 'libros en común'})
                   </span>
                 )}
               </div>
@@ -506,7 +508,9 @@ export function Profile() {
             <span className="block font-extrabold text-xl text-slate-900 dark:text-white">
               {profileUser.books_read_count || 0}
             </span>
-            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Libros leídos</span>
+            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
+              Libros leídos
+            </span>
           </div>
           <div
             onClick={() => setActiveTab('reviews')}
@@ -523,7 +527,9 @@ export function Profile() {
             <span className="block font-extrabold text-xl text-slate-900 dark:text-white">
               {profileUser.following_count ?? profileUser.following?.length ?? 0}
             </span>
-            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Siguiendo</span>
+            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
+              Siguiendo
+            </span>
           </div>
         </div>
       </Card>
@@ -718,9 +724,7 @@ export function Profile() {
                       type="button"
                       onClick={() => handleLikePost(post.id)}
                       className={`flex items-center gap-1.5 text-xs font-bold transition-transform active:scale-95 ${
-                        post.user_has_liked
-                          ? 'text-red-500'
-                          : 'text-slate-500 hover:text-red-500'
+                        post.user_has_liked ? 'text-red-500' : 'text-slate-500 hover:text-red-500'
                       }`}
                     >
                       <span className="text-base">{post.user_has_liked ? '❤️' : '🤍'}</span>
@@ -736,7 +740,8 @@ export function Profile() {
                     >
                       <span className="text-base">💬</span>
                       <span>
-                        {post.comments_count} {post.comments_count === 1 ? 'comentario' : 'comentarios'}
+                        {post.comments_count}{' '}
+                        {post.comments_count === 1 ? 'comentario' : 'comentarios'}
                       </span>
                     </button>
                   </div>
@@ -803,7 +808,9 @@ export function Profile() {
                           <Button
                             size="xs"
                             color="teal"
-                            disabled={!(commentInputs[post.id] || '').trim() || submittingComment[post.id]}
+                            disabled={
+                              !(commentInputs[post.id] || '').trim() || submittingComment[post.id]
+                            }
                             onClick={() => handleAddComment(post.id)}
                           >
                             {submittingComment[post.id] ? <Spinner size="xs" /> : 'Enviar'}
@@ -937,9 +944,7 @@ export function Profile() {
             </div>
             <button
               type="button"
-              onClick={() =>
-                navigate(profileId ? `/users/${profileId}/statistics` : '/statistics')
-              }
+              onClick={() => navigate(profileId ? `/users/${profileId}/statistics` : '/statistics')}
               className="text-xs font-semibold text-teal-600 dark:text-teal-400 hover:underline"
             >
               Ver estadísticas completas ➔
@@ -957,7 +962,9 @@ export function Profile() {
                       {gamification.streak?.current_streak || 0}{' '}
                       {gamification.streak?.current_streak === 1 ? 'día' : 'días'}
                     </div>
-                    <div className="text-xs text-slate-500 dark:text-slate-400">Racha activa de lectura</div>
+                    <div className="text-xs text-slate-500 dark:text-slate-400">
+                      Racha activa de lectura
+                    </div>
                   </div>
                 </div>
 
@@ -971,7 +978,8 @@ export function Profile() {
                         : 'Sin meta fija'}
                     </div>
                     <div className="text-xs text-slate-500 dark:text-slate-400">
-                      Meta {gamification.goal?.year || new Date().getFullYear()} ({gamification.goal?.percentage || 0}%)
+                      Meta {gamification.goal?.year || new Date().getFullYear()} (
+                      {gamification.goal?.percentage || 0}%)
                     </div>
                   </div>
                 </div>

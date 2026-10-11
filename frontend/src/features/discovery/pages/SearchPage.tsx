@@ -60,36 +60,33 @@ export function SearchPage() {
   const [data, setData] = useState<SearchResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const executeSearch = useCallback(
-    async (queryText: string, searchType: string) => {
-      const trimmed = queryText.trim();
-      if (!trimmed) {
-        setData(null);
-        return;
-      }
+  const executeSearch = useCallback(async (queryText: string, searchType: string) => {
+    const trimmed = queryText.trim();
+    if (!trimmed) {
+      setData(null);
+      return;
+    }
 
-      setLoading(true);
-      setError(null);
+    setLoading(true);
+    setError(null);
 
-      try {
-        const params = new URLSearchParams({
-          q: trimmed,
-          type: searchType,
-          limit: '20',
-        });
-        const res = await apiClient<SearchResponse>(`/api/v1/search/?${params.toString()}`, {
-          method: 'GET',
-          requireAuth: false,
-        });
-        setData(res);
-      } catch (err: any) {
-        setError('Error al consultar el motor de búsqueda. Inténtalo de nuevo.');
-      } finally {
-        setLoading(false);
-      }
-    },
-    []
-  );
+    try {
+      const params = new URLSearchParams({
+        q: trimmed,
+        type: searchType,
+        limit: '20',
+      });
+      const res = await apiClient<SearchResponse>(`/api/v1/search/?${params.toString()}`, {
+        method: 'GET',
+        requireAuth: false,
+      });
+      setData(res);
+    } catch (err: any) {
+      setError('Error al consultar el motor de búsqueda. Inténtalo de nuevo.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     setSearchTerm(queryFromUrl);
@@ -131,13 +128,16 @@ export function SearchPage() {
               Búsqueda <span className="text-teal-600 dark:text-teal-400">Global Unificada</span>
             </h1>
             <p className="text-sm sm:text-base text-slate-600 dark:text-slate-300">
-              Encuentra libros (físicos y digitales unificados), autores verificados y lectores en toda la comunidad.
+              Encuentra libros (físicos y digitales unificados), autores verificados y lectores en
+              toda la comunidad.
             </p>
           </div>
 
           <form onSubmit={handleSearchSubmit} className="max-w-3xl mx-auto" role="search">
             <div className="relative flex items-center">
-              <span className="absolute left-4 text-slate-400 text-lg" aria-hidden="true">🔍</span>
+              <span className="absolute left-4 text-slate-400 text-lg" aria-hidden="true">
+                🔍
+              </span>
               <input
                 type="text"
                 value={searchTerm}
@@ -179,7 +179,11 @@ export function SearchPage() {
         {/* Pestañas de Filtrado */}
         {data && (
           <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-3">
-            <div className="flex gap-2 overflow-x-auto" role="tablist" aria-label="Filtrar tipo de resultado">
+            <div
+              className="flex gap-2 overflow-x-auto"
+              role="tablist"
+              aria-label="Filtrar tipo de resultado"
+            >
               {[
                 { id: 'all', label: 'Todo', count: data.total_results },
                 { id: 'books', label: 'Libros', count: data.books.length },
@@ -212,7 +216,10 @@ export function SearchPage() {
             </div>
 
             <span className="text-xs text-slate-500 dark:text-slate-400 hidden sm:inline">
-              Resultados para: <span className="font-semibold text-slate-800 dark:text-slate-200">"{data.query}"</span>
+              Resultados para:{' '}
+              <span className="font-semibold text-slate-800 dark:text-slate-200">
+                "{data.query}"
+              </span>
             </span>
           </div>
         )}
@@ -245,7 +252,8 @@ export function SearchPage() {
                   No se encontraron coincidencias
                 </h3>
                 <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto">
-                  Prueba a buscar con palabras clave más generales, el nombre del autor o revisa que el ISBN no tenga caracteres extraños.
+                  Prueba a buscar con palabras clave más generales, el nombre del autor o revisa que
+                  el ISBN no tenga caracteres extraños.
                 </p>
               </div>
             )}
@@ -327,7 +335,8 @@ export function SearchPage() {
                                   className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300"
                                   title={`Ediciones unificadas asociadas: ${book.additional_isbns?.join(', ')}`}
                                 >
-                                  +{extraIsbnsCount} {extraIsbnsCount === 1 ? 'edición' : 'ediciones'}
+                                  +{extraIsbnsCount}{' '}
+                                  {extraIsbnsCount === 1 ? 'edición' : 'ediciones'}
                                 </span>
                               )}
                             </div>
@@ -335,7 +344,8 @@ export function SearchPage() {
 
                           <div className="flex items-center justify-between mt-3 pt-2 border-t border-slate-100 dark:border-slate-700/50">
                             <span className="text-xs font-bold text-amber-500 flex items-center gap-1">
-                              ⭐ {book.average_rating ? Number(book.average_rating).toFixed(1) : '—'}
+                              ⭐{' '}
+                              {book.average_rating ? Number(book.average_rating).toFixed(1) : '—'}
                               <span className="text-[10px] font-normal text-slate-400">
                                 ({book.reviews_count || 0})
                               </span>

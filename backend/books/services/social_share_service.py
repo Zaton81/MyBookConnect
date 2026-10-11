@@ -9,13 +9,13 @@ Este módulo proporciona:
 """
 
 import logging
-from typing import Any
 import urllib.parse
+from typing import Any
 
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 
-from books.models import Badge, Book, ReadingChallenge, ReadingList, UserBook, UserChallenge
+from books.models import Badge, Book, ReadingChallenge, ReadingList, UserChallenge
 from books.services.stats_service import get_user_reading_stats
 
 logger = logging.getLogger(__name__)
@@ -61,8 +61,8 @@ def generate_social_share_card(
     if clean_type == "book":
         try:
             book = Book.objects.select_related("author").get(id=int(object_id))
-        except (Book.DoesNotExist, ValueError, TypeError):
-            raise ValueError(f"Libro con id '{object_id}' no encontrado.")
+        except (Book.DoesNotExist, ValueError, TypeError) as err:
+            raise ValueError(f"Libro con id '{object_id}' no encontrado.") from err
 
         author_name = book.get_author_names()
         canonical_url = f"{base_url}/books/{book.id}"
@@ -137,8 +137,8 @@ def generate_social_share_card(
     elif clean_type == "challenge":
         try:
             challenge = ReadingChallenge.objects.get(slug=str(object_id)) if not str(object_id).isdigit() else ReadingChallenge.objects.get(id=int(object_id))
-        except (ReadingChallenge.DoesNotExist, ValueError):
-            raise ValueError(f"Reto con id/slug '{object_id}' no encontrado.")
+        except (ReadingChallenge.DoesNotExist, ValueError) as err:
+            raise ValueError(f"Reto con id/slug '{object_id}' no encontrado.") from err
 
         user_progress_str = ""
         user_pct_str = ""
@@ -182,8 +182,8 @@ def generate_social_share_card(
     elif clean_type == "badge":
         try:
             badge = Badge.objects.get(slug=str(object_id)) if not str(object_id).isdigit() else Badge.objects.get(id=int(object_id))
-        except (Badge.DoesNotExist, ValueError):
-            raise ValueError(f"Insignia con id/slug '{object_id}' no encontrada.")
+        except (Badge.DoesNotExist, ValueError) as err:
+            raise ValueError(f"Insignia con id/slug '{object_id}' no encontrada.") from err
 
         share_text = f"🎖️ ¡He desbloqueado la medalla «{badge.name}» (+{badge.points} pts) en @MyBookConnect! 🚀"
         canonical_url = f"{base_url}/challenges"
@@ -214,8 +214,8 @@ def generate_social_share_card(
     elif clean_type in ("reading_list", "list"):
         try:
             rlist = ReadingList.objects.select_related('user').get(id=int(object_id))
-        except (ReadingList.DoesNotExist, ValueError):
-            raise ValueError(f"Lista de lectura '{object_id}' no encontrada.")
+        except (ReadingList.DoesNotExist, ValueError) as err:
+            raise ValueError(f"Lista de lectura '{object_id}' no encontrada.") from err
 
         list_name = getattr(rlist, 'name', getattr(rlist, 'title', 'Colección'))
         books_count = getattr(rlist, 'books_count', rlist.items.count())

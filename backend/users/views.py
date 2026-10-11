@@ -1,5 +1,6 @@
 import logging
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.db.models import Count, Exists, OuterRef, Q
@@ -11,9 +12,9 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from books.pagination import StandardResultsSetPagination
-from mybookconnect.idempotency import idempotent
 
 from . import policies
+from .auth_cookies import delete_auth_cookies
 from .serializers import UserBasicSerializer, UserCreateSerializer, UserSerializer
 from .throttles import FollowRateThrottle
 
@@ -483,16 +484,22 @@ class LogoutView(APIView):
         tags=['Auth'],
     )
     def post(self, request):
-        refresh_token = request.data.get('refresh')
+        refresh_cookie_name = getattr(settings, 'AUTH_COOKIE_REFRESH', 'refresh_token')
+        refresh_token = request.data.get('refresh') or request.COOKIES.get(refresh_cookie_name)
+
         if not refresh_token:
             return Response({'detail': 'El token refresh es requerido.'}, status=status.HTTP_400_BAD_REQUEST)
+
         try:
             from rest_framework_simplejwt.tokens import RefreshToken
             token = RefreshToken(refresh_token)
             token.blacklist()
-            return Response({'detail': 'Sesión cerrada exitosamente.'}, status=status.HTTP_200_OK)
         except Exception:
             return Response({'detail': 'Token inválido o ya revocado.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        response = Response({'detail': 'Sesión cerrada exitosamente.'}, status=status.HTTP_200_OK)
+        delete_auth_cookies(response)
+        return response
 
 
 class NotificationListView(generics.ListAPIView):

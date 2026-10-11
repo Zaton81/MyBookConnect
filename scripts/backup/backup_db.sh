@@ -8,8 +8,8 @@ set -euo pipefail
 BACKUP_DIR="${BACKUP_DIR:-./backups/db}"
 RETENTION_DAYS="${BACKUP_RETENTION_DAYS:-7}"
 TIMESTAMP=$(date -u +"%Y%m%d_%H%M%S")
-DB_NAME="${POSTGRES_DB:-mybookconnect}"
-DB_USER="${POSTGRES_USER:-postgres}"
+DB_NAME="${POSTGRES_DB:-booksocial}"
+DB_USER="${POSTGRES_USER:-booksocial}"
 DB_HOST="${POSTGRES_HOST:-db}"
 DB_PORT="${POSTGRES_PORT:-5432}"
 export PGPASSWORD="${POSTGRES_PASSWORD:-${PGPASSWORD:-}}"

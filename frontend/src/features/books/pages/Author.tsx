@@ -387,7 +387,11 @@ export function Author() {
               )}
               {author.twitter && (
                 <a
-                  href={author.twitter.startsWith('http') ? author.twitter : `https://x.com/${author.twitter}`}
+                  href={
+                    author.twitter.startsWith('http')
+                      ? author.twitter
+                      : `https://x.com/${author.twitter}`
+                  }
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
@@ -398,7 +402,11 @@ export function Author() {
               )}
               {author.instagram && (
                 <a
-                  href={author.instagram.startsWith('http') ? author.instagram : `https://instagram.com/${author.instagram}`}
+                  href={
+                    author.instagram.startsWith('http')
+                      ? author.instagram
+                      : `https://instagram.com/${author.instagram}`
+                  }
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-400 hover:text-rose-500"
@@ -467,7 +475,8 @@ export function Author() {
 
         {localBooks.length === 0 ? (
           <div className="p-8 text-center bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 text-slate-500 text-sm">
-            Aún no hay libros catalogados de este autor en MyBookSocial. Pulsa en "Actualizar catálogo" para sincronizar.
+            Aún no hay libros catalogados de este autor en MyBookSocial. Pulsa en "Actualizar
+            catálogo" para sincronizar.
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 sm:gap-6">
@@ -520,7 +529,11 @@ export function Author() {
         authorId={author.id}
         authorName={author.name}
         isAuthorOwner={Boolean(
-          (user && (author.claimed_by === user.id || (user as any).role === 'ADMIN' || (user as any).role === 'MODERATOR' || user.is_staff))
+          user &&
+          (author.claimed_by === user.id ||
+            (user as any).role === 'ADMIN' ||
+            (user as any).role === 'MODERATOR' ||
+            user.is_staff)
         )}
         books={localBooks}
       />
@@ -530,7 +543,10 @@ export function Author() {
         authorId={author.id}
         authorName={author.name}
         isAuthorOwner={Boolean(user && author.claimed_by === user.id && author.is_verified)}
-        isAdmin={Boolean(user && (user.is_staff || (user as any).role === 'ADMIN' || (user as any).role === 'MODERATOR'))}
+        isAdmin={Boolean(
+          user &&
+          (user.is_staff || (user as any).role === 'ADMIN' || (user as any).role === 'MODERATOR')
+        )}
         books={localBooks}
       />
 
@@ -539,7 +555,11 @@ export function Author() {
         authorId={author.id}
         authorName={author.name}
         isAuthorOwner={Boolean(
-          (user && (author.claimed_by === user.id || (user as any).role === 'ADMIN' || (user as any).role === 'MODERATOR' || user.is_staff))
+          user &&
+          (author.claimed_by === user.id ||
+            (user as any).role === 'ADMIN' ||
+            (user as any).role === 'MODERATOR' ||
+            user.is_staff)
         )}
       />
 
@@ -550,7 +570,8 @@ export function Author() {
           <span>¿Algún dato de {author.name} es incorrecto?</span>
         </h3>
         <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
-          Nuestra comunidad cuida los datos bibliográficos. Envía una sugerencia o corrección a nuestro equipo editorial.
+          Nuestra comunidad cuida los datos bibliográficos. Envía una sugerencia o corrección a
+          nuestro equipo editorial.
         </p>
 
         {reportSent ? (
@@ -604,8 +625,8 @@ export function Author() {
         <form onSubmit={handleSubmitClaim}>
           <Modal.Body className="space-y-4">
             <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-              Si eres el autor o su representante legal formal, puedes solicitar la verificación y vinculación
-              de esta página oficial a tu cuenta de MyBookSocial.
+              Si eres el autor o su representante legal formal, puedes solicitar la verificación y
+              vinculación de esta página oficial a tu cuenta de MyBookSocial.
             </p>
 
             {claimSuccessMessage && (
@@ -662,7 +683,11 @@ export function Author() {
             </div>
           </Modal.Body>
           <Modal.Footer className="flex justify-end gap-2">
-            <Button color="gray" onClick={() => setIsClaimModalOpen(false)} disabled={submittingClaim}>
+            <Button
+              color="gray"
+              onClick={() => setIsClaimModalOpen(false)}
+              disabled={submittingClaim}
+            >
               Cancelar
             </Button>
             <Button

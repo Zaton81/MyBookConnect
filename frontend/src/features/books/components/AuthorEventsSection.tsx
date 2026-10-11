@@ -77,7 +77,9 @@ export const AuthorEventsSection: React.FC<AuthorEventsSectionProps> = ({
   const [actionLoadingId, setActionLoadingId] = useState<number | null>(null);
 
   // Modal Inscribirse
-  const [selectedEventForRegister, setSelectedEventForRegister] = useState<AuthorEventItem | null>(null);
+  const [selectedEventForRegister, setSelectedEventForRegister] = useState<AuthorEventItem | null>(
+    null
+  );
   const [registerNotes, setRegisterNotes] = useState('');
   const [submittingRegister, setSubmittingRegister] = useState(false);
 
@@ -114,9 +116,12 @@ export const AuthorEventsSection: React.FC<AuthorEventsSectionProps> = ({
       if (token) headers['Authorization'] = `Bearer ${token}`;
 
       const upcomingParam = filterMode === 'upcoming' ? 'upcoming=true' : 'past=true';
-      const res = await fetch(`${apiUrl}/api/v1/books/author-events/?author=${authorId}&${upcomingParam}`, {
-        headers,
-      });
+      const res = await fetch(
+        `${apiUrl}/api/v1/books/author-events/?author=${authorId}&${upcomingParam}`,
+        {
+          headers,
+        }
+      );
       if (res.ok) {
         const data = await res.json();
         const list = Array.isArray(data) ? data : data.results || [];
@@ -139,14 +144,17 @@ export const AuthorEventsSection: React.FC<AuthorEventsSectionProps> = ({
 
     try {
       setSubmittingRegister(true);
-      const res = await fetch(`${apiUrl}/api/v1/books/author-events/${selectedEventForRegister.id}/register/`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ notes: registerNotes.trim() }),
-      });
+      const res = await fetch(
+        `${apiUrl}/api/v1/books/author-events/${selectedEventForRegister.id}/register/`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ notes: registerNotes.trim() }),
+        }
+      );
       if (res.ok) {
         setSelectedEventForRegister(null);
         setRegisterNotes('');
@@ -169,13 +177,16 @@ export const AuthorEventsSection: React.FC<AuthorEventsSectionProps> = ({
 
     try {
       setActionLoadingId(eventId);
-      const res = await fetch(`${apiUrl}/api/v1/books/author-events/${eventId}/cancel_registration/`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const res = await fetch(
+        `${apiUrl}/api/v1/books/author-events/${eventId}/cancel_registration/`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
       if (res.ok) {
         await loadEvents();
       } else {
@@ -196,7 +207,9 @@ export const AuthorEventsSection: React.FC<AuthorEventsSectionProps> = ({
     try {
       const headers: Record<string, string> = {};
       if (token) headers['Authorization'] = `Bearer ${token}`;
-      const res = await fetch(`${apiUrl}/api/v1/books/author-events/${event.id}/attendees/`, { headers });
+      const res = await fetch(`${apiUrl}/api/v1/books/author-events/${event.id}/attendees/`, {
+        headers,
+      });
       if (res.ok) {
         const data = await res.json();
         setAttendeesList(Array.isArray(data) ? data : data.results || []);
@@ -473,7 +486,9 @@ export const AuthorEventsSection: React.FC<AuthorEventsSectionProps> = ({
                         </div>
                       )}
                       <div className="truncate">
-                        <span className="text-[10px] text-slate-400 block font-semibold">Libro presentado:</span>
+                        <span className="text-[10px] text-slate-400 block font-semibold">
+                          Libro presentado:
+                        </span>
                         <span className="font-bold text-slate-800 dark:text-slate-200 truncate block">
                           {event.book_title}
                         </span>
@@ -486,7 +501,9 @@ export const AuthorEventsSection: React.FC<AuthorEventsSectionProps> = ({
                     <div className="flex items-center gap-2">
                       <HiOutlineClock className="w-4 h-4 text-teal-600 shrink-0" />
                       <span className="font-semibold">{formatEventDate(event.start_time)}</span>
-                      <span className="text-[11px] text-slate-400 font-normal">({event.event_timezone})</span>
+                      <span className="text-[11px] text-slate-400 font-normal">
+                        ({event.event_timezone})
+                      </span>
                     </div>
 
                     {event.location_name && (
@@ -494,7 +511,9 @@ export const AuthorEventsSection: React.FC<AuthorEventsSectionProps> = ({
                         <HiOutlineLocationMarker className="w-4 h-4 text-rose-500 shrink-0" />
                         <span className="truncate">{event.location_name}</span>
                         {event.location_address && (
-                          <span className="text-slate-400 truncate">• {event.location_address}</span>
+                          <span className="text-slate-400 truncate">
+                            • {event.location_address}
+                          </span>
                         )}
                       </div>
                     )}
@@ -518,7 +537,10 @@ export const AuthorEventsSection: React.FC<AuthorEventsSectionProps> = ({
                       <HiOutlineUsers className="w-4 h-4 text-indigo-500 shrink-0" />
                       {event.max_attendees ? (
                         <span>
-                          <strong className="text-slate-900 dark:text-white">{event.registered_count}</strong> / {event.max_attendees} plazas reservadas
+                          <strong className="text-slate-900 dark:text-white">
+                            {event.registered_count}
+                          </strong>{' '}
+                          / {event.max_attendees} plazas reservadas
                           {event.waitlist_count > 0 && (
                             <span className="text-amber-600 dark:text-amber-400 ml-1.5 font-semibold">
                               ({event.waitlist_count} en lista de espera)
@@ -527,7 +549,10 @@ export const AuthorEventsSection: React.FC<AuthorEventsSectionProps> = ({
                         </span>
                       ) : (
                         <span>
-                          <strong className="text-slate-900 dark:text-white">{event.registered_count}</strong> inscritos (sin aforo limitado)
+                          <strong className="text-slate-900 dark:text-white">
+                            {event.registered_count}
+                          </strong>{' '}
+                          inscritos (sin aforo limitado)
                         </span>
                       )}
                     </div>
@@ -580,7 +605,9 @@ export const AuthorEventsSection: React.FC<AuthorEventsSectionProps> = ({
                           }`}
                         >
                           <span>{event.is_full ? '⏳' : '🎟️'}</span>
-                          <span>{event.is_full ? 'Unirme a lista de espera' : 'Inscribirme al evento'}</span>
+                          <span>
+                            {event.is_full ? 'Unirme a lista de espera' : 'Inscribirme al evento'}
+                          </span>
                         </button>
                       )
                     )}
@@ -660,19 +687,10 @@ export const AuthorEventsSection: React.FC<AuthorEventsSectionProps> = ({
                 </div>
 
                 <div className="flex justify-end gap-2 pt-2">
-                  <Button
-                    color="gray"
-                    size="sm"
-                    onClick={() => setSelectedEventForRegister(null)}
-                  >
+                  <Button color="gray" size="sm" onClick={() => setSelectedEventForRegister(null)}>
                     Cancelar
                   </Button>
-                  <Button
-                    color="teal"
-                    size="sm"
-                    type="submit"
-                    disabled={submittingRegister}
-                  >
+                  <Button color="teal" size="sm" type="submit" disabled={submittingRegister}>
                     {submittingRegister ? 'Confirmando...' : 'Confirmar Reserva'}
                   </Button>
                 </div>
@@ -683,11 +701,7 @@ export const AuthorEventsSection: React.FC<AuthorEventsSectionProps> = ({
       </Modal>
 
       {/* Modal 2: Crear Evento de Autor */}
-      <Modal
-        show={isCreateModalOpen}
-        onClose={() => setIsCreateModalOpen(false)}
-        size="lg"
-      >
+      <Modal show={isCreateModalOpen} onClose={() => setIsCreateModalOpen(false)} size="lg">
         <div className="p-6 space-y-4 bg-white dark:bg-slate-900 rounded-3xl max-h-[90vh] overflow-y-auto">
           <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
             <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
@@ -859,7 +873,9 @@ export const AuthorEventsSection: React.FC<AuthorEventsSectionProps> = ({
                 <input
                   type="text"
                   value={createForm.location_address}
-                  onChange={(e) => setCreateForm({ ...createForm, location_address: e.target.value })}
+                  onChange={(e) =>
+                    setCreateForm({ ...createForm, location_address: e.target.value })
+                  }
                   placeholder="Ej. Calle Tutor 57, 28008 Madrid"
                   className="w-full text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 py-2 px-3 text-slate-900 dark:text-white focus:ring-teal-500"
                 />
@@ -882,19 +898,10 @@ export const AuthorEventsSection: React.FC<AuthorEventsSectionProps> = ({
             )}
 
             <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
-              <Button
-                color="gray"
-                size="sm"
-                onClick={() => setIsCreateModalOpen(false)}
-              >
+              <Button color="gray" size="sm" onClick={() => setIsCreateModalOpen(false)}>
                 Cancelar
               </Button>
-              <Button
-                color="teal"
-                size="sm"
-                type="submit"
-                disabled={submittingCreate}
-              >
+              <Button color="teal" size="sm" type="submit" disabled={submittingCreate}>
                 {submittingCreate ? 'Publicando...' : 'Publicar Evento'}
               </Button>
             </div>
@@ -967,8 +974,8 @@ export const AuthorEventsSection: React.FC<AuthorEventsSectionProps> = ({
                         att.status === 'REGISTERED'
                           ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
                           : att.status === 'WAITLIST'
-                          ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
-                          : 'bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-300'
+                            ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
+                            : 'bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-300'
                       }`}
                     >
                       {att.status_display}

@@ -21,7 +21,8 @@ describe('FaqsPage Component', () => {
     {
       id: 2,
       question: '¿Cómo puedo verificar mi perfil de autor?',
-      answer: 'Debes dirigirte a la sección de solicitud de autor y aportar un documento o enlace oficial.',
+      answer:
+        'Debes dirigirte a la sección de solicitud de autor y aportar un documento o enlace oficial.',
       category: 'authors',
       order: 2,
       created_at: '2026-10-02T12:00:00Z',
@@ -68,7 +69,9 @@ describe('FaqsPage Component', () => {
 
     // Check categories buttons exist
     expect(screen.getByRole('button', { name: /Todas las preguntas/i })).toBeInTheDocument();
-    expect(screen.getAllByRole('button', { name: /Autores y Perfiles/i }).length).toBeGreaterThanOrEqual(1);
+    expect(
+      screen.getAllByRole('button', { name: /Autores y Perfiles/i }).length
+    ).toBeGreaterThanOrEqual(1);
   });
 
   it('toggles accordion items and controls aria-expanded attributes', async () => {

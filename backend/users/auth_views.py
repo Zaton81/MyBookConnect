@@ -14,10 +14,12 @@ from drf_spectacular.utils import OpenApiResponse, extend_schema, inline_seriali
 from rest_framework import permissions, serializers, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
 from rest_framework_simplejwt.tokens import RefreshToken
-from rest_framework_simplejwt.views import TokenObtainPairView
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
+from .auth_cookies import set_auth_cookies
 from .serializers import (
     EmailVerifyConfirmSerializer,
     GoogleOAuthSerializer,
@@ -56,21 +58,55 @@ class CustomTokenObtainPairView(TokenObtainPairView):
 
     def post(self, request, *args, **kwargs):
         response = super().post(request, *args, **kwargs)
-        if response.status_code == 200 and getattr(settings, 'REQUIRE_EMAIL_VERIFICATION', False):
-            username = request.data.get('username')
-            user = (
-                User.objects.filter(username=username).first()
-                or User.objects.filter(email__iexact=username).first()
-            )
-            if user and not user.is_email_verified:
-                return Response(
-                    {
-                        "detail": "Debes verificar tu dirección de correo electrónico antes de iniciar sesión.",
-                        "code": "email_not_verified",
-                        "email": user.email,
-                    },
-                    status=status.HTTP_403_FORBIDDEN,
+        if response.status_code == 200:
+            if getattr(settings, 'REQUIRE_EMAIL_VERIFICATION', False):
+                username = request.data.get('username')
+                user = (
+                    User.objects.filter(username=username).first()
+                    or User.objects.filter(email__iexact=username).first()
                 )
+                if user and not user.is_email_verified:
+                    return Response(
+                        {
+                            "detail": "Debes verificar tu dirección de correo electrónico antes de iniciar sesión.",
+                            "code": "email_not_verified",
+                            "email": user.email,
+                        },
+                        status=status.HTTP_403_FORBIDDEN,
+                    )
+            access = response.data.get('access')
+            refresh = response.data.get('refresh')
+            set_auth_cookies(response, access_token=access, refresh_token=refresh)
+        return response
+
+
+class CustomTokenRefreshView(TokenRefreshView):
+    """
+    Renueva el token de acceso JWT extrayendo el token de refresco del cuerpo
+    de la petición o de la cookie HttpOnly segura. Devuelve los nuevos tokens y
+    actualiza las cookies correspondientes de forma transparente y segura.
+    """
+    def post(self, request, *args, **kwargs):
+        refresh_cookie_name = getattr(settings, 'AUTH_COOKIE_REFRESH', 'refresh_token')
+        data = request.data
+        if not data.get('refresh') and refresh_cookie_name in request.COOKIES:
+            if hasattr(data, 'copy'):
+                data = data.copy()
+            else:
+                data = dict(data)
+            data['refresh'] = request.COOKIES[refresh_cookie_name]
+
+        serializer = self.get_serializer(data=data)
+        try:
+            serializer.is_valid(raise_exception=True)
+        except TokenError as e:
+            raise InvalidToken(e.args[0]) from e
+
+        response = Response(serializer.validated_data, status=status.HTTP_200_OK)
+
+        access = response.data.get('access')
+        refresh = response.data.get('refresh')
+        set_auth_cookies(response, access_token=access, refresh_token=refresh)
         return response
 
 
@@ -115,7 +151,7 @@ class PasswordChangeView(APIView):
         # Emitir nuevo par de tokens para la sesión actual
         refresh = RefreshToken.for_user(user)
 
-        return Response(
+        response = Response(
             {
                 "detail": "Contraseña actualizada exitosamente.",
                 "access": str(refresh.access_token),
@@ -123,6 +159,8 @@ class PasswordChangeView(APIView):
             },
             status=status.HTTP_200_OK,
         )
+        set_auth_cookies(response, access_token=str(refresh.access_token), refresh_token=str(refresh))
+        return response
 
 
 class PasswordResetRequestView(APIView):
@@ -447,7 +485,7 @@ class GoogleOAuthLoginView(APIView):
 
         refresh = RefreshToken.for_user(user)
 
-        return Response(
+        response = Response(
             {
                 "access": str(refresh.access_token),
                 "refresh": str(refresh),
@@ -455,6 +493,8 @@ class GoogleOAuthLoginView(APIView):
             },
             status=status.HTTP_200_OK,
         )
+        set_auth_cookies(response, access_token=str(refresh.access_token), refresh_token=str(refresh))
+        return response
 
     def _verify_google_token(self, token: str) -> dict | None:
         """

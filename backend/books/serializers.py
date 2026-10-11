@@ -3,6 +3,7 @@ from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 from .models import (
+    FAQ,
     Author,
     AuthorAnnouncement,
     AuthorClaim,
@@ -16,7 +17,6 @@ from .models import (
     Book,
     Category,
     Errata,
-    FAQ,
     LegalDocument,
     ReadingList,
     ReadingListCollaborator,
@@ -26,7 +26,6 @@ from .models import (
     Review,
     ReviewComment,
     UserBook,
-    normalize_isbn,
     normalize_title,
 )
 
@@ -112,6 +111,7 @@ class AuthorSerializer(serializers.ModelSerializer):
     @extend_schema_field(serializers.FloatField)
     def get_average_rating(self, obj):
         from django.db.models import Avg
+
         from .models import Book
         book_ids = set(obj.books.values_list('id', flat=True)).union(set(obj.all_books.values_list('id', flat=True)))
         if not book_ids:

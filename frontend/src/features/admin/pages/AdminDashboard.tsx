@@ -1358,747 +1358,755 @@ export function AdminDashboard() {
             <>
               {/* Barra de Filtros y Búsqueda */}
               <div className="flex flex-wrap gap-3 items-center justify-between bg-slate-50 dark:bg-slate-700/40 p-3 rounded-2xl border border-slate-200/80 dark:border-slate-700">
-            <div className="flex flex-wrap gap-2 items-center flex-1">
-              <div className="relative min-w-[220px]">
-                <input
-                  type="text"
-                  placeholder={`Buscar ${catalogSubtab === 'books' ? 'libro, autor o ISBN' : 'autor'}...`}
-                  value={catalogSearch}
-                  onChange={(e) => setCatalogSearch(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && fetchCatalog()}
-                  className="w-full text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-2.5 pl-8"
-                />
-                <span className="absolute left-2.5 top-2.5 text-slate-400 text-xs">🔍</span>
-              </div>
-
-              {catalogSubtab === 'books' && (
-                <>
-                  <select
-                    value={catalogProviderFilter}
-                    onChange={(e: any) => setCatalogProviderFilter(e.target.value)}
-                    className="text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 py-2 px-3"
-                  >
-                    <option value="all">Proveedor: Todos</option>
-                    <option value="google">Google Books</option>
-                    <option value="openlibrary">OpenLibrary</option>
-                    <option value="isbn">Con ISBN</option>
-                  </select>
-
-                  <select
-                    value={catalogRatingFilter}
-                    onChange={(e: any) => setCatalogRatingFilter(e.target.value)}
-                    className="text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 py-2 px-3"
-                  >
-                    <option value="all">Valoración: Todas</option>
-                    <option value="4.0">⭐ 4.0 o superior</option>
-                    <option value="3.0">⭐ 3.0 o superior</option>
-                    <option value="2.0">⭐ 2.0 o superior</option>
-                  </select>
-                </>
-              )}
-
-              <select
-                value={catalogEnrichFilter}
-                onChange={(e: any) => setCatalogEnrichFilter(e.target.value)}
-                className="text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 py-2 px-3"
-              >
-                <option value="all">Enriquecimiento: Todos</option>
-                <option value="true">⚡ Enriquecidos</option>
-                <option value="false">⏳ Pendientes</option>
-              </select>
-
-              <button
-                onClick={fetchCatalog}
-                className="bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition-all"
-              >
-                Filtrar
-              </button>
-            </div>
-
-            {/* Selector de todos */}
-            {catalogItems.length > 0 && (
-              <button
-                onClick={handleToggleSelectAll}
-                className="text-xs font-bold text-slate-600 dark:text-slate-300 hover:text-teal-600 dark:hover:text-teal-400 underline px-2"
-              >
-                {selectedCatalogIds.size === catalogItems.length
-                  ? 'Deseleccionar todos'
-                  : 'Seleccionar todos'}
-              </button>
-            )}
-          </div>
-
-          {/* Barra de Acciones Masivas en Lote (Fase 57) */}
-          {selectedCatalogIds.size > 0 && (
-            <div className="bg-teal-50 dark:bg-teal-950/50 border-2 border-teal-500/40 p-3 rounded-2xl flex flex-wrap items-center justify-between gap-3 shadow-sm animate-fadeIn">
-              <div className="flex items-center gap-2">
-                <span className="w-6 h-6 rounded-full bg-teal-600 text-white flex items-center justify-center text-xs font-black">
-                  {selectedCatalogIds.size}
-                </span>
-                <span className="text-xs font-bold text-teal-900 dark:text-teal-200">
-                  {selectedCatalogIds.size} elemento(s) seleccionado(s)
-                </span>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2">
-                <button
-                  disabled={bulkActionLoading}
-                  onClick={() => handleBulkAction('re_enrich')}
-                  className="bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold px-3 py-1.5 rounded-xl transition-all flex items-center gap-1 shadow-sm"
-                >
-                  <span>⚡</span>
-                  <span>Re-enriquecer ({selectedCatalogIds.size})</span>
-                </button>
-
-                {catalogSubtab === 'books' && (
-                  <button
-                    disabled={bulkActionLoading}
-                    onClick={() => handleBulkAction('rebuild_embedding')}
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-3 py-1.5 rounded-xl transition-all flex items-center gap-1 shadow-sm"
-                  >
-                    <span>🤖</span>
-                    <span>Reconstruir embeddings ({selectedCatalogIds.size})</span>
-                  </button>
-                )}
-
-                <button
-                  disabled={bulkActionLoading}
-                  onClick={() => handleBulkAction('delete')}
-                  className="bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold px-3 py-1.5 rounded-xl transition-all flex items-center gap-1 shadow-sm"
-                >
-                  <span>🗑</span>
-                  <span>Eliminar ({selectedCatalogIds.size})</span>
-                </button>
-
-                <button
-                  onClick={() => setSelectedCatalogIds(new Set())}
-                  className="text-xs text-slate-500 hover:text-slate-800 dark:text-slate-400 px-2 font-semibold"
-                >
-                  Cancelar
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Listado de elementos */}
-          {loadingCatalog ? (
-            <div className="flex justify-center p-12">
-              <Spinner size="xl" color="info" />
-            </div>
-          ) : catalogItems.length === 0 ? (
-            <div className="text-center py-12 border border-dashed border-slate-200 dark:border-slate-700 rounded-2xl">
-              <div className="text-4xl mb-2">🔍</div>
-              <p className="text-sm font-bold text-slate-700 dark:text-slate-300">
-                No se encontraron {catalogSubtab === 'books' ? 'libros' : 'autores'}
-              </p>
-              <p className="text-xs text-slate-500 mt-1">
-                Prueba a modificar los filtros o la búsqueda.
-              </p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {catalogItems.map((item) => {
-                const isSelected = selectedCatalogIds.has(item.id);
-                return (
-                  <div
-                    key={item.id}
-                    className={`p-4 rounded-2xl border transition-all flex gap-3.5 items-start ${
-                      isSelected
-                        ? 'border-teal-500 bg-teal-50/20 dark:bg-teal-950/20 ring-1 ring-teal-500'
-                        : 'border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 hover:border-slate-300 dark:hover:border-slate-600'
-                    }`}
-                  >
-                    {/* Checkbox de selección */}
+                <div className="flex flex-wrap gap-2 items-center flex-1">
+                  <div className="relative min-w-[220px]">
                     <input
-                      type="checkbox"
-                      checked={isSelected}
-                      onChange={() => handleToggleSelect(item.id)}
-                      className="mt-1 rounded text-teal-600 focus:ring-teal-500 cursor-pointer"
+                      type="text"
+                      placeholder={`Buscar ${catalogSubtab === 'books' ? 'libro, autor o ISBN' : 'autor'}...`}
+                      value={catalogSearch}
+                      onChange={(e) => setCatalogSearch(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && fetchCatalog()}
+                      className="w-full text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-2.5 pl-8"
                     />
-
-                    {/* Portada o Foto */}
-                    <div className="w-16 h-22 rounded-xl overflow-hidden bg-slate-200 dark:bg-slate-700 shrink-0 border border-slate-300 dark:border-slate-600 shadow-sm relative">
-                      {item.cover || item.photo ? (
-                        <img
-                          src={
-                            (item.cover || item.photo).startsWith('http')
-                              ? item.cover || item.photo
-                              : `${apiUrl}${item.cover || item.photo}`
-                          }
-                          alt={item.title || item.name}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-[10px] text-slate-400 p-1 text-center font-bold">
-                          Sin imagen
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Información y Acciones */}
-                    <div className="flex-1 min-w-0 space-y-1.5">
-                      <div className="flex items-start justify-between gap-2">
-                        <h4
-                          className="text-xs font-extrabold text-slate-900 dark:text-white truncate"
-                          title={item.title || item.name}
-                        >
-                          {item.title || item.name}
-                        </h4>
-                        <span className="text-[10px] font-mono text-slate-400 bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 rounded">
-                          #{item.id}
-                        </span>
-                      </div>
-
-                      {item.author && (
-                        <p className="text-[11px] font-medium text-teal-600 dark:text-teal-400 truncate">
-                          ✍️ {item.author.name}
-                        </p>
-                      )}
-
-                      <div className="flex flex-wrap gap-1.5 items-center">
-                        {item.isbn && (
-                          <span className="text-[10px] text-slate-600 dark:text-slate-300 font-mono bg-white dark:bg-slate-700 px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-600">
-                            ISBN: {item.isbn}
-                          </span>
-                        )}
-                        {item.google_volume_id && (
-                          <span className="text-[9px] font-bold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/30 px-1.5 py-0.5 rounded border border-blue-200 dark:border-blue-800">
-                            Google Books
-                          </span>
-                        )}
-                        {item.openlibrary_work_id && (
-                          <span className="text-[9px] font-bold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/30 px-1.5 py-0.5 rounded border border-amber-200 dark:border-amber-800">
-                            OpenLibrary
-                          </span>
-                        )}
-                        {item.average_rating ? (
-                          <span className="text-[10px] font-bold text-amber-500">
-                            ⭐ {item.average_rating.toFixed(1)}
-                          </span>
-                        ) : null}
-                        <span
-                          className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
-                            item.enrichment_attempted
-                              ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300'
-                              : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400'
-                          }`}
-                        >
-                          {item.enrichment_attempted ? '⚡ Enriquecido' : '⏳ Pendiente'}
-                        </span>
-                      </div>
-
-                      {item.categories && item.categories.length > 0 && (
-                        <div className="flex flex-wrap gap-1 pt-0.5">
-                          {item.categories.slice(0, 3).map((c: any) => (
-                            <span
-                              key={c.id}
-                              className="text-[9px] px-1.5 py-0.5 rounded-md bg-slate-200/60 dark:bg-slate-700 text-slate-700 dark:text-slate-300"
-                            >
-                              {c.name}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-2">
-                        {item.description || item.biography || 'Sin descripción disponible.'}
-                      </p>
-
-                      {/* Botones de acción directos */}
-                      <div className="flex flex-wrap gap-1.5 pt-2">
-                        <button
-                          onClick={() =>
-                            catalogSubtab === 'books'
-                              ? openEditBookModal(item)
-                              : openEditAuthorModal(item)
-                          }
-                          className="bg-teal-50 hover:bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300 font-bold px-2.5 py-1 rounded-lg text-[10px] transition-colors border border-teal-200 dark:border-teal-800 flex items-center gap-1"
-                        >
-                          <span>✏️</span>
-                          <span>Editar</span>
-                        </button>
-                        <button
-                          onClick={() => handleEnrichItem(item.id)}
-                          className="bg-amber-50 hover:bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 font-bold px-2.5 py-1 rounded-lg text-[10px] transition-colors border border-amber-200 dark:border-amber-800 flex items-center gap-1"
-                          title="Buscar datos actualizados en APIs abiertas"
-                        >
-                          <span>⚡</span>
-                          <span>Re-enriquecer</span>
-                        </button>
-                        <button
-                          onClick={() => handleDeleteItem(item.id, item.title || item.name)}
-                          className="bg-rose-50 hover:bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300 font-bold px-2.5 py-1 rounded-lg text-[10px] transition-colors border border-rose-200 dark:border-rose-800 flex items-center gap-1"
-                        >
-                          <span>🗑</span>
-                          <span>Eliminar</span>
-                        </button>
-                      </div>
-                    </div>
+                    <span className="absolute left-2.5 top-2.5 text-slate-400 text-xs">🔍</span>
                   </div>
-                );
-              })}
-            </div>
-          )}
 
-          {/* Modal de Edición / Creación de Libro (Fase 57) */}
-          {editingBook && (
-            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
-              <div className="bg-white dark:bg-slate-800 rounded-3xl max-w-2xl w-full p-6 sm:p-8 space-y-5 border border-slate-200 dark:border-slate-700 shadow-2xl my-8">
-                <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-3">
-                  <div>
-                    <h3 className="text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
-                      <span>📖</span>
-                      <span>
-                        {editingBook.isNew ? 'Añadir Nuevo Libro' : 'Editar Libro en Catálogo'}
-                      </span>
-                    </h3>
-                    <p className="text-xs text-slate-400">
-                      Modifica los atributos canónicos del libro en la base de datos principal.
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => setEditingBook(null)}
-                    className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 text-xl font-bold"
+                  {catalogSubtab === 'books' && (
+                    <>
+                      <select
+                        value={catalogProviderFilter}
+                        onChange={(e: any) => setCatalogProviderFilter(e.target.value)}
+                        className="text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 py-2 px-3"
+                      >
+                        <option value="all">Proveedor: Todos</option>
+                        <option value="google">Google Books</option>
+                        <option value="openlibrary">OpenLibrary</option>
+                        <option value="isbn">Con ISBN</option>
+                      </select>
+
+                      <select
+                        value={catalogRatingFilter}
+                        onChange={(e: any) => setCatalogRatingFilter(e.target.value)}
+                        className="text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 py-2 px-3"
+                      >
+                        <option value="all">Valoración: Todas</option>
+                        <option value="4.0">⭐ 4.0 o superior</option>
+                        <option value="3.0">⭐ 3.0 o superior</option>
+                        <option value="2.0">⭐ 2.0 o superior</option>
+                      </select>
+                    </>
+                  )}
+
+                  <select
+                    value={catalogEnrichFilter}
+                    onChange={(e: any) => setCatalogEnrichFilter(e.target.value)}
+                    className="text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 py-2 px-3"
                   >
-                    &times;
+                    <option value="all">Enriquecimiento: Todos</option>
+                    <option value="true">⚡ Enriquecidos</option>
+                    <option value="false">⏳ Pendientes</option>
+                  </select>
+
+                  <button
+                    onClick={fetchCatalog}
+                    className="bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition-all"
+                  >
+                    Filtrar
                   </button>
                 </div>
 
-                <form onSubmit={handleSaveBook} className="space-y-4">
-                  {/* Título */}
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                      Título de la obra *
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={bookForm.title}
-                      onChange={(e) => setBookForm({ ...bookForm, title: e.target.value })}
-                      placeholder="Ej: Cien años de soledad"
-                      className="w-full text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700 p-2.5"
-                    />
+                {/* Selector de todos */}
+                {catalogItems.length > 0 && (
+                  <button
+                    onClick={handleToggleSelectAll}
+                    className="text-xs font-bold text-slate-600 dark:text-slate-300 hover:text-teal-600 dark:hover:text-teal-400 underline px-2"
+                  >
+                    {selectedCatalogIds.size === catalogItems.length
+                      ? 'Deseleccionar todos'
+                      : 'Seleccionar todos'}
+                  </button>
+                )}
+              </div>
+
+              {/* Barra de Acciones Masivas en Lote (Fase 57) */}
+              {selectedCatalogIds.size > 0 && (
+                <div className="bg-teal-50 dark:bg-teal-950/50 border-2 border-teal-500/40 p-3 rounded-2xl flex flex-wrap items-center justify-between gap-3 shadow-sm animate-fadeIn">
+                  <div className="flex items-center gap-2">
+                    <span className="w-6 h-6 rounded-full bg-teal-600 text-white flex items-center justify-center text-xs font-black">
+                      {selectedCatalogIds.size}
+                    </span>
+                    <span className="text-xs font-bold text-teal-900 dark:text-teal-200">
+                      {selectedCatalogIds.size} elemento(s) seleccionado(s)
+                    </span>
                   </div>
 
-                  {/* Portada del libro */}
-                  <div className="p-3 bg-slate-50 dark:bg-slate-700/40 rounded-2xl border border-slate-200 dark:border-slate-700">
-                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                      🖼️ Portada del libro
-                    </label>
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-                      {bookCoverPreview ? (
-                        <div className="relative group">
-                          <img
-                            src={bookCoverPreview}
-                            alt="Portada"
-                            className="w-16 h-24 object-cover rounded-xl border border-slate-300 dark:border-slate-600 shadow-md"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setBookCoverFile(null);
-                              setBookCoverPreview(null);
-                            }}
-                            className="absolute -top-1.5 -right-1.5 bg-rose-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold hover:bg-rose-700 shadow"
-                            title="Quitar portada"
-                          >
-                            &times;
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="w-16 h-24 rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-600 flex flex-col items-center justify-center text-slate-400 text-[10px] text-center p-1">
-                          <span>Sin foto</span>
-                        </div>
-                      )}
-                      <div className="flex-1 space-y-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      disabled={bulkActionLoading}
+                      onClick={() => handleBulkAction('re_enrich')}
+                      className="bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold px-3 py-1.5 rounded-xl transition-all flex items-center gap-1 shadow-sm"
+                    >
+                      <span>⚡</span>
+                      <span>Re-enriquecer ({selectedCatalogIds.size})</span>
+                    </button>
+
+                    {catalogSubtab === 'books' && (
+                      <button
+                        disabled={bulkActionLoading}
+                        onClick={() => handleBulkAction('rebuild_embedding')}
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-3 py-1.5 rounded-xl transition-all flex items-center gap-1 shadow-sm"
+                      >
+                        <span>🤖</span>
+                        <span>Reconstruir embeddings ({selectedCatalogIds.size})</span>
+                      </button>
+                    )}
+
+                    <button
+                      disabled={bulkActionLoading}
+                      onClick={() => handleBulkAction('delete')}
+                      className="bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold px-3 py-1.5 rounded-xl transition-all flex items-center gap-1 shadow-sm"
+                    >
+                      <span>🗑</span>
+                      <span>Eliminar ({selectedCatalogIds.size})</span>
+                    </button>
+
+                    <button
+                      onClick={() => setSelectedCatalogIds(new Set())}
+                      className="text-xs text-slate-500 hover:text-slate-800 dark:text-slate-400 px-2 font-semibold"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Listado de elementos */}
+              {loadingCatalog ? (
+                <div className="flex justify-center p-12">
+                  <Spinner size="xl" color="info" />
+                </div>
+              ) : catalogItems.length === 0 ? (
+                <div className="text-center py-12 border border-dashed border-slate-200 dark:border-slate-700 rounded-2xl">
+                  <div className="text-4xl mb-2">🔍</div>
+                  <p className="text-sm font-bold text-slate-700 dark:text-slate-300">
+                    No se encontraron {catalogSubtab === 'books' ? 'libros' : 'autores'}
+                  </p>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Prueba a modificar los filtros o la búsqueda.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {catalogItems.map((item) => {
+                    const isSelected = selectedCatalogIds.has(item.id);
+                    return (
+                      <div
+                        key={item.id}
+                        className={`p-4 rounded-2xl border transition-all flex gap-3.5 items-start ${
+                          isSelected
+                            ? 'border-teal-500 bg-teal-50/20 dark:bg-teal-950/20 ring-1 ring-teal-500'
+                            : 'border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 hover:border-slate-300 dark:hover:border-slate-600'
+                        }`}
+                      >
+                        {/* Checkbox de selección */}
                         <input
-                          type="file"
-                          accept="image/jpeg,image/png,image/webp"
-                          onChange={(e) => {
-                            const f = e.target.files?.[0];
-                            if (f) {
-                              setBookCoverFile(f);
-                              setBookCoverPreview(URL.createObjectURL(f));
-                            }
-                          }}
-                          className="w-full text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-teal-50 file:text-teal-700 hover:file:bg-teal-100 dark:file:bg-teal-900/40 dark:file:text-teal-300 cursor-pointer"
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => handleToggleSelect(item.id)}
+                          className="mt-1 rounded text-teal-600 focus:ring-teal-500 cursor-pointer"
                         />
-                        <p className="text-[10px] text-slate-400">
-                          Formatos aceptados: JPEG, PNG, WebP (máx. 10MB). Se optimizará y
-                          sanitizará automáticamente.
+
+                        {/* Portada o Foto */}
+                        <div className="w-16 h-22 rounded-xl overflow-hidden bg-slate-200 dark:bg-slate-700 shrink-0 border border-slate-300 dark:border-slate-600 shadow-sm relative">
+                          {item.cover || item.photo ? (
+                            <img
+                              src={
+                                (item.cover || item.photo).startsWith('http')
+                                  ? item.cover || item.photo
+                                  : `${apiUrl}${item.cover || item.photo}`
+                              }
+                              alt={item.title || item.name}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-[10px] text-slate-400 p-1 text-center font-bold">
+                              Sin imagen
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Información y Acciones */}
+                        <div className="flex-1 min-w-0 space-y-1.5">
+                          <div className="flex items-start justify-between gap-2">
+                            <h4
+                              className="text-xs font-extrabold text-slate-900 dark:text-white truncate"
+                              title={item.title || item.name}
+                            >
+                              {item.title || item.name}
+                            </h4>
+                            <span className="text-[10px] font-mono text-slate-400 bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 rounded">
+                              #{item.id}
+                            </span>
+                          </div>
+
+                          {item.author && (
+                            <p className="text-[11px] font-medium text-teal-600 dark:text-teal-400 truncate">
+                              ✍️ {item.author.name}
+                            </p>
+                          )}
+
+                          <div className="flex flex-wrap gap-1.5 items-center">
+                            {item.isbn && (
+                              <span className="text-[10px] text-slate-600 dark:text-slate-300 font-mono bg-white dark:bg-slate-700 px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-600">
+                                ISBN: {item.isbn}
+                              </span>
+                            )}
+                            {item.google_volume_id && (
+                              <span className="text-[9px] font-bold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/30 px-1.5 py-0.5 rounded border border-blue-200 dark:border-blue-800">
+                                Google Books
+                              </span>
+                            )}
+                            {item.openlibrary_work_id && (
+                              <span className="text-[9px] font-bold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/30 px-1.5 py-0.5 rounded border border-amber-200 dark:border-amber-800">
+                                OpenLibrary
+                              </span>
+                            )}
+                            {item.average_rating ? (
+                              <span className="text-[10px] font-bold text-amber-500">
+                                ⭐ {item.average_rating.toFixed(1)}
+                              </span>
+                            ) : null}
+                            <span
+                              className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
+                                item.enrichment_attempted
+                                  ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300'
+                                  : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400'
+                              }`}
+                            >
+                              {item.enrichment_attempted ? '⚡ Enriquecido' : '⏳ Pendiente'}
+                            </span>
+                          </div>
+
+                          {item.categories && item.categories.length > 0 && (
+                            <div className="flex flex-wrap gap-1 pt-0.5">
+                              {item.categories.slice(0, 3).map((c: any) => (
+                                <span
+                                  key={c.id}
+                                  className="text-[9px] px-1.5 py-0.5 rounded-md bg-slate-200/60 dark:bg-slate-700 text-slate-700 dark:text-slate-300"
+                                >
+                                  {c.name}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-2">
+                            {item.description || item.biography || 'Sin descripción disponible.'}
+                          </p>
+
+                          {/* Botones de acción directos */}
+                          <div className="flex flex-wrap gap-1.5 pt-2">
+                            <button
+                              onClick={() =>
+                                catalogSubtab === 'books'
+                                  ? openEditBookModal(item)
+                                  : openEditAuthorModal(item)
+                              }
+                              className="bg-teal-50 hover:bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300 font-bold px-2.5 py-1 rounded-lg text-[10px] transition-colors border border-teal-200 dark:border-teal-800 flex items-center gap-1"
+                            >
+                              <span>✏️</span>
+                              <span>Editar</span>
+                            </button>
+                            <button
+                              onClick={() => handleEnrichItem(item.id)}
+                              className="bg-amber-50 hover:bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 font-bold px-2.5 py-1 rounded-lg text-[10px] transition-colors border border-amber-200 dark:border-amber-800 flex items-center gap-1"
+                              title="Buscar datos actualizados en APIs abiertas"
+                            >
+                              <span>⚡</span>
+                              <span>Re-enriquecer</span>
+                            </button>
+                            <button
+                              onClick={() => handleDeleteItem(item.id, item.title || item.name)}
+                              className="bg-rose-50 hover:bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300 font-bold px-2.5 py-1 rounded-lg text-[10px] transition-colors border border-rose-200 dark:border-rose-800 flex items-center gap-1"
+                            >
+                              <span>🗑</span>
+                              <span>Eliminar</span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Modal de Edición / Creación de Libro (Fase 57) */}
+              {editingBook && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+                  <div className="bg-white dark:bg-slate-800 rounded-3xl max-w-2xl w-full p-6 sm:p-8 space-y-5 border border-slate-200 dark:border-slate-700 shadow-2xl my-8">
+                    <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-3">
+                      <div>
+                        <h3 className="text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+                          <span>📖</span>
+                          <span>
+                            {editingBook.isNew ? 'Añadir Nuevo Libro' : 'Editar Libro en Catálogo'}
+                          </span>
+                        </h3>
+                        <p className="text-xs text-slate-400">
+                          Modifica los atributos canónicos del libro en la base de datos principal.
                         </p>
                       </div>
-                    </div>
-                  </div>
-
-                  {/* Autor e ISBN */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <div className="flex items-center justify-between mb-1">
-                        <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                          Autor asignado
-                        </label>
-                        <button
-                          type="button"
-                          onClick={() => setShowCreateAuthorInline(!showCreateAuthorInline)}
-                          className="text-[10px] text-teal-600 dark:text-teal-400 font-bold hover:underline"
-                        >
-                          {showCreateAuthorInline ? 'Cancelar' : '+ Crear autor'}
-                        </button>
-                      </div>
-
-                      {showCreateAuthorInline ? (
-                        <div className="p-2.5 bg-teal-50 dark:bg-teal-900/20 rounded-xl border border-teal-200 dark:border-teal-800 space-y-2">
-                          <input
-                            type="text"
-                            placeholder="Nombre del nuevo autor..."
-                            value={inlineAuthorName}
-                            onChange={(e) => setInlineAuthorName(e.target.value)}
-                            className="w-full text-xs rounded-lg border border-teal-300 dark:border-teal-700 bg-white dark:bg-slate-800 p-2"
-                          />
-                          <button
-                            type="button"
-                            onClick={handleCreateInlineAuthor}
-                            disabled={creatingInlineAuthor || !inlineAuthorName.trim()}
-                            className="w-full bg-teal-600 text-white text-xs font-bold py-1.5 rounded-lg hover:bg-teal-700 disabled:opacity-50"
-                          >
-                            {creatingInlineAuthor ? 'Creando...' : 'Crear y Asignar'}
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="space-y-1.5">
-                          <input
-                            type="text"
-                            placeholder="Filtrar autor..."
-                            value={authorSearch}
-                            onChange={(e) => setAuthorSearch(e.target.value)}
-                            className="w-full text-[11px] rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700 p-1.5"
-                          />
-                          <select
-                            value={bookForm.author_id}
-                            onChange={(e) =>
-                              setBookForm({ ...bookForm, author_id: e.target.value })
-                            }
-                            className="w-full text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700 p-2.5"
-                          >
-                            <option value="">-- Sin autor o anónimo --</option>
-                            {authorsList
-                              .filter(
-                                (a) =>
-                                  !authorSearch.trim() ||
-                                  a.name.toLowerCase().includes(authorSearch.toLowerCase())
-                              )
-                              .slice(0, 100)
-                              .map((a) => (
-                                <option key={a.id} value={a.id}>
-                                  {a.name}
-                                </option>
-                              ))}
-                          </select>
-                        </div>
-                      )}
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                        ISBN (10 o 13 dígitos)
-                      </label>
-                      <input
-                        type="text"
-                        value={bookForm.isbn}
-                        onChange={(e) => setBookForm({ ...bookForm, isbn: e.target.value })}
-                        placeholder="Ej: 9780307474728"
-                        className="w-full text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700 p-2.5 font-mono"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Fecha de publicación */}
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                      Fecha de publicación
-                    </label>
-                    <input
-                      type="date"
-                      value={bookForm.published_date}
-                      onChange={(e) => setBookForm({ ...bookForm, published_date: e.target.value })}
-                      className="w-full text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700 p-2.5"
-                    />
-                  </div>
-
-                  {/* Categorías / Géneros */}
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                        Categorías / Géneros ({bookForm.category_ids.length} seleccionadas de{' '}
-                        {categoriesList.length})
-                      </label>
                       <button
-                        type="button"
-                        onClick={() => setShowCreateCategory(!showCreateCategory)}
-                        className="text-[10px] text-teal-600 dark:text-teal-400 font-bold hover:underline"
+                        onClick={() => setEditingBook(null)}
+                        className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 text-xl font-bold"
                       >
-                        {showCreateCategory ? 'Cancelar' : '+ Crear nuevo género'}
+                        &times;
                       </button>
                     </div>
 
-                    {showCreateCategory && (
-                      <div className="p-2.5 bg-teal-50 dark:bg-teal-900/20 rounded-xl border border-teal-200 dark:border-teal-800 flex gap-2 items-center">
+                    <form onSubmit={handleSaveBook} className="space-y-4">
+                      {/* Título */}
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                          Título de la obra *
+                        </label>
                         <input
                           type="text"
-                          placeholder="Nombre del nuevo género (ej. Cyberpunk, Novela Histórica)..."
-                          value={newCategoryName}
-                          onChange={(e) => setNewCategoryName(e.target.value)}
-                          className="flex-1 text-xs rounded-lg border border-teal-300 dark:border-teal-700 bg-white dark:bg-slate-800 p-2"
+                          required
+                          value={bookForm.title}
+                          onChange={(e) => setBookForm({ ...bookForm, title: e.target.value })}
+                          placeholder="Ej: Cien años de soledad"
+                          className="w-full text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700 p-2.5"
                         />
-                        <button
-                          type="button"
-                          onClick={handleCreateCategory}
-                          disabled={creatingCategory || !newCategoryName.trim()}
-                          className="bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold px-3 py-2 rounded-lg disabled:opacity-50"
-                        >
-                          {creatingCategory ? 'Creando...' : 'Crear y Añadir'}
-                        </button>
                       </div>
-                    )}
 
-                    {/* Buscador de categorías */}
-                    <input
-                      type="text"
-                      placeholder="🔍 Filtrar entre todos los géneros disponibles..."
-                      value={categorySearch}
-                      onChange={(e) => setCategorySearch(e.target.value)}
-                      className="w-full text-[11px] rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700 p-2"
-                    />
-
-                    {/* Chips de categorías seleccionadas */}
-                    {bookForm.category_ids.length > 0 && (
-                      <div className="flex flex-wrap gap-1 p-2 bg-teal-50/50 dark:bg-teal-950/20 rounded-xl border border-teal-200/50 dark:border-teal-900/50">
-                        {bookForm.category_ids.map((id) => {
-                          const cat = categoriesList.find((c) => c.id === id);
-                          if (!cat) return null;
-                          return (
-                            <span
-                              key={cat.id}
-                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold bg-teal-600 text-white shadow-xs"
-                            >
-                              <span>{cat.name}</span>
+                      {/* Portada del libro */}
+                      <div className="p-3 bg-slate-50 dark:bg-slate-700/40 rounded-2xl border border-slate-200 dark:border-slate-700">
+                        <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                          🖼️ Portada del libro
+                        </label>
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                          {bookCoverPreview ? (
+                            <div className="relative group">
+                              <img
+                                src={bookCoverPreview}
+                                alt="Portada"
+                                className="w-16 h-24 object-cover rounded-xl border border-slate-300 dark:border-slate-600 shadow-md"
+                              />
                               <button
                                 type="button"
-                                onClick={() =>
-                                  setBookForm({
-                                    ...bookForm,
-                                    category_ids: bookForm.category_ids.filter(
-                                      (cId) => cId !== cat.id
-                                    ),
-                                  })
-                                }
-                                className="hover:text-rose-200 text-xs font-bold"
+                                onClick={() => {
+                                  setBookCoverFile(null);
+                                  setBookCoverPreview(null);
+                                }}
+                                className="absolute -top-1.5 -right-1.5 bg-rose-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold hover:bg-rose-700 shadow"
+                                title="Quitar portada"
                               >
                                 &times;
                               </button>
-                            </span>
-                          );
-                        })}
+                            </div>
+                          ) : (
+                            <div className="w-16 h-24 rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-600 flex flex-col items-center justify-center text-slate-400 text-[10px] text-center p-1">
+                              <span>Sin foto</span>
+                            </div>
+                          )}
+                          <div className="flex-1 space-y-1">
+                            <input
+                              type="file"
+                              accept="image/jpeg,image/png,image/webp"
+                              onChange={(e) => {
+                                const f = e.target.files?.[0];
+                                if (f) {
+                                  setBookCoverFile(f);
+                                  setBookCoverPreview(URL.createObjectURL(f));
+                                }
+                              }}
+                              className="w-full text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-teal-50 file:text-teal-700 hover:file:bg-teal-100 dark:file:bg-teal-900/40 dark:file:text-teal-300 cursor-pointer"
+                            />
+                            <p className="text-[10px] text-slate-400">
+                              Formatos aceptados: JPEG, PNG, WebP (máx. 10MB). Se optimizará y
+                              sanitizará automáticamente.
+                            </p>
+                          </div>
+                        </div>
                       </div>
-                    )}
 
-                    {/* Lista scrollable de géneros filtrados */}
-                    <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto p-2.5 bg-slate-50 dark:bg-slate-700/50 rounded-xl border border-slate-200 dark:border-slate-700">
-                      {categoriesList
-                        .filter(
-                          (cat) =>
-                            !categorySearch.trim() ||
-                            cat.name.toLowerCase().includes(categorySearch.toLowerCase())
-                        )
-                        .slice(0, 80)
-                        .map((cat) => {
-                          const isCatSelected = bookForm.category_ids.includes(cat.id);
-                          return (
+                      {/* Autor e ISBN */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <div className="flex items-center justify-between mb-1">
+                            <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                              Autor asignado
+                            </label>
                             <button
                               type="button"
-                              key={cat.id}
-                              onClick={() => {
-                                setBookForm({
-                                  ...bookForm,
-                                  category_ids: isCatSelected
-                                    ? bookForm.category_ids.filter((id) => id !== cat.id)
-                                    : [...bookForm.category_ids, cat.id],
-                                });
-                              }}
-                              className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-all ${
-                                isCatSelected
-                                  ? 'bg-teal-600 text-white shadow-sm'
-                                  : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'
-                              }`}
+                              onClick={() => setShowCreateAuthorInline(!showCreateAuthorInline)}
+                              className="text-[10px] text-teal-600 dark:text-teal-400 font-bold hover:underline"
                             >
-                              {isCatSelected ? '✓ ' : '+ '}
-                              {cat.name}
+                              {showCreateAuthorInline ? 'Cancelar' : '+ Crear autor'}
                             </button>
-                          );
-                        })}
-                    </div>
-                  </div>
+                          </div>
 
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                      Sinopsis / Descripción
-                    </label>
-                    <textarea
-                      rows={4}
-                      value={bookForm.description}
-                      onChange={(e) => setBookForm({ ...bookForm, description: e.target.value })}
-                      placeholder="Sinopsis detallada del libro..."
-                      className="w-full text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700 p-2.5"
-                    />
-                  </div>
+                          {showCreateAuthorInline ? (
+                            <div className="p-2.5 bg-teal-50 dark:bg-teal-900/20 rounded-xl border border-teal-200 dark:border-teal-800 space-y-2">
+                              <input
+                                type="text"
+                                placeholder="Nombre del nuevo autor..."
+                                value={inlineAuthorName}
+                                onChange={(e) => setInlineAuthorName(e.target.value)}
+                                className="w-full text-xs rounded-lg border border-teal-300 dark:border-teal-700 bg-white dark:bg-slate-800 p-2"
+                              />
+                              <button
+                                type="button"
+                                onClick={handleCreateInlineAuthor}
+                                disabled={creatingInlineAuthor || !inlineAuthorName.trim()}
+                                className="w-full bg-teal-600 text-white text-xs font-bold py-1.5 rounded-lg hover:bg-teal-700 disabled:opacity-50"
+                              >
+                                {creatingInlineAuthor ? 'Creando...' : 'Crear y Asignar'}
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="space-y-1.5">
+                              <input
+                                type="text"
+                                placeholder="Filtrar autor..."
+                                value={authorSearch}
+                                onChange={(e) => setAuthorSearch(e.target.value)}
+                                className="w-full text-[11px] rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700 p-1.5"
+                              />
+                              <select
+                                value={bookForm.author_id}
+                                onChange={(e) =>
+                                  setBookForm({ ...bookForm, author_id: e.target.value })
+                                }
+                                className="w-full text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700 p-2.5"
+                              >
+                                <option value="">-- Sin autor o anónimo --</option>
+                                {authorsList
+                                  .filter(
+                                    (a) =>
+                                      !authorSearch.trim() ||
+                                      a.name.toLowerCase().includes(authorSearch.toLowerCase())
+                                  )
+                                  .slice(0, 100)
+                                  .map((a) => (
+                                    <option key={a.id} value={a.id}>
+                                      {a.name}
+                                    </option>
+                                  ))}
+                              </select>
+                            </div>
+                          )}
+                        </div>
 
-                  <div className="flex justify-end gap-2 pt-3 border-t border-slate-200 dark:border-slate-700">
-                    <button
-                      type="button"
-                      onClick={() => setEditingBook(null)}
-                      className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
-                    >
-                      Cancelar
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={savingBook}
-                      className="bg-teal-600 hover:bg-teal-700 text-white px-5 py-2 rounded-xl text-xs font-bold shadow-md shadow-teal-600/20 flex items-center gap-1.5"
-                    >
-                      {savingBook ? <Spinner size="sm" /> : null}
-                      <span>{editingBook.isNew ? 'Crear Libro' : 'Guardar Cambios'}</span>
-                    </button>
-                  </div>
-                </form>
-              </div>
-            </div>
-          )}
-
-          {/* Modal de Edición / Creación de Autor (Fase 57) */}
-          {editingAuthor && (
-            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
-              <div className="bg-white dark:bg-slate-800 rounded-3xl max-w-lg w-full p-6 sm:p-8 space-y-5 border border-slate-200 dark:border-slate-700 shadow-2xl my-8">
-                <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-3">
-                  <div>
-                    <h3 className="text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
-                      <span>✍️</span>
-                      <span>
-                        {editingAuthor.isNew ? 'Añadir Nuevo Autor' : 'Editar Autor en Catálogo'}
-                      </span>
-                    </h3>
-                    <p className="text-xs text-slate-400">
-                      Gestiona la biografía y datos canónicos del autor.
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => setEditingAuthor(null)}
-                    className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 text-xl font-bold"
-                  >
-                    &times;
-                  </button>
-                </div>
-
-                <form onSubmit={handleSaveAuthor} className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                      Nombre completo del autor *
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={authorForm.name}
-                      onChange={(e) => setAuthorForm({ ...authorForm, name: e.target.value })}
-                      placeholder="Ej: Gabriel García Márquez"
-                      className="w-full text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700 p-2.5"
-                    />
-                  </div>
-
-                  {/* Foto del autor */}
-                  <div className="p-3 bg-slate-50 dark:bg-slate-700/40 rounded-2xl border border-slate-200 dark:border-slate-700">
-                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                      📷 Fotografía del autor
-                    </label>
-                    <div className="flex items-center gap-3">
-                      {authorPhotoPreview ? (
-                        <div className="relative group">
-                          <img
-                            src={authorPhotoPreview}
-                            alt="Foto"
-                            className="w-16 h-16 object-cover rounded-full border border-slate-300 dark:border-slate-600 shadow-md"
+                        <div>
+                          <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                            ISBN (10 o 13 dígitos)
+                          </label>
+                          <input
+                            type="text"
+                            value={bookForm.isbn}
+                            onChange={(e) => setBookForm({ ...bookForm, isbn: e.target.value })}
+                            placeholder="Ej: 9780307474728"
+                            className="w-full text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700 p-2.5 font-mono"
                           />
+                        </div>
+                      </div>
+
+                      {/* Fecha de publicación */}
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                          Fecha de publicación
+                        </label>
+                        <input
+                          type="date"
+                          value={bookForm.published_date}
+                          onChange={(e) =>
+                            setBookForm({ ...bookForm, published_date: e.target.value })
+                          }
+                          className="w-full text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700 p-2.5"
+                        />
+                      </div>
+
+                      {/* Categorías / Géneros */}
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                            Categorías / Géneros ({bookForm.category_ids.length} seleccionadas de{' '}
+                            {categoriesList.length})
+                          </label>
                           <button
                             type="button"
-                            onClick={() => {
-                              setAuthorPhotoFile(null);
-                              setAuthorPhotoPreview(null);
-                            }}
-                            className="absolute -top-1 -right-1 bg-rose-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold hover:bg-rose-700 shadow"
-                            title="Quitar foto"
+                            onClick={() => setShowCreateCategory(!showCreateCategory)}
+                            className="text-[10px] text-teal-600 dark:text-teal-400 font-bold hover:underline"
                           >
-                            &times;
+                            {showCreateCategory ? 'Cancelar' : '+ Crear nuevo género'}
                           </button>
                         </div>
-                      ) : (
-                        <div className="w-16 h-16 rounded-full border-2 border-dashed border-slate-300 dark:border-slate-600 flex items-center justify-center text-slate-400 text-xs text-center">
-                          <span>Sin foto</span>
-                        </div>
-                      )}
-                      <div className="flex-1 space-y-1">
+
+                        {showCreateCategory && (
+                          <div className="p-2.5 bg-teal-50 dark:bg-teal-900/20 rounded-xl border border-teal-200 dark:border-teal-800 flex gap-2 items-center">
+                            <input
+                              type="text"
+                              placeholder="Nombre del nuevo género (ej. Cyberpunk, Novela Histórica)..."
+                              value={newCategoryName}
+                              onChange={(e) => setNewCategoryName(e.target.value)}
+                              className="flex-1 text-xs rounded-lg border border-teal-300 dark:border-teal-700 bg-white dark:bg-slate-800 p-2"
+                            />
+                            <button
+                              type="button"
+                              onClick={handleCreateCategory}
+                              disabled={creatingCategory || !newCategoryName.trim()}
+                              className="bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold px-3 py-2 rounded-lg disabled:opacity-50"
+                            >
+                              {creatingCategory ? 'Creando...' : 'Crear y Añadir'}
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Buscador de categorías */}
                         <input
-                          type="file"
-                          accept="image/jpeg,image/png,image/webp"
-                          onChange={(e) => {
-                            const f = e.target.files?.[0];
-                            if (f) {
-                              setAuthorPhotoFile(f);
-                              setAuthorPhotoPreview(URL.createObjectURL(f));
-                            }
-                          }}
-                          className="w-full text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-teal-50 file:text-teal-700 hover:file:bg-teal-100 dark:file:bg-teal-900/40 dark:file:text-teal-300 cursor-pointer"
+                          type="text"
+                          placeholder="🔍 Filtrar entre todos los géneros disponibles..."
+                          value={categorySearch}
+                          onChange={(e) => setCategorySearch(e.target.value)}
+                          className="w-full text-[11px] rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700 p-2"
                         />
-                        <p className="text-[10px] text-slate-400">
-                          Formatos aceptados: JPEG, PNG, WebP (máx. 5MB).
+
+                        {/* Chips de categorías seleccionadas */}
+                        {bookForm.category_ids.length > 0 && (
+                          <div className="flex flex-wrap gap-1 p-2 bg-teal-50/50 dark:bg-teal-950/20 rounded-xl border border-teal-200/50 dark:border-teal-900/50">
+                            {bookForm.category_ids.map((id) => {
+                              const cat = categoriesList.find((c) => c.id === id);
+                              if (!cat) return null;
+                              return (
+                                <span
+                                  key={cat.id}
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold bg-teal-600 text-white shadow-xs"
+                                >
+                                  <span>{cat.name}</span>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setBookForm({
+                                        ...bookForm,
+                                        category_ids: bookForm.category_ids.filter(
+                                          (cId) => cId !== cat.id
+                                        ),
+                                      })
+                                    }
+                                    className="hover:text-rose-200 text-xs font-bold"
+                                  >
+                                    &times;
+                                  </button>
+                                </span>
+                              );
+                            })}
+                          </div>
+                        )}
+
+                        {/* Lista scrollable de géneros filtrados */}
+                        <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto p-2.5 bg-slate-50 dark:bg-slate-700/50 rounded-xl border border-slate-200 dark:border-slate-700">
+                          {categoriesList
+                            .filter(
+                              (cat) =>
+                                !categorySearch.trim() ||
+                                cat.name.toLowerCase().includes(categorySearch.toLowerCase())
+                            )
+                            .slice(0, 80)
+                            .map((cat) => {
+                              const isCatSelected = bookForm.category_ids.includes(cat.id);
+                              return (
+                                <button
+                                  type="button"
+                                  key={cat.id}
+                                  onClick={() => {
+                                    setBookForm({
+                                      ...bookForm,
+                                      category_ids: isCatSelected
+                                        ? bookForm.category_ids.filter((id) => id !== cat.id)
+                                        : [...bookForm.category_ids, cat.id],
+                                    });
+                                  }}
+                                  className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-all ${
+                                    isCatSelected
+                                      ? 'bg-teal-600 text-white shadow-sm'
+                                      : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'
+                                  }`}
+                                >
+                                  {isCatSelected ? '✓ ' : '+ '}
+                                  {cat.name}
+                                </button>
+                              );
+                            })}
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                          Sinopsis / Descripción
+                        </label>
+                        <textarea
+                          rows={4}
+                          value={bookForm.description}
+                          onChange={(e) =>
+                            setBookForm({ ...bookForm, description: e.target.value })
+                          }
+                          placeholder="Sinopsis detallada del libro..."
+                          className="w-full text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700 p-2.5"
+                        />
+                      </div>
+
+                      <div className="flex justify-end gap-2 pt-3 border-t border-slate-200 dark:border-slate-700">
+                        <button
+                          type="button"
+                          onClick={() => setEditingBook(null)}
+                          className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={savingBook}
+                          className="bg-teal-600 hover:bg-teal-700 text-white px-5 py-2 rounded-xl text-xs font-bold shadow-md shadow-teal-600/20 flex items-center gap-1.5"
+                        >
+                          {savingBook ? <Spinner size="sm" /> : null}
+                          <span>{editingBook.isNew ? 'Crear Libro' : 'Guardar Cambios'}</span>
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              )}
+
+              {/* Modal de Edición / Creación de Autor (Fase 57) */}
+              {editingAuthor && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+                  <div className="bg-white dark:bg-slate-800 rounded-3xl max-w-lg w-full p-6 sm:p-8 space-y-5 border border-slate-200 dark:border-slate-700 shadow-2xl my-8">
+                    <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-3">
+                      <div>
+                        <h3 className="text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+                          <span>✍️</span>
+                          <span>
+                            {editingAuthor.isNew
+                              ? 'Añadir Nuevo Autor'
+                              : 'Editar Autor en Catálogo'}
+                          </span>
+                        </h3>
+                        <p className="text-xs text-slate-400">
+                          Gestiona la biografía y datos canónicos del autor.
                         </p>
                       </div>
+                      <button
+                        onClick={() => setEditingAuthor(null)}
+                        className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 text-xl font-bold"
+                      >
+                        &times;
+                      </button>
                     </div>
-                  </div>
 
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                      Biografía y trayectoria literaria
-                    </label>
-                    <textarea
-                      rows={5}
-                      value={authorForm.biography}
-                      onChange={(e) => setAuthorForm({ ...authorForm, biography: e.target.value })}
-                      placeholder="Resumen biográfico, distinciones, trayectoria..."
-                      className="w-full text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700 p-2.5"
-                    />
-                  </div>
+                    <form onSubmit={handleSaveAuthor} className="space-y-4">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                          Nombre completo del autor *
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={authorForm.name}
+                          onChange={(e) => setAuthorForm({ ...authorForm, name: e.target.value })}
+                          placeholder="Ej: Gabriel García Márquez"
+                          className="w-full text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700 p-2.5"
+                        />
+                      </div>
 
-                  <div className="flex justify-end gap-2 pt-3 border-t border-slate-200 dark:border-slate-700">
-                    <button
-                      type="button"
-                      onClick={() => setEditingAuthor(null)}
-                      className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
-                    >
-                      Cancelar
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={savingAuthor}
-                      className="bg-teal-600 hover:bg-teal-700 text-white px-5 py-2 rounded-xl text-xs font-bold shadow-md shadow-teal-600/20 flex items-center gap-1.5"
-                    >
-                      {savingAuthor ? <Spinner size="sm" /> : null}
-                      <span>{editingAuthor.isNew ? 'Crear Autor' : 'Guardar Cambios'}</span>
-                    </button>
+                      {/* Foto del autor */}
+                      <div className="p-3 bg-slate-50 dark:bg-slate-700/40 rounded-2xl border border-slate-200 dark:border-slate-700">
+                        <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                          📷 Fotografía del autor
+                        </label>
+                        <div className="flex items-center gap-3">
+                          {authorPhotoPreview ? (
+                            <div className="relative group">
+                              <img
+                                src={authorPhotoPreview}
+                                alt="Foto"
+                                className="w-16 h-16 object-cover rounded-full border border-slate-300 dark:border-slate-600 shadow-md"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setAuthorPhotoFile(null);
+                                  setAuthorPhotoPreview(null);
+                                }}
+                                className="absolute -top-1 -right-1 bg-rose-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold hover:bg-rose-700 shadow"
+                                title="Quitar foto"
+                              >
+                                &times;
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="w-16 h-16 rounded-full border-2 border-dashed border-slate-300 dark:border-slate-600 flex items-center justify-center text-slate-400 text-xs text-center">
+                              <span>Sin foto</span>
+                            </div>
+                          )}
+                          <div className="flex-1 space-y-1">
+                            <input
+                              type="file"
+                              accept="image/jpeg,image/png,image/webp"
+                              onChange={(e) => {
+                                const f = e.target.files?.[0];
+                                if (f) {
+                                  setAuthorPhotoFile(f);
+                                  setAuthorPhotoPreview(URL.createObjectURL(f));
+                                }
+                              }}
+                              className="w-full text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-teal-50 file:text-teal-700 hover:file:bg-teal-100 dark:file:bg-teal-900/40 dark:file:text-teal-300 cursor-pointer"
+                            />
+                            <p className="text-[10px] text-slate-400">
+                              Formatos aceptados: JPEG, PNG, WebP (máx. 5MB).
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                          Biografía y trayectoria literaria
+                        </label>
+                        <textarea
+                          rows={5}
+                          value={authorForm.biography}
+                          onChange={(e) =>
+                            setAuthorForm({ ...authorForm, biography: e.target.value })
+                          }
+                          placeholder="Resumen biográfico, distinciones, trayectoria..."
+                          className="w-full text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700 p-2.5"
+                        />
+                      </div>
+
+                      <div className="flex justify-end gap-2 pt-3 border-t border-slate-200 dark:border-slate-700">
+                        <button
+                          type="button"
+                          onClick={() => setEditingAuthor(null)}
+                          className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={savingAuthor}
+                          className="bg-teal-600 hover:bg-teal-700 text-white px-5 py-2 rounded-xl text-xs font-bold shadow-md shadow-teal-600/20 flex items-center gap-1.5"
+                        >
+                          {savingAuthor ? <Spinner size="sm" /> : null}
+                          <span>{editingAuthor.isNew ? 'Crear Autor' : 'Guardar Cambios'}</span>
+                        </button>
+                      </div>
+                    </form>
                   </div>
-                </form>
-              </div>
-            </div>
-          )}
-          </>
+                </div>
+              )}
+            </>
           )}
         </div>
       )}
@@ -2474,27 +2482,42 @@ export function AdminDashboard() {
                             )}
                             {r.target_preview?.type === 'book' && (
                               <span>
-                                Libro <b>"{r.target_preview.title}"</b> (por {r.target_preview.author || 'Desconocido'}, ISBN: {r.target_preview.isbn || 'N/A'})
+                                Libro <b>"{r.target_preview.title}"</b> (por{' '}
+                                {r.target_preview.author || 'Desconocido'}, ISBN:{' '}
+                                {r.target_preview.isbn || 'N/A'})
                               </span>
                             )}
                             {r.target_preview?.type === 'author' && (
                               <span>
-                                Autor <b>{r.target_preview.name}</b> {r.target_preview.is_verified ? '✓' : ''} ({r.target_preview.snippet || 'Sin biografía'})
+                                Autor <b>{r.target_preview.name}</b>{' '}
+                                {r.target_preview.is_verified ? '✓' : ''} (
+                                {r.target_preview.snippet || 'Sin biografía'})
                               </span>
                             )}
                             {r.target_preview?.type === 'post' && (
                               <span>
-                                Post por <b>@{r.target_preview.author}</b> en muro de @{r.target_preview.target_user}: "{r.target_preview.snippet}"
+                                Post por <b>@{r.target_preview.author}</b> en muro de @
+                                {r.target_preview.target_user}: "{r.target_preview.snippet}"
                               </span>
                             )}
                             {r.target_preview?.type === 'list' && (
                               <span>
-                                Lista <b>"{r.target_preview.name}"</b> por @{r.target_preview.creator}
+                                Lista <b>"{r.target_preview.name}"</b> por @
+                                {r.target_preview.creator}
                               </span>
                             )}
-                            {!['review', 'user', 'comment', 'message', 'book', 'author', 'post', 'list'].includes(
-                              r.target_preview?.type
-                            ) && <span>{r.target_preview?.summary || 'Elemento objetivo'}</span>}
+                            {![
+                              'review',
+                              'user',
+                              'comment',
+                              'message',
+                              'book',
+                              'author',
+                              'post',
+                              'list',
+                            ].includes(r.target_preview?.type) && (
+                              <span>{r.target_preview?.summary || 'Elemento objetivo'}</span>
+                            )}
                           </div>
                         </td>
                         <td className="py-3 px-3">
@@ -3087,34 +3110,22 @@ export function AdminDashboard() {
       )}
 
       {/* ── 8. PESTAÑA: SALUD & TELEMETRÍA ── */}
-      {activeTab === 'health' && (
-        <AdminSystemHealthTab token={token} apiUrl={apiUrl} />
-      )}
+      {activeTab === 'health' && <AdminSystemHealthTab token={token} apiUrl={apiUrl} />}
 
       {/* ── 9. PESTAÑA: FEEDBACK DE USUARIOS ── */}
-      {activeTab === 'feedback' && (
-        <AdminFeedbackTab token={token} apiUrl={apiUrl} />
-      )}
+      {activeTab === 'feedback' && <AdminFeedbackTab token={token} apiUrl={apiUrl} />}
 
       {/* ── 10. PESTAÑA: SOPORTE TÉCNICO ── */}
-      {activeTab === 'support' && (
-        <AdminSupportTab token={token} apiUrl={apiUrl} />
-      )}
+      {activeTab === 'support' && <AdminSupportTab token={token} apiUrl={apiUrl} />}
 
       {/* ── 11. PESTAÑA: INVITACIONES BETA ── */}
-      {activeTab === 'invitations' && (
-        <AdminInvitationsTab token={token} apiUrl={apiUrl} />
-      )}
+      {activeTab === 'invitations' && <AdminInvitationsTab token={token} apiUrl={apiUrl} />}
 
       {/* ── 12. PESTAÑA: FAQS (PREGUNTAS FRECUENTES) ── */}
-      {activeTab === 'faqs' && (
-        <AdminFaqsTab />
-      )}
+      {activeTab === 'faqs' && <AdminFaqsTab />}
 
       {/* ── 13. PESTAÑA: RECLAMACIONES DE AUTOR ── */}
-      {activeTab === 'author_claims' && (
-        <AdminAuthorClaimsTab />
-      )}
+      {activeTab === 'author_claims' && <AdminAuthorClaimsTab />}
     </div>
   );
 }

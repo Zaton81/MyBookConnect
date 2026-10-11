@@ -17,6 +17,7 @@ from users.throttles import CommentRateThrottle, LikeRateThrottle
 
 from . import services
 from .cache_utils import TTL_BOOK_DETAIL, book_detail_key
+from .marketplace_models import BookBuyLink, Publisher
 from .media_utils import build_media_url
 from .models import (
     Author,
@@ -2576,8 +2577,9 @@ class AuthorClaimCreateView(APIView):
     )
     def post(self, request, pk):
         from django.shortcuts import get_object_or_404
+
         from .models import Author
-        from .serializers import AuthorClaimCreateSerializer, AuthorClaimAdminSerializer
+        from .serializers import AuthorClaimAdminSerializer, AuthorClaimCreateSerializer
 
         author = get_object_or_404(Author, id=pk)
         serializer = AuthorClaimCreateSerializer(
@@ -2604,6 +2606,7 @@ class AuthorClaimStatusView(APIView):
     )
     def get(self, request, pk):
         from django.shortcuts import get_object_or_404
+
         from .models import Author, AuthorClaim, AuthorClaimStatus
 
         author = get_object_or_404(Author, id=pk)
@@ -2826,7 +2829,6 @@ class AuthorPublicationViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         from django.db.models import Q
-        from .models import AuthorAnnouncement
         qs = AuthorAnnouncement.objects.select_related('author_profile', 'author', 'book')
 
         author_id = self.request.query_params.get('author') or self.request.query_params.get('author_id')
@@ -2868,9 +2870,10 @@ class AuthorPublicationViewSet(viewsets.ModelViewSet):
         return qs.order_by('-is_pinned', '-created_at')
 
     def perform_create(self, serializer):
+        from rest_framework.exceptions import PermissionDenied
+
         from .models import Author
         from .services.author_service import AuthorService
-        from rest_framework.exceptions import PermissionDenied
 
         user = self.request.user
         author = serializer.validated_data.get('author')
@@ -2945,6 +2948,7 @@ class AuthorPublicationViewSet(viewsets.ModelViewSet):
         Permite a un administrador o moderador censurar u ocultar una publicación de autor.
         """
         from django.utils import timezone
+
         from users.audit_service import log_audit
         from users.models import AuditAction
 
@@ -3021,7 +3025,6 @@ class AuthorNewsletterViewSet(viewsets.ModelViewSet):
         return qs.order_by('-created_at')
 
     def perform_create(self, serializer):
-        from .models import AuthorProfile
         from .services.author_service import AuthorService
         user = self.request.user
         author = serializer.validated_data.get('author')

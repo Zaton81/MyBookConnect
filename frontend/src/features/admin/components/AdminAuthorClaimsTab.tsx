@@ -36,7 +36,9 @@ export function AdminAuthorClaimsTab() {
   const { token } = useAuthStore();
   const [claims, setClaims] = useState<AuthorClaim[]>([]);
   const [loading, setLoading] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('pending');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>(
+    'pending'
+  );
   const [search, setSearch] = useState('');
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
@@ -143,7 +145,8 @@ export function AdminAuthorClaimsTab() {
             Reclamaciones y Verificación de Autores
           </h2>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-            Revisa solicitudes de escritores que desean reclamar y gestionar su perfil oficial en el catálogo.
+            Revisa solicitudes de escritores que desean reclamar y gestionar su perfil oficial en el
+            catálogo.
           </p>
         </div>
 
@@ -202,10 +205,10 @@ export function AdminAuthorClaimsTab() {
               {st === 'pending'
                 ? `Pendientes (${pendingCount})`
                 : st === 'approved'
-                ? 'Aprobadas'
-                : st === 'rejected'
-                ? 'Rechazadas'
-                : 'Todas'}
+                  ? 'Aprobadas'
+                  : st === 'rejected'
+                    ? 'Rechazadas'
+                    : 'Todas'}
             </button>
           ))}
         </div>
@@ -238,15 +241,15 @@ export function AdminAuthorClaimsTab() {
                         claim.status === 'pending'
                           ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300'
                           : claim.status === 'approved'
-                          ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300'
-                          : 'bg-red-100 dark:bg-red-950/60 text-red-800 dark:text-red-300'
+                            ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300'
+                            : 'bg-red-100 dark:bg-red-950/60 text-red-800 dark:text-red-300'
                       }`}
                     >
                       {claim.status === 'pending'
                         ? 'Pendiente'
                         : claim.status === 'approved'
-                        ? 'Aprobada'
-                        : 'Rechazada'}
+                          ? 'Aprobada'
+                          : 'Rechazada'}
                     </span>
                   </div>
                   <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500 dark:text-slate-400 mt-1">
@@ -258,9 +261,7 @@ export function AdminAuthorClaimsTab() {
                       <HiOutlineMail className="w-3.5 h-3.5" />
                       Contacto: {claim.contact_email}
                     </span>
-                    <span>
-                      Fecha: {new Date(claim.created_at).toLocaleDateString()}
-                    </span>
+                    <span>Fecha: {new Date(claim.created_at).toLocaleDateString()}</span>
                   </div>
                 </div>
 

@@ -50,7 +50,7 @@ def check_endpoint(
     req = urllib.request.Request(url, data=data_bytes, headers=headers, method=method)
 
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as response:
+        with urllib.request.urlopen(req, timeout=timeout) as response:  # nosec B310
             latency_ms = (time.perf_counter() - start) * 1000
             status_code = response.status
             body = response.read().decode("utf-8", errors="replace")

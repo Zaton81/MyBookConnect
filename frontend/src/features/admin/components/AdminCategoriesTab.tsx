@@ -24,7 +24,9 @@ export function AdminCategoriesTab({ token, apiUrl }: AdminCategoriesTabProps) {
   const [slug, setSlug] = useState('');
   const [description, setDescription] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [actionMsg, setActionMsg] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+  const [actionMsg, setActionMsg] = useState<{ text: string; type: 'success' | 'error' } | null>(
+    null
+  );
 
   const fetchCategories = async () => {
     if (!token) return;
@@ -50,7 +52,14 @@ export function AdminCategoriesTab({ token, apiUrl }: AdminCategoriesTabProps) {
 
   const handleNameChange = (val: string) => {
     setName(val);
-    if (!slug || slug === name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')) {
+    if (
+      !slug ||
+      slug ===
+        name
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/(^-|-$)/g, '')
+    ) {
       setSlug(
         val
           .toLowerCase()
@@ -93,7 +102,10 @@ export function AdminCategoriesTab({ token, apiUrl }: AdminCategoriesTabProps) {
         fetchCategories();
       } else {
         const err = await res.json().catch(() => ({}));
-        setActionMsg({ text: err.name?.[0] || err.slug?.[0] || 'Error al crear la categoría.', type: 'error' });
+        setActionMsg({
+          text: err.name?.[0] || err.slug?.[0] || 'Error al crear la categoría.',
+          type: 'error',
+        });
       }
     } catch (err: any) {
       setActionMsg({ text: err.message || 'Error de conexión', type: 'error' });
@@ -102,9 +114,10 @@ export function AdminCategoriesTab({ token, apiUrl }: AdminCategoriesTabProps) {
     }
   };
 
-  const filteredCategories = categories.filter((c) =>
-    c.name.toLowerCase().includes(search.toLowerCase()) ||
-    c.slug.toLowerCase().includes(search.toLowerCase())
+  const filteredCategories = categories.filter(
+    (c) =>
+      c.name.toLowerCase().includes(search.toLowerCase()) ||
+      c.slug.toLowerCase().includes(search.toLowerCase())
   );
 
   return (
@@ -122,7 +135,8 @@ export function AdminCategoriesTab({ token, apiUrl }: AdminCategoriesTabProps) {
             </span>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-xl">
-            Gestiona la taxonomía oficial de géneros y clasificaciones del catálogo editorial de la plataforma.
+            Gestiona la taxonomía oficial de géneros y clasificaciones del catálogo editorial de la
+            plataforma.
           </p>
         </div>
 
@@ -231,7 +245,10 @@ export function AdminCategoriesTab({ token, apiUrl }: AdminCategoriesTabProps) {
           className="w-full text-xs bg-transparent border-none focus:outline-none focus:ring-0 text-slate-800 dark:text-white"
         />
         {search && (
-          <button onClick={() => setSearch('')} className="text-xs text-slate-400 hover:text-slate-600">
+          <button
+            onClick={() => setSearch('')}
+            className="text-xs text-slate-400 hover:text-slate-600"
+          >
             Limpiar
           </button>
         )}
@@ -260,7 +277,10 @@ export function AdminCategoriesTab({ token, apiUrl }: AdminCategoriesTabProps) {
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
                 {filteredCategories.map((c) => (
-                  <tr key={c.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-700/30 transition-colors">
+                  <tr
+                    key={c.id}
+                    className="hover:bg-slate-50/70 dark:hover:bg-slate-700/30 transition-colors"
+                  >
                     <td className="py-3 px-4 font-mono text-slate-400 font-bold">#{c.id}</td>
                     <td className="py-3 px-4 font-bold text-slate-900 dark:text-white flex items-center gap-2">
                       <span>📚</span>
@@ -270,7 +290,9 @@ export function AdminCategoriesTab({ token, apiUrl }: AdminCategoriesTabProps) {
                       {c.slug}
                     </td>
                     <td className="py-3 px-4 text-slate-500 max-w-md line-clamp-1">
-                      {c.description || <span className="italic text-slate-400">Sin descripción</span>}
+                      {c.description || (
+                        <span className="italic text-slate-400">Sin descripción</span>
+                      )}
                     </td>
                   </tr>
                 ))}

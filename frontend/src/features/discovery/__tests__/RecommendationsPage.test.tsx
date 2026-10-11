@@ -128,9 +128,7 @@ describe('RecommendationsPage Component (Sprint 17)', () => {
     expect(
       screen.getByRole('heading', { name: /Recomendaciones Inteligentes/i })
     ).toBeInTheDocument();
-    expect(
-      screen.getByText(/Descubre lecturas seleccionadas a tu medida/i)
-    ).toBeInTheDocument();
+    expect(screen.getByText(/Descubre lecturas seleccionadas a tu medida/i)).toBeInTheDocument();
 
     // Modos de recomendación
     expect(screen.getByText('Híbrido IA')).toBeInTheDocument();

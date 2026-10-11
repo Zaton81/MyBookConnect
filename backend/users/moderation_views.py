@@ -21,7 +21,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from books.admin_views import IsModeratorOrAdmin
-from books.models import Author, Book, ReadingList, Review, ReviewComment
+from books.models import Author, ReadingList, Review, ReviewComment
 from books.pagination import StandardResultsSetPagination
 from messages_app.models import Message
 from users.models import Report, ReportStatus, UserPost

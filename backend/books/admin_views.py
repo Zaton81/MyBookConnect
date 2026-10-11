@@ -10,6 +10,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .models import (
+    FAQ,
     Author,
     AuthorClaim,
     AuthorClaimStatus,
@@ -17,7 +18,6 @@ from .models import (
     Category,
     Errata,
     ErrataStatus,
-    FAQ,
     LegalDocument,
     Review,
     UserBook,
@@ -611,8 +611,10 @@ class AdminAuthorClaimResolveView(APIView):
 
     def post(self, request, pk):
         from django.shortcuts import get_object_or_404
-        from users.notification_service import NotificationService
+
         from users.models import NotificationType
+        from users.notification_service import NotificationService
+
         from .models import AuthorProfile
 
         claim = get_object_or_404(AuthorClaim, id=pk)
@@ -947,6 +949,7 @@ class AdminUserReportsView(APIView):
     def get(self, request, pk):
         user = get_object_or_404(User, pk=pk)
         from django.contrib.contenttypes.models import ContentType
+
         from users.models import Report
         from users.moderation_serializers import ReportListSerializer
 

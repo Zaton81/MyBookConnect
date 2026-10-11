@@ -39,9 +39,8 @@ def get_user_from_token(token_str: str):
         return AnonymousUser()
 
 
-@database_sync_to_async
-def get_user_from_ticket(ticket_str: str):
-    """Valida y consume un ticket efímero de uso único para conexión WebSocket."""
+def validate_and_consume_ws_ticket(ticket_str: str):
+    """Valida y consume un ticket efímero de uso único para conexión WebSocket (síncrono)."""
     from django.core.cache import cache
 
     key = f"ws_ticket_{ticket_str}"
@@ -62,11 +61,17 @@ def get_user_from_ticket(ticket_str: str):
         return AnonymousUser()
 
 
+@database_sync_to_async
+def get_user_from_ticket(ticket_str: str):
+    """Adaptador asíncrono para consumo de ticket en Channels."""
+    return validate_and_consume_ws_ticket(ticket_str)
+
+
 class JwtAuthMiddleware:
     """
     Middleware ASGI para Channels que autentica usuarios mediante ticket efímero
-    (método recomendado / seguro), token JWT pasado en cookies seguras o headers,
-    o query string (?token=...) como compatibilidad retroactiva.
+    (método recomendado / seguro), token JWT pasado en cookies seguras HttpOnly o headers.
+    Prohíbe terminantemente el paso de JWT en query string (?token=...).
     """
     def __init__(self, app):
         self.app = app
@@ -110,9 +115,13 @@ class JwtAuthMiddleware:
             if auth_header.startswith("Bearer "):
                 token_str = auth_header[7:].strip()
 
-        # 4. Fallback retroactivo: query string (?token=<token>)
-        if not token_str and "token" in query_params:
-            token_str = query_params["token"][0]
+        # 4. Prohibir y erradicar query string con JWT (?token=<token>) por seguridad (OWASP / CWE-598)
+        if "token" in query_params:
+            logger.warning(
+                "Intento de autenticación WebSocket inseguro con JWT en query string (?token=...) bloqueado por política de seguridad."
+            )
+            scope["user"] = AnonymousUser()
+            return await self.app(scope, receive, send)
 
         # 5. Validar token y asignar usuario al scope
         if token_str:

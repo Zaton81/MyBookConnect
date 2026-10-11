@@ -358,7 +358,8 @@ export const AuthorNewsletterSection: React.FC<AuthorNewsletterSectionProps> = (
                 onClick={() => {
                   setNewsletterForm({
                     title: `Boletín oficial de ${authorName}`,
-                    description: 'Reflexiones literarias, procesos de escritura y primicias exclusivas.',
+                    description:
+                      'Reflexiones literarias, procesos de escritura y primicias exclusivas.',
                     frequency: 'MONTHLY',
                   });
                   setIsNewsletterModalOpen(true);
@@ -387,7 +388,8 @@ export const AuthorNewsletterSection: React.FC<AuthorNewsletterSectionProps> = (
             Sin boletín activo actualmente
           </h3>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400 max-w-md mx-auto">
-            {authorName} aún no ha habilitado un boletín periódico. Vuelve más adelante para suscribirte a sus noticias.
+            {authorName} aún no ha habilitado un boletín periódico. Vuelve más adelante para
+            suscribirte a sus noticias.
           </p>
         </div>
       ) : (
@@ -411,7 +413,8 @@ export const AuthorNewsletterSection: React.FC<AuthorNewsletterSectionProps> = (
                   {newsletter.title}
                 </h3>
                 <p className="mt-2 text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
-                  {newsletter.description || 'Suscríbete para recibir los comunicados directos del autor.'}
+                  {newsletter.description ||
+                    'Suscríbete para recibir los comunicados directos del autor.'}
                 </p>
               </div>
 
@@ -574,7 +577,9 @@ export const AuthorNewsletterSection: React.FC<AuthorNewsletterSectionProps> = (
               </label>
               <select
                 value={newsletterForm.frequency}
-                onChange={(e) => setNewsletterForm({ ...newsletterForm, frequency: e.target.value })}
+                onChange={(e) =>
+                  setNewsletterForm({ ...newsletterForm, frequency: e.target.value })
+                }
                 className="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
               >
                 <option value="WEEKLY">Semanal</option>
@@ -591,7 +596,9 @@ export const AuthorNewsletterSection: React.FC<AuthorNewsletterSectionProps> = (
               <textarea
                 rows={3}
                 value={newsletterForm.description}
-                onChange={(e) => setNewsletterForm({ ...newsletterForm, description: e.target.value })}
+                onChange={(e) =>
+                  setNewsletterForm({ ...newsletterForm, description: e.target.value })
+                }
                 placeholder="Explica a tus lectores qué contenidos y primicias compartirás con ellos..."
                 className="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
               />
@@ -665,9 +672,7 @@ export const AuthorNewsletterSection: React.FC<AuthorNewsletterSectionProps> = (
                 type="checkbox"
                 id="sendImmediately"
                 checked={issueForm.sendImmediately}
-                onChange={(e) =>
-                  setIssueForm({ ...issueForm, sendImmediately: e.target.checked })
-                }
+                onChange={(e) => setIssueForm({ ...issueForm, sendImmediately: e.target.checked })}
                 className="w-4 h-4 text-rose-600 rounded border-gray-300 focus:ring-rose-500"
               />
               <label htmlFor="sendImmediately" className="text-sm text-gray-700 dark:text-gray-300">

@@ -529,19 +529,22 @@ export function ReadingLists() {
     if (!selectedList || !token || !inviteUsername.trim()) return;
     setInvitingCollaborator(true);
     try {
-      const res = await fetch(`${apiUrl}/api/v1/books/reading-lists/${selectedList.id}/collaborators/`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          username: inviteUsername.trim(),
-          role: inviteRole,
-          can_add_books: inviteCanAdd,
-          can_remove_books: inviteCanRemove,
-        }),
-      });
+      const res = await fetch(
+        `${apiUrl}/api/v1/books/reading-lists/${selectedList.id}/collaborators/`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            username: inviteUsername.trim(),
+            role: inviteRole,
+            can_add_books: inviteCanAdd,
+            can_remove_books: inviteCanRemove,
+          }),
+        }
+      );
       if (res.ok) {
         setInviteModalOpen(false);
         setInviteUsername('');
@@ -607,14 +610,22 @@ export function ReadingLists() {
   };
 
   const isOwner = (list: ReadingList) => Boolean(currentUser && list.user.id === currentUser.id);
-  const userCollaborator = selectedList && currentUser
-    ? selectedList.collaborators?.find((c) => c.user.id === currentUser.id && c.status === 'ACCEPTED')
-    : undefined;
-  const userPendingInvitation = selectedList && currentUser
-    ? selectedList.collaborators?.find((c) => c.user.id === currentUser.id && c.status === 'PENDING')
-    : undefined;
+  const userCollaborator =
+    selectedList && currentUser
+      ? selectedList.collaborators?.find(
+          (c) => c.user.id === currentUser.id && c.status === 'ACCEPTED'
+        )
+      : undefined;
+  const userPendingInvitation =
+    selectedList && currentUser
+      ? selectedList.collaborators?.find(
+          (c) => c.user.id === currentUser.id && c.status === 'PENDING'
+        )
+      : undefined;
   const canAddBooks = Boolean(
-    selectedList && (isOwner(selectedList) || (selectedList.is_collaborative && userCollaborator && userCollaborator.can_add_books))
+    selectedList &&
+    (isOwner(selectedList) ||
+      (selectedList.is_collaborative && userCollaborator && userCollaborator.can_add_books))
   );
   const canRemoveItem = (item: ReadingListItem) => {
     if (!selectedList) return false;
@@ -776,7 +787,13 @@ export function ReadingLists() {
                   {selectedList.is_collaborative && (
                     <>
                       <span>•</span>
-                      <span>🤝 {selectedList.collaborators?.length || selectedList.collaborators_count || 0} colaboradores</span>
+                      <span>
+                        🤝{' '}
+                        {selectedList.collaborators?.length ||
+                          selectedList.collaborators_count ||
+                          0}{' '}
+                        colaboradores
+                      </span>
                     </>
                   )}
                 </div>
@@ -939,11 +956,16 @@ export function ReadingLists() {
                           </div>
                         </div>
 
-                        {(isOwner(selectedList) || (currentUser && currentUser.id === c.user.id)) && (
+                        {(isOwner(selectedList) ||
+                          (currentUser && currentUser.id === c.user.id)) && (
                           <button
                             onClick={() => handleRemoveCollaborator(selectedList.id, c.user.id)}
                             className="text-slate-400 hover:text-red-500 p-1 rounded-lg text-xs transition-colors cursor-pointer"
-                            title={currentUser && currentUser.id === c.user.id ? 'Abandonar lista' : 'Eliminar colaborador'}
+                            title={
+                              currentUser && currentUser.id === c.user.id
+                                ? 'Abandonar lista'
+                                : 'Eliminar colaborador'
+                            }
                           >
                             ✕
                           </button>
@@ -1314,9 +1336,7 @@ export function ReadingLists() {
                   <div className="border-t border-slate-100 dark:border-slate-700/60 pt-3 mt-4 flex items-center justify-between text-xs text-slate-400">
                     <span>@{list.user.username}</span>
                     <div className="flex items-center gap-2">
-                      {list.is_collaborative && (
-                        <span>🤝 {list.collaborators_count || 0}</span>
-                      )}
+                      {list.is_collaborative && <span>🤝 {list.collaborators_count || 0}</span>}
                       <span>{list.followers_count || 0} seguidores</span>
                     </div>
                   </div>

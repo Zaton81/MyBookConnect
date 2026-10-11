@@ -6,16 +6,16 @@ y telemetría de conversión ética y anonimizada sin almacenar PII.
 """
 import urllib.parse
 from decimal import Decimal
-from django.conf import settings
-from django.db.models import Count
+
 from django.core.exceptions import PermissionDenied, ValidationError
+from django.db.models import Count
 
 from books.models import (
+    AffiliateClick,
     Book,
-    Publisher,
     BookBuyLink,
     MarketplaceClick,
-    AffiliateClick,
+    Publisher,
 )
 from books.services.affiliate_service import AffiliateService
 

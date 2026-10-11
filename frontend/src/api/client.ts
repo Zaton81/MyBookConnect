@@ -13,16 +13,18 @@ async function refreshAccessToken(): Promise<string | null> {
   isRefreshing = true;
   refreshPromise = (async () => {
     try {
-      const { refreshToken, logout } = useAuthStore.getState();
-      if (!refreshToken) {
+      const { refreshToken, isAuthenticated, logout } = useAuthStore.getState();
+      if (!isAuthenticated && !refreshToken) {
         logout();
         return null;
       }
 
+      const bodyData = refreshToken ? { refresh: refreshToken } : {};
       const response = await fetch(`${API_BASE_URL}/api/v1/auth/token/refresh/`, {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refresh: refreshToken }),
+        body: JSON.stringify(bodyData),
       });
 
       if (!response.ok) {
@@ -120,6 +122,7 @@ export async function apiClient<T = any>(
   }
 
   let response = await fetch(url, {
+    credentials: options.credentials || 'include',
     ...restOptions,
     headers,
   });
@@ -130,6 +133,7 @@ export async function apiClient<T = any>(
     if (newToken) {
       headers['Authorization'] = `Bearer ${newToken}`;
       response = await fetch(url, {
+        credentials: options.credentials || 'include',
         ...restOptions,
         headers,
       });

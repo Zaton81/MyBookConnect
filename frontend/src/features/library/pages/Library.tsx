@@ -243,7 +243,8 @@ export function Library() {
               <span>Audiolibros en curso</span>
             </h3>
             <span className="text-[11px] text-teal-300 font-medium">
-              {activeAudiobooks.length} {activeAudiobooks.length === 1 ? 'obra activa' : 'obras activas'}
+              {activeAudiobooks.length}{' '}
+              {activeAudiobooks.length === 1 ? 'obra activa' : 'obras activas'}
             </span>
           </div>
 
@@ -262,7 +263,9 @@ export function Library() {
                         className="w-full h-full object-cover"
                       />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center text-xs">🎧</div>
+                      <div className="w-full h-full flex items-center justify-center text-xs">
+                        🎧
+                      </div>
                     )}
                   </div>
                   <div className="min-w-0">
@@ -279,7 +282,12 @@ export function Library() {
                   type="button"
                   onClick={() =>
                     playTrack(
-                      { id: ab.book_id, title: ab.book_title, author_name: ab.author_name, cover_url: ab.cover_url },
+                      {
+                        id: ab.book_id,
+                        title: ab.book_title,
+                        author_name: ab.author_name,
+                        cover_url: ab.cover_url,
+                      },
                       {
                         id: ab.current_track_id || 1,
                         title: ab.current_track_title || 'Capítulo',

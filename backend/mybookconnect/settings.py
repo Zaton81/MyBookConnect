@@ -236,6 +236,15 @@ SIMPLE_JWT = {
     'AUTH_HEADER_TYPES': ('Bearer',),
 }
 
+# ─── Configuración de Cookies de Autenticación HttpOnly (Fase A2 - Hardening) ───
+AUTH_COOKIE_ACCESS = os.getenv('AUTH_COOKIE_ACCESS', 'access_token')
+AUTH_COOKIE_REFRESH = os.getenv('AUTH_COOKIE_REFRESH', 'refresh_token')
+AUTH_COOKIE_SECURE = os.getenv('AUTH_COOKIE_SECURE', 'false' if DEBUG else 'true').lower() == 'true'
+AUTH_COOKIE_HTTPONLY = True
+AUTH_COOKIE_SAMESITE = os.getenv('AUTH_COOKIE_SAMESITE', 'Lax')
+AUTH_COOKIE_PATH = '/'
+AUTH_COOKIE_DOMAIN = os.getenv('AUTH_COOKIE_DOMAIN', None)
+
 # ─── Seguridad y Protección de Producción ───
 CORS_ALLOWED_ORIGINS = os.getenv(
     'CORS_ALLOWED_ORIGINS',

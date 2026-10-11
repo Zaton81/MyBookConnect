@@ -21,7 +21,9 @@ export const ChallengesPage: React.FC = () => {
   const [allChallenges, setAllChallenges] = useState<ChallengeItem[]>([]);
   const [allBadges, setAllBadges] = useState<BadgeItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'challenges' | 'goal' | 'streak' | 'badges'>('challenges');
+  const [activeTab, setActiveTab] = useState<'challenges' | 'goal' | 'streak' | 'badges'>(
+    'challenges'
+  );
   const [badgeFilter, setBadgeFilter] = useState<string>('all');
 
   // Modales
@@ -205,7 +207,8 @@ export const ChallengesPage: React.FC = () => {
             Retos de Lectura & Gamificación
           </h1>
           <p className="mt-2 text-sm sm:text-base text-rose-100 leading-relaxed">
-            Fija tus objetivos anuales, mantén encendida tu racha de lectura diaria y compite con la comunidad superando desafíos temáticos.
+            Fija tus objetivos anuales, mantén encendida tu racha de lectura diaria y compite con la
+            comunidad superando desafíos temáticos.
           </p>
         </div>
 
@@ -226,7 +229,9 @@ export const ChallengesPage: React.FC = () => {
                 <div className="text-2xl font-black">
                   {goal?.current_books || 0}/{goal?.target_books || 12}
                 </div>
-                <div className="text-xs text-rose-200">Meta {currentYear} ({goal?.percentage || 0}%)</div>
+                <div className="text-xs text-rose-200">
+                  Meta {currentYear} ({goal?.percentage || 0}%)
+                </div>
               </div>
             </div>
 
@@ -244,7 +249,10 @@ export const ChallengesPage: React.FC = () => {
       </div>
 
       {/* Pestañas de Navegación WAI-ARIA */}
-      <div className="flex border-b border-gray-200 dark:border-gray-700 space-x-2 sm:space-x-4" role="tablist">
+      <div
+        className="flex border-b border-gray-200 dark:border-gray-700 space-x-2 sm:space-x-4"
+        role="tablist"
+      >
         <button
           type="button"
           role="tab"
@@ -324,7 +332,8 @@ export const ChallengesPage: React.FC = () => {
                     Retos de Lectura Comunitarios
                   </h2>
                   <p className="text-sm text-gray-500 dark:text-gray-400">
-                    Únete a retos con lectores de todo el mundo y obtén recompensas exclusivas al completarlos.
+                    Únete a retos con lectores de todo el mundo y obtén recompensas exclusivas al
+                    completarlos.
                   </p>
                 </div>
               </div>
@@ -356,7 +365,8 @@ export const ChallengesPage: React.FC = () => {
                           <div>
                             <div className="flex items-center gap-2 mb-1">
                               <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-300">
-                                Meta: {ch.target_count} {ch.challenge_type === 'pages_count' ? 'págs' : 'libros'}
+                                Meta: {ch.target_count}{' '}
+                                {ch.challenge_type === 'pages_count' ? 'págs' : 'libros'}
                               </span>
                               {isCompleted && (
                                 <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 flex items-center gap-1">
@@ -371,7 +381,10 @@ export const ChallengesPage: React.FC = () => {
                           </div>
 
                           {ch.badge_reward && (
-                            <div className="w-12 h-12 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 flex items-center justify-center text-2xl shadow-inner flex-shrink-0" title={`Recompensa: ${ch.badge_reward.name}`}>
+                            <div
+                              className="w-12 h-12 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 flex items-center justify-center text-2xl shadow-inner flex-shrink-0"
+                              title={`Recompensa: ${ch.badge_reward.name}`}
+                            >
                               {ch.badge_reward.icon}
                             </div>
                           )}
@@ -405,7 +418,12 @@ export const ChallengesPage: React.FC = () => {
                         <div className="mt-6 pt-4 border-t border-gray-100 dark:border-gray-700 flex items-center justify-between">
                           <span className="text-xs text-gray-400 flex items-center gap-1">
                             <HiOutlineCalendar className="w-4 h-4" />
-                            Hasta el {new Date(ch.end_date).toLocaleDateString('es-ES', { month: 'short', day: 'numeric', year: 'numeric' })}
+                            Hasta el{' '}
+                            {new Date(ch.end_date).toLocaleDateString('es-ES', {
+                              month: 'short',
+                              day: 'numeric',
+                              year: 'numeric',
+                            })}
                           </span>
 
                           <div className="flex items-center gap-2">
@@ -433,11 +451,17 @@ export const ChallengesPage: React.FC = () => {
                                   disabled={joiningSlug === ch.slug}
                                   className="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl transition-all shadow-sm"
                                 >
-                                  {joiningSlug === ch.slug ? <Spinner size="sm" /> : 'Unirme al reto'}
+                                  {joiningSlug === ch.slug ? (
+                                    <Spinner size="sm" />
+                                  ) : (
+                                    'Unirme al reto'
+                                  )}
                                 </button>
                               )
                             ) : (
-                              <span className="text-xs text-gray-400">Inicia sesión para unirte</span>
+                              <span className="text-xs text-gray-400">
+                                Inicia sesión para unirte
+                              </span>
                             )}
                           </div>
                         </div>
@@ -539,7 +563,8 @@ export const ChallengesPage: React.FC = () => {
                       <span>Racha de Lectura Consecutiva</span>
                     </h2>
                     <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                      Cada día que abres un libro y registras tu avance cuenta para mantener la llama encendida.
+                      Cada día que abres un libro y registras tu avance cuenta para mantener la
+                      llama encendida.
                     </p>
                   </div>
 
@@ -584,7 +609,8 @@ export const ChallengesPage: React.FC = () => {
                 <div className="mt-8 p-4 bg-gray-50 dark:bg-gray-750 rounded-2xl text-xs text-gray-500 dark:text-gray-400 flex items-center gap-3">
                   <span className="text-xl">💡</span>
                   <span>
-                    Basta con registrar unas pocas páginas o minutos de lectura cada día para alimentar tu racha y desbloquear medallas secretas.
+                    Basta con registrar unas pocas páginas o minutos de lectura cada día para
+                    alimentar tu racha y desbloquear medallas secretas.
                   </span>
                 </div>
               </div>
@@ -669,7 +695,9 @@ export const ChallengesPage: React.FC = () => {
                         </span>
                         <span
                           className={`font-semibold ${
-                            badge.unlocked ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-400'
+                            badge.unlocked
+                              ? 'text-emerald-600 dark:text-emerald-400'
+                              : 'text-gray-400'
                           }`}
                         >
                           {badge.unlocked ? '✓ Desbloqueada' : '🔒 Bloqueada'}

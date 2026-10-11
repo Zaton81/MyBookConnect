@@ -3,6 +3,12 @@ Servicios modulares de importación, enriquecimiento y gestión de proveedores p
 """
 
 from .affiliate_service import AffiliateService
+from .audiobook_service import (
+    get_audiobook_catalog,
+    get_book_audiobook_details,
+    get_user_listening_shelf,
+    save_audiobook_progress,
+)
 from .author_service import (
     AuthorService,
     maybe_enrich_author,
@@ -46,6 +52,7 @@ from .import_service import (
     import_multiple_by_title,
     import_single_by_query,
 )
+from .marketplace_service import MarketplaceService
 from .providers import (
     AmazonBooksProvider,
     GoogleBooksProvider,
@@ -98,13 +105,6 @@ from .unified_search_service import (
     UnifiedSearchEngine,
     unified_book_search,
 )
-from .audiobook_service import (
-    get_book_audiobook_details,
-    save_audiobook_progress,
-    get_user_listening_shelf,
-    get_audiobook_catalog,
-)
-from .marketplace_service import MarketplaceService
 
 __all__ = [
     # Funciones públicas principales

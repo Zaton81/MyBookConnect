@@ -704,7 +704,9 @@ export function BookDetail() {
                         >
                           {auth.name}
                         </Link>
-                        {idx < book.authors.length - 1 && <span className="text-slate-400 mr-1">,</span>}
+                        {idx < book.authors.length - 1 && (
+                          <span className="text-slate-400 mr-1">,</span>
+                        )}
                       </span>
                     ))}
                   </div>
@@ -966,7 +968,9 @@ export function BookDetail() {
                             <span className="text-[10px] uppercase font-bold text-indigo-300 block">
                               Estilo Visual
                             </span>
-                            <p className="text-slate-100 font-medium mt-0.5">{visualInsights.artistic_style}</p>
+                            <p className="text-slate-100 font-medium mt-0.5">
+                              {visualInsights.artistic_style}
+                            </p>
                           </div>
                         )}
                         {visualInsights.mood && (
@@ -974,7 +978,9 @@ export function BookDetail() {
                             <span className="text-[10px] uppercase font-bold text-indigo-300 block">
                               Atmósfera / Tono
                             </span>
-                            <p className="text-slate-100 font-medium mt-0.5">{visualInsights.mood}</p>
+                            <p className="text-slate-100 font-medium mt-0.5">
+                              {visualInsights.mood}
+                            </p>
                           </div>
                         )}
                       </div>
@@ -996,7 +1002,8 @@ export function BookDetail() {
                   {!aiSummary && !aiExplanation && !visualInsights && (
                     <p className="text-xs text-teal-200/70">
                       Pulsa cualquiera de los botones superiores para que BookAI te revele el
-                      contexto histórico, claves de lectura, o el análisis visual y cromático de la cubierta.
+                      contexto histórico, claves de lectura, o el análisis visual y cromático de la
+                      cubierta.
                     </p>
                   )}
                 </>

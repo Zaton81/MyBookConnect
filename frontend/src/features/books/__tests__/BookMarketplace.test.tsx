@@ -125,7 +125,9 @@ describe('BookMarketplaceModal Component (Sprint 19)', () => {
 
     // Esperar a que carguen las ofertas
     await waitFor(() => {
-      expect(screen.getByText(/Dónde conseguir «Memorias de Idhún: La Resistencia»/i)).toBeInTheDocument();
+      expect(
+        screen.getByText(/Dónde conseguir «Memorias de Idhún: La Resistencia»/i)
+      ).toBeInTheDocument();
     });
 
     expect(screen.getByText('Laura Gallego García')).toBeInTheDocument();
@@ -214,7 +216,9 @@ describe('BookMarketplaceModal Component (Sprint 19)', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText(/Añadir enlace oficial de compra o editorial como autor/i)).toBeInTheDocument();
+      expect(
+        screen.getByText(/Añadir enlace oficial de compra o editorial como autor/i)
+      ).toBeInTheDocument();
     });
 
     const addBtn = screen.getByText(/Añadir enlace oficial de compra o editorial como autor/i);

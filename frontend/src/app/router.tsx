@@ -34,12 +34,8 @@ const DeletionPolicy = lazy(() =>
 const ContactPage = lazy(() =>
   import('../features/legal').then((m) => ({ default: m.ContactPage }))
 );
-const FaqsPage = lazy(() =>
-  import('../features/faqs').then((m) => ({ default: m.FaqsPage }))
-);
-const ClubsPage = lazy(() =>
-  import('../features/clubs').then((m) => ({ default: m.ClubsPage }))
-);
+const FaqsPage = lazy(() => import('../features/faqs').then((m) => ({ default: m.FaqsPage })));
+const ClubsPage = lazy(() => import('../features/clubs').then((m) => ({ default: m.ClubsPage })));
 const ClubDetailPage = lazy(() =>
   import('../features/clubs').then((m) => ({ default: m.ClubDetailPage }))
 );

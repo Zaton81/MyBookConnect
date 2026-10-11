@@ -255,9 +255,9 @@ export function ReadingStats() {
   }
 
   const maxMonthValue = Math.max(
-    ...(stats.books_per_month.map((m) =>
-      chartMetric === 'books' ? m.count : m.pages || 0
-    ) || [1]),
+    ...(stats.books_per_month.map((m) => (chartMetric === 'books' ? m.count : m.pages || 0)) || [
+      1,
+    ]),
     1
   );
 
@@ -375,7 +375,8 @@ export function ReadingStats() {
           <span className="text-2xl">⚡</span>
           <div className="mt-2">
             <div className="text-2xl sm:text-3xl font-black text-emerald-600 dark:text-emerald-400">
-              {stats.reading_pace?.avg_days_per_book !== null && stats.reading_pace?.avg_days_per_book !== undefined
+              {stats.reading_pace?.avg_days_per_book !== null &&
+              stats.reading_pace?.avg_days_per_book !== undefined
                 ? `${stats.reading_pace.avg_days_per_book}d`
                 : '—'}
             </div>
@@ -579,7 +580,8 @@ export function ReadingStats() {
                     (a, b) => a + b,
                     0
                   );
-                  const percentage = totalRatings > 0 ? Math.round((count / totalRatings) * 100) : 0;
+                  const percentage =
+                    totalRatings > 0 ? Math.round((count / totalRatings) * 100) : 0;
 
                   return (
                     <div key={score} className="flex items-center gap-3 text-xs">
@@ -589,7 +591,11 @@ export function ReadingStats() {
                       <div className="flex-1 h-3.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
                         <div
                           className={`h-full rounded-full transition-all duration-500 ${
-                            score >= 4 ? 'bg-amber-400' : score === 3 ? 'bg-teal-500' : 'bg-slate-400'
+                            score >= 4
+                              ? 'bg-amber-400'
+                              : score === 3
+                                ? 'bg-teal-500'
+                                : 'bg-slate-400'
                           }`}
                           style={{ width: `${percentage}%` }}
                         />
@@ -628,7 +634,8 @@ export function ReadingStats() {
                           <span className="truncate">{genre.name}</span>
                         </span>
                         <span className="text-slate-500 dark:text-slate-400 ml-2">
-                          {genre.count} {genre.count === 1 ? 'libro' : 'libros'} ({genre.percentage}%)
+                          {genre.count} {genre.count === 1 ? 'libro' : 'libros'} ({genre.percentage}
+                          %)
                         </span>
                       </div>
                       <div className="h-3 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
@@ -1144,9 +1151,7 @@ export function ReadingStats() {
                   <div className="text-xl font-black text-amber-300 truncate">
                     {stats.year_in_review.favorite_genre || 'No determinado'}
                   </div>
-                  <div className="text-xs text-slate-300 font-medium mt-1">
-                    Género predilecto
-                  </div>
+                  <div className="text-xs text-slate-300 font-medium mt-1">Género predilecto</div>
                 </div>
 
                 {/* Autor Favorito */}
@@ -1213,12 +1218,20 @@ export function ReadingStats() {
                     )}
                     <div>
                       <div className="text-lg font-bold">
-                        {stats.year_in_review.comparison_previous_year.books_difference >= 0 ? '+' : ''}
+                        {stats.year_in_review.comparison_previous_year.books_difference >= 0
+                          ? '+'
+                          : ''}
                         {stats.year_in_review.comparison_previous_year.books_difference} libros
-                        {stats.year_in_review.comparison_previous_year.books_percentage_change !== null && (
+                        {stats.year_in_review.comparison_previous_year.books_percentage_change !==
+                          null && (
                           <span className="text-xs ml-2 text-slate-300">
-                            ({stats.year_in_review.comparison_previous_year.books_percentage_change >= 0 ? '+' : ''}
-                            {stats.year_in_review.comparison_previous_year.books_percentage_change}%)
+                            (
+                            {stats.year_in_review.comparison_previous_year
+                              .books_percentage_change >= 0
+                              ? '+'
+                              : ''}
+                            {stats.year_in_review.comparison_previous_year.books_percentage_change}
+                            %)
                           </span>
                         )}
                       </div>
@@ -1236,7 +1249,8 @@ export function ReadingStats() {
                     <div>
                       <div className="text-lg font-bold">
                         {stats.year_in_review.total_pages -
-                          stats.year_in_review.comparison_previous_year.previous_year_pages >= 0
+                          stats.year_in_review.comparison_previous_year.previous_year_pages >=
+                        0
                           ? '+'
                           : ''}
                         {(
@@ -1247,7 +1261,8 @@ export function ReadingStats() {
                       </div>
                       <div className="text-xs text-slate-400">
                         En {stats.year_in_review.comparison_previous_year.previous_year}:{' '}
-                        {stats.year_in_review.comparison_previous_year.previous_year_pages.toLocaleString()} pág.
+                        {stats.year_in_review.comparison_previous_year.previous_year_pages.toLocaleString()}{' '}
+                        pág.
                       </div>
                     </div>
                   </div>
@@ -1268,7 +1283,9 @@ export function ReadingStats() {
         onClose={() => setIsShareModalOpen(false)}
         shareType="reading_stats"
         year={selectedYear !== 'all' ? selectedYear : stats?.year_in_review?.year}
-        initialTitle={selectedYear !== 'all' ? `Mi Lectura ${selectedYear}` : 'Mis Estadísticas Lectoras'}
+        initialTitle={
+          selectedYear !== 'all' ? `Mi Lectura ${selectedYear}` : 'Mis Estadísticas Lectoras'
+        }
       />
     </div>
   );

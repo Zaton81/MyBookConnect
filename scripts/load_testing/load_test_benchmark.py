@@ -28,7 +28,7 @@ def make_request(url: str, timeout: float = 5.0) -> tuple[bool, int, float]:
         headers={"User-Agent": "MyBookConnect-Benchmark/1.0", "Accept": "application/json"}
     )
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as response:
+        with urllib.request.urlopen(req, timeout=timeout) as response:  # nosec B310
             latency = (time.perf_counter() - start_time) * 1000.0
             return (True, response.status, latency)
     except urllib.error.HTTPError as exc:

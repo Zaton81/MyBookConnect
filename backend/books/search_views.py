@@ -3,11 +3,11 @@ import logging
 from django.contrib.auth import get_user_model
 from django.db.models import Q
 from drf_spectacular.utils import OpenApiParameter, extend_schema
-from rest_framework import permissions, status
+from rest_framework import permissions
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from books.models import Author, Book, normalize_isbn, normalize_title
+from books.models import Author, Book, normalize_isbn
 from books.serializers import AuthorSerializer, BookSerializer
 from users.privacy_service import PrivacyService
 from users.serializers import UserBasicSerializer
@@ -109,10 +109,11 @@ class GlobalSearchView(APIView):
             selected_books = list(books_set.values())[:limit]
             if selected_books:
                 from django.db.models import Count
+
                 from books.models import Review
                 b_ids = [b.id for b in selected_books]
                 dist_map = {b_id: dict.fromkeys(range(1, 6), 0) for b_id in b_ids}
-                counts_map = {b_id: 0 for b_id in b_ids}
+                counts_map = dict.fromkeys(b_ids, 0)
 
                 review_rows = Review.objects.filter(
                     book_id__in=b_ids, deleted_at__isnull=True, is_moderated=False

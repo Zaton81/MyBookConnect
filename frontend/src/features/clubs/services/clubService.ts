@@ -1,11 +1,5 @@
 import { apiClient } from '../../../api/client';
-import {
-  ReadingClub,
-  ClubMember,
-  ClubBook,
-  ClubDiscussion,
-  ClubDiscussionComment,
-} from '../types';
+import { ReadingClub, ClubMember, ClubBook, ClubDiscussion, ClubDiscussionComment } from '../types';
 
 export const clubService = {
   async getClubs(params?: { q?: string; my_clubs?: boolean }): Promise<ReadingClub[]> {
