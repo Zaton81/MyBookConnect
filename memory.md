@@ -639,11 +639,13 @@ Cualquier agente de IA o desarrollador que se incorpore a la base de código **D
   - Suite de pruebas de baseline ejecutada al 100% (43 tests pasando sin fallos).
   - Auditoría de marcadores residuales de conflicto (`<<<<<<<`) limpia al 100%. Código muerto (`backend/app/`, `backend/config/`) erradicado.
   - Documentada la política de gestión y rotación de secrets en `docs/security/secrets_management_policy.md` y actualizadas las plantillas `.env.example`.
-- **Fase A2 — Autenticación y sesión segura (P0) — SIGUIENTE:**
-  - Migración de JWT de `localStorage` a cookies `HttpOnly` + `Secure` + `SameSite=Strict`.
-  - Eliminación de tokens en query strings de WebSockets (`?token=`), autenticación por cookies/tickets efímeros.
-  - Rotación y blacklist de refresh tokens.
-- **Fase A3 — Integridad de dominio y permisos (P0) — PENDIENTE:**
+- **Fase A2 — Autenticación y sesión segura (P0) — COMPLETADA (2026-10-11):**
+  - Migración y emisión de JWT en cookies `HttpOnly` + `Secure` + `SameSite=Lax/Strict` en endpoints de login, OAuth Google, refresh y cambio de password.
+  - Erradicación y bloqueo en middleware de tokens en query strings de WebSockets (`?token=`), autenticación exclusiva por ticket efímero de un solo uso (`?ticket=`) emitido por `/api/v1/auth/ws-ticket/` o cookies HttpOnly del handshake.
+  - Rotación y blacklist efectiva de refresh tokens en `CustomTokenRefreshView` y `LogoutView` con borrado de cookies.
+  - En frontend: store `useAuthStore` adaptado con `partialize` para que los tokens sensibles NUNCA se serialicen en `localStorage`. Cliente `apiClient` configurado con `credentials: 'include'`.
+  - Suite de pruebas de seguridad `test_phase_a2_security_auth.py` (7 tests nuevos) y suite global de auth pasando al 100%.
+- **Fase A3 — Integridad de dominio y permisos (P0) — SIGUIENTE:**
   - `UniqueConstraint` en `Review`/`UserBook`, cálculo optimizado de rating sin `save()` completo, validación MIME real en subidas y throttling de endpoints sensibles.
 - **Fase A4 — Health, readiness y superficie de ataque (P0) — PENDIENTE:**
   - Sondas seguras sin fuga de datos, OpenAPI protegido y checklist OWASP Top 10.

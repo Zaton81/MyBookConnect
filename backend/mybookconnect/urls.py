@@ -11,11 +11,9 @@ from drf_spectacular.views import (
     SpectacularRedocView,
     SpectacularSwaggerView,
 )
-from rest_framework_simplejwt.views import TokenRefreshView
-
 from books.search_views import GlobalSearchView
 from books.views import PublicFAQListView
-from users.auth_views import CustomTokenObtainPairView
+from users.auth_views import CustomTokenObtainPairView, CustomTokenRefreshView
 from users.moderation_views import ReportCreateView, UserReportsListView
 
 from .health import HealthCheckView, ReadinessCheckView, VersionView
@@ -54,7 +52,7 @@ urlpatterns = [
         path('version/', VersionView.as_view(), name='api-version-nested'),
         path('auth/', include([
             path('token/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
-            path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+            path('token/refresh/', CustomTokenRefreshView.as_view(), name='token_refresh'),
             path('', include('users.urls')),
         ])),
         path('books/', include('books.urls')),

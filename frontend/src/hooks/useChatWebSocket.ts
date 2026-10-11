@@ -52,27 +52,32 @@ export function useChatWebSocket({
     const wsProtocol = apiUrl.startsWith('https') ? 'wss' : 'ws';
     const wsHost = apiUrl.replace(/^https?:\/\//, '');
 
-    // Intentar obtener un ticket efímero de un solo uso (RFC 6455 / OWASP)
-    let authQuery = `token=${encodeURIComponent(token)}`;
+    // Obtener un ticket efímero de un solo uso (RFC 6455 / OWASP WebSocket Security)
+    let authQuery = '';
     try {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
       const ticketRes = await fetch(`${apiUrl}/api/v1/auth/ws-ticket/`, {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
+        credentials: 'include',
+        headers,
       });
       if (ticketRes.ok) {
         const ticketData = await ticketRes.json();
         if (ticketData?.ticket) {
-          authQuery = `ticket=${encodeURIComponent(ticketData.ticket)}`;
+          authQuery = `?ticket=${encodeURIComponent(ticketData.ticket)}`;
         }
       }
     } catch {
-      // Fallback a token directo si no se puede obtener el ticket
+      // Si la llamada al ticket falla, conectar sin query y apoyarse en cookies del handshake
     }
 
-    const wsUrl = `${wsProtocol}://${wsHost}/ws/chat/${conversationId}/?${authQuery}`;
+    const wsUrl = `${wsProtocol}://${wsHost}/ws/chat/${conversationId}/${authQuery}`;
 
     try {
       const socket = new WebSocket(wsUrl);

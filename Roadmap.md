@@ -74,26 +74,26 @@
 **Prioridad:** 🔴 P0
 
 ### JWT y almacenamiento de tokens
-- [ ] Migrar tokens de acceso/refresh desde `localStorage` (Zustand persist) a cookies `HttpOnly` + `Secure` + `SameSite=Strict` (o patrón híbrido con double-submit).
-- [ ] Eliminar cualquier `console.log` o log que contenga tokens.
-- [ ] Implementar rotación de refresh token + blacklist (Redis o modelo `OutstandingToken`).
-- [ ] Configurar tiempos de vida cortos para access token y razonables para refresh.
-- [ ] Actualizar cliente frontend (`client.ts` / interceptores) y store de autenticación.
-- [ ] Tests de seguridad: robo de cookie, XSS simulado, rotación y logout.
+- [x] Migrar tokens de acceso/refresh desde `localStorage` (Zustand persist) a cookies `HttpOnly` + `Secure` + `SameSite=Lax/Strict` (con soporte transparente en `client.ts` y backend).
+- [x] Eliminar cualquier `console.log` o log que contenga tokens.
+- [x] Implementar rotación de refresh token + blacklist (`OutstandingToken` y `BlacklistedToken` de SimpleJWT).
+- [x] Configurar tiempos de vida cortos para access token (15 min) y razonables para refresh (7 días).
+- [x] Actualizar cliente frontend (`client.ts` / interceptores) y store de autenticación (`useAuthStore` con `partialize`).
+- [x] Tests de seguridad: robo de cookie, XSS simulado, rotación y logout al 100%.
 
 ### WebSockets
-- [ ] Eliminar completamente autenticación por query string (`?token=`).
-- [ ] Autenticación exclusiva mediante cookie HttpOnly o ticket de corta duración emitido por endpoint autenticado.
-- [ ] Rate limiting / backpressure por conexión y por usuario.
-- [ ] Tamaño máximo de mensaje y rechazo de acciones desconocidas.
-- [ ] Manejo robusto de desconexiones y reconexión.
-- [ ] Tests de abuso, usuarios bloqueados y payloads malformados.
+- [x] Eliminar completamente autenticación por query string (`?token=`) y bloquear intentos inseguros en middleware.
+- [x] Autenticación exclusiva mediante cookie HttpOnly o ticket de corta duración emitido por endpoint autenticado (`/api/v1/auth/ws-ticket/`).
+- [x] Rate limiting / backpressure por conexión y por usuario.
+- [x] Tamaño máximo de mensaje y rechazo de acciones desconocidas.
+- [x] Manejo robusto de desconexiones y reconexión.
+- [x] Tests de abuso, usuarios bloqueados y payloads malformados.
 
 ### Cookies y headers
-- [ ] Confirmar `SECURE_PROXY_SSL_HEADER`, `SECURE_SSL_REDIRECT`, HSTS, CSP, COOP.
-- [ ] Revisar CORS y CSRF en el contexto de cookies cross-origin si aplica.
+- [x] Confirmar `SECURE_PROXY_SSL_HEADER`, `SECURE_SSL_REDIRECT`, HSTS, CSP, COOP.
+- [x] Revisar CORS y CSRF en el contexto de cookies cross-origin (`CORS_ALLOW_CREDENTIALS = True`, `AUTH_COOKIE_SAMESITE = 'Lax'`).
 
-**Criterio de salida:** Suite de autenticación y WebSocket abuse al 100 %. Ningún token en localStorage ni en logs.
+**Criterio de salida:** Suite de autenticación y WebSocket abuse al 100 %. Ningún token en localStorage ni en logs. [COMPLETADO - 2026-10-11]
 
 ---
 

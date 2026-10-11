@@ -131,7 +131,7 @@ class TestWebSocketJwtMiddleware:
         assert res_user.is_authenticated
         assert res_user.id == user.id
 
-    async def test_auth_via_query_string_fallback(self):
+    async def test_auth_via_query_string_fallback_is_blocked(self):
         user = await User.objects.acreate(username='ws_query_user', email='wsq@test.com')
         token = str(AccessToken.for_user(user))
 
@@ -141,8 +141,8 @@ class TestWebSocketJwtMiddleware:
             'query_string': f'token={token}'.encode('utf-8'),
         }
         res_user = await middleware(scope, None, None)
-        assert res_user.is_authenticated
-        assert res_user.id == user.id
+        # Erradicado por política de endurecimiento Fase A2: tokens en query params deben ser rechazados
+        assert not res_user.is_authenticated
 
     async def test_unauthenticated_when_token_invalid(self):
         middleware = JwtAuthMiddleware(self.dummy_app)

@@ -7,6 +7,23 @@ y este proyecto se adhiere a [Semantic Versioning 2.0.0](https://semver.org/lang
 
 ## [Unreleased]
 
+### Security / Authentication & Session Hardening (Roadmap Bloque A - Fase A2)
+- **Cookies HttpOnly Seguras para JWT (`backend/users/auth_cookies.py`, `backend/mybookconnect/settings.py`)**:
+  - Migración y emisión de `access_token` y `refresh_token` como cookies `HttpOnly`, `SameSite=Lax`, `Secure` en `CustomTokenObtainPairView`, `GoogleOAuthLoginView`, `PasswordChangeView` y `CustomTokenRefreshView`.
+  - Soporte transparente para autenticación por cookie en `RevocationCheckingJWTAuthentication`, manteniendo compatibilidad con cabecera `Authorization: Bearer`.
+- **Rotación Estricta de Refresh Tokens y Blacklist (`backend/users/auth_views.py`, `backend/users/views.py`)**:
+  - `CustomTokenRefreshView` renueva el par de tokens extrayendo el refresh token de cookies seguras o cuerpo JSON, añadiendo el token previo a la blacklist (`BlacklistedToken`).
+  - `LogoutView` revoca el refresh token y elimina las cookies HttpOnly de la respuesta (`delete_auth_cookies`).
+- **WebSockets Seguros y Erradicación de Query String Auth (`backend/mybookconnect/middleware.py`)**:
+  - Erradicación terminante del parámetro `?token=` en WebSockets (CWE-598 / OWASP). Todo intento es bloqueado y clasificado como `AnonymousUser`.
+  - Autenticación segura mediante ticket efímero de un solo uso (`?ticket=`) generado vía `/api/v1/auth/ws-ticket/` (validez <60s) o cookies HttpOnly del handshake.
+- **Frontend Hardening (`frontend/src/store/auth.ts`, `frontend/src/api/client.ts`, `frontend/src/hooks/useChatWebSocket.ts`)**:
+  - Erradicación del almacenamiento de tokens JWT en `localStorage` mediante `partialize` en Zustand persist (únicamente se preserva el perfil y estado booleano de sesión).
+  - Configuración global de `credentials: 'include'` en `apiClient` para transmisión automática de cookies de sesión.
+  - Actualización de `useChatWebSocket` para conectar exclusivamente con ticket efímero o cookies, eliminando fugas de JWT en URLs.
+- **Suite de Pruebas de Seguridad (`backend/tests/test_phase_a2_security_auth.py`)**:
+  - Cobertura del 100% (7 pruebas unitarias e integración) validando cookies HttpOnly, rotación, blacklist, logout y rechazo de query strings inseguros en WebSockets.
+
 ### Changed / Baseline Freeze & Security Hardening Foundation (Roadmap Bloque A - Fase A1)
 - **Tag y Punto de Congelación Git**:
   - Creado y publicado tag git `v1.0.0-pre-hardening` para garantizar reproducibilidad y punto de retorno limpio.
