@@ -19,11 +19,11 @@ describe('SocialShareModal Component (Sprint 16)', () => {
     share_type: 'book',
     title: 'Cien Años de Soledad',
     description:
-      '¡Acabo de descubrir Cien Años de Soledad por Gabriel García Márquez en @MyBookConnect! 📖✨',
+      '¡Acabo de descubrir Cien Años de Soledad por Gabriel García Márquez en @MyBookSocial! 📖✨',
     canonical_url: 'http://localhost:3000/books/1',
-    hashtags: ['#MyBookConnect', '#CienAñosDeSoledad', '#LibrosRecomendados'],
+    hashtags: ['#MyBookSocial', '#CienAñosDeSoledad', '#LibrosRecomendados'],
     share_text:
-      '¡Acabo de descubrir Cien Años de Soledad por Gabriel García Márquez en @MyBookConnect! 📖✨ http://localhost:3000/books/1',
+      '¡Acabo de descubrir Cien Años de Soledad por Gabriel García Márquez en @MyBookSocial! 📖✨ http://localhost:3000/books/1',
     share_urls: {
       twitter: 'https://twitter.com/intent/tweet?text=test',
       whatsapp: 'https://api.whatsapp.com/send?text=test',
@@ -40,18 +40,18 @@ describe('SocialShareModal Component (Sprint 16)', () => {
       badge_or_icon: '📖',
       image_url: null,
       theme_color: 'amber',
-      site_name: 'MyBookConnect',
+      site_name: 'My Book Social',
     },
   };
 
   const mockStatsData: SocialShareResponse = {
     share_type: 'reading_stats',
     title: 'Mi Memoria Lectora 2026',
-    description: 'En 2026 he completado 32 libros y 11.200 páginas en @MyBookConnect. 📊✨',
+    description: 'En 2026 he completado 32 libros y 11.200 páginas en @MyBookSocial. 📊✨',
     canonical_url: 'http://localhost:3000/statistics?user_id=1&year=2026',
-    hashtags: ['#MyBookConnect', '#MemoriaLectora', '#ReadingGoals'],
+    hashtags: ['#MyBookSocial', '#MemoriaLectora', '#ReadingGoals'],
     share_text:
-      'En 2026 he completado 32 libros y 11.200 páginas en @MyBookConnect. 📊✨ http://localhost:3000/statistics',
+      'En 2026 he completado 32 libros y 11.200 páginas en @MyBookSocial. 📊✨ http://localhost:3000/statistics',
     share_urls: {
       twitter: 'https://twitter.com/intent/tweet?text=test',
       whatsapp: 'https://api.whatsapp.com/send?text=test',
@@ -68,7 +68,7 @@ describe('SocialShareModal Component (Sprint 16)', () => {
       badge_or_icon: '📊',
       image_url: null,
       theme_color: 'teal',
-      site_name: 'MyBookConnect',
+      site_name: 'My Book Social',
     },
   };
 

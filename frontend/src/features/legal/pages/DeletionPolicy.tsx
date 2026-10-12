@@ -61,7 +61,7 @@ export function DeletionPolicy() {
             1. Control y Soberanía sobre tus Datos
           </h2>
           <p className="text-sm">
-            En MyBookConnect creemos que el usuario debe tener control total de su información. Si
+            En My Book Social creemos que el usuario debe tener control total de su información. Si
             decides dar de baja tu cuenta, nuestro sistema ejecuta un protocolo de disociación y
             anonimización atómica conforme al{' '}
             <strong>Artículo 17 del RGPD (Derecho a la Supresión / Derecho al Olvido)</strong>.

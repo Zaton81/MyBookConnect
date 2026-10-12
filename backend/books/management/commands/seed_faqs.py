@@ -10,13 +10,13 @@ class Command(BaseCommand):
         initial_faqs = [
             # General
             {
-                "question": "¿Qué es MyBookConnect?",
-                "answer": "MyBookConnect es una red social y plataforma integral para lectores y autores. Te permite gestionar tu biblioteca personal, registrar tu progreso de lectura, escribir reseñas, conectar con amigos y descubrir nuevas obras mediante recomendaciones comunitarias y semánticas.",
+                "question": "¿Qué es My Book Social?",
+                "answer": "My Book Social es una red social y plataforma integral para lectores y autores. Te permite gestionar tu biblioteca personal, registrar tu progreso de lectura, escribir reseñas, conectar con amigos y descubrir nuevas obras mediante recomendaciones comunitarias y semánticas.",
                 "category": FAQ.Category.GENERAL,
                 "order": 1,
             },
             {
-                "question": "¿Es gratuito utilizar MyBookConnect?",
+                "question": "¿Es gratuito utilizar My Book Social?",
                 "answer": "Sí, el registro y todas las funcionalidades principales (gestión de biblioteca, reseñas, listas de lectura, mensajería y red social) son 100% gratuitas para todos los lectores.",
                 "category": FAQ.Category.GENERAL,
                 "order": 2,

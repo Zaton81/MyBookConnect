@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-MyBookConnect - Smoke Testing Automatizado para Producción (Fase B1)
+My Book Social - Smoke Testing Automatizado para Producción (Fase B1)
 
 Verifica que el entorno de producción responda correctamente a través de Nginx (puertos 80/443)
 y que las sondas de salud, catálogos públicos y controles perimetrales estén operativos.
 
 Uso:
     python scripts/production/smoke_test_prod.py --host http://localhost
-    python scripts/production/smoke_test_prod.py --host https://mybookconnect.com --timeout 10
+    python scripts/production/smoke_test_prod.py --host https://mybooksocial.com --timeout 10
 """
 
 import argparse
@@ -35,7 +35,7 @@ def check_endpoint(
     verbose: bool = False,
 ) -> tuple[bool, float, str]:
     start = time.perf_counter()
-    headers = {"User-Agent": "MyBookConnect-ProductionSmokeTest/1.0", "Accept": "application/json"}
+    headers = {"User-Agent": "MyBookSocial-ProductionSmokeTest/1.0", "Accept": "application/json"}
     data_bytes = None
 
     if payload is not None:
@@ -77,7 +77,7 @@ def check_endpoint(
 
 def run_production_smoke_tests(base_url: str, timeout: float = 5.0, verbose: bool = False) -> bool:
     print("\n=================================================================")
-    print("🚀 MyBookConnect — Smoke Tests de Producción")
+    print("🚀 My Book Social — Smoke Tests de Producción")
     print(f"🎯 Host objetivo: {base_url}")
     print("=================================================================\n")
 
@@ -174,7 +174,7 @@ def run_production_smoke_tests(base_url: str, timeout: float = 5.0, verbose: boo
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Smoke testing para producción de MyBookConnect")
+    parser = argparse.ArgumentParser(description="Smoke testing para producción de My Book Social")
     parser.add_argument("--host", default="http://localhost", help="Host base a evaluar (por defecto: http://localhost)")
     parser.add_argument("--timeout", type=float, default=5.0, help="Timeout por petición en segundos")
     parser.add_argument("--verbose", action="store_true", help="Salida detallada de depuración")

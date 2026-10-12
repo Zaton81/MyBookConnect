@@ -16,20 +16,19 @@ Uso:
 import argparse
 import concurrent.futures
 import json
-import os
-from pathlib import Path
 import statistics
 import sys
 import time
 import urllib.error
 import urllib.request
+from pathlib import Path
 
 
 def make_request(url: str, timeout: float = 5.0) -> tuple[bool, int, float]:
     start_time = time.perf_counter()
     req = urllib.request.Request(
         url,
-        headers={"User-Agent": "MyBookConnect-Benchmark/2.0", "Accept": "application/json"}
+        headers={"User-Agent": "MyBookSocial-Benchmark/2.0", "Accept": "application/json"}
     )
     try:
         with urllib.request.urlopen(req, timeout=timeout) as response:  # nosec B310
@@ -92,7 +91,7 @@ def run_benchmark_for_endpoint(name: str, url: str, concurrency: int, total_requ
 
 
 def main():
-    parser = argparse.ArgumentParser(description="MyBookConnect Concurrency Benchmark Runner")
+    parser = argparse.ArgumentParser(description="My Book Social Concurrency Benchmark Runner")
     parser.add_argument("--host", default="http://localhost:8000", help="Host base de la API")
     parser.add_argument("--concurrency", type=int, default=10, help="Número de hilos concurrentes")
     parser.add_argument("--requests", type=int, default=50, help="Número total de peticiones por endpoint")
@@ -101,7 +100,7 @@ def main():
     args = parser.parse_args()
 
     print("=================================================================")
-    print("  MyBookConnect — Suite de Pruebas de Carga y SLAs (Fase B4)     ")
+    print("  My Book Social — Suite de Pruebas de Carga y SLAs (Fase B4)     ")
     print("=================================================================")
     print(f"Host destino: {args.host}")
 

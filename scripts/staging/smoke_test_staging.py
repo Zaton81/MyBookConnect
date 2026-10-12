@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-MyBookConnect - Smoke Testing Automatizado para Staging / Pre-producción
+My Book Social - Smoke Testing Automatizado para Staging / Pre-producción
 Fase 35 - Despliegue y Validación en Staging (Beta Cerrada)
 
 Verifica la disponibilidad, tiempos de respuesta y contratos de los endpoints
@@ -8,7 +8,7 @@ críticos de la plataforma en un entorno desplegado de staging o local.
 
 Uso:
     python scripts/staging/smoke_test_staging.py --host http://localhost:8000
-    python scripts/staging/smoke_test_staging.py --host https://staging.mybookconnect.com --timeout 10
+    python scripts/staging/smoke_test_staging.py --host https://staging.mybooksocial.com --timeout 10
 """
 
 import argparse
@@ -40,7 +40,7 @@ def check_endpoint(
     y valida el código de respuesta y contenido esperado.
     """
     start = time.perf_counter()
-    headers = {"User-Agent": "MyBookConnect-StagingSmokeTest/1.0", "Accept": "application/json"}
+    headers = {"User-Agent": "MyBookSocial-StagingSmokeTest/1.0", "Accept": "application/json"}
     data_bytes = None
 
     if payload is not None:
@@ -90,7 +90,7 @@ def check_endpoint(
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Smoke Testing Automatizado de Staging - MyBookConnect")
+    parser = argparse.ArgumentParser(description="Smoke Testing Automatizado de Staging - My Book Social")
     parser.add_argument("--host", default="http://localhost:8000", help="URL base del servidor (ej. http://localhost:8000)")
     parser.add_argument("--timeout", type=float, default=5.0, help="Timeout en segundos por petición")
     parser.add_argument("--verbose", action="store_true", help="Salida detallada")
@@ -99,7 +99,7 @@ def main() -> int:
     base_url = args.host.rstrip("/")
 
     print("=================================================================")
-    print(f"MyBookConnect -- Smoke Testing de Staging ({base_url})")
+    print(f"My Book Social -- Smoke Testing de Staging ({base_url})")
     print("=================================================================")
 
     checks = [

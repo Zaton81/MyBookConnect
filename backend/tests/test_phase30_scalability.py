@@ -63,18 +63,18 @@ class TestPhase30Scalability:
         """Verifica la ejecución exitosa de la tarea asíncrona de email transaccional."""
         mail.outbox.clear()
         result = send_transactional_email_task(
-            subject="Bienvenido a MyBookConnect",
+            subject="Bienvenido a My Book Social",
             message="Tu cuenta ha sido creada exitosamente.",
             recipient_list=["testuser@example.com"],
-            from_email="registro@mybookconnect.com",
+            from_email="registro@mybooksocial.com",
         )
 
         assert result is True
         assert len(mail.outbox) == 1
         sent_email = mail.outbox[0]
-        assert sent_email.subject == "Bienvenido a MyBookConnect"
+        assert sent_email.subject == "Bienvenido a My Book Social"
         assert sent_email.to == ["testuser@example.com"]
-        assert sent_email.from_email == "registro@mybookconnect.com"
+        assert sent_email.from_email == "registro@mybooksocial.com"
         assert "creada exitosamente" in sent_email.body
 
     def test_users_send_notification_email_task_execution(self):

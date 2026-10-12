@@ -26,7 +26,7 @@ export function PublicHeader({ onOpenAuth }: PublicHeaderProps) {
             <div className="p-1 rounded-xl bg-white/10 group-hover:bg-white/20 transition-colors shadow-sm">
               <img
                 src={logoLibro}
-                alt="MyBookConnect"
+                alt="My Book Social"
                 className="h-7 sm:h-8 drop-shadow object-contain"
               />
             </div>

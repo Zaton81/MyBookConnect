@@ -46,7 +46,7 @@ def sample_audiobook_data():
         book=book,
         title='Capítulo 1: Macondo',
         track_number=1,
-        audio_url='https://cdn.mybookconnect.com/audio/soledad_ch1.mp3',
+        audio_url='https://cdn.mybooksocial.com/audio/soledad_ch1.mp3',
         duration_seconds=1800,  # 30 minutos
         narrator_name='Víctor Manuel',
         is_sample=True,
@@ -55,7 +55,7 @@ def sample_audiobook_data():
         book=book,
         title='Capítulo 2: Los gitanos',
         track_number=2,
-        audio_url='https://cdn.mybookconnect.com/audio/soledad_ch2.mp3',
+        audio_url='https://cdn.mybooksocial.com/audio/soledad_ch2.mp3',
         duration_seconds=2400,  # 40 minutos
         narrator_name='Víctor Manuel',
         is_sample=False,
@@ -83,7 +83,7 @@ class TestSprint18AudiobooksAndTTS:
     def test_audiobook_track_creation_and_duration_format(self, sample_audiobook_data):
         track1 = sample_audiobook_data['track1']
         assert track1.formatted_duration == "30:00"
-        assert track1.stream_url == 'https://cdn.mybookconnect.com/audio/soledad_ch1.mp3'
+        assert track1.stream_url == 'https://cdn.mybooksocial.com/audio/soledad_ch1.mp3'
         assert str(track1) == "Cien años de soledad (Edición Sonora) - #1 Capítulo 1: Macondo"
 
     def test_get_book_audiobook_details_unauthenticated_and_authenticated(self, sample_audiobook_data):

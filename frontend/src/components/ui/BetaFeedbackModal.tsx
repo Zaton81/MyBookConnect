@@ -131,7 +131,7 @@ export const BetaFeedbackModal: React.FC<BetaFeedbackModalProps> = ({
         </div>
 
         <p className="mt-3 text-xs sm:text-sm text-slate-500 dark:text-slate-400">
-          Tu opinión como probador de la beta es esencial para mejorar MyBookConnect antes del
+          Tu opinión como probador de la beta es esencial para mejorar My Book Social antes del
           lanzamiento público.
         </p>
 

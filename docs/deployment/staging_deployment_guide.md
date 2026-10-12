@@ -36,13 +36,13 @@ Configuraciones mínimas requeridas:
 ```env
 DEBUG=0
 SECRET_KEY=clave_aleatoria_super_secreta_de_al_menos_50_caracteres_generada_para_staging
-DJANGO_ALLOWED_HOSTS=staging.mybookconnect.com localhost 127.0.0.1
-ALLOWED_HOSTS=staging.mybookconnect.com localhost 127.0.0.1
-CORS_ALLOWED_ORIGINS=https://staging.mybookconnect.com
-CSRF_TRUSTED_ORIGINS=https://staging.mybookconnect.com
+DJANGO_ALLOWED_HOSTS=staging.mybooksocial.com localhost 127.0.0.1
+ALLOWED_HOSTS=staging.mybooksocial.com localhost 127.0.0.1
+CORS_ALLOWED_ORIGINS=https://staging.mybooksocial.com
+CSRF_TRUSTED_ORIGINS=https://staging.mybooksocial.com
 
-POSTGRES_DB=mybookconnect_staging
-POSTGRES_USER=mbc_staging_user
+POSTGRES_DB=mybooksocial_staging
+POSTGRES_USER=mbs_staging_user
 POSTGRES_PASSWORD=password_seguro_staging
 POSTGRES_HOST=db
 POSTGRES_PORT=5432
@@ -95,7 +95,7 @@ Ejecutar las pruebas sintéticas no destructivas para verificar contratos de API
 # Ejecución local o contra el dominio de staging
 python scripts/staging/smoke_test_staging.py --host http://localhost:8000
 # o mediante el wrapper:
-bash scripts/staging/smoke_test_staging.sh https://staging.mybookconnect.com
+bash scripts/staging/smoke_test_staging.sh https://staging.mybooksocial.com
 ```
 
 Resultados esperados:

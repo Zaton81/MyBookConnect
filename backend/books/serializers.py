@@ -324,12 +324,50 @@ class BookSerializer(serializers.ModelSerializer):
         if hasattr(obj, '_precomputed_rating_distribution'):
             return obj._precomputed_rating_distribution
 
+        parent = getattr(self, 'parent', None)
+        if isinstance(parent, serializers.ListSerializer) and hasattr(parent, 'instance'):
+            if not hasattr(parent, '_precomputed_rating_distributions'):
+                items = parent.instance if isinstance(parent.instance, (list, tuple)) else list(parent.instance)
+                book_ids = [getattr(b, 'id', None) for b in items if getattr(b, 'id', None) is not None]
+                dists = {b_id: dict.fromkeys(range(1, 6), 0) for b_id in book_ids}
+                counts = dict.fromkeys(book_ids, 0)
+                if book_ids:
+                    from django.db.models import Count
+
+                    from .models import Review
+
+                    reviews_data = (
+                        Review.objects.filter(
+                            book_id__in=book_ids,
+                            rating__isnull=False,
+                            deleted_at__isnull=True,
+                            is_moderated=False,
+                        )
+                        .values('book_id', 'rating')
+                        .annotate(count=Count('id'))
+                    )
+                    for r in reviews_data:
+                        b_id = r['book_id']
+                        val = r['rating']
+                        cnt = r['count']
+                        if 1 <= val <= 5 and b_id in dists:
+                            dists[b_id][val] = cnt
+                            counts[b_id] += cnt
+                parent._precomputed_rating_distributions = dists
+                parent._precomputed_reviews_counts = counts
+
+            if hasattr(parent, '_precomputed_rating_distributions') and obj.id in parent._precomputed_rating_distributions:
+                return parent._precomputed_rating_distributions[obj.id]
+
         request = self.context.get('request')
         cache_key = f'_rating_dist_{obj.id}'
         if request and hasattr(request, cache_key):
             return getattr(request, cache_key)
 
         from django.db.models import Count
+
+        from .models import Review
+
         distribution = dict.fromkeys(range(1, 6), 0)
         reviews = Review.objects.filter(
             book=obj, rating__isnull=False, deleted_at__isnull=True, is_moderated=False
@@ -346,10 +384,17 @@ class BookSerializer(serializers.ModelSerializer):
     def get_reviews_count(self, obj):
         if hasattr(obj, 'annotated_reviews_count'):
             return obj.annotated_reviews_count
+        parent = getattr(self, 'parent', None)
+        if isinstance(parent, serializers.ListSerializer) and hasattr(parent, '_precomputed_reviews_counts'):
+            if obj.id in parent._precomputed_reviews_counts:
+                return parent._precomputed_reviews_counts[obj.id]
+
         request = self.context.get('request')
         cache_key = f'_reviews_count_{obj.id}'
         if request and hasattr(request, cache_key):
             return getattr(request, cache_key)
+
+        from .models import Review
 
         count = Review.objects.filter(book=obj, deleted_at__isnull=True, is_moderated=False).count()
         if request:

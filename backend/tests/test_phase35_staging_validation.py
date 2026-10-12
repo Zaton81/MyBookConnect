@@ -29,7 +29,7 @@ class TestPhase35StagingValidation:
         self.client = APIClient()
         self.user = User.objects.create_user(
             username="staging_tester",
-            email="tester@staging.mybookconnect.com",
+            email="tester@staging.mybooksocial.com",
             password="SecurePassword2026!",
         )
 
@@ -75,7 +75,7 @@ class TestPhase35StagingValidation:
         # 2. Código válido activo
         invitation = BetaInvitation.objects.create(
             code="BETA_STAGING_2026",
-            invited_email="tester@staging.mybookconnect.com",
+            invited_email="tester@staging.mybooksocial.com",
             max_uses=3,
             uses_count=0,
             is_active=True,
@@ -114,7 +114,7 @@ class TestPhase35StagingValidation:
             "category": BetaFeedbackCategory.CONFUSING_UX,
             "title": "Navegación de recomendaciones",
             "description": "La interfaz de recomendación es muy intuitiva en mobile.",
-            "page_url": "http://staging.mybookconnect.com/books/discover",
+            "page_url": "http://staging.mybooksocial.com/books/discover",
         }
         res_anon = self.client.post('/api/v1/beta/feedback/', feedback_payload, format='json')
         assert res_anon.status_code == status.HTTP_401_UNAUTHORIZED

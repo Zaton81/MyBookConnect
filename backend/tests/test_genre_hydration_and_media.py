@@ -33,9 +33,9 @@ class TestGenreHydrationAndMediaUrl:
         assert build_media_url('https://images.com/cover.jpg', request=request) == 'https://images.com/cover.jpg'
 
     def test_build_media_url_with_media_base_url(self, monkeypatch):
-        monkeypatch.setattr(settings, 'MEDIA_BASE_URL', 'https://cdn.mybookconnect.com')
+        monkeypatch.setattr(settings, 'MEDIA_BASE_URL', 'https://cdn.mybooksocial.com')
         url = build_media_url('/media/covers/custom.jpg')
-        assert url == 'https://cdn.mybookconnect.com/media/covers/custom.jpg'
+        assert url == 'https://cdn.mybooksocial.com/media/covers/custom.jpg'
 
     def test_create_or_get_from_volume_hydrates_categories(self):
         volume_payload = {

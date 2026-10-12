@@ -40,7 +40,7 @@ export const AccountPrivacySection: React.FC = () => {
       const downloadUrl = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = downloadUrl;
-      link.download = `mybookconnect_data_export_${user?.username || 'user'}.json`;
+      link.download = `mybooksocial_data_export_${user?.username || 'user'}.json`;
       document.body.appendChild(link);
       link.click();
       link.remove();

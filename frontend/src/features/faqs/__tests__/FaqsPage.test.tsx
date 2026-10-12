@@ -29,7 +29,7 @@ describe('FaqsPage Component', () => {
     },
     {
       id: 3,
-      question: '¿Es gratuito registrarse en MyBookConnect?',
+      question: '¿Es gratuito registrarse en My Book Social?',
       answer: 'Sí, registrarse y formar parte de la comunidad es totalmente gratuito.',
       category: 'general',
       order: 3,
@@ -64,7 +64,7 @@ describe('FaqsPage Component', () => {
     await waitFor(() => {
       expect(screen.getByText('¿Cómo funciona el intercambio de libros?')).toBeInTheDocument();
       expect(screen.getByText('¿Cómo puedo verificar mi perfil de autor?')).toBeInTheDocument();
-      expect(screen.getByText('¿Es gratuito registrarse en MyBookConnect?')).toBeInTheDocument();
+      expect(screen.getByText('¿Es gratuito registrarse en My Book Social?')).toBeInTheDocument();
     });
 
     // Check categories buttons exist
@@ -140,7 +140,7 @@ describe('FaqsPage Component', () => {
       fireEvent.click(generalBtn);
     }
 
-    expect(screen.getByText('¿Es gratuito registrarse en MyBookConnect?')).toBeInTheDocument();
+    expect(screen.getByText('¿Es gratuito registrarse en My Book Social?')).toBeInTheDocument();
     expect(screen.queryByText('¿Cómo funciona el intercambio de libros?')).not.toBeInTheDocument();
   });
 

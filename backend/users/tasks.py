@@ -25,7 +25,7 @@ def send_transactional_email_task(
     Envía correos transaccionales (confirmación de registro, reseteo de contraseña,
     verificación de email) de forma desacoplada y asíncrona.
     """
-    sender = from_email or getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@mybookconnect.com')
+    sender = from_email or getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@mybooksocial.com')
     try:
         sent = send_mail(
             subject=subject,
@@ -54,7 +54,7 @@ def send_notification_email_task(
     """
     Envía notificaciones sociales o de actividad por correo electrónico de forma asíncrona.
     """
-    sender = getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@mybookconnect.com')
+    sender = getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@mybooksocial.com')
     try:
         sent = send_mail(
             subject=subject,

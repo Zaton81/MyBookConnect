@@ -79,7 +79,7 @@ docker compose -f docker-compose.prod.yml up -d --remove-orphans
 
 ### Paso 3: Smoke Test Inmediato
 ```bash
-python scripts/staging/smoke_test_staging.py --base-url https://mybookconnect.com
+python scripts/staging/smoke_test_staging.py --base-url https://mybooksocial.com
 ```
 
 ---

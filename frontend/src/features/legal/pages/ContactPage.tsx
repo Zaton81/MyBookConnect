@@ -69,10 +69,10 @@ export function ContactPage() {
                 Para incidencias técnicas, errores en la plataforma o problemas de inicio de sesión.
               </p>
               <a
-                href="mailto:soporte@mybookconnect.local"
+                href="mailto:soporte@mybooksocial.com"
                 className="text-teal-600 dark:text-teal-400 text-xs font-semibold underline"
               >
-                soporte@mybookconnect.local
+                soporte@mybooksocial.com
               </a>
             </div>
 
@@ -85,10 +85,10 @@ export function ContactPage() {
                 personales.
               </p>
               <a
-                href="mailto:privacidad@mybookconnect.local"
+                href="mailto:privacidad@mybooksocial.com"
                 className="text-teal-600 dark:text-teal-400 text-xs font-semibold underline"
               >
-                privacidad@mybookconnect.local
+                privacidad@mybooksocial.com
               </a>
             </div>
 
@@ -100,10 +100,10 @@ export function ContactPage() {
                 Para notificaciones urgentes de contenidos inadecuados o apelaciones de moderación.
               </p>
               <a
-                href="mailto:moderacion@mybookconnect.local"
+                href="mailto:moderacion@mybooksocial.com"
                 className="text-teal-600 dark:text-teal-400 text-xs font-semibold underline"
               >
-                moderacion@mybookconnect.local
+                moderacion@mybooksocial.com
               </a>
             </div>
 
@@ -115,10 +115,10 @@ export function ContactPage() {
                 Para autores y editoriales sobre derechos de autor o citas bibliográficas.
               </p>
               <a
-                href="mailto:copyright@mybookconnect.local"
+                href="mailto:copyright@mybooksocial.com"
                 className="text-teal-600 dark:text-teal-400 text-xs font-semibold underline"
               >
-                copyright@mybookconnect.local
+                copyright@mybooksocial.com
               </a>
             </div>
           </div>

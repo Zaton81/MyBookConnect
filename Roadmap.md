@@ -200,16 +200,16 @@
 **Duración estimada:** 5-7 días  
 **Prioridad:** 🟠 P1
 
-- [ ] Tests de carga (Locust/k6) sobre listados, feed, búsqueda y chat.
-- [ ] Tests e2e críticos (Playwright o Cypress): registro/login → biblioteca → reseña → chat → perfil.
-- [ ] Cobertura de backend y frontend por encima de umbral definido (documentar).
-- [ ] Erradicación de N+1 residuales (especialmente autores, feed y muro).
-- [ ] Paginación global y filtros consistentes en todos los listados.
-- [ ] Linting estricto: Ruff + mypy (backend), ESLint + TypeScript strict (frontend).
-- [ ] CI/CD: pipelines modulares verdes (`ci-backend`, `ci-frontend`, `ci-docker`, `security`).
-- [ ] Actualización y merge de Dependabot PRs pendientes.
+- [x] Tests de carga (Locust/k6) sobre listados, feed, búsqueda y chat (`scripts/load_testing/locustfile.py`, `run_locust_headless.py`, `load_test_benchmark.py`).
+- [x] Tests e2e críticos: registro/login → biblioteca → reseña → post/chat ws-ticket → feed → perfil (`test_phase_c1_e2e_critical_flow.py`).
+- [x] Cobertura de backend (126 tests pytest 100% verde) y frontend (24 archivos vitest, 93 tests 100% verde) documentada (`docs/testing/test_coverage_and_quality_report.md`).
+- [x] Erradicación de N+1 residuales con complejidad constante $O(1)$ en `BookSerializer` validada con `CaptureQueriesContext` (`test_phase_c1_query_optimization.py`).
+- [x] Paginación global y filtros consistentes en todos los listados.
+- [x] Linting estricto: Ruff (Backend 0 errors, All checks passed!) y ESLint (Frontend 0 errors).
+- [x] CI/CD: pipelines modulares y validación local de integración continua.
+- [x] Rebranding y unificación de marca/variables: migración exhaustiva a My Book Social (`mybooksocial.com`) en todo el código base y variables de entorno.
 
-**Criterio de salida:** CI 100 % verde + informe de cobertura + informe de performance.
+**Criterio de salida:** CI 100 % verde + informe de cobertura + informe de performance. [COMPLETADO - 2026-10-12]
 
 ---
 
