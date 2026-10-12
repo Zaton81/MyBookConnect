@@ -7,6 +7,22 @@ y este proyecto se adhiere a [Semantic Versioning 2.0.0](https://semver.org/lang
 
 ## [Unreleased]
 
+### Added / Docker & Production Orchestration Hardening (Roadmap Bloque B - Fase B1)
+- **Orquestación de Producción y Topología Segura (`docker-compose.prod.yml`)**:
+  - Nginx configurado como único punto de entrada expuesto a la red pública (`80:80`, `443:443`).
+  - Servicios internos (`backend`, `celery_worker`, `db`, `cache`) aislados sin puertos mapeados al host.
+  - Red `backend_net` blindada con directiva `internal: true` impidiendo acceso de red externo directo.
+  - Cuotas de CPU y límites de memoria explícitos en todos los contenedores para mitigación de ataques de denegación de servicio (DoS).
+  - Ciclo de vida y parada ordenada configurada con señales y periodos de gracia dedicados (`stop_signal: SIGQUIT` en frontend, `SIGTERM` con 30s en backend y 60s en Celery).
+  - Integrado contenedor auxiliar `certbot` y volúmenes `certbot_www` y `certbot_certs` para emisión y renovación automática de certificados Let's Encrypt.
+- **Plantilla de Configuración Nginx SSL/TLS (`frontend/nginx.ssl.conf.template`)**:
+  - Soporte HTTPS nativo con protocolos TLS 1.2 y TLS 1.3, ACME challenge para Let's Encrypt, compresión gzip, rate limiting (`limit_req_zone`) y soporte para WebSockets (`/ws/`).
+- **Scripts de Auditoría y Verificación de Producción (`scripts/production/preflight_prod.sh`, `scripts/production/smoke_test_prod.py`)**:
+  - `preflight_prod.sh`: Auditoría pre-vuelo que evalúa la configuración compose, variables de entorno seguras (`DEBUG=0`), migraciones de base de datos y sondas de salud.
+  - `smoke_test_prod.py`: Batería automatizada de smoke testing para verificar disponibilidad de frontend SPA, endpoints de salud, versionado y perímetro de seguridad (401 en accesos no autorizados).
+- **Suite de Pruebas de Orquestación Docker (`backend/tests/test_phase_b1_docker_orchestration.py`)**:
+  - 12 pruebas de arquitectura y configuración que auditan topología, cuotas, puertos, usuario no-root, variables de entorno y existencia/ejecución de scripts.
+
 ### Added / Health, Readiness & Attack Surface Hardening (Roadmap Bloque A - Fase A4)
 - **Desacoplamiento y Sanitización de Sondas de Salud (`backend/mybookconnect/health.py`)**:
   - Sonda `/health/live` desacoplada de dependencias externas para evitar reinicios en cascada por latencia de red.

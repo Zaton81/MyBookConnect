@@ -68,6 +68,12 @@ check_step "Readiness probe (/health/ready)" "python -c 'from django.test import
 echo "─── 7. Activos Estáticos ───"
 check_step "Archivos estáticos en staticfiles" "test -d staticfiles || test -d /app/staticfiles"
 
+# 8. Orquestación Docker de Producción
+echo "─── 8. Orquestación Docker de Producción ───"
+if command -v docker > /dev/null 2>&1 && [ -f "docker-compose.prod.yml" ]; then
+    check_step "Sintaxis docker-compose.prod.yml" "docker compose -f docker-compose.prod.yml config --quiet"
+fi
+
 echo "================================================================="
 if [ "$FAILURES" -eq 0 ]; then
     echo "🎉 Todos los chequeos de pre-vuelo de producción han PASADO con éxito."
