@@ -7,6 +7,21 @@ y este proyecto se adhiere a [Semantic Versioning 2.0.0](https://semver.org/lang
 
 ## [Unreleased]
 
+### Added & Changed / Test Hardening, Anti-N+1, E2E & Rebranding (Roadmap Bloque C - Fase C1)
+- **Unificación de Marca y Dominio a My Book Social (`mybooksocial.com`)**:
+  - Reemplazo exhaustivo de todas las referencias al antiguo dominio y nombre en `.env.production.example`, `frontend/nginx.ssl.conf.template`, `backend/users/notification_service.py`, `backend/users/tasks.py`, `backend/books/services/base.py`, páginas legales, componentes UI (`SocialShareModal`, `AccountPrivacySection`, `PublicLandingPage`, etc.) y suites de pruebas (0 incidencias residuales de `mybookconnect.com`).
+- **Optimización Anti-N+1 con Complejidad Invariante $O(1)$ (`backend/books/serializers.py`)**:
+  - Implementado agrupamiento por lotes (batching) en `BookSerializer.get_rating_distribution` y `get_reviews_count` cuando opera dentro de un `ListSerializer`. Reducción de $2N + 1$ consultas SQL a una única consulta agregada en BD con memoización en request actual.
+  - Verificada la complejidad $O(1)$ constante mediante `backend/tests/test_phase_c1_query_optimization.py` utilizando `CaptureQueriesContext`.
+- **Suite de Integración E2E de Ciclo Crítico (`backend/tests/test_phase_c1_e2e_critical_flow.py`)**:
+  - Flujo completo de ciclo de vida en una prueba continua: Registro $\to$ Biblioteca (ReadingStatus) $\to$ Reseña (5★) $\to$ Amistad / Muro social $\to$ Ticket WebSocket efímero $\to$ Feed de actividad $\to$ Perfil del usuario.
+- **Herramientas de Estrés y Pruebas de Carga Concurrentes (`scripts/load_testing/`)**:
+  - Creado `locustfile.py` con perfil `MyBookSocialUser` para simular tráfico masivo sobre catálogo, búsqueda, feed social y handshake de WebSockets.
+  - Creado ejecutor desatendido multiplataforma `run_locust_headless.py`.
+  - Actualizado `load_test_benchmark.py` con métricas p50/p95/p99 y cabeceras de `MyBookSocial`.
+- **Informe Técnico de Calidad y Cobertura (`docs/testing/test_coverage_and_quality_report.md`)**:
+  - Documentación integral del estado de las suites (126 pruebas backend en pytest pasando al 100%, 24 suites de frontend con 93 pruebas en vitest pasando al 100%, y linters Ruff y ESLint limpios).
+
 ### Added / Basic Scalability & Performance SLAs (Roadmap Bloque B - Fase B4)
 - **Router Primario / Réplica de Base de Datos (`backend/mybookconnect/db_routers.py`, `backend/mybookconnect/settings.py`)**:
   - Implementado `PrimaryReplicaRouter` que enruta lecturas hacia la base de datos `replica` si está configurada, manteniendo todas las escrituras en `default` (primario), con fallback transparente a `default` si no existe réplica, y bloqueo de migraciones en réplicas de sólo lectura.

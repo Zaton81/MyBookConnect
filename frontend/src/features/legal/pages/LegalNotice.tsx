@@ -65,24 +65,24 @@ export function LegalNotice() {
           </p>
           <div className="mt-3 p-4 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 text-sm space-y-1.5">
             <p>
-              <strong>Plataforma:</strong> MyBookConnect (Red Social de Lectura y Catalogación)
+              <strong>Plataforma:</strong> My Book Social (Red Social de Lectura y Catalogación)
             </p>
             <p>
               <strong>Correo general:</strong>{' '}
               <a
-                href="mailto:contacto@mybookconnect.local"
+                href="mailto:contacto@mybooksocial.com"
                 className="text-teal-600 dark:text-teal-400 underline"
               >
-                contacto@mybookconnect.local
+                contacto@mybooksocial.com
               </a>
             </p>
             <p>
               <strong>Canal legal y privacidad:</strong>{' '}
               <a
-                href="mailto:legal@mybookconnect.local"
+                href="mailto:legal@mybooksocial.com"
                 className="text-teal-600 dark:text-teal-400 underline"
               >
-                legal@mybookconnect.local
+                legal@mybooksocial.com
               </a>
             </p>
             <p>
@@ -97,7 +97,7 @@ export function LegalNotice() {
             2. Condiciones de Acceso y Uso
           </h2>
           <p className="text-sm">
-            El acceso a MyBookConnect es de carácter libre y voluntario. La navegación o registro
+            El acceso a My Book Social es de carácter libre y voluntario. La navegación o registro
             atribuye la condición de usuario e implica la adhesión plena y sin reservas a todas y
             cada una de las disposiciones incluidas en este Aviso Legal y en los Términos de
             Servicio.
@@ -111,7 +111,7 @@ export function LegalNotice() {
           <p className="text-sm mb-3">
             Todos los contenidos del portal (código fuente, diseño gráfico, logotipos, iconos,
             arquitectura de datos y desarrollos de software) son titularidad de los promotores de
-            MyBookConnect o cuentan con licencias de uso de código abierto (Open Source) debidamente
+            My Book Social o cuentan con licencias de uso de código abierto (Open Source) debidamente
             acreditadas.
           </p>
           <p className="text-sm">
@@ -126,7 +126,7 @@ export function LegalNotice() {
             4. Exclusión de Garantías y Responsabilidad
           </h2>
           <p className="text-sm">
-            MyBookConnect adopta las medidas tecnológicas y organizativas necesarias para evitar la
+            My Book Social adopta las medidas tecnológicas y organizativas necesarias para evitar la
             presencia de errores o virus en el servidor. No obstante, al tratarse de una versión en
             fase beta, no se garantiza la disponibilidad ininterrumpida ni la ausencia absoluta de
             incidencias técnicas en períodos de mantenimiento o actualización de la plataforma.

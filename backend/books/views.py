@@ -170,7 +170,7 @@ class AuthorBooksView(APIView):
             # Buscar en Google Books por autor
             import requests
             params = {'q': f'inauthor:"{author.name}"', 'maxResults': 5}
-            gb = requests.get(services.GOOGLE_BOOKS_API_URL, params=params, timeout=10, headers={'User-Agent': 'MyBookConnect/1.0'})
+            gb = requests.get(services.GOOGLE_BOOKS_API_URL, params=params, timeout=10, headers={'User-Agent': 'MyBookSocial/1.0'})
             if gb.ok:
                 data = gb.json()
                 items = data.get('items') or []

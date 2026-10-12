@@ -90,10 +90,10 @@ class NotificationService:
     def _dispatch_email_notification(recipient, title: str, message: str, link: str):
         """Envía el correo transaccional de forma segura y tolerante a fallos."""
         try:
-            from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', 'no-reply@mybookconnect.com')
+            from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', 'no-reply@mybooksocial.com')
             full_content = f"{title}\n\n{message}\n\nPuedes ver los detalles aquí: {link}"
             send_mail(
-                subject=f"[MyBookConnect] {title}",
+                subject=f"[My Book Social] {title}",
                 message=full_content,
                 from_email=from_email,
                 recipient_list=[recipient.email],

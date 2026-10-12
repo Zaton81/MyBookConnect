@@ -660,10 +660,22 @@ Cualquier agente de IA o desarrollador que se incorpore a la base de código **D
   - Rotación y blacklist efectiva de refresh tokens en `CustomTokenRefreshView` y `LogoutView` con borrado de cookies.
   - En frontend: store `useAuthStore` adaptado con `partialize` para que los tokens sensibles NUNCA se serialicen en `localStorage`. Cliente `apiClient` configurado con `credentials: 'include'`.
   - Suite de pruebas de seguridad `test_phase_a2_security_auth.py` (7 tests nuevos) y suite global de auth pasando al 100%.
-- **Fase A3 — Integridad de dominio y permisos (P0) — SIGUIENTE:**
-  - `UniqueConstraint` en `Review`/`UserBook`, cálculo optimizado de rating sin `save()` completo, validación MIME real en subidas y throttling de endpoints sensibles.
-- **Fase A4 — Health, readiness y superficie de ataque (P0) — PENDIENTE:**
-  - Sondas seguras sin fuga de datos, OpenAPI protegido y checklist OWASP Top 10.
+- **Fase A3 — Integridad de dominio y permisos (P0) — COMPLETADA (2026-10-11):**
+  - `UniqueConstraint` en `Review`/`UserBook`, recálculo atómico de rating con `update()`, validación MIME real en subidas y throttling de endpoints sensibles.
+- **Fase A4 — Health, readiness y superficie de ataque (P0) — COMPLETADA (2026-10-11):**
+  - Sondas seguras sin fuga de datos (`/health/live`, `/health/ready`), OpenAPI protegido y checklist OWASP Top 10 validado.
+- **Fase B1 — Docker y orquestación de producción (P0/P1) — COMPLETADA (2026-10-12):**
+  - Aislamiento de red Nginx (80/443), redes internas `frontend_net` y `backend_net` (`internal: true`), límites de recursos, SSL/TLS Let's Encrypt y scripts de preflight/smoke.
+- **Fase B2 — Backups, restore y disaster recovery (P0) — COMPLETADA (2026-10-12):**
+  - Backup simétrico diario de PostgreSQL, volumen `media/` y configuración crítica. Script de restore y prueba de ciclo completo con RPO/RTO y chequeos de integridad post-restore.
+- **Fase B3 — Observabilidad, telemetría y alertas (P1) — COMPLETADA (2026-10-12):**
+  - Logging estructurado JSON sin fuga de credenciales, integración Sentry con hook `sentry_before_send`, comando de evaluación y alerta de 7 umbrales y manual de incidentes.
+- **Fase B4 — Escalabilidad básica y benchmarks (P1) — COMPLETADA (2026-10-12):**
+  - `PrimaryReplicaRouter`, 5 colas Celery (`default`, `books`, `ai`, `recommendations`, `emails`), Nginx con `least_conn`, invalidación de caché en cascada y benchmarks de SLAs de carga.
+- **Fase C1 — Suite de tests, calidad y rebranding (P1) — COMPLETADA (2026-10-12):**
+  - Migración y rebranding total a My Book Social (`mybooksocial.com`). Optimización Anti-N+1 con complejidad invariante $O(1)$ en `BookSerializer`. Suite E2E de ciclo de vida completo (`test_phase_c1_e2e_critical_flow.py`). Pruebas de carga Locust y runner headless. Linters limpios (Ruff 0 errors, ESLint 0 errors).
+- **Fase C2 — Documentación y gobernanza (P1) — SIGUIENTE:**
+  - Actualización de ADRs, runbooks de operación, guía de contribución/onboarding y política de versionado SemVer.
 
 ---
 

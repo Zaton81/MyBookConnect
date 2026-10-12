@@ -134,7 +134,7 @@ export function AmazonAdSlot({
 
         <div className="mt-3 pt-2 border-t border-amber-100 dark:border-slate-800 flex items-center justify-between text-[10px] text-slate-400 dark:text-slate-500">
           <span>{hasAdConsent ? 'Enlace de afiliación transparente' : 'Cookies pausadas'}</span>
-          <span>MyBookConnect puede percibir comisión</span>
+          <span>My Book Social puede percibir comisión</span>
         </div>
       </aside>
     );

@@ -115,16 +115,16 @@ export const SocialShareModal: React.FC<SocialShareModalProps> = ({
     else if (type === 'reading_stats') url = `${currentOrigin}/statistics`;
     else if (type === 'challenge') url = `${currentOrigin}/challenges`;
 
-    const text = `📖 ¡Echa un vistazo a ${title || 'esto'} en @MyBookConnect! 🚀`;
+    const text = `📖 ¡Echa un vistazo a ${title || 'esto'} en @MyBookSocial! 🚀`;
     const encodedText = encodeURIComponent(text);
     const encodedUrl = encodeURIComponent(url);
 
     setData({
       share_type: type,
-      title: title || 'MyBookConnect',
+      title: title || 'My Book Social',
       description: text,
       canonical_url: url,
-      hashtags: ['#MyBookConnect', '#Lectura'],
+      hashtags: ['#MyBookSocial', '#Lectura'],
       share_text: text,
       share_urls: {
         twitter: `https://twitter.com/intent/tweet?text=${encodedText}&url=${encodedUrl}`,
@@ -132,17 +132,17 @@ export const SocialShareModal: React.FC<SocialShareModalProps> = ({
         telegram: `https://t.me/share/url?url=${encodedUrl}&text=${encodedText}`,
         linkedin: `https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}`,
         facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`,
-        email: `mailto:?subject=${encodeURIComponent(title || 'MyBookConnect')}&body=${encodedText}%0A%0A${encodedUrl}`,
+        email: `mailto:?subject=${encodeURIComponent(title || 'My Book Social')}&body=${encodedText}%0A%0A${encodedUrl}`,
       },
       card_data: {
-        title: title || 'MyBookConnect',
+        title: title || 'My Book Social',
         subtitle: 'Comunidad Literaria',
         stat_highlight: 'Social',
         stat_label: 'Compartido',
         badge_or_icon: '📚',
         image_url: null,
         theme_color: 'teal',
-        site_name: 'MyBookConnect',
+        site_name: 'My Book Social',
       },
     });
   };
@@ -275,7 +275,7 @@ export const SocialShareModal: React.FC<SocialShareModalProps> = ({
               {/* Pie de tarjeta */}
               <div className="mt-5 pt-3 border-t border-white/10 flex justify-between items-center text-[10px] text-slate-400">
                 <span className="truncate">{data.hashtags.join(' ')}</span>
-                <span className="shrink-0 font-semibold text-teal-400 ml-2">mybookconnect.com</span>
+                <span className="shrink-0 font-semibold text-teal-400 ml-2">mybooksocial.com</span>
               </div>
             </div>
 

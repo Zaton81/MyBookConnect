@@ -62,14 +62,14 @@ export function PrivacyPolicy() {
           </h2>
           <p className="text-sm">
             El responsable del tratamiento de los datos recabados a través de{' '}
-            <strong>MyBookConnect</strong> es el equipo promotor de la plataforma. Para cualquier
+            <strong>My Book Social</strong> es el equipo promotor de la plataforma. Para cualquier
             consulta relativa a la privacidad o para el ejercicio de tus derechos, puedes contactar
             directamente con nuestro Delegado de Protección de Datos a través de{' '}
             <a
-              href="mailto:privacidad@mybookconnect.local"
+              href="mailto:privacidad@mybooksocial.com"
               className="text-teal-600 dark:text-teal-400 underline font-medium"
             >
-              privacidad@mybookconnect.local
+              privacidad@mybooksocial.com
             </a>
             .
           </p>
@@ -157,7 +157,7 @@ export function PrivacyPolicy() {
             5. Filosofía Analytics Privacy-First
           </h2>
           <p className="text-sm">
-            En MyBookConnect <strong>no introducimos tracking innecesario</strong>. No empleamos
+            En My Book Social <strong>no introducimos tracking innecesario</strong>. No empleamos
             herramientas de rastreo invasivo, cookies de perfilado comercial entre sitios ni
             servicios de publicidad comportamental de terceros. Las estadísticas de la plataforma
             son agregadas, anónimas y orientadas exclusivamente al rendimiento del servicio.

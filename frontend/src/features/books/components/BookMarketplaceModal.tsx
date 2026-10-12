@@ -543,7 +543,7 @@ export const BookMarketplaceModal: React.FC<BookMarketplaceModalProps> = ({
         {/* Pie del modal con declaración ética y legal */}
         <div className="p-4 bg-slate-50 dark:bg-slate-950/80 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-500 dark:text-slate-400 flex flex-col sm:flex-row items-center justify-between gap-2 text-center sm:text-left">
           <p className="max-w-xl">
-            🌿 <span className="font-semibold">Compromiso ético:</span> MyBookConnect apoya las
+            🌿 <span className="font-semibold">Compromiso ético:</span> My Book Social apoya las
             librerías de proximidad. Las compras no condicionan las recomendaciones.
           </p>
           <button

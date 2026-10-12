@@ -403,7 +403,7 @@ export function PublicLandingPage() {
             ¿Listo para empezar tu próxima aventura de lectura?
           </h2>
           <p className="mt-4 text-teal-100 text-sm sm:text-base leading-relaxed">
-            Únete a la comunidad de MyBookConnect. Crea tu cuenta en menos de un minuto y organiza
+            Únete a la comunidad de My Book Social. Crea tu cuenta en menos de un minuto y organiza
             tu biblioteca personal hoy mismo.
           </p>
           <div className="mt-8 flex flex-col sm:flex-row items-center gap-4">

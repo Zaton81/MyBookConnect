@@ -41,12 +41,12 @@ Para apuntar el dominio de producción a los servidores de MyBookConnect:
 
 | Tipo | Nombre de Host | Destino / Valor | Finalidad |
 | :--- | :--- | :--- | :--- |
-| **A** | `@` (o `mybookconnect.com`) | `203.0.113.10` (IP Servidor) | Dominio raíz, SPA y endpoints web |
+| **A** | `@` (o `mybooksocial.com`) | `203.0.113.10` (IP Servidor) | Dominio raíz, SPA y endpoints web |
 | **A** | `www` | `203.0.113.10` | Redirección canónica a `@` |
 | **A** | `api` | `203.0.113.10` | Dominio de API REST/GraphQL (opcional si usa subruta) |
 | **CNAME** | `media` | `bucket.r2.cloudflarestorage.com` / CloudFront | CDN de archivos multimedia y avatares |
 | **TXT** | `@` | `v=spf1 include:sendgrid.net ~all` | Registro SPF para correo saliente |
-| **TXT** | `_dmarc` | `v=DMARC1; p=reject; rua=mailto:dmarc@mybookconnect.com` | Política DMARC de máxima protección |
+| **TXT** | `_dmarc` | `v=DMARC1; p=reject; rua=mailto:dmarc@mybooksocial.com` | Política DMARC de máxima protección |
 | **TXT** | `s1._domainkey` | Clave pública proporcionada por SendGrid/SES | Firma criptográfica DKIM |
 
 ---
@@ -63,8 +63,8 @@ docker run -it --rm --name certbot \
   -v "/var/www/certbot:/var/www/certbot" \
   certbot/certbot certonly --webroot \
   --webroot-path=/var/www/certbot \
-  --email admin@mybookconnect.com --agree-tos --no-eff-email \
-  -d mybookconnect.com -d www.mybookconnect.com
+  --email admin@mybooksocial.com --agree-tos --no-eff-email \
+  -d mybooksocial.com -d www.mybooksocial.com
 ```
 
 ### Renovación Automática (systemd timer o cron)

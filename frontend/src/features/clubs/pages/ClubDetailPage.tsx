@@ -238,7 +238,7 @@ export const ClubDetailPage: React.FC = () => {
             </h1>
 
             <p className="text-base text-gray-600 dark:text-gray-300 leading-relaxed">
-              {club.description || 'Comunidad literaria de MyBookConnect.'}
+              {club.description || 'Comunidad literaria de My Book Social.'}
             </p>
 
             <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400 pt-1">

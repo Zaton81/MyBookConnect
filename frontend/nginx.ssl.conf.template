@@ -20,7 +20,7 @@ upstream django_cluster {
 server {
     listen 80;
     listen [::]:80;
-    server_name mybookconnect.com www.mybookconnect.com;
+    server_name mybooksocial.com www.mybooksocial.com;
 
     location /.well-known/acme-challenge/ {
         root /var/www/certbot;
@@ -42,14 +42,14 @@ server {
 server {
     listen 443 ssl http2;
     listen [::]:443 ssl http2;
-    server_name mybookconnect.com www.mybookconnect.com;
+    server_name mybooksocial.com www.mybooksocial.com;
 
     root /usr/share/nginx/html;
     index index.html;
 
     # Certificados gestionados por Certbot
-    ssl_certificate /etc/letsencrypt/live/mybookconnect.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/mybookconnect.com/privkey.pem;
+    ssl_certificate /etc/letsencrypt/live/mybooksocial.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/mybooksocial.com/privkey.pem;
 
     ssl_protocols TLSv1.2 TLSv1.3;
     ssl_prefer_server_ciphers on;

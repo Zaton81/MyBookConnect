@@ -61,7 +61,7 @@ export function ContentPolicy() {
             1. Filosofía de Comunidad Literaria
           </h2>
           <p className="text-sm">
-            MyBookConnect es un punto de encuentro para lectores. Valoramos la libertad de criterio,
+            My Book Social es un punto de encuentro para lectores. Valoramos la libertad de criterio,
             el entusiasmo crítico y el debate argumentado. Para garantizar un entorno seguro y
             agradable para todas las sensibilidades lectoras, establecemos las siguientes normas
             comunitarias.

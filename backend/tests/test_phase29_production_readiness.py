@@ -50,7 +50,7 @@ class TestPhase29ProductionReadiness:
 
     def test_allowed_hosts_enforcement(self):
         """Valida que peticiones con host no permitido sean rechazadas con 400 y DisallowedHost."""
-        with override_settings(ALLOWED_HOSTS=['mybookconnect.com', 'testserver']):
+        with override_settings(ALLOWED_HOSTS=['mybooksocial.com', 'testserver']):
             client = APIClient()
             # Django Client captura DisallowedHost y responde HTTP 400 Bad Request
             response = client.get('/health/live', HTTP_HOST='malicious-domain.evil')

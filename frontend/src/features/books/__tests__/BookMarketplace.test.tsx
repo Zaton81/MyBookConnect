@@ -15,7 +15,7 @@ const mockMarketplaceData: MarketplaceData = {
     is_verified: true,
   },
   can_manage: true,
-  disclosure: 'MyBookConnect apoya el comercio de proximidad y la transparencia comercial.',
+  disclosure: 'My Book Social apoya el comercio de proximidad y la transparencia comercial.',
   total_offers: 5,
   offers: [
     {
