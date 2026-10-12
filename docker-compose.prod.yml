@@ -27,6 +27,8 @@ services:
     volumes:
       - backend_media:/app/media:ro
       - backend_static:/app/staticfiles:ro
+      - certbot_www:/var/www/certbot:ro
+      - certbot_certs:/etc/letsencrypt:ro
     depends_on:
       backend:
         condition: service_healthy
@@ -157,6 +159,23 @@ services:
           cpus: '0.50'
           memory: 384M
 
+  # ─── Renovación Automática de Certificados SSL/TLS (Let's Encrypt / Certbot) ───
+  certbot:
+    image: certbot/certbot:latest
+    container_name: booksocial-certbot-prod
+    restart: always
+    volumes:
+      - certbot_www:/var/www/certbot
+      - certbot_certs:/etc/letsencrypt
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew --quiet; sleep 12h & wait $${!}; done;'"
+    networks:
+      - frontend_net
+    deploy:
+      resources:
+        limits:
+          cpus: '0.20'
+          memory: 128M
+
 networks:
   # Red pública compartida entre Nginx y Backend
   frontend_net:
@@ -177,3 +196,7 @@ volumes:
     name: booksocial_static_data
   backups_data:
     name: booksocial_backups_data
+  certbot_www:
+    name: booksocial_certbot_www
+  certbot_certs:
+    name: booksocial_certbot_certs

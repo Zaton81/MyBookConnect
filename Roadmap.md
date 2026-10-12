@@ -134,19 +134,19 @@
 **Duración estimada:** 3-4 días  
 **Prioridad:** 🔴 P0 / 🟠 P1
 
-- [ ] Validación end-to-end de `docker-compose.prod.yml`:
+- [x] Validación end-to-end de `docker-compose.prod.yml`:
   - Nginx como único punto de entrada (80/443).
   - Backend, Celery, PostgreSQL y Redis sin puertos públicos.
   - Redes `frontend_net` y `backend_net` (internal).
   - Usuario no-root en todos los contenedores de aplicación.
   - Healthchecks, `stop_signal` y `stop_grace_period`.
   - Límites de CPU y memoria.
-- [ ] Secrets management (Docker secrets o solución equivalente; nunca `.env` en claro en prod).
-- [ ] Configuración de SSL/TLS (certificados, renovación automática).
-- [ ] Upstream balanceado y `limit_req_zone` en Nginx.
-- [ ] Scripts de preflight y smoke de producción.
+- [x] Secrets management (Docker secrets o solución equivalente; nunca `.env` en claro en prod).
+- [x] Configuración de SSL/TLS (certificados, renovación automática).
+- [x] Upstream balanceado y `limit_req_zone` en Nginx.
+- [x] Scripts de preflight y smoke de producción.
 
-**Criterio de salida:** Entorno de staging idéntico a producción levantado y validado.
+**Criterio de salida:** Entorno de staging idéntico a producción levantado y validado. [COMPLETADO - 2026-10-12]
 
 ---
 
