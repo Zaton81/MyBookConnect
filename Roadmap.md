@@ -217,13 +217,13 @@
 **Duración estimada:** 2-3 días  
 **Prioridad:** 🟠 P1
 
-- [ ] Actualización de ADRs existentes y creación de los pendientes.
-- [ ] Runbooks de operación (restore, rotación de secrets, scaling, incidentes).
-- [ ] Guía de contribución y de onboarding de agentes/desarrolladores.
-- [ ] Sincronización de `memory.md`, `CHANGELOG.md` y este `Roadmap.md`.
-- [ ] Versionado SemVer estricto y política de release.
+- [x] Actualización de ADRs existentes y creación de los pendientes (ADRs 009 a 013 e índice en `docs/decisions/`).
+- [x] Runbooks de operación (restore, rotación de secrets, scaling, incidentes) en `docs/devops/operations_runbook.md`.
+- [x] Guía de contribución y de onboarding de agentes/desarrolladores en `CONTRIBUTING.md`.
+- [x] Sincronización de `memory.md`, `CHANGELOG.md` y este `Roadmap.md`.
+- [x] Versionado SemVer estricto y política de release en `docs/development/versioning_and_release_policy.md`.
 
-**Criterio de salida:** Documentación operativa completa y accesible en `docs/`.
+**Criterio de salida:** Documentación operativa completa y accesible en `docs/`. [COMPLETADO - 2026-10-12]
 
 ---
 

@@ -7,6 +7,17 @@ y este proyecto se adhiere a [Semantic Versioning 2.0.0](https://semver.org/lang
 
 ## [Unreleased]
 
+### Added / Documentation, ADRs & Governance Hardening (Roadmap Bloque C - Fase C2)
+- **Nuevos Registros de Decisión Arquitectónica (`docs/decisions/`)**:
+  - Incorporados ADR-009 (Mitigación de XSS mediante Cookies HttpOnly y Handshake WebSocket por Tickets Efímeros), ADR-010 (Topología Docker Aislada con Nginx como Punto Único de Entrada), ADR-011 (Copias de Seguridad Cifradas AES-256, DRP y Verificación de Integridad), ADR-012 (Enrutamiento Celery Multi-Cola y Read-Replicas) y ADR-013 (Batching Anti-N+1 en ListSerializer).
+  - Creado índice maestro en `docs/decisions/README.md` catalogando los 13 ADRs del sistema.
+- **Manual de Operaciones y Runbooks de Producción (`docs/devops/operations_runbook.md`)**:
+  - Manual unificado con instrucciones ejecutables paso a paso para restauración ante desastres (DRP), rotación segura de secretos críticos (`SECRET_KEY`, PostgreSQL, AWS S3/PA-API), escalado horizontal de Celery/Daphne y protocolo de triaje y respuesta rápida a incidentes P0.
+- **Guía de Contribución y Onboarding (`CONTRIBUTING.md`)**:
+  - Guía centralizada en la raíz del repositorio con estándares de código (Ruff, ESLint), flujos de ramas (`develop`/`main`), convenciones de commits semánticos, checklist Definition of Done y protocolo obligatorio para agentes autónomos de IA.
+- **Política de Versionado SemVer y Ciclo de Release (`docs/development/versioning_and_release_policy.md`)**:
+  - Formalización del esquema SemVer 2.0.0, etapas de feature freeze, preparación de release, etiquetado de tags Git y gestión ágil de hotfixes de seguridad.
+
 ### Added & Changed / Test Hardening, Anti-N+1, E2E & Rebranding (Roadmap Bloque C - Fase C1)
 - **Unificación de Marca y Dominio a My Book Social (`mybooksocial.com`)**:
   - Reemplazo exhaustivo de todas las referencias al antiguo dominio y nombre en `.env.production.example`, `frontend/nginx.ssl.conf.template`, `backend/users/notification_service.py`, `backend/users/tasks.py`, `backend/books/services/base.py`, páginas legales, componentes UI (`SocialShareModal`, `AccountPrivacySection`, `PublicLandingPage`, etc.) y suites de pruebas (0 incidencias residuales de `mybookconnect.com`).
