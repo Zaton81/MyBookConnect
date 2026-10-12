@@ -103,6 +103,7 @@ Cualquier agente de IA o desarrollador que se incorpore a la base de código **D
 | **Fase D1** | **Perfil de lector y privacidad** | COMPLETADA | Enmascaramiento estricto de PII en perfiles de usuario (`apply_profile_field_visibility`), aislamiento social en bloqueos mutuos, privacidad de lecturas y exportación/eliminación RGPD (`test_phase_d1_reader_profile_and_privacy.py`, 8 tests). |
 | **Fase D2** | **Autores, catálogo y páginas de libro** | COMPLETADA | Modelo multi-rol `BookContribution` sincronizado con autor histórico, conversión determinista ISBN-10/13 y búsqueda cruzada, deduplicación atómica (`merge_books`), persistencia de `page_count` en enriquecimiento y renderizado en UI de perfil de libro (`test_phase_d2_authors_and_catalog.py`, 6 tests). |
 | **Fase D3** | **Reseñas, social, feed y notificaciones** | COMPLETADA | Unicidad de reseña activa + reactivación limpia de soft-delete, eliminación de N+1 con prefetch de `contributions__author`, exclusión de moderados y borrados en feed (`PrivacyService.filter_visible_activities`), aislamiento de bloqueados en notificaciones y observancia de canales (`test_phase_d3_reviews_social_feed.py`, 10 tests). |
+| **Fase D4** | **Búsqueda, descubrimiento y recomendaciones** | COMPLETADA | Motor de búsqueda híbrido multicanal (`UnifiedSearchEngine`), descubrimiento facetado público (`BookDiscoveryView`), recomendaciones con penalización de obras en biblioteca (`UserBook`), cold-start y explicabilidad ética (`reason` / `/explain/`) (`test_phase_d4_search_discovery_recommendations.py`, 7 tests). |
 
 ---
 

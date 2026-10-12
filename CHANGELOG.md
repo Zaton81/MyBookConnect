@@ -7,6 +7,18 @@ y este proyecto se adhiere a [Semantic Versioning 2.0.0](https://semver.org/lang
 
 ## [Unreleased]
 
+### Added & Changed / Search, Discovery & Recommendations Hardening (Roadmap Bloque D - Fase D4)
+- **Búsqueda Híbrida Resiliente (`backend/books/services/unified_search_service.py`)**:
+  - `UnifiedSearchEngine` consolidado combinando FTS (`SearchVector`/`SearchRank`), búsqueda difusa por trigramas (`TrigramSimilarity`/`TrigramWordSimilarity`) y embeddings semánticos con fallback automático tolerante a fallos sin dependencias duras externas.
+- **Descubrimiento Facetado y Tendencias Públicas (`backend/books/discovery_views.py`)**:
+  - `BookDiscoveryView`: soporte para filtrado por slug o nombre de género (`Q(categories__slug__iexact=...) | Q(categories__name__iexact=...)`), con normalización de claves de caché para evitar caracteres especiales en Redis y Memcached.
+- **Motor de Recomendaciones con Transparencia Ética y Cold-Start (`backend/books/services/recommendation_service.py`)**:
+  - Exclusión estricta de obras en biblioteca (`UserBook`) y obras descartadas (`RecommendationFeedbackAction.DISMISSED`).
+  - Algoritmo de arranque en frío (*cold-start*) aprovechando las categorías favoritas de onboarding (`user.favorite_categories`).
+  - Explicabilidad algorítmica obligatoria (`reason`) en cada ítem y endpoint `/api/v1/books/recommendations/<id>/explain/` detallando motivos de sugerencia.
+- **Suite Integral de Pruebas de Búsqueda, Descubrimiento y Recomendaciones (`backend/tests/test_phase_d4_search_discovery_recommendations.py`)**:
+  - 7 pruebas unitarias y de integración pasando al 100% que validan búsqueda híbrida, endpoint global, descubrimiento no autenticado, faceteado por género, exclusión de leídos, cold-start y transparencia ética de la IA.
+
 ### Added & Changed / Reviews, Social Interactions, Feed & Notifications Hardening (Roadmap Bloque D - Fase D3)
 - **Ciclo de Vida de Reseñas y Reactivación Limpia tras Soft-Delete (`backend/books/views.py`)**:
   - Garantizada la unicidad de reseña activa por usuario y libro (`unique_active_review_user_book`). Si un usuario publica nuevamente para un libro cuya reseña previa fue eliminada con soft-delete, el sistema restaura la entidad existente (`deleted_at = None`), actualiza su puntuación y contenido, y recalcula de forma atómica el promedio del libro sin generar filas huérfanas duplicadas.

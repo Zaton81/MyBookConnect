@@ -278,10 +278,13 @@
 **Duración estimada:** 4-6 días  
 **Prioridad:** 🟠 P1 / 🟡 P2
 
-- [ ] Búsqueda híbrida (trigramas + embeddings) estable y rápida.
-- [ ] Descubrimiento facetado y tendencias públicas.
-- [ ] Motor de recomendaciones: diversidad, penalización de ya vistos, afinidad temporal y cold-start.
-- [ ] Transparencia ética de la IA (explicabilidad mínima).
+- [x] Búsqueda híbrida (`UnifiedSearchEngine`) multicanal (léxica, difusa por trigramas y semántica) estable y resiliente con fallback sin dependencias duras externas.
+- [x] Descubrimiento facetado y tendencias públicas (`BookDiscoveryView` en `/api/v1/books/discover/`) con filtrado por género y caché normalizada sin caracteres especiales.
+- [x] Motor de recomendaciones con diversidad, exclusión estricta de obras en biblioteca (`UserBook`) y soporte de arranque en frío (*cold-start*) basado en preferencias de onboarding (`favorite_categories`).
+- [x] Transparencia ética y explicabilidad algorítmica obligatoria (`reason` en cada ítem y endpoint estructurado `/explain/`).
+- [x] Suite de pruebas exhaustiva (`backend/tests/test_phase_d4_search_discovery_recommendations.py`) 100% verde (7/7 passed).
+
+**Criterio de salida de Bloque D:** Catálogo, autores, privacidad, feed, descubrimiento y recomendaciones 100% endurecidos, operables y auditados. [COMPLETADO - 2026-10-12]
 
 ---
 
