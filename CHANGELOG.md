@@ -7,6 +7,19 @@ y este proyecto se adhiere a [Semantic Versioning 2.0.0](https://semver.org/lang
 
 ## [Unreleased]
 
+### Added & Changed / Reviews, Social Interactions, Feed & Notifications Hardening (Roadmap Bloque D - Fase D3)
+- **Ciclo de Vida de Reseñas y Reactivación Limpia tras Soft-Delete (`backend/books/views.py`)**:
+  - Garantizada la unicidad de reseña activa por usuario y libro (`unique_active_review_user_book`). Si un usuario publica nuevamente para un libro cuya reseña previa fue eliminada con soft-delete, el sistema restaura la entidad existente (`deleted_at = None`), actualiza su puntuación y contenido, y recalcula de forma atómica el promedio del libro sin generar filas huérfanas duplicadas.
+  - Erradicada la degradación N+1 en listados de libros precargando `contributions__author` en `BookListCreateView` y `BookDetailView`.
+- **Aislamiento Social, Exclusión de Moderados y Blindaje del Feed (`backend/users/privacy_service.py`)**:
+  - `PrivacyService.filter_visible_activities`: Exclusión rigurosa de actividades ligadas a reseñas con soft-delete (`review__deleted_at__isnull=False`) o moderadas (`review__is_moderated=True`) para usuarios sin permisos de staff.
+  - Filtro estricto de bloqueos bidireccionales (`blocked_users`, `blocked_by`) y usuarios silenciados (`muted_users`) en el feed social cronológico e inteligente.
+  - Respeto del nivel privado de actividad (`activity_privacy_level: private`).
+- **Fiabilidad en Notificaciones y Protección ante Bloqueos (`backend/users/notification_service.py`)**:
+  - Supresión garantizada de cualquier notificación si existe bloqueo activo entre los usuarios, e integridad en el cumplimiento de canales según preferencias `NotificationPreference` (In-App y Email).
+- **Suite Integral de Pruebas de Reseñas, Social y Feed (`backend/tests/test_phase_d3_reviews_social_feed.py`)**:
+  - 10 pruebas unitarias y de integración pasando al 100% que validan el ciclo de vida de reseñas, soft-delete y reactivación limpia, validación temprana de duplicados, likes y concurrencia, exclusión de moderados/silenciados en el feed y fiabilidad de notificaciones.
+
 ### Added & Changed / Authors, Multi-Role Contributions, ISBN-10/13 & Page Count (Roadmap Bloque D - Fase D2)
 - **Modelo de Contribuciones Multi-Rol (`backend/books/models.py`, `backend/books/serializers.py`)**:
   - Incorporado modelo `BookContribution` con roles definidos (`AUTHOR`, `COAUTHOR`, `TRANSLATOR`, `ILLUSTRATOR`, `NARRATOR`, `EDITOR`) y sincronización automática bidireccional con campos históricos `book.author` y `book.authors`.

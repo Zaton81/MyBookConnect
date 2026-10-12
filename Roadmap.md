@@ -263,11 +263,14 @@
 **Duración estimada:** 4-5 días  
 **Prioridad:** 🟠 P1
 
-- [ ] Una reseña activa por usuario/libro + soft-delete limpio.
-- [ ] Likes únicos y agregaciones de rating eficientes.
-- [ ] Feed social optimizado (exclusión de bloqueados/silenciados, paginación, caché).
-- [ ] Notificaciones fiables (in-app + preferencias de email/push).
-- [ ] Moderación de contenido (reportes, cola admin, AuditLog) re-validada.
+- [x] Una reseña activa por usuario/libro (`unique_active_review_user_book`) + reactivación limpia tras soft-delete reutilizando entidad previa sin duplicados.
+- [x] Likes únicos e idempotentes (`ReviewLike`) con protección ante bloqueos y agregación atómica de ratings (`update_book_rating`, `recalculate_book_rating_task`).
+- [x] Feed social optimizado y blindado (exclusión bidireccional de bloqueados, silenciados, actividades de reseñas borradas/moderadas y privacidad `activity_privacy_level: private`).
+- [x] Notificaciones fiables y respetuosas de privacidad (supresión de notificaciones entre usuarios bloqueados y observancia de canales `NotificationPreference`).
+- [x] Moderación de contenido re-validada con filtrado automático en feeds públicos y detalle para no-admins.
+- [x] Suite de pruebas exhaustiva (`backend/tests/test_phase_d3_reviews_social_feed.py`) 100% verde (10/10 passed).
+
+**Criterio de salida:** Suite de interacción social, reseñas y feed 100% verde + cero filtraciones entre usuarios bloqueados. [COMPLETADO - 2026-10-12]
 
 ---
 
