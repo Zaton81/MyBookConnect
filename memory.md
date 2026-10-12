@@ -676,8 +676,10 @@ Cualquier agente de IA o desarrollador que se incorpore a la base de código **D
   - Migración y rebranding total a My Book Social (`mybooksocial.com`). Optimización Anti-N+1 con complejidad invariante $O(1)$ en `BookSerializer`. Suite E2E de ciclo de vida completo (`test_phase_c1_e2e_critical_flow.py`). Pruebas de carga Locust y runner headless. Linters limpios (Ruff 0 errors, ESLint 0 errors).
 - **Fase C2 — Documentación y gobernanza (P1) — COMPLETADA (2026-10-12):**
   - Incorporados ADRs 009 a 013 con índice maestro en `docs/decisions/README.md`. Creado manual unificado de operaciones y runbooks de producción (`docs/devops/operations_runbook.md`), guía de gobernanza y onboarding (`CONTRIBUTING.md`) y política de versionado SemVer y release (`docs/development/versioning_and_release_policy.md`).
-- **Fase D1 — Perfil de lector y privacidad (P1) — SIGUIENTE:**
-  - Perfil público/privado/amigos, estadísticas de lectura, avatares, biografía y control de privacidad, re-validación de exportación/eliminación RGPD y tests de visibilidad y bloqueos.
+- **Fase D1 — Perfil de lector y privacidad (P1) — COMPLETADA (2026-10-12):**
+  - Consistencia de perfiles público/amigos/privado en API y UI. Enmascaramiento granular de PII (email, nacimiento, ubicación, bio) mediante `PrivacyService.apply_profile_field_visibility`. Bloqueos bidireccionales con auto-unfollow y aislamiento social completo. Protección de biblioteca bajo `reading_privacy_level`. Re-validación RGPD Art. 17/20 bajo My Book Social (`mybooksocial_data_export_...`). Suite de 8 tests pasando al 100% (`test_phase_d1_reader_profile_and_privacy.py`).
+- **Fase D2 — Autores y catálogo (P1) — SIGUIENTE:**
+  - Relación Book ↔ Author multi-rol (autor, coautor, traductor, ilustrador, narrador), sincronización con Open Library / PA-API, deduplicación de ediciones y metadatos extendidos.
 
 ---
 

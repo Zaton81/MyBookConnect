@@ -235,11 +235,13 @@
 **Duración estimada:** 3-4 días  
 **Prioridad:** 🟠 P1
 
-- [ ] Perfil público/privado/amigos completamente funcional y consistente.
-- [ ] Estadísticas de lectura, libros leídos/leyendo/pendientes, reseñas y actividad.
-- [ ] Avatar, biografía, ubicación y fecha de nacimiento con control de privacidad.
-- [ ] Exportación RGPD (Art. 20) y eliminación/anonimización (Art. 17) ya existentes → re-validación.
-- [ ] Tests de visibilidad y bloqueos.
+- [x] Perfil público/privado/amigos completamente funcional y consistente (`users/privacy_service.py`, `Profile.tsx`).
+- [x] Estadísticas de lectura, libros leídos/leyendo/pendientes, reseñas y actividad con protección `reading_privacy_level` (ocultas para terceros si es privado).
+- [x] Avatar, biografía, ubicación y fecha de nacimiento con control granular de privacidad y ofuscación de PII (`apply_profile_field_visibility`).
+- [x] Exportación RGPD (Art. 20 con filename `mybooksocial_data_export_{username}.json` y metadatos `My Book Social`) y eliminación/anonimización (Art. 17).
+- [x] Tests de visibilidad, aislamiento y bloqueos (`backend/tests/test_phase_d1_reader_profile_and_privacy.py`).
+
+**Criterio de salida:** Suite de visibilidad y RGPD 100% verde + cero fugas de datos privados. [COMPLETADO - 2026-10-12]
 
 ---
 

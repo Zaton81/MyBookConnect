@@ -385,7 +385,7 @@ class DataExportView(APIView):
         # Ensamble final del paquete de datos portables (Roadmap 22.2)
         export_payload = {
             "_metadata": {
-                "platform": "MyBookConnect",
+                "platform": "My Book Social",
                 "version": "1.0.0-gdpr",
                 "exported_at": timezone.now().isoformat(),
                 "user_id": user.id,
@@ -414,7 +414,7 @@ class DataExportView(APIView):
         )
 
         json_bytes = json.dumps(export_payload, ensure_ascii=False, indent=2).encode('utf-8')
-        filename = f"mybookconnect_data_export_{user.username}.json"
+        filename = f"mybooksocial_data_export_{user.username}.json"
 
         response = HttpResponse(json_bytes, content_type='application/json; charset=utf-8')
         response['Content-Disposition'] = f'attachment; filename="{filename}"'

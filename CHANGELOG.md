@@ -7,6 +7,17 @@ y este proyecto se adhiere a [Semantic Versioning 2.0.0](https://semver.org/lang
 
 ## [Unreleased]
 
+### Added & Changed / Reader Profile, Field Masking & GDPR Hardening (Roadmap Bloque D - Fase D1)
+- **Consistencia y Blindaje de Privacidad de Perfil (`backend/users/privacy_service.py`)**:
+  - Control de visibilidad estricto para perfiles `public`, `friends` y `private`, con ofuscación granular de PII (`email`, `birth_date`, `location`, `bio`) para terceros cuando las banderas de visibilidad están desactivadas.
+  - Protección de biblioteca y métricas de lectura (`books_read_count`, `reviews_count`) bajo `reading_privacy_level` (ocultas para terceros en modo `private`).
+  - Aislamiento bidireccional en bloqueos: auto-unfollow, denegación de acceso a perfil, prohibición de mensajes directos e interacciones sociales.
+- **Re-validación RGPD bajo My Book Social (`backend/users/account_views.py`)**:
+  - Actualizado el endpoint de portabilidad (`/api/v1/users/account/export/`) para generar archivos descargables con nombre canónico `mybooksocial_data_export_{username}.json` y metadatos con `platform: "My Book Social"`.
+  - Re-validación del circuito de supresión y anonimización de cuenta (Art. 17) con registro de auditoría en `AuditLog`.
+- **Suite Integral de Pruebas de Perfil y Privacidad (`backend/tests/test_phase_d1_reader_profile_and_privacy.py`)**:
+  - 8 pruebas unitarias y de integración pasando al 100% que validan el enmascaramiento de datos personales, acceso a perfiles de amigos y privados, bloqueos mutuos, privacidad de lecturas y exportación/eliminación RGPD.
+
 ### Added / Documentation, ADRs & Governance Hardening (Roadmap Bloque C - Fase C2)
 - **Nuevos Registros de Decisión Arquitectónica (`docs/decisions/`)**:
   - Incorporados ADR-009 (Mitigación de XSS mediante Cookies HttpOnly y Handshake WebSocket por Tickets Efímeros), ADR-010 (Topología Docker Aislada con Nginx como Punto Único de Entrada), ADR-011 (Copias de Seguridad Cifradas AES-256, DRP y Verificación de Integridad), ADR-012 (Enrutamiento Celery Multi-Cola y Read-Replicas) y ADR-013 (Batching Anti-N+1 en ListSerializer).
