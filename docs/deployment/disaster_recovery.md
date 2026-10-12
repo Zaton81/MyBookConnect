@@ -212,3 +212,57 @@ docker compose -f docker-compose.prod.yml exec -T backend python manage.py flush
 ```bash
 docker compose -f docker-compose.prod.yml restart backend celery_worker
 ```
+
+---
+
+## 7. Runbook 6: Verificación de Integridad Post-Restauración
+
+Tras ejecutar cualquier restauración (PostgreSQL o Media), es obligatorio ejecutar la batería de integridad referencial y de dominio para validar que el sistema está completamente operativo antes de habilitar el tráfico:
+
+### Paso 1: Ejecutar Verificación Estructurada
+```bash
+# Mediante script wrapper
+./scripts/backup/verify_restore_integrity.sh
+
+# O directamente mediante comando Django en contenedor
+docker compose -f docker-compose.prod.yml exec -T backend python manage.py verify_restore_integrity --check-media --min-users=1
+```
+
+### Paso 2: Análisis del Reporte
+El comando verifica:
+1. **Usuarios:** Coherencia de cuentas activas, superusuarios y ausencia de registros con email nulo.
+2. **Catálogo:** Conteo de libros y autores, ausencia de títulos vacíos y coherencia de ratings promedio en rango $[0.0, 5.0]$.
+3. **Interacciones:** Integridad de reseñas (calificaciones en $[1, 5]$) y libros de usuario, sin registros huérfanos.
+4. **Mensajería:** Conversaciones y mensajes consistentes sin participantes desvinculados.
+5. **Media:** Existencia física de las portadas registradas en la base de datos dentro del volumen `MEDIA_ROOT`.
+
+Si se detectan errores críticos, el comando retorna código `1` y detiene el proceso de puesta en producción.
+
+---
+
+## 8. Runbook 7: Monitorización de Frescura de Backups y Alerta RPO
+
+Para garantizar que el objetivo **RPO $\le 24$ horas** se cumple en todo momento y no se producen fallos silenciosos de backups:
+
+### Paso 1: Verificación Automatizada (Cron / Monitor)
+```bash
+docker compose -f docker-compose.prod.yml exec -T backend python manage.py check_backup_freshness --max-age-hours=24 --subsystems=db,media,config --json
+```
+
+### Paso 2: Comportamiento ante Anomalías
+- Si el último backup supera las 24 horas (`STALE`): se genera código de salida `1` para disparar alertas en el sistema de monitorización.
+- Si el archivo fue alterado o presenta discrepancia de firma criptográfica SHA-256 (`CORRUPTED`): se notifica de inmediato.
+- Si no existe ningún archivo de copia de seguridad (`MISSING`): se emite alerta crítica.
+
+---
+
+## 9. Runbook 8: Ejecución del Ciclo Maestro de Backup Diario
+
+Para respaldar de forma unificada la base de datos, el almacenamiento de medios y los archivos esenciales de configuración:
+
+```bash
+# Ejecutar ciclo completo diario
+./scripts/backup/backup_all.sh
+```
+El script genera un resumen JSON consolidado `daily_backup_summary_<timestamp>.json` con métricas de duración, estado por subsistema y hashes SHA-256 en `./backups/`.
+

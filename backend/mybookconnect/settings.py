@@ -378,7 +378,9 @@ CACHES = {
     }
 }
 
-# ─── Configuración de Observabilidad y Logging Estructurado (Fase 42) ───
+# ─── Configuración de Observabilidad y Logging Estructurado (Fase B3 - Roadmap v2.0) ───
+USE_STRUCTURED_LOGS = os.environ.get('STRUCTURED_LOGS', str(not DEBUG)).lower() in ('true', '1', 'yes')
+
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
@@ -394,7 +396,7 @@ LOGGING = {
     'handlers': {
         'console': {
             'class': 'logging.StreamHandler',
-            'formatter': 'verbose' if DEBUG else 'structured_json',
+            'formatter': 'structured_json' if USE_STRUCTURED_LOGS else 'verbose',
         },
         'structured_console': {
             'class': 'logging.StreamHandler',
@@ -412,8 +414,64 @@ LOGGING = {
             'level': 'WARNING',
             'propagate': False,
         },
+        'django.security': {
+            'handlers': ['console'],
+            'level': 'WARNING',
+            'propagate': False,
+        },
     },
 }
+
+
+def sentry_before_send(event, hint):
+    """
+    Filtro de seguridad previo al despacho de eventos hacia Sentry.
+    Enmascara credenciales, tokens JWT y datos sensibles para prevenir fugas de PII (RGPD).
+    """
+    try:
+        from mybookconnect.logging_formatters import sanitize_sensitive_data
+        if 'request' in event:
+            req = event['request']
+            if 'data' in req:
+                req['data'] = sanitize_sensitive_data(req['data'])
+            if 'headers' in req:
+                req['headers'] = sanitize_sensitive_data(req['headers'])
+            if 'cookies' in req:
+                req['cookies'] = sanitize_sensitive_data(req['cookies'])
+        if 'extra' in event:
+            event['extra'] = sanitize_sensitive_data(event['extra'])
+    except Exception:
+        pass
+    return event
+
+
+# ─── Integración de Error Tracking con Sentry (Fase B3) ───
+SENTRY_DSN = os.getenv('SENTRY_DSN', '')
+SENTRY_ENVIRONMENT = os.getenv('SENTRY_ENVIRONMENT', 'production' if not DEBUG else 'development')
+SENTRY_TRACES_SAMPLE_RATE = float(os.getenv('SENTRY_TRACES_SAMPLE_RATE', '0.1' if not DEBUG else '1.0'))
+
+if SENTRY_DSN:
+    try:
+        import sentry_sdk
+        from sentry_sdk.integrations.celery import CeleryIntegration
+        from sentry_sdk.integrations.django import DjangoIntegration
+        from sentry_sdk.integrations.redis import RedisIntegration
+
+        sentry_sdk.init(
+            dsn=SENTRY_DSN,
+            environment=SENTRY_ENVIRONMENT,
+            traces_sample_rate=SENTRY_TRACES_SAMPLE_RATE,
+            integrations=[
+                DjangoIntegration(),
+                CeleryIntegration(),
+                RedisIntegration(),
+            ],
+            send_default_pii=False,
+            before_send=sentry_before_send,
+        )
+    except ImportError:
+        pass
+
 
 # ─── Configuración del Subsistema de Inteligencia Artificial (Fase 5 - RoadmapV2) ───
 AI_ENABLED = os.environ.get('AI_ENABLED', 'true').lower() in ('true', '1', 'yes')

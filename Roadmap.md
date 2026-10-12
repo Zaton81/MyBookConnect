@@ -154,13 +154,13 @@
 **Duración estimada:** 2-3 días  
 **Prioridad:** 🔴 P0
 
-- [ ] Backup automático diario de PostgreSQL (cifrado) + retención configurable.
-- [ ] Backup de volumen `media/` y de configuración crítica.
-- [ ] Procedimiento de restore documentado y **probado** en entorno limpio.
-- [ ] Definición de RPO / RTO y monitorización de fallos de backup.
-- [ ] Script de verificación de integridad post-restore (usuarios, libros, reseñas, mensajes).
+- [x] Backup automático diario de PostgreSQL (cifrado) + retención configurable.
+- [x] Backup de volumen `media/` y de configuración crítica.
+- [x] Procedimiento de restore documentado y **probado** en entorno limpio.
+- [x] Definición de RPO / RTO y monitorización de fallos de backup.
+- [x] Script de verificación de integridad post-restore (usuarios, libros, reseñas, mensajes).
 
-**Criterio de salida:** Restore completo ejecutado con éxito al menos una vez en staging.
+**Criterio de salida:** Restore completo ejecutado con éxito al menos una vez en staging. [COMPLETADO - 2026-10-12]
 
 ---
 
@@ -168,14 +168,14 @@
 **Duración estimada:** 2-3 días  
 **Prioridad:** 🟠 P1
 
-- [ ] Logs JSON estructurados sin secretos ni PII.
-- [ ] Métricas de sistema (CPU, memoria, Redis, colas Celery, latencia p95/p99).
-- [ ] Métricas de producto (signups, retención D1/D7/D30, embudo, errores 5xx).
-- [ ] Alertas mínimas accionables (disco, memoria Redis, cola saturada, tasa de error).
-- [ ] Integración con herramienta de error tracking (Sentry o equivalente).
-- [ ] Runbooks de incidentes comunes.
+- [x] Logs JSON estructurados sin secretos ni PII.
+- [x] Métricas de sistema (CPU, memoria, Redis, colas Celery, latencia p95/p99).
+- [x] Métricas de producto (signups, retención D1/D7/D30, embudo, errores 5xx).
+- [x] Alertas mínimas accionables (disco, memoria Redis, cola saturada, tasa de error).
+- [x] Integración con herramienta de error tracking (Sentry o equivalente).
+- [x] Runbooks de incidentes comunes.
 
-**Criterio de salida:** Dashboard operativo + al menos 5 alertas configuradas y probadas.
+**Criterio de salida:** Dashboard operativo + al menos 5 alertas configuradas y probadas. [COMPLETADO - 2026-10-12]
 
 ---
 
@@ -183,14 +183,14 @@
 **Duración estimada:** 3-5 días  
 **Prioridad:** 🟠 P1
 
-- [ ] Colas Celery separadas (`default`, `books`, `ai`, `recommendations`, `emails`) ya existentes → validar bajo carga.
-- [ ] Primary/Replica router de PostgreSQL (si aplica) y configuración de réplicas de lectura.
-- [ ] Upstream Nginx con varios workers Daphne.
-- [ ] Estrategia de caché L2 (Redis) y invalidación en cascada revisada.
-- [ ] Script de carga concurrente y definición de SLAs (p95/p99).
-- [ ] Documentación de scaling horizontal de workers y de frontend.
+- [x] Colas Celery separadas (`default`, `books`, `ai`, `recommendations`, `emails`) ya existentes → validar bajo carga.
+- [x] Primary/Replica router de PostgreSQL (si aplica) y configuración de réplicas de lectura.
+- [x] Upstream Nginx con varios workers Daphne.
+- [x] Estrategia de caché L2 (Redis) y invalidación en cascada revisada.
+- [x] Script de carga concurrente y definición de SLAs (p95/p99).
+- [x] Documentación de scaling horizontal de workers y de frontend.
 
-**Criterio de salida:** Informe de carga con SLAs cumplidos en staging.
+**Criterio de salida:** Informe de carga con SLAs cumplidos en staging. [COMPLETADO - 2026-10-12]
 
 ---
 

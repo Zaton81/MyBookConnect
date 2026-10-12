@@ -7,6 +7,46 @@ y este proyecto se adhiere a [Semantic Versioning 2.0.0](https://semver.org/lang
 
 ## [Unreleased]
 
+### Added / Basic Scalability & Performance SLAs (Roadmap Bloque B - Fase B4)
+- **Router Primario / Réplica de Base de Datos (`backend/mybookconnect/db_routers.py`, `backend/mybookconnect/settings.py`)**:
+  - Implementado `PrimaryReplicaRouter` que enruta lecturas hacia la base de datos `replica` si está configurada, manteniendo todas las escrituras en `default` (primario), con fallback transparente a `default` si no existe réplica, y bloqueo de migraciones en réplicas de sólo lectura.
+- **Topología de 5 Colas Dedicadas en Celery (`backend/mybookconnect/settings.py`, `docker-compose.prod.yml`)**:
+  - Configurado enrutamiento explícito `CELERY_TASK_ROUTES` con 5 colas independientes: `default`, `books`, `ai`, `recommendations` y `emails`. Worker de Celery orquestado para consumir de todas las colas concurrentemente (`-Q default,books,ai,recommendations,emails`).
+- **Balanceo de Carga Nginx con Least Connections (`frontend/nginx.conf`, `frontend/nginx.ssl.conf.template`)**:
+  - Definida la directiva `upstream django_cluster` con algoritmo de distribución `least_conn` tanto en desarrollo local como en la plantilla de producción SSL/TLS.
+- **Invalidación Reactiva de Caché en Cascada para Reseñas (`backend/books/cache_utils.py`)**:
+  - Implementada `cascade_review_invalidation(book_id)` que invalida atómicamente la caché del detalle del libro, desglose de calificaciones, recomendaciones asociadas y rankings de tendencias ante cualquier mutación de reseña.
+- **Herramienta de Pruebas de Carga y Exportación JSON (`scripts/load_testing/load_test_benchmark.py`)**:
+  - Incorporado parámetro `--output-json` para exportar métricas estandarizadas a CI/CD y automatizaciones, midiendo endpoints críticos de salud (`/health/live`, `/health/ready`), catálogo y búsqueda.
+- **Informe Técnico de SLAs de Carga y Capacidad (`docs/deployment/load_test_sla_report.md`)**:
+  - Documento formal con arquitectura de escalabilidad, objetivos de nivel de servicio (SLAs p95 < 250ms, p99 < 500ms, tasa de error 0.00%) y procedimientos de ejecución y auditoría de carga.
+- **Suite de Pruebas de Escalabilidad Básica (`backend/tests/test_phase_b4_basic_scalability.py`)**:
+  - 12 pruebas unitarias y de arquitectura pasando al 100% que validan el router primario/réplica, las 5 colas de Celery, upstream `least_conn` de Nginx, cascada de invalidación de caché, exportación JSON del benchmark y el informe de SLAs.
+
+### Added / Observability, Telemetry & Alerts Hardening (Roadmap Bloque B - Fase B3)
+- **Configuración Formal de Logs Estructurados (`backend/mybookconnect/settings.py`)**:
+  - `LOGGING` configurado con `StructuredJsonFormatter` para emitir registros en JSON estructurado de una línea sin contraseñas, tokens JWT, headers de autenticación ni API keys (`sanitize_sensitive_data`). Flag `STRUCTURED_LOGS` para forzar logging estructurado en cualquier entorno.
+- **Integración y Enmascaramiento Preventivo con Sentry (`backend/mybookconnect/settings.py`)**:
+  - Soporte configurable mediante `SENTRY_DSN` con importación resiliente. Hook `sentry_before_send` que garantiza que ningún secreto, token o dato identificable personal (PII) se envíe a plataformas externas.
+- **Comando de Evaluación y Notificación de Alertas del Sistema (`backend/books/management/commands/evaluate_system_alerts.py`)**:
+  - Comando Django que evalúa en tiempo real los 7 umbrales de salud operativa (`high_5xx_rate`, `db_unavailable`, `redis_unavailable`, `celery_backlog`, `disk_usage_high`, `memory_usage_high`, `high_error_rate`), con soporte para salida JSON y notificaciones webhook (Slack/Discord/Alertmanager).
+- **Manual Operativo de Incidentes de Producción (`docs/devops/incident_runbooks.md`)**:
+  - Runbooks paso a paso para el diagnóstico rápido, mitigación inmediata y resolución definitiva de los 5 incidentes más críticos en producción.
+- **Suite de Pruebas de Observabilidad y Alertas (`backend/tests/test_phase_b3_observability_and_alerts.py`)**:
+  - 14 pruebas unitarias e integración que validan el formateador JSON, enmascaramiento de credenciales, métricas operativas y percentiles, métricas de producto, evaluador de alertas, comando CLI y hook `before_send` de Sentry.
+
+### Added / Backup, Restore & Disaster Recovery Hardening (Roadmap Bloque B - Fase B2)
+- **Backup de Configuración Crítica (`scripts/backup/backup_config.sh`)**:
+  - Empaquetado y cifrado simétrico AES-256-CBC de plantillas compose, configuraciones y templates Nginx, variables de entorno sanadas y scripts operativos, con generación de manifiesto SHA-256 y retención configurable.
+- **Orquestador Maestro Diario (`scripts/backup/backup_all.sh`)**:
+  - Script unificado que ejecuta secuencialmente el backup de PostgreSQL, Media y Configuración, generando reporte JSON consolidado `daily_backup_summary_<timestamp>.json` con métricas de duración, estado por subsistema y código de salida determinista para alertas de cron/monitoreo.
+- **Auditoría e Integridad Post-Restore (`backend/books/management/commands/verify_restore_integrity.py`, `scripts/backup/verify_restore_integrity.sh`)**:
+  - Comando Django y script para validar la integridad referencial y de dominio tras una restauración: coherencia de usuarios, catálogo, integridad de ratings atómicos [0.0, 5.0], reseñas [1, 5], mensajería y consistencia física de archivos en `MEDIA_ROOT`.
+- **Monitorización de Frescura de Backups y Cumplimiento RPO (`backend/books/management/commands/check_backup_freshness.py`)**:
+  - Comando Django para auditoría de frescura que valida que el último backup tenga una antigüedad inferior al RPO ($\le 24$ horas) y que su firma SHA-256 coincida con el manifest, retornando código de fallo ante backups obsoletos (`STALE`), manipulados (`CORRUPTED`) o ausentes (`MISSING`).
+- **Runbooks de DRP y Suite de Pruebas Automatizadas (`docs/deployment/disaster_recovery.md`, `backend/tests/test_phase_b2_backup_and_disaster_recovery.py`)**:
+  - Actualización exhaustiva del manual de Disaster Recovery con procedimientos paso a paso y suite de 9 tests unitarios y de arquitectura pasando al 100%.
+
 ### Added / Docker & Production Orchestration Hardening (Roadmap Bloque B - Fase B1)
 - **Orquestación de Producción y Topología Segura (`docker-compose.prod.yml`)**:
   - Nginx configurado como único punto de entrada expuesto a la red pública (`80:80`, `443:443`).
