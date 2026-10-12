@@ -183,14 +183,14 @@
 **Duración estimada:** 3-5 días  
 **Prioridad:** 🟠 P1
 
-- [ ] Colas Celery separadas (`default`, `books`, `ai`, `recommendations`, `emails`) ya existentes → validar bajo carga.
-- [ ] Primary/Replica router de PostgreSQL (si aplica) y configuración de réplicas de lectura.
-- [ ] Upstream Nginx con varios workers Daphne.
-- [ ] Estrategia de caché L2 (Redis) y invalidación en cascada revisada.
-- [ ] Script de carga concurrente y definición de SLAs (p95/p99).
-- [ ] Documentación de scaling horizontal de workers y de frontend.
+- [x] Colas Celery separadas (`default`, `books`, `ai`, `recommendations`, `emails`) ya existentes → validar bajo carga.
+- [x] Primary/Replica router de PostgreSQL (si aplica) y configuración de réplicas de lectura.
+- [x] Upstream Nginx con varios workers Daphne.
+- [x] Estrategia de caché L2 (Redis) y invalidación en cascada revisada.
+- [x] Script de carga concurrente y definición de SLAs (p95/p99).
+- [x] Documentación de scaling horizontal de workers y de frontend.
 
-**Criterio de salida:** Informe de carga con SLAs cumplidos en staging.
+**Criterio de salida:** Informe de carga con SLAs cumplidos en staging. [COMPLETADO - 2026-10-12]
 
 ---
 

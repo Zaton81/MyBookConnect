@@ -7,6 +7,22 @@ y este proyecto se adhiere a [Semantic Versioning 2.0.0](https://semver.org/lang
 
 ## [Unreleased]
 
+### Added / Basic Scalability & Performance SLAs (Roadmap Bloque B - Fase B4)
+- **Router Primario / Réplica de Base de Datos (`backend/mybookconnect/db_routers.py`, `backend/mybookconnect/settings.py`)**:
+  - Implementado `PrimaryReplicaRouter` que enruta lecturas hacia la base de datos `replica` si está configurada, manteniendo todas las escrituras en `default` (primario), con fallback transparente a `default` si no existe réplica, y bloqueo de migraciones en réplicas de sólo lectura.
+- **Topología de 5 Colas Dedicadas en Celery (`backend/mybookconnect/settings.py`, `docker-compose.prod.yml`)**:
+  - Configurado enrutamiento explícito `CELERY_TASK_ROUTES` con 5 colas independientes: `default`, `books`, `ai`, `recommendations` y `emails`. Worker de Celery orquestado para consumir de todas las colas concurrentemente (`-Q default,books,ai,recommendations,emails`).
+- **Balanceo de Carga Nginx con Least Connections (`frontend/nginx.conf`, `frontend/nginx.ssl.conf.template`)**:
+  - Definida la directiva `upstream django_cluster` con algoritmo de distribución `least_conn` tanto en desarrollo local como en la plantilla de producción SSL/TLS.
+- **Invalidación Reactiva de Caché en Cascada para Reseñas (`backend/books/cache_utils.py`)**:
+  - Implementada `cascade_review_invalidation(book_id)` que invalida atómicamente la caché del detalle del libro, desglose de calificaciones, recomendaciones asociadas y rankings de tendencias ante cualquier mutación de reseña.
+- **Herramienta de Pruebas de Carga y Exportación JSON (`scripts/load_testing/load_test_benchmark.py`)**:
+  - Incorporado parámetro `--output-json` para exportar métricas estandarizadas a CI/CD y automatizaciones, midiendo endpoints críticos de salud (`/health/live`, `/health/ready`), catálogo y búsqueda.
+- **Informe Técnico de SLAs de Carga y Capacidad (`docs/deployment/load_test_sla_report.md`)**:
+  - Documento formal con arquitectura de escalabilidad, objetivos de nivel de servicio (SLAs p95 < 250ms, p99 < 500ms, tasa de error 0.00%) y procedimientos de ejecución y auditoría de carga.
+- **Suite de Pruebas de Escalabilidad Básica (`backend/tests/test_phase_b4_basic_scalability.py`)**:
+  - 12 pruebas unitarias y de arquitectura pasando al 100% que validan el router primario/réplica, las 5 colas de Celery, upstream `least_conn` de Nginx, cascada de invalidación de caché, exportación JSON del benchmark y el informe de SLAs.
+
 ### Added / Observability, Telemetry & Alerts Hardening (Roadmap Bloque B - Fase B3)
 - **Configuración Formal de Logs Estructurados (`backend/mybookconnect/settings.py`)**:
   - `LOGGING` configurado con `StructuredJsonFormatter` para emitir registros en JSON estructurado de una línea sin contraseñas, tokens JWT, headers de autenticación ni API keys (`sanitize_sensitive_data`). Flag `STRUCTURED_LOGS` para forzar logging estructurado en cualquier entorno.
