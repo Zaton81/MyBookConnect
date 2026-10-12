@@ -154,13 +154,13 @@
 **Duración estimada:** 2-3 días  
 **Prioridad:** 🔴 P0
 
-- [ ] Backup automático diario de PostgreSQL (cifrado) + retención configurable.
-- [ ] Backup de volumen `media/` y de configuración crítica.
-- [ ] Procedimiento de restore documentado y **probado** en entorno limpio.
-- [ ] Definición de RPO / RTO y monitorización de fallos de backup.
-- [ ] Script de verificación de integridad post-restore (usuarios, libros, reseñas, mensajes).
+- [x] Backup automático diario de PostgreSQL (cifrado) + retención configurable.
+- [x] Backup de volumen `media/` y de configuración crítica.
+- [x] Procedimiento de restore documentado y **probado** en entorno limpio.
+- [x] Definición de RPO / RTO y monitorización de fallos de backup.
+- [x] Script de verificación de integridad post-restore (usuarios, libros, reseñas, mensajes).
 
-**Criterio de salida:** Restore completo ejecutado con éxito al menos una vez en staging.
+**Criterio de salida:** Restore completo ejecutado con éxito al menos una vez en staging. [COMPLETADO - 2026-10-12]
 
 ---
 

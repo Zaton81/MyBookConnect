@@ -7,6 +7,18 @@ y este proyecto se adhiere a [Semantic Versioning 2.0.0](https://semver.org/lang
 
 ## [Unreleased]
 
+### Added / Backup, Restore & Disaster Recovery Hardening (Roadmap Bloque B - Fase B2)
+- **Backup de Configuración Crítica (`scripts/backup/backup_config.sh`)**:
+  - Empaquetado y cifrado simétrico AES-256-CBC de plantillas compose, configuraciones y templates Nginx, variables de entorno sanadas y scripts operativos, con generación de manifiesto SHA-256 y retención configurable.
+- **Orquestador Maestro Diario (`scripts/backup/backup_all.sh`)**:
+  - Script unificado que ejecuta secuencialmente el backup de PostgreSQL, Media y Configuración, generando reporte JSON consolidado `daily_backup_summary_<timestamp>.json` con métricas de duración, estado por subsistema y código de salida determinista para alertas de cron/monitoreo.
+- **Auditoría e Integridad Post-Restore (`backend/books/management/commands/verify_restore_integrity.py`, `scripts/backup/verify_restore_integrity.sh`)**:
+  - Comando Django y script para validar la integridad referencial y de dominio tras una restauración: coherencia de usuarios, catálogo, integridad de ratings atómicos [0.0, 5.0], reseñas [1, 5], mensajería y consistencia física de archivos en `MEDIA_ROOT`.
+- **Monitorización de Frescura de Backups y Cumplimiento RPO (`backend/books/management/commands/check_backup_freshness.py`)**:
+  - Comando Django para auditoría de frescura que valida que el último backup tenga una antigüedad inferior al RPO ($\le 24$ horas) y que su firma SHA-256 coincida con el manifest, retornando código de fallo ante backups obsoletos (`STALE`), manipulados (`CORRUPTED`) o ausentes (`MISSING`).
+- **Runbooks de DRP y Suite de Pruebas Automatizadas (`docs/deployment/disaster_recovery.md`, `backend/tests/test_phase_b2_backup_and_disaster_recovery.py`)**:
+  - Actualización exhaustiva del manual de Disaster Recovery con procedimientos paso a paso y suite de 9 tests unitarios y de arquitectura pasando al 100%.
+
 ### Added / Docker & Production Orchestration Hardening (Roadmap Bloque B - Fase B1)
 - **Orquestación de Producción y Topología Segura (`docker-compose.prod.yml`)**:
   - Nginx configurado como único punto de entrada expuesto a la red pública (`80:80`, `443:443`).
