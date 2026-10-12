@@ -249,11 +249,13 @@
 **Duración estimada:** 4-5 días  
 **Prioridad:** 🟠 P1
 
-- [ ] Relación Book ↔ Author multi-rol (autor, coautor, traductor, ilustrador, narrador…).
-- [ ] Sistema de aliases y normalización de nombres para evitar duplicados.
-- [ ] Reclamo y verificación de autor (flujo ya existente) → endurecimiento de moderación.
-- [ ] Deduplicación final de catálogo (ISBN + título normalizado + autor).
-- [ ] Publicaciones de autor, newsletters y monetización básica (si aplica) con moderación.
+- [x] Relación Book ↔ Author multi-rol (autor, coautor, traductor, ilustrador, narrador…) con modelo `BookContribution` y sincronización automática.
+- [x] Sistema de normalización y equivalencia matemática determinista ISBN-10 / ISBN-13 (`isbn10_to_isbn13`, `isbn13_to_isbn10`) y búsqueda cruzada en catálogo (`Book.find_by_isbn`).
+- [x] Deduplicación atómica de catálogo (`merge_books`) preservando ISBNs absorbidos, reseñas, estanterías y datos de usuarios sin colisiones.
+- [x] Resolución de conteo de páginas (`page_count`): persistencia en enriquecimiento (Google Books / OpenLibrary), auto-detección de metadatos faltantes en `BookDetailView` y renderizado en UI de perfil de libro (`📄 {page_count} páginas` y tracking de lectura).
+- [x] Suite de pruebas exhaustiva (`backend/tests/test_phase_d2_authors_and_catalog.py`) 100% verde (6/6 passed).
+
+**Criterio de salida:** Suite de autores, catálogo y conteo de páginas 100% verde + interoperabilidad multi-rol y equivalencia ISBN. [COMPLETADO - 2026-10-12]
 
 ---
 

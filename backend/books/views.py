@@ -220,6 +220,7 @@ class BookDetailView(generics.RetrieveAPIView):
                 not cached_data.get('author')
                 or not cached_data.get('description')
                 or not cached_data.get('categories')
+                or not cached_data.get('page_count')
             )
             if missing_cached_meta:
                 bg_enrich_key = f"bg_enrich_book_{book_id}"
@@ -246,11 +247,12 @@ class BookDetailView(generics.RetrieveAPIView):
                 except Exception as exc:
                     logging.warning(f"No se pudo encolar download_cover_task para libro {instance.id}: {exc}")
 
-        # Si al libro le falta autor, sinopsis o categorías, enriquecer en segundo plano
+        # Si al libro le falta autor, sinopsis, categorías o número de páginas, enriquecer en segundo plano
         missing_metadata = (
             not instance.author
             or not instance.description
             or not instance.categories.exists()
+            or not instance.page_count
         )
         if missing_metadata:
             bg_enrich_key = f"bg_enrich_book_{instance.id}"

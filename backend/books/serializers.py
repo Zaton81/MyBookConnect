@@ -15,6 +15,7 @@ from .models import (
     AuthorNewsletterSubscriber,
     AuthorProfile,
     Book,
+    BookContribution,
     Category,
     Errata,
     LegalDocument,
@@ -187,6 +188,18 @@ class CategorySerializer(serializers.ModelSerializer):
         fields = ('id', 'name', 'slug')
 
 
+class BookContributionSerializer(serializers.ModelSerializer):
+    author = AuthorBasicSerializer(read_only=True)
+    author_id = serializers.PrimaryKeyRelatedField(
+        queryset=Author.objects.all(), source='author', write_only=True, required=False
+    )
+    role_display = serializers.CharField(source='get_role_display', read_only=True)
+
+    class Meta:
+        model = BookContribution
+        fields = ('id', 'author', 'author_id', 'role', 'role_display', 'order')
+
+
 class BookSerializer(serializers.ModelSerializer):
     author = AuthorBasicSerializer(read_only=True)
     author_id = serializers.PrimaryKeyRelatedField(
@@ -199,6 +212,7 @@ class BookSerializer(serializers.ModelSerializer):
     author_names = serializers.ListField(
         child=serializers.CharField(), write_only=True, required=False
     )
+    contributions = BookContributionSerializer(many=True, read_only=True)
     categories = CategorySerializer(many=True, read_only=True)
     category_ids = serializers.PrimaryKeyRelatedField(
         queryset=Category.objects.all(), many=True, source='categories', write_only=True, required=False
@@ -209,10 +223,11 @@ class BookSerializer(serializers.ModelSerializer):
     class Meta:
         model = Book
         fields = (
-            'id', 'title', 'author', 'author_id', 'authors', 'author_ids', 'author_names', 'isbn',
-            'additional_isbns', 'google_volume_id', 'openlibrary_work_id', 'openlibrary_edition_id',
-            'cover', 'description', 'published_date', 'page_count', 'average_rating', 'created_at',
-            'categories', 'category_ids', 'rating_distribution', 'reviews_count'
+            'id', 'title', 'author', 'author_id', 'authors', 'author_ids', 'author_names',
+            'contributions', 'isbn', 'additional_isbns', 'google_volume_id', 'openlibrary_work_id',
+            'openlibrary_edition_id', 'cover', 'description', 'published_date', 'page_count',
+            'average_rating', 'created_at', 'categories', 'category_ids', 'rating_distribution',
+            'reviews_count'
         )
         read_only_fields = ('additional_isbns',)
 

@@ -7,6 +7,20 @@ y este proyecto se adhiere a [Semantic Versioning 2.0.0](https://semver.org/lang
 
 ## [Unreleased]
 
+### Added & Changed / Authors, Multi-Role Contributions, ISBN-10/13 & Page Count (Roadmap Bloque D - Fase D2)
+- **Modelo de Contribuciones Multi-Rol (`backend/books/models.py`, `backend/books/serializers.py`)**:
+  - Incorporado modelo `BookContribution` con roles definidos (`AUTHOR`, `COAUTHOR`, `TRANSLATOR`, `ILLUSTRATOR`, `NARRATOR`, `EDITOR`) y sincronización automática bidireccional con campos históricos `book.author` y `book.authors`.
+  - Serializador `BookContributionSerializer` expuesto dentro de `BookSerializer.contributions` para visualización granular en cliente.
+- **Normalización y Búsqueda Cruzada de ISBN-10 y ISBN-13 (`backend/books/models.py`)**:
+  - Implementadas funciones deterministas `isbn10_to_isbn13`, `isbn13_to_isbn10` y `get_equivalent_isbns`.
+  - `Book.find_by_isbn` ampliado para buscar por equivalencias cruzadas en ediciones físicas y digitales.
+- **Resolución y Visualización de Páginas de Libro (`page_count`)**:
+  - `backend/books/services/enrichment_service.py`: Persistencia garantizada de `page_count` recuperado desde Google Books (`volumeInfo.pageCount`) y OpenLibrary (`ol_data.page_count`).
+  - `backend/books/views.py`: `BookDetailView` evalúa la ausencia de `page_count` para desencadenar el enriquecimiento asíncrono preventivo en segundo plano.
+  - `frontend/src/features/books/pages/BookDetail.tsx`: Renderizado visible del badge `📄 {page_count} páginas` en cabecera del libro, desglose de contribuciones multi-rol (traductor, ilustrador, narrador, etc.) y seguimiento de lectura reactivo `Pág. {currentPage} de {book.page_count}`.
+- **Suite Integral de Pruebas de Autores y Catálogo (`backend/tests/test_phase_d2_authors_and_catalog.py`)**:
+  - 6 pruebas unitarias y de integración pasando al 100% que validan contribuciones multi-rol, persistencia de `page_count`, endpoint de detalle, conversión matemática ISBN-10/13, búsqueda cruzada y fusión atómica deduplicada.
+
 ### Added & Changed / Reader Profile, Field Masking & GDPR Hardening (Roadmap Bloque D - Fase D1)
 - **Consistencia y Blindaje de Privacidad de Perfil (`backend/users/privacy_service.py`)**:
   - Control de visibilidad estricto para perfiles `public`, `friends` y `private`, con ofuscación granular de PII (`email`, `birth_date`, `location`, `bio`) para terceros cuando las banderas de visibilidad están desactivadas.
