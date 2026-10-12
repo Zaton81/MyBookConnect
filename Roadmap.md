@@ -168,14 +168,14 @@
 **Duración estimada:** 2-3 días  
 **Prioridad:** 🟠 P1
 
-- [ ] Logs JSON estructurados sin secretos ni PII.
-- [ ] Métricas de sistema (CPU, memoria, Redis, colas Celery, latencia p95/p99).
-- [ ] Métricas de producto (signups, retención D1/D7/D30, embudo, errores 5xx).
-- [ ] Alertas mínimas accionables (disco, memoria Redis, cola saturada, tasa de error).
-- [ ] Integración con herramienta de error tracking (Sentry o equivalente).
-- [ ] Runbooks de incidentes comunes.
+- [x] Logs JSON estructurados sin secretos ni PII.
+- [x] Métricas de sistema (CPU, memoria, Redis, colas Celery, latencia p95/p99).
+- [x] Métricas de producto (signups, retención D1/D7/D30, embudo, errores 5xx).
+- [x] Alertas mínimas accionables (disco, memoria Redis, cola saturada, tasa de error).
+- [x] Integración con herramienta de error tracking (Sentry o equivalente).
+- [x] Runbooks de incidentes comunes.
 
-**Criterio de salida:** Dashboard operativo + al menos 5 alertas configuradas y probadas.
+**Criterio de salida:** Dashboard operativo + al menos 5 alertas configuradas y probadas. [COMPLETADO - 2026-10-12]
 
 ---
 

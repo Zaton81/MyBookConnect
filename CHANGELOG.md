@@ -7,6 +7,18 @@ y este proyecto se adhiere a [Semantic Versioning 2.0.0](https://semver.org/lang
 
 ## [Unreleased]
 
+### Added / Observability, Telemetry & Alerts Hardening (Roadmap Bloque B - Fase B3)
+- **Configuración Formal de Logs Estructurados (`backend/mybookconnect/settings.py`)**:
+  - `LOGGING` configurado con `StructuredJsonFormatter` para emitir registros en JSON estructurado de una línea sin contraseñas, tokens JWT, headers de autenticación ni API keys (`sanitize_sensitive_data`). Flag `STRUCTURED_LOGS` para forzar logging estructurado en cualquier entorno.
+- **Integración y Enmascaramiento Preventivo con Sentry (`backend/mybookconnect/settings.py`)**:
+  - Soporte configurable mediante `SENTRY_DSN` con importación resiliente. Hook `sentry_before_send` que garantiza que ningún secreto, token o dato identificable personal (PII) se envíe a plataformas externas.
+- **Comando de Evaluación y Notificación de Alertas del Sistema (`backend/books/management/commands/evaluate_system_alerts.py`)**:
+  - Comando Django que evalúa en tiempo real los 7 umbrales de salud operativa (`high_5xx_rate`, `db_unavailable`, `redis_unavailable`, `celery_backlog`, `disk_usage_high`, `memory_usage_high`, `high_error_rate`), con soporte para salida JSON y notificaciones webhook (Slack/Discord/Alertmanager).
+- **Manual Operativo de Incidentes de Producción (`docs/devops/incident_runbooks.md`)**:
+  - Runbooks paso a paso para el diagnóstico rápido, mitigación inmediata y resolución definitiva de los 5 incidentes más críticos en producción.
+- **Suite de Pruebas de Observabilidad y Alertas (`backend/tests/test_phase_b3_observability_and_alerts.py`)**:
+  - 14 pruebas unitarias e integración que validan el formateador JSON, enmascaramiento de credenciales, métricas operativas y percentiles, métricas de producto, evaluador de alertas, comando CLI y hook `before_send` de Sentry.
+
 ### Added / Backup, Restore & Disaster Recovery Hardening (Roadmap Bloque B - Fase B2)
 - **Backup de Configuración Crítica (`scripts/backup/backup_config.sh`)**:
   - Empaquetado y cifrado simétrico AES-256-CBC de plantillas compose, configuraciones y templates Nginx, variables de entorno sanadas y scripts operativos, con generación de manifiesto SHA-256 y retención configurable.

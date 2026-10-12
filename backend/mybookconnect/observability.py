@@ -55,6 +55,26 @@ class ObservabilityMetricsService:
     MAX_LATENCY_SAMPLES = 200
 
     @classmethod
+    def reset_metrics(cls) -> None:
+        """Reinicia los contadores de métricas operativas en caché."""
+        keys = [
+            f"{cls.METRICS_PREFIX}:requests_total",
+            f"{cls.METRICS_PREFIX}:requests_5xx",
+            f"{cls.METRICS_PREFIX}:requests_4xx",
+            f"{cls.METRICS_PREFIX}:latency_samples",
+            f"{cls.METRICS_PREFIX}:db_queries_total",
+            f"{cls.METRICS_PREFIX}:db_latency_samples",
+            f"{cls.METRICS_PREFIX}:celery_failures_total",
+            f"{cls.METRICS_PREFIX}:external_errors_total",
+            f"{cls.METRICS_PREFIX}:ws_connections",
+        ]
+        for k in keys:
+            try:
+                cache.delete(k)
+            except Exception:
+                pass
+
+    @classmethod
     def record_request(
         cls,
         status_code: int,
