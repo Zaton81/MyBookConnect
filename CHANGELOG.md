@@ -7,6 +7,15 @@ y este proyecto se adhiere a [Semantic Versioning 2.0.0](https://semver.org/lang
 
 ## [Unreleased]
 
+### Added & Changed / Staging Parity, Smoke Testing & Pre-Deployment Hardening (Roadmap Bloque E - Fase E1)
+- **Checklist de Seguridad Pre-Despliegue (`docs/deployment/pre_deployment_security_checklist.md`)**:
+  - Matriz integral de seguridad auditando directivas Django (`DEBUG=False`, `SECRET_KEY`, `ALLOWED_HOSTS`, cookies HttpOnly/Secure/SameSite=Lax, HSTS estricto de 1 año), aislamiento estricto de redes Docker (`backend_net internal: true`, puertos de base de datos y Redis cerrados al exterior), backup cifrado con DRP y feature flags de control de apertura.
+- **Auditoría Preflight y Smoke Testing de Staging (`scripts/staging/`)**:
+  - Sincronizado `preflight_staging.sh` con el dominio canónico `mybooksocial.com`.
+  - Herramienta sintética `smoke_test_staging.py` validando sondas `/health/live` y `/health/ready`, versiones SemVer 2.0.0 y contratos de catálogo.
+- **Suite Integral de Pruebas Automáticas de Staging (`backend/tests/test_phase_e1_staging_smoke.py`)**:
+  - 8 pruebas pasando al 100% que validan contratos de sondas de salud sin fugas de secretos, login seguro con emisión de cookies HttpOnly, emisión y consumo de un solo uso de tickets efímeros WebSocket, control de feature flags de registro público e invitaciones, ejecución exitosa del comando de integridad post-restauración `verify_restore_integrity` y presencia física de artefactos de auditoría.
+
 ### Added & Changed / Search, Discovery & Recommendations Hardening (Roadmap Bloque D - Fase D4)
 - **Búsqueda Híbrida Resiliente (`backend/books/services/unified_search_service.py`)**:
   - `UnifiedSearchEngine` consolidado combinando FTS (`SearchVector`/`SearchRank`), búsqueda difusa por trigramas (`TrigramSimilarity`/`TrigramWordSimilarity`) y embeddings semánticos con fallback automático tolerante a fallos sin dependencias duras externas.

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# MyBookConnect - Pre-flight Check de Staging (Beta Cerrada)
-# Fase 35 - Despliegue y Validación en Staging
+# My Book Social - Pre-flight Check de Staging (Beta Cerrada)
+# Fase 35 / Roadmap v2.0 Fase E1 - Despliegue y Validación en Staging
 # ==============================================================================
 set -euo pipefail
 
@@ -22,7 +22,7 @@ BLUE='\033[0;34m'
 NC='\033[0m'
 
 echo -e "${BLUE}=================================================================${NC}"
-echo -e "${BLUE}     MyBookConnect — Auditoría Pre-Despliegue de Staging        ${NC}"
+echo -e "${BLUE}     My Book Social — Auditoría Pre-Despliegue de Staging        ${NC}"
 echo -e "${BLUE}=================================================================${NC}"
 
 FAILURES=0

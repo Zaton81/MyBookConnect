@@ -294,11 +294,13 @@
 **Duración estimada:** 3-4 días  
 **Prioridad:** 🟠 P1
 
-- [ ] Entorno de staging idéntico a producción.
-- [ ] Suite de smoke automatizada (API + frontend + WebSocket + backup).
-- [ ] Checklist de seguridad pre-despliegue.
-- [ ] Prueba de restore completa.
-- [ ] Validación de feature flags de registro público / invitación.
+- [x] Entorno de staging idéntico a producción y scripts de auditoría preflight (`preflight_staging.sh`, `smoke_test_staging.py`).
+- [x] Suite de smoke automatizada (`backend/tests/test_phase_e1_staging_smoke.py`, 8/8 passed) cubriendo liveness, readiness sanitizado, autenticación con cookies HttpOnly seguras y ticket efímero de WebSocket de un solo uso.
+- [x] Checklist de seguridad pre-despliegue exhaustivo y firmado (`docs/deployment/pre_deployment_security_checklist.md`).
+- [x] Prueba de restore completa auditada con éxito mediante comando `verify_restore_integrity` sobre usuarios, catálogo e interacciones.
+- [x] Validación de feature flags de registro público e invitaciones (`PUBLIC_REGISTRATION_ENABLED` y `REQUIRE_BETA_INVITATION`).
+
+**Criterio de salida:** Suite de smoke testing y checklist de pre-despliegue 100% aprobados en staging. [COMPLETADO - 2026-10-13]
 
 ---
 
