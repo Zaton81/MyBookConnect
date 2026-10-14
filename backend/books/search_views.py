@@ -99,7 +99,7 @@ class GlobalSearchView(APIView):
                     | Q(description__icontains=q)
                 )
                 .select_related('author')
-                .prefetch_related('categories', 'authors')
+                .prefetch_related('categories', 'authors', 'contributions__author')
                 .distinct()[:limit]
             )
             for b in text_books:

@@ -82,9 +82,9 @@ class TestPhase09NPlusOneAudits:
         client.force_authenticate(user=alice)
 
         cache.clear()
-        # Con cache limpia, resuelve perfil + conteos anotados y precargas en solo 3 consultas
-        # (user + annotations, prefetch following, prefetch followers) sin N+1.
-        with django_assert_num_queries(3):
+        # Con cache limpia, resuelve perfil + conteos anotados y precargas en 4 consultas
+        # (user + annotations, prefetch following, prefetch followers, prefetch favorite_categories) sin N+1.
+        with django_assert_num_queries(4):
             res = client.get("/api/v1/auth/profile/")
             assert res.status_code == status.HTTP_200_OK
             assert res.data['username'] == 'alice_perf'

@@ -300,7 +300,9 @@ class UserBookListCreateView(generics.ListCreateAPIView):
         else:
             queryset = UserBook.objects.filter(user=self.request.user)
 
-        queryset = queryset.select_related('book', 'book__author').prefetch_related('book__categories')
+        queryset = queryset.select_related('book', 'book__author').prefetch_related(
+            'book__categories', 'book__authors', 'book__contributions__author'
+        )
 
         def parse_bool(value):
             if value is None or value == '':
@@ -433,7 +435,7 @@ class ReviewListCreateView(generics.ListCreateAPIView):
 
         queryset = (
             Review.objects.select_related('user', 'book', 'book__author')
-            .prefetch_related('book__categories', 'book__authors')
+            .prefetch_related('book__categories', 'book__authors', 'book__contributions__author')
             .annotate(
                 annotated_likes_count=Count('likes', distinct=True),
                 annotated_comments_count=Count('comments', filter=Q(comments__deleted_at__isnull=True), distinct=True),

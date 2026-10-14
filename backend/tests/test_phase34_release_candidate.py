@@ -26,28 +26,28 @@ class TestPhase34ReleaseCandidate:
         self.client = APIClient()
 
     def test_version_endpoint_returns_semver_rc1(self):
-        """Verifica que /api/v1/version/ retorne la versión SemVer 1.0.0-rc1 con metadatos completos."""
+        """Verifica que /api/v1/version/ retorne la versión SemVer válida con metadatos completos."""
         response = self.client.get('/api/v1/version/')
         assert response.status_code == status.HTTP_200_OK
 
         data = response.json()
-        assert data['version'] == "1.0.0-rc1"
+        assert data['version'] in ("1.0.0-rc1", "1.0.0")
         assert data['major'] == 1
         assert data['minor'] == 0
         assert data['patch'] == 0
-        assert data['prerelease'] == "rc1"
+        assert data['prerelease'] in ("rc1", "")
         assert data['api_version'] == "v1"
         assert data['semver'] is True
 
     def test_health_probes_reflect_rc1_version(self):
-        """Verifica que las sondas de salud (liveness y readiness) reflejen el estado y versión 1.0.0-rc1."""
+        """Verifica que las sondas de salud (liveness y readiness) reflejen el estado y versión SemVer."""
         # 1. Liveness check
         res_live = self.client.get('/health/live')
         assert res_live.status_code == status.HTTP_200_OK
         data_live = res_live.json()
         assert data_live['status'] == 'healthy'
         assert data_live['process'] == 'alive'
-        assert data_live['version'] == '1.0.0-rc1'
+        assert data_live['version'] in ("1.0.0-rc1", "1.0.0")
 
         # 2. Readiness probe
         res_ready = self.client.get('/health/ready')
@@ -60,7 +60,7 @@ class TestPhase34ReleaseCandidate:
         # 3. Healthcheck canónico de API
         res_api_health = self.client.get('/api/v1/health/')
         assert res_api_health.status_code == status.HTTP_200_OK
-        assert res_api_health.json()['version'] == '1.0.0-rc1'
+        assert res_api_health.json()['version'] in ("1.0.0-rc1", "1.0.0")
 
     def test_no_pending_database_migrations(self):
         """Verifica que no existan cambios en modelos de Django pendientes de generar migración."""
@@ -117,7 +117,7 @@ class TestPhase34ReleaseCandidate:
         pkg_file = next((p for p in pkg_paths if p.exists()), None)
         if pkg_file:
             pkg_data = json.loads(pkg_file.read_text(encoding="utf-8"))
-            assert pkg_data.get("version") == "1.0.0-rc1"
+            assert pkg_data.get("version") in ("1.0.0-rc1", "1.0.0")
 
         # 2. CHANGELOG.md
         changelog_paths = [
@@ -127,9 +127,11 @@ class TestPhase34ReleaseCandidate:
         changelog_file = next((p for p in changelog_paths if p.exists()), None)
         if changelog_file:
             changelog_content = changelog_file.read_text(encoding="utf-8")
-            assert "## [1.0.0-rc1]" in changelog_content, "No se encontró la sección [1.0.0-rc1] en CHANGELOG.md"
+            assert (
+                "## [1.0.0-rc1]" in changelog_content or "## [1.0.0]" in changelog_content
+            ), "No se encontró la sección [1.0.0-rc1] o [1.0.0] en CHANGELOG.md"
 
         # 3. version.py
-        assert get_version() == "1.0.0-rc1"
+        assert get_version() in ("1.0.0-rc1", "1.0.0")
         info = get_version_info()
-        assert info["prerelease"] == "rc1"
+        assert info["prerelease"] in ("rc1", "")

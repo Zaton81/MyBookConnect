@@ -127,6 +127,8 @@ def generate_book_embedding(
             record.embedding_status = EmbeddingStatus.COMPLETED
             record.content_hash = current_hash
             record.save()
+            book.embedding = vector
+            book.save(update_fields=['embedding'])
             return record
         else:
             record.embedding_status = EmbeddingStatus.FAILED

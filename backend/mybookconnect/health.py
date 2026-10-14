@@ -78,6 +78,8 @@ class ReadinessCheckView(APIView):
         services = {}
         all_ready = True
 
+        is_sanitized_infra_probe = request.path.startswith('/health/')
+
         # 1. Comprobación de PostgreSQL (Database)
         try:
             with connection.cursor() as cursor:
@@ -86,7 +88,7 @@ class ReadinessCheckView(APIView):
             services["database"] = "ready"
         except Exception as exc:
             logger.error("Readiness check fallo en base de datos: %s", exc)
-            services["database"] = "unhealthy"
+            services["database"] = "unhealthy" if is_sanitized_infra_probe else f"unhealthy: {exc}"
             all_ready = False
 
         # 2. Comprobación de Redis (Caché)
@@ -96,11 +98,11 @@ class ReadinessCheckView(APIView):
             if val == "ok":
                 services["cache"] = "ready"
             else:
-                services["cache"] = "unhealthy"
+                services["cache"] = "unhealthy" if is_sanitized_infra_probe else "unhealthy: cache value mismatch"
                 all_ready = False
         except Exception as exc:
             logger.error("Readiness check fallo en cache: %s", exc)
-            services["cache"] = "unhealthy"
+            services["cache"] = "unhealthy" if is_sanitized_infra_probe else f"unhealthy: {exc}"
             all_ready = False
 
         status_code = status.HTTP_200_OK if all_ready else status.HTTP_503_SERVICE_UNAVAILABLE

@@ -339,11 +339,26 @@ class BookSerializer(serializers.ModelSerializer):
         if hasattr(obj, '_precomputed_rating_distribution'):
             return obj._precomputed_rating_distribution
 
-        parent = getattr(self, 'parent', None)
-        if isinstance(parent, serializers.ListSerializer) and hasattr(parent, 'instance'):
-            if not hasattr(parent, '_precomputed_rating_distributions'):
-                items = parent.instance if isinstance(parent.instance, (list, tuple)) else list(parent.instance)
-                book_ids = [getattr(b, 'id', None) for b in items if getattr(b, 'id', None) is not None]
+        list_serializer = None
+        curr = getattr(self, 'parent', None)
+        while curr:
+            if isinstance(curr, serializers.ListSerializer) and hasattr(curr, 'instance'):
+                list_serializer = curr
+                break
+            curr = getattr(curr, 'parent', None)
+
+        if list_serializer:
+            if not hasattr(list_serializer, '_precomputed_rating_distributions'):
+                items = list_serializer.instance if isinstance(list_serializer.instance, (list, tuple)) else list(list_serializer.instance)
+                book_ids = []
+                for it in items:
+                    if hasattr(it, 'book_id'):
+                        book_ids.append(it.book_id)
+                    elif hasattr(it, 'book') and hasattr(it.book, 'id'):
+                        book_ids.append(it.book.id)
+                    elif hasattr(it, 'id'):
+                        book_ids.append(it.id)
+                book_ids = [b for b in book_ids if b is not None]
                 dists = {b_id: dict.fromkeys(range(1, 6), 0) for b_id in book_ids}
                 counts = dict.fromkeys(book_ids, 0)
                 if book_ids:
@@ -368,11 +383,11 @@ class BookSerializer(serializers.ModelSerializer):
                         if 1 <= val <= 5 and b_id in dists:
                             dists[b_id][val] = cnt
                             counts[b_id] += cnt
-                parent._precomputed_rating_distributions = dists
-                parent._precomputed_reviews_counts = counts
+                list_serializer._precomputed_rating_distributions = dists
+                list_serializer._precomputed_reviews_counts = counts
 
-            if hasattr(parent, '_precomputed_rating_distributions') and obj.id in parent._precomputed_rating_distributions:
-                return parent._precomputed_rating_distributions[obj.id]
+            if hasattr(list_serializer, '_precomputed_rating_distributions') and obj.id in list_serializer._precomputed_rating_distributions:
+                return list_serializer._precomputed_rating_distributions[obj.id]
 
         request = self.context.get('request')
         cache_key = f'_rating_dist_{obj.id}'
@@ -399,10 +414,13 @@ class BookSerializer(serializers.ModelSerializer):
     def get_reviews_count(self, obj):
         if hasattr(obj, 'annotated_reviews_count'):
             return obj.annotated_reviews_count
-        parent = getattr(self, 'parent', None)
-        if isinstance(parent, serializers.ListSerializer) and hasattr(parent, '_precomputed_reviews_counts'):
-            if obj.id in parent._precomputed_reviews_counts:
-                return parent._precomputed_reviews_counts[obj.id]
+
+        curr = getattr(self, 'parent', None)
+        while curr:
+            if isinstance(curr, serializers.ListSerializer) and hasattr(curr, '_precomputed_reviews_counts'):
+                if obj.id in curr._precomputed_reviews_counts:
+                    return curr._precomputed_reviews_counts[obj.id]
+            curr = getattr(curr, 'parent', None)
 
         request = self.context.get('request')
         cache_key = f'_reviews_count_{obj.id}'

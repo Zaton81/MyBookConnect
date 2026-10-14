@@ -249,9 +249,9 @@ export function Library() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-            {activeAudiobooks.map((ab) => (
+            {activeAudiobooks.map((ab, idx) => (
               <div
-                key={ab.book_id}
+                key={ab.book_id ?? ab.id ?? idx}
                 className="flex items-center justify-between p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-800 border border-slate-700/60 transition-colors"
               >
                 <div className="flex items-center gap-2.5 min-w-0">

@@ -55,8 +55,8 @@ class TestDatabasePerformanceAndIndexes:
         client = APIClient()
         client.force_authenticate(user=user)
 
-        # Con select_related('book', 'book__author') y prefetch_related('book__categories')
-        with django_assert_num_queries(15):
+        # Con select_related('book', 'book__author'), prefetch_related('book__categories', 'book__authors', 'book__contributions__author') y batching
+        with django_assert_num_queries(7):
             res = client.get('/api/v1/books/user/books/')
             assert res.status_code == 200
             assert len(res.json()['results']) == 6
@@ -73,8 +73,8 @@ class TestDatabasePerformanceAndIndexes:
             Review.objects.create(user=u, book=book, rating=5, text=f'Reseña {i}')
 
         client = APIClient()
-        # Con select_related('user', 'book', 'book__author'), prefetch_related('book__categories'), AuthorBasicSerializer y paginador (1 query count adicional)
-        with django_assert_num_queries(13):
+        # Con select_related('user', 'book', 'book__author'), prefetch_related, AuthorBasicSerializer, batching y paginador
+        with django_assert_num_queries(7):
             res = client.get(f'/api/v1/books/reviews/?book={book.id}')
             assert res.status_code == 200
             data = res.json()

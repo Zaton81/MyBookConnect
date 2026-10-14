@@ -205,7 +205,7 @@ class TestCeleryEmbeddingTask:
         book.embedding = None
         book.save(update_fields=['embedding'])
 
-        with patch('ai.embeddings.get_embedding_for_text') as mock_emb:
+        with patch('books.services.embedding_service.get_embedding_for_text') as mock_emb:
             mock_emb.return_value = [0.11, 0.22, 0.33]
             generate_book_embedding_task(book.id)
 

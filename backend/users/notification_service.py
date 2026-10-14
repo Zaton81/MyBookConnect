@@ -36,6 +36,7 @@ class NotificationService:
         title: str = '',
         message: str = '',
         link: str = '',
+        fail_silently: bool = False,
     ) -> Notification | None:
         """
         Emite una notificación validando políticas de privacidad (bloqueos y silencios)
@@ -84,6 +85,8 @@ class NotificationService:
 
         except Exception as exc:
             logger.warning(f"Error despachando notificación ({notif_type}) para {recipient}: {exc}")
+            if not fail_silently:
+                raise
             return None
 
     @staticmethod

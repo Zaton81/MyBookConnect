@@ -282,6 +282,7 @@ class TestCoverServiceSecurityIntegration:
         img_bytes = _create_dummy_image(format_name='JPEG', size=(250, 350))
 
         class DummyResponse:
+            status_code = 200
             content = img_bytes
             headers = {'Content-Type': 'image/jpeg'}
             def raise_for_status(self):
