@@ -268,9 +268,9 @@
 - [x] Feed social optimizado y blindado (exclusión bidireccional de bloqueados, silenciados, actividades de reseñas borradas/moderadas y privacidad `activity_privacy_level: private`).
 - [x] Notificaciones fiables y respetuosas de privacidad (supresión de notificaciones entre usuarios bloqueados y observancia de canales `NotificationPreference`).
 - [x] Moderación de contenido re-validada con filtrado automático en feeds públicos y detalle para no-admins.
-- [x] Suite de pruebas exhaustiva (`backend/tests/test_phase_d3_reviews_social_feed.py`) 100% verde (10/10 passed).
+- [x] Suite de pruebas exhaustiva (`backend/tests/test_phase_d3_reviews_social_feed.py`) 100% verde (7/7 passed).
 
-**Criterio de salida:** Suite de interacción social, reseñas y feed 100% verde + cero filtraciones entre usuarios bloqueados. [COMPLETADO - 2026-10-12]
+**Criterio de salida:** Suite de interacción social, reseñas y feed 100% verde + cero filtraciones entre usuarios bloqueados. [COMPLETADO - 2026-10-14]
 
 ---
 

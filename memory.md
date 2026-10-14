@@ -683,10 +683,14 @@ Cualquier agente de IA o desarrollador que se incorpore a la base de código **D
   - Migración y rebranding total a My Book Social (`mybooksocial.com`). Optimización Anti-N+1 con complejidad invariante $O(1)$ en `BookSerializer`. Suite E2E de ciclo de vida completo (`test_phase_c1_e2e_critical_flow.py`). Pruebas de carga Locust y runner headless. Linters limpios (Ruff 0 errors, ESLint 0 errors).
 - **Fase C2 — Documentación y gobernanza (P1) — COMPLETADA (2026-10-12):**
   - Incorporados ADRs 009 a 013 con índice maestro en `docs/decisions/README.md`. Creado manual unificado de operaciones y runbooks de producción (`docs/devops/operations_runbook.md`), guía de gobernanza y onboarding (`CONTRIBUTING.md`) y política de versionado SemVer y release (`docs/development/versioning_and_release_policy.md`).
-- **Fase D1 — Perfil de lector y privacidad (P1) — COMPLETADA (2026-10-12):**
-  - Consistencia de perfiles público/amigos/privado en API y UI. Enmascaramiento granular de PII (email, nacimiento, ubicación, bio) mediante `PrivacyService.apply_profile_field_visibility`. Bloqueos bidireccionales con auto-unfollow y aislamiento social completo. Protección de biblioteca bajo `reading_privacy_level`. Re-validación RGPD Art. 17/20 bajo My Book Social (`mybooksocial_data_export_...`). Suite de 8 tests pasando al 100% (`test_phase_d1_reader_profile_and_privacy.py`).
-- **Fase D2 — Autores y catálogo (P1) — SIGUIENTE:**
-  - Relación Book ↔ Author multi-rol (autor, coautor, traductor, ilustrador, narrador), sincronización con Open Library / PA-API, deduplicación de ediciones y metadatos extendidos.
+- **Fase D2 — Autores y catálogo (P1) — COMPLETADA (2026-10-12):**
+  - Relación Book ↔ Author multi-rol (`BookContribution`), normalización ISBN-10/13 determinista, deduplicación atómica de catálogo y resolución/visualización de `page_count`. Suite de 6 tests pasando al 100% (`test_phase_d2_authors_and_catalog.py`).
+- **Fase D3 — Reseñas, social y feed (P1) — COMPLETADA (2026-10-14):**
+  - Unicidad de reseña activa (`unique_active_review_user_book`) y reactivación determinista tras soft-delete. Likes atómicos e idempotentes (`ReviewLike`). Exclusión de bloqueados/silenciados y actividades de reseñas borradas/moderadas en feed. Fiabilidad en `NotificationService` con supresión ante bloqueos y observancia de `NotificationPreference`. Suite de 7 tests pasando al 100% (`test_phase_d3_reviews_social_feed.py`).
+- **Fase D4 — Búsqueda, descubrimiento y recomendaciones (P1) — COMPLETADA (2026-10-12):**
+  - Búsqueda híbrida resiliente (`UnifiedSearchEngine`), faceteado por género, recomendaciones con cold-start y explicabilidad algorítmica obligatoria. Suite de 7 tests pasando al 100% (`test_phase_d4_search_discovery_recommendations.py`).
+- **Fase E1 — Staging y smoke tests (P1) — COMPLETADA (2026-10-12):**
+  - Checklist de seguridad pre-despliegue, scripts de auditoría preflight y smoke tests de staging. Suite de 8 tests pasando al 100% (`test_phase_e1_staging_smoke.py`).
 
 ---
 

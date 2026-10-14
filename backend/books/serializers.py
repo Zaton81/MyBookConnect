@@ -622,6 +622,26 @@ class ReviewSerializer(serializers.ModelSerializer):
                 )
         return attrs
 
+    def create(self, validated_data):
+        from django.db import transaction
+        request = self.context.get('request')
+        user = validated_data.get('user') or (request.user if request and request.user.is_authenticated else None)
+        book = validated_data.get('book')
+        if user and book:
+            validated_data['user'] = user
+            with transaction.atomic():
+                deleted_review = Review.all_objects.select_for_update().filter(
+                    user=user, book=book, deleted_at__isnull=False
+                ).first()
+                if deleted_review:
+                    deleted_review.deleted_at = None
+                    deleted_review.is_moderated = False
+                    for attr, val in validated_data.items():
+                        setattr(deleted_review, attr, val)
+                    deleted_review.save()
+                    return deleted_review
+        return super().create(validated_data)
+
     def to_representation(self, instance):
         ret = super().to_representation(instance)
         request = self.context.get('request') if hasattr(self, 'context') else None

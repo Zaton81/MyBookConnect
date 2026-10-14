@@ -39,7 +39,7 @@ y este proyecto se adhiere a [Semantic Versioning 2.0.0](https://semver.org/lang
 - **Fiabilidad en Notificaciones y Protección ante Bloqueos (`backend/users/notification_service.py`)**:
   - Supresión garantizada de cualquier notificación si existe bloqueo activo entre los usuarios, e integridad en el cumplimiento de canales según preferencias `NotificationPreference` (In-App y Email).
 - **Suite Integral de Pruebas de Reseñas, Social y Feed (`backend/tests/test_phase_d3_reviews_social_feed.py`)**:
-  - 10 pruebas unitarias y de integración pasando al 100% que validan el ciclo de vida de reseñas, soft-delete y reactivación limpia, validación temprana de duplicados, likes y concurrencia, exclusión de moderados/silenciados en el feed y fiabilidad de notificaciones.
+  - 7 pruebas unitarias y de integración pasando al 100% que validan el ciclo de vida de reseñas, soft-delete y reactivación limpia, validación temprana de duplicados, likes y concurrencia, exclusión de moderados/silenciados en el feed y fiabilidad de notificaciones.
 
 ### Added & Changed / Authors, Multi-Role Contributions, ISBN-10/13 & Page Count (Roadmap Bloque D - Fase D2)
 - **Modelo de Contribuciones Multi-Rol (`backend/books/models.py`, `backend/books/serializers.py`)**:
