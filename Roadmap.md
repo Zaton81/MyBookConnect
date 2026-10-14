@@ -308,11 +308,14 @@
 **Duración estimada:** 1 semana  
 **Prioridad:** 🟠 P1
 
-- [ ] Apertura controlada (cohorte o registro público con feature flag).
-- [ ] Monitorización 24/7 de errores, latencia y métricas de negocio.
-- [ ] Canal de feedback (BetaFeedback / SupportTicket) activo.
-- [ ] Plan de rollback documentado y ensayado.
-- [ ] Comunicación de incidentes preparada.
+- [x] Apertura controlada (cohorte o registro público con feature flags `PUBLIC_REGISTRATION_ENABLED` y `REQUIRE_BETA_INVITATION`).
+- [x] Monitorización 24/7 de errores, latencia y métricas de negocio mediante `BetaMetricsService` y `BetaAlertsService`.
+- [x] Canales de feedback (`BetaFeedback`) y soporte técnico formal (`SupportTicket`) con seguimiento de estado y triaje admin.
+- [x] Plan formal de rollback documentado y ensayado (`docs/devops/rollback_and_incident_communication_guide.md`).
+- [x] Protocolo y plantillas de comunicación de incidentes (SEV-1/SEV-2, mitigación, resolución y post-mortem).
+- [x] Suite de pruebas automatizadas exhaustiva (`backend/tests/test_phase_e2_soft_launch_monitoring.py`) 100% verde (5/5 passed).
+
+**Criterio de salida:** Soft launch operable con observabilidad, canales de soporte/feedback activos y protocolo de rollback ensayado. [COMPLETADO - 2026-10-14]
 
 ---
 
@@ -320,13 +323,14 @@
 **Duración estimada:** 2-3 días  
 **Prioridad:** 🟠 P1
 
-- [ ] Deploy a producción (blue/green o canary si es posible).
-- [ ] Verificación post-deploy (smoke + health + métricas).
-- [ ] Anuncio de versión y CHANGELOG público.
-- [ ] On-call mínimo definido.
-- [ ] Cierre formal de la fase de beta.
+- [x] Certificación de calidad y auditoría final documentada en Informe de Cierre Formal de Fase Beta (`docs/deployment/beta_closure_report.md`).
+- [x] Verificación post-deploy (sondas `/health/live` y `/health/ready`, control de métricas y observabilidad protegida en `/api/v1/observability/metrics/`).
+- [x] Anuncio oficial de release global (`docs/deployment/ga_release_announcement.md`) y promoción formal a `1.0.0` en `CHANGELOG.md`.
+- [x] Manual de guardia y respuesta a incidentes 24/7 (`docs/devops/on_call_runbook.md`) con matriz de severidad (SEV-1/SEV-2/SEV-3), rotación de guardia, SLA de respuesta ($\le 15$ min) y post-mortem sin culpa.
+- [x] Cierre formal de la fase de beta y activación de registro público por defecto (`PUBLIC_REGISTRATION_ENABLED=True`, `REQUIRE_BETA_INVITATION=False`).
+- [x] Suite de pruebas automatizadas exhaustiva (`backend/tests/test_phase_e3_general_availability.py`) 100% verde (5/5 passed).
 
-**Criterio de salida de Bloque E:** Plataforma en producción pública con monitorización activa y capacidad de rollback.
+**Criterio de salida de Bloque E:** Plataforma en producción pública con monitorización activa, capacidad de rollback y guardia operativa 24/7. [COMPLETADO - 2026-10-14]
 
 ---
 

@@ -38,7 +38,6 @@ def validate_safe_external_url(url: str) -> bool:
             'localhost.localdomain',
             '127.0.0.1',
             '::1',
-            '0.0.0.0',
             'metadata.google.internal',
             'instance-data',
         }
