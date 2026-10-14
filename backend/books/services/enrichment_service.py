@@ -190,6 +190,7 @@ def enrich_book_metadata(book: Book) -> None:
     has_description = bool(book.description)
     has_published_date = bool(book.published_date)
     has_cover = bool(book.cover)
+    has_page_count = bool(book.page_count)
 
     # Si falta portada, intentar descargarla
     if not has_cover:
@@ -200,7 +201,7 @@ def enrich_book_metadata(book: Book) -> None:
             logger.debug(f"No se pudo resolver portada inicial para {book.title}: {ce}")
 
     # Si todos los campos están presentes, no es necesario consultar APIs externas
-    if has_author and has_categories and has_description and has_published_date and has_cover:
+    if has_author and has_categories and has_description and has_published_date and has_cover and has_page_count:
         return
 
     # 1. Intentar con Google Books
@@ -246,6 +247,17 @@ def enrich_book_metadata(book: Book) -> None:
                             break
                         except ValueError:
                             continue
+
+                # Auto-relleno de número de páginas si falta
+                if not has_page_count and info.get('pageCount'):
+                    try:
+                        pages = int(info.get('pageCount'))
+                        if pages > 0:
+                            book.page_count = pages
+                            has_page_count = True
+                            changed = True
+                    except (ValueError, TypeError):
+                        pass
 
                 if changed:
                     book.save()
@@ -307,6 +319,12 @@ def enrich_book_metadata(book: Book) -> None:
                             break
                         except ValueError:
                             continue
+
+                # Auto-relleno de número de páginas desde OpenLibrary si falta
+                if not has_page_count and ol_data.page_count:
+                    book.page_count = ol_data.page_count
+                    has_page_count = True
+                    changed = True
 
                 if changed:
                     book.save()

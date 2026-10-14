@@ -7,6 +7,76 @@ y este proyecto se adhiere a [Semantic Versioning 2.0.0](https://semver.org/lang
 
 ## [Unreleased]
 
+### Added & Changed / Staging Parity, Smoke Testing & Pre-Deployment Hardening (Roadmap Bloque E - Fase E1)
+- **Checklist de Seguridad Pre-Despliegue (`docs/deployment/pre_deployment_security_checklist.md`)**:
+  - Matriz integral de seguridad auditando directivas Django (`DEBUG=False`, `SECRET_KEY`, `ALLOWED_HOSTS`, cookies HttpOnly/Secure/SameSite=Lax, HSTS estricto de 1 año), aislamiento estricto de redes Docker (`backend_net internal: true`, puertos de base de datos y Redis cerrados al exterior), backup cifrado con DRP y feature flags de control de apertura.
+- **Auditoría Preflight y Smoke Testing de Staging (`scripts/staging/`)**:
+  - Sincronizado `preflight_staging.sh` con el dominio canónico `mybooksocial.com`.
+  - Herramienta sintética `smoke_test_staging.py` validando sondas `/health/live` y `/health/ready`, versiones SemVer 2.0.0 y contratos de catálogo.
+- **Suite Integral de Pruebas Automáticas de Staging (`backend/tests/test_phase_e1_staging_smoke.py`)**:
+  - 8 pruebas pasando al 100% que validan contratos de sondas de salud sin fugas de secretos, login seguro con emisión de cookies HttpOnly, emisión y consumo de un solo uso de tickets efímeros WebSocket, control de feature flags de registro público e invitaciones, ejecución exitosa del comando de integridad post-restauración `verify_restore_integrity` y presencia física de artefactos de auditoría.
+
+### Added & Changed / Search, Discovery & Recommendations Hardening (Roadmap Bloque D - Fase D4)
+- **Búsqueda Híbrida Resiliente (`backend/books/services/unified_search_service.py`)**:
+  - `UnifiedSearchEngine` consolidado combinando FTS (`SearchVector`/`SearchRank`), búsqueda difusa por trigramas (`TrigramSimilarity`/`TrigramWordSimilarity`) y embeddings semánticos con fallback automático tolerante a fallos sin dependencias duras externas.
+- **Descubrimiento Facetado y Tendencias Públicas (`backend/books/discovery_views.py`)**:
+  - `BookDiscoveryView`: soporte para filtrado por slug o nombre de género (`Q(categories__slug__iexact=...) | Q(categories__name__iexact=...)`), con normalización de claves de caché para evitar caracteres especiales en Redis y Memcached.
+- **Motor de Recomendaciones con Transparencia Ética y Cold-Start (`backend/books/services/recommendation_service.py`)**:
+  - Exclusión estricta de obras en biblioteca (`UserBook`) y obras descartadas (`RecommendationFeedbackAction.DISMISSED`).
+  - Algoritmo de arranque en frío (*cold-start*) aprovechando las categorías favoritas de onboarding (`user.favorite_categories`).
+  - Explicabilidad algorítmica obligatoria (`reason`) en cada ítem y endpoint `/api/v1/books/recommendations/<id>/explain/` detallando motivos de sugerencia.
+- **Suite Integral de Pruebas de Búsqueda, Descubrimiento y Recomendaciones (`backend/tests/test_phase_d4_search_discovery_recommendations.py`)**:
+  - 7 pruebas unitarias y de integración pasando al 100% que validan búsqueda híbrida, endpoint global, descubrimiento no autenticado, faceteado por género, exclusión de leídos, cold-start y transparencia ética de la IA.
+
+### Added & Changed / Reviews, Social Interactions, Feed & Notifications Hardening (Roadmap Bloque D - Fase D3)
+- **Ciclo de Vida de Reseñas y Reactivación Limpia tras Soft-Delete (`backend/books/views.py`)**:
+  - Garantizada la unicidad de reseña activa por usuario y libro (`unique_active_review_user_book`). Si un usuario publica nuevamente para un libro cuya reseña previa fue eliminada con soft-delete, el sistema restaura la entidad existente (`deleted_at = None`), actualiza su puntuación y contenido, y recalcula de forma atómica el promedio del libro sin generar filas huérfanas duplicadas.
+  - Erradicada la degradación N+1 en listados de libros precargando `contributions__author` en `BookListCreateView` y `BookDetailView`.
+- **Aislamiento Social, Exclusión de Moderados y Blindaje del Feed (`backend/users/privacy_service.py`)**:
+  - `PrivacyService.filter_visible_activities`: Exclusión rigurosa de actividades ligadas a reseñas con soft-delete (`review__deleted_at__isnull=False`) o moderadas (`review__is_moderated=True`) para usuarios sin permisos de staff.
+  - Filtro estricto de bloqueos bidireccionales (`blocked_users`, `blocked_by`) y usuarios silenciados (`muted_users`) en el feed social cronológico e inteligente.
+  - Respeto del nivel privado de actividad (`activity_privacy_level: private`).
+- **Fiabilidad en Notificaciones y Protección ante Bloqueos (`backend/users/notification_service.py`)**:
+  - Supresión garantizada de cualquier notificación si existe bloqueo activo entre los usuarios, e integridad en el cumplimiento de canales según preferencias `NotificationPreference` (In-App y Email).
+- **Suite Integral de Pruebas de Reseñas, Social y Feed (`backend/tests/test_phase_d3_reviews_social_feed.py`)**:
+  - 7 pruebas unitarias y de integración pasando al 100% que validan el ciclo de vida de reseñas, soft-delete y reactivación limpia, validación temprana de duplicados, likes y concurrencia, exclusión de moderados/silenciados en el feed y fiabilidad de notificaciones.
+
+### Added & Changed / Authors, Multi-Role Contributions, ISBN-10/13 & Page Count (Roadmap Bloque D - Fase D2)
+- **Modelo de Contribuciones Multi-Rol (`backend/books/models.py`, `backend/books/serializers.py`)**:
+  - Incorporado modelo `BookContribution` con roles definidos (`AUTHOR`, `COAUTHOR`, `TRANSLATOR`, `ILLUSTRATOR`, `NARRATOR`, `EDITOR`) y sincronización automática bidireccional con campos históricos `book.author` y `book.authors`.
+  - Serializador `BookContributionSerializer` expuesto dentro de `BookSerializer.contributions` para visualización granular en cliente.
+- **Normalización y Búsqueda Cruzada de ISBN-10 y ISBN-13 (`backend/books/models.py`)**:
+  - Implementadas funciones deterministas `isbn10_to_isbn13`, `isbn13_to_isbn10` y `get_equivalent_isbns`.
+  - `Book.find_by_isbn` ampliado para buscar por equivalencias cruzadas en ediciones físicas y digitales.
+- **Resolución y Visualización de Páginas de Libro (`page_count`)**:
+  - `backend/books/services/enrichment_service.py`: Persistencia garantizada de `page_count` recuperado desde Google Books (`volumeInfo.pageCount`) y OpenLibrary (`ol_data.page_count`).
+  - `backend/books/views.py`: `BookDetailView` evalúa la ausencia de `page_count` para desencadenar el enriquecimiento asíncrono preventivo en segundo plano.
+  - `frontend/src/features/books/pages/BookDetail.tsx`: Renderizado visible del badge `📄 {page_count} páginas` en cabecera del libro, desglose de contribuciones multi-rol (traductor, ilustrador, narrador, etc.) y seguimiento de lectura reactivo `Pág. {currentPage} de {book.page_count}`.
+- **Suite Integral de Pruebas de Autores y Catálogo (`backend/tests/test_phase_d2_authors_and_catalog.py`)**:
+  - 6 pruebas unitarias y de integración pasando al 100% que validan contribuciones multi-rol, persistencia de `page_count`, endpoint de detalle, conversión matemática ISBN-10/13, búsqueda cruzada y fusión atómica deduplicada.
+
+### Added & Changed / Reader Profile, Field Masking & GDPR Hardening (Roadmap Bloque D - Fase D1)
+- **Consistencia y Blindaje de Privacidad de Perfil (`backend/users/privacy_service.py`)**:
+  - Control de visibilidad estricto para perfiles `public`, `friends` y `private`, con ofuscación granular de PII (`email`, `birth_date`, `location`, `bio`) para terceros cuando las banderas de visibilidad están desactivadas.
+  - Protección de biblioteca y métricas de lectura (`books_read_count`, `reviews_count`) bajo `reading_privacy_level` (ocultas para terceros en modo `private`).
+  - Aislamiento bidireccional en bloqueos: auto-unfollow, denegación de acceso a perfil, prohibición de mensajes directos e interacciones sociales.
+- **Re-validación RGPD bajo My Book Social (`backend/users/account_views.py`)**:
+  - Actualizado el endpoint de portabilidad (`/api/v1/users/account/export/`) para generar archivos descargables con nombre canónico `mybooksocial_data_export_{username}.json` y metadatos con `platform: "My Book Social"`.
+  - Re-validación del circuito de supresión y anonimización de cuenta (Art. 17) con registro de auditoría en `AuditLog`.
+- **Suite Integral de Pruebas de Perfil y Privacidad (`backend/tests/test_phase_d1_reader_profile_and_privacy.py`)**:
+  - 8 pruebas unitarias y de integración pasando al 100% que validan el enmascaramiento de datos personales, acceso a perfiles de amigos y privados, bloqueos mutuos, privacidad de lecturas y exportación/eliminación RGPD.
+
+### Added / Documentation, ADRs & Governance Hardening (Roadmap Bloque C - Fase C2)
+- **Nuevos Registros de Decisión Arquitectónica (`docs/decisions/`)**:
+  - Incorporados ADR-009 (Mitigación de XSS mediante Cookies HttpOnly y Handshake WebSocket por Tickets Efímeros), ADR-010 (Topología Docker Aislada con Nginx como Punto Único de Entrada), ADR-011 (Copias de Seguridad Cifradas AES-256, DRP y Verificación de Integridad), ADR-012 (Enrutamiento Celery Multi-Cola y Read-Replicas) y ADR-013 (Batching Anti-N+1 en ListSerializer).
+  - Creado índice maestro en `docs/decisions/README.md` catalogando los 13 ADRs del sistema.
+- **Manual de Operaciones y Runbooks de Producción (`docs/devops/operations_runbook.md`)**:
+  - Manual unificado con instrucciones ejecutables paso a paso para restauración ante desastres (DRP), rotación segura de secretos críticos (`SECRET_KEY`, PostgreSQL, AWS S3/PA-API), escalado horizontal de Celery/Daphne y protocolo de triaje y respuesta rápida a incidentes P0.
+- **Guía de Contribución y Onboarding (`CONTRIBUTING.md`)**:
+  - Guía centralizada en la raíz del repositorio con estándares de código (Ruff, ESLint), flujos de ramas (`develop`/`main`), convenciones de commits semánticos, checklist Definition of Done y protocolo obligatorio para agentes autónomos de IA.
+- **Política de Versionado SemVer y Ciclo de Release (`docs/development/versioning_and_release_policy.md`)**:
+  - Formalización del esquema SemVer 2.0.0, etapas de feature freeze, preparación de release, etiquetado de tags Git y gestión ágil de hotfixes de seguridad.
+
 ### Added & Changed / Test Hardening, Anti-N+1, E2E & Rebranding (Roadmap Bloque C - Fase C1)
 - **Unificación de Marca y Dominio a My Book Social (`mybooksocial.com`)**:
   - Reemplazo exhaustivo de todas las referencias al antiguo dominio y nombre en `.env.production.example`, `frontend/nginx.ssl.conf.template`, `backend/users/notification_service.py`, `backend/users/tasks.py`, `backend/books/services/base.py`, páginas legales, componentes UI (`SocialShareModal`, `AccountPrivacySection`, `PublicLandingPage`, etc.) y suites de pruebas (0 incidencias residuales de `mybookconnect.com`).

@@ -15,6 +15,7 @@ from .models import (
     AuthorNewsletterSubscriber,
     AuthorProfile,
     Book,
+    BookContribution,
     Category,
     Errata,
     LegalDocument,
@@ -187,6 +188,18 @@ class CategorySerializer(serializers.ModelSerializer):
         fields = ('id', 'name', 'slug')
 
 
+class BookContributionSerializer(serializers.ModelSerializer):
+    author = AuthorBasicSerializer(read_only=True)
+    author_id = serializers.PrimaryKeyRelatedField(
+        queryset=Author.objects.all(), source='author', write_only=True, required=False
+    )
+    role_display = serializers.CharField(source='get_role_display', read_only=True)
+
+    class Meta:
+        model = BookContribution
+        fields = ('id', 'author', 'author_id', 'role', 'role_display', 'order')
+
+
 class BookSerializer(serializers.ModelSerializer):
     author = AuthorBasicSerializer(read_only=True)
     author_id = serializers.PrimaryKeyRelatedField(
@@ -199,6 +212,7 @@ class BookSerializer(serializers.ModelSerializer):
     author_names = serializers.ListField(
         child=serializers.CharField(), write_only=True, required=False
     )
+    contributions = BookContributionSerializer(many=True, read_only=True)
     categories = CategorySerializer(many=True, read_only=True)
     category_ids = serializers.PrimaryKeyRelatedField(
         queryset=Category.objects.all(), many=True, source='categories', write_only=True, required=False
@@ -209,10 +223,11 @@ class BookSerializer(serializers.ModelSerializer):
     class Meta:
         model = Book
         fields = (
-            'id', 'title', 'author', 'author_id', 'authors', 'author_ids', 'author_names', 'isbn',
-            'additional_isbns', 'google_volume_id', 'openlibrary_work_id', 'openlibrary_edition_id',
-            'cover', 'description', 'published_date', 'page_count', 'average_rating', 'created_at',
-            'categories', 'category_ids', 'rating_distribution', 'reviews_count'
+            'id', 'title', 'author', 'author_id', 'authors', 'author_ids', 'author_names',
+            'contributions', 'isbn', 'additional_isbns', 'google_volume_id', 'openlibrary_work_id',
+            'openlibrary_edition_id', 'cover', 'description', 'published_date', 'page_count',
+            'average_rating', 'created_at', 'categories', 'category_ids', 'rating_distribution',
+            'reviews_count'
         )
         read_only_fields = ('additional_isbns',)
 
@@ -324,11 +339,26 @@ class BookSerializer(serializers.ModelSerializer):
         if hasattr(obj, '_precomputed_rating_distribution'):
             return obj._precomputed_rating_distribution
 
-        parent = getattr(self, 'parent', None)
-        if isinstance(parent, serializers.ListSerializer) and hasattr(parent, 'instance'):
-            if not hasattr(parent, '_precomputed_rating_distributions'):
-                items = parent.instance if isinstance(parent.instance, (list, tuple)) else list(parent.instance)
-                book_ids = [getattr(b, 'id', None) for b in items if getattr(b, 'id', None) is not None]
+        list_serializer = None
+        curr = getattr(self, 'parent', None)
+        while curr:
+            if isinstance(curr, serializers.ListSerializer) and hasattr(curr, 'instance'):
+                list_serializer = curr
+                break
+            curr = getattr(curr, 'parent', None)
+
+        if list_serializer:
+            if not hasattr(list_serializer, '_precomputed_rating_distributions'):
+                items = list_serializer.instance if isinstance(list_serializer.instance, (list, tuple)) else list(list_serializer.instance)
+                book_ids = []
+                for it in items:
+                    if hasattr(it, 'book_id'):
+                        book_ids.append(it.book_id)
+                    elif hasattr(it, 'book') and hasattr(it.book, 'id'):
+                        book_ids.append(it.book.id)
+                    elif hasattr(it, 'id'):
+                        book_ids.append(it.id)
+                book_ids = [b for b in book_ids if b is not None]
                 dists = {b_id: dict.fromkeys(range(1, 6), 0) for b_id in book_ids}
                 counts = dict.fromkeys(book_ids, 0)
                 if book_ids:
@@ -353,11 +383,11 @@ class BookSerializer(serializers.ModelSerializer):
                         if 1 <= val <= 5 and b_id in dists:
                             dists[b_id][val] = cnt
                             counts[b_id] += cnt
-                parent._precomputed_rating_distributions = dists
-                parent._precomputed_reviews_counts = counts
+                list_serializer._precomputed_rating_distributions = dists
+                list_serializer._precomputed_reviews_counts = counts
 
-            if hasattr(parent, '_precomputed_rating_distributions') and obj.id in parent._precomputed_rating_distributions:
-                return parent._precomputed_rating_distributions[obj.id]
+            if hasattr(list_serializer, '_precomputed_rating_distributions') and obj.id in list_serializer._precomputed_rating_distributions:
+                return list_serializer._precomputed_rating_distributions[obj.id]
 
         request = self.context.get('request')
         cache_key = f'_rating_dist_{obj.id}'
@@ -384,10 +414,13 @@ class BookSerializer(serializers.ModelSerializer):
     def get_reviews_count(self, obj):
         if hasattr(obj, 'annotated_reviews_count'):
             return obj.annotated_reviews_count
-        parent = getattr(self, 'parent', None)
-        if isinstance(parent, serializers.ListSerializer) and hasattr(parent, '_precomputed_reviews_counts'):
-            if obj.id in parent._precomputed_reviews_counts:
-                return parent._precomputed_reviews_counts[obj.id]
+
+        curr = getattr(self, 'parent', None)
+        while curr:
+            if isinstance(curr, serializers.ListSerializer) and hasattr(curr, '_precomputed_reviews_counts'):
+                if obj.id in curr._precomputed_reviews_counts:
+                    return curr._precomputed_reviews_counts[obj.id]
+            curr = getattr(curr, 'parent', None)
 
         request = self.context.get('request')
         cache_key = f'_reviews_count_{obj.id}'
@@ -588,6 +621,26 @@ class ReviewSerializer(serializers.ModelSerializer):
                     code='duplicate_review',
                 )
         return attrs
+
+    def create(self, validated_data):
+        from django.db import transaction
+        request = self.context.get('request')
+        user = validated_data.get('user') or (request.user if request and request.user.is_authenticated else None)
+        book = validated_data.get('book')
+        if user and book:
+            validated_data['user'] = user
+            with transaction.atomic():
+                deleted_review = Review.all_objects.select_for_update().filter(
+                    user=user, book=book, deleted_at__isnull=False
+                ).first()
+                if deleted_review:
+                    deleted_review.deleted_at = None
+                    deleted_review.is_moderated = False
+                    for attr, val in validated_data.items():
+                        setattr(deleted_review, attr, val)
+                    deleted_review.save()
+                    return deleted_review
+        return super().create(validated_data)
 
     def to_representation(self, instance):
         ret = super().to_representation(instance)

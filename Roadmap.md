@@ -217,13 +217,13 @@
 **Duración estimada:** 2-3 días  
 **Prioridad:** 🟠 P1
 
-- [ ] Actualización de ADRs existentes y creación de los pendientes.
-- [ ] Runbooks de operación (restore, rotación de secrets, scaling, incidentes).
-- [ ] Guía de contribución y de onboarding de agentes/desarrolladores.
-- [ ] Sincronización de `memory.md`, `CHANGELOG.md` y este `Roadmap.md`.
-- [ ] Versionado SemVer estricto y política de release.
+- [x] Actualización de ADRs existentes y creación de los pendientes (ADRs 009 a 013 e índice en `docs/decisions/`).
+- [x] Runbooks de operación (restore, rotación de secrets, scaling, incidentes) en `docs/devops/operations_runbook.md`.
+- [x] Guía de contribución y de onboarding de agentes/desarrolladores en `CONTRIBUTING.md`.
+- [x] Sincronización de `memory.md`, `CHANGELOG.md` y este `Roadmap.md`.
+- [x] Versionado SemVer estricto y política de release en `docs/development/versioning_and_release_policy.md`.
 
-**Criterio de salida:** Documentación operativa completa y accesible en `docs/`.
+**Criterio de salida:** Documentación operativa completa y accesible en `docs/`. [COMPLETADO - 2026-10-12]
 
 ---
 
@@ -235,11 +235,13 @@
 **Duración estimada:** 3-4 días  
 **Prioridad:** 🟠 P1
 
-- [ ] Perfil público/privado/amigos completamente funcional y consistente.
-- [ ] Estadísticas de lectura, libros leídos/leyendo/pendientes, reseñas y actividad.
-- [ ] Avatar, biografía, ubicación y fecha de nacimiento con control de privacidad.
-- [ ] Exportación RGPD (Art. 20) y eliminación/anonimización (Art. 17) ya existentes → re-validación.
-- [ ] Tests de visibilidad y bloqueos.
+- [x] Perfil público/privado/amigos completamente funcional y consistente (`users/privacy_service.py`, `Profile.tsx`).
+- [x] Estadísticas de lectura, libros leídos/leyendo/pendientes, reseñas y actividad con protección `reading_privacy_level` (ocultas para terceros si es privado).
+- [x] Avatar, biografía, ubicación y fecha de nacimiento con control granular de privacidad y ofuscación de PII (`apply_profile_field_visibility`).
+- [x] Exportación RGPD (Art. 20 con filename `mybooksocial_data_export_{username}.json` y metadatos `My Book Social`) y eliminación/anonimización (Art. 17).
+- [x] Tests de visibilidad, aislamiento y bloqueos (`backend/tests/test_phase_d1_reader_profile_and_privacy.py`).
+
+**Criterio de salida:** Suite de visibilidad y RGPD 100% verde + cero fugas de datos privados. [COMPLETADO - 2026-10-12]
 
 ---
 
@@ -247,11 +249,13 @@
 **Duración estimada:** 4-5 días  
 **Prioridad:** 🟠 P1
 
-- [ ] Relación Book ↔ Author multi-rol (autor, coautor, traductor, ilustrador, narrador…).
-- [ ] Sistema de aliases y normalización de nombres para evitar duplicados.
-- [ ] Reclamo y verificación de autor (flujo ya existente) → endurecimiento de moderación.
-- [ ] Deduplicación final de catálogo (ISBN + título normalizado + autor).
-- [ ] Publicaciones de autor, newsletters y monetización básica (si aplica) con moderación.
+- [x] Relación Book ↔ Author multi-rol (autor, coautor, traductor, ilustrador, narrador…) con modelo `BookContribution` y sincronización automática.
+- [x] Sistema de normalización y equivalencia matemática determinista ISBN-10 / ISBN-13 (`isbn10_to_isbn13`, `isbn13_to_isbn10`) y búsqueda cruzada en catálogo (`Book.find_by_isbn`).
+- [x] Deduplicación atómica de catálogo (`merge_books`) preservando ISBNs absorbidos, reseñas, estanterías y datos de usuarios sin colisiones.
+- [x] Resolución de conteo de páginas (`page_count`): persistencia en enriquecimiento (Google Books / OpenLibrary), auto-detección de metadatos faltantes en `BookDetailView` y renderizado en UI de perfil de libro (`📄 {page_count} páginas` y tracking de lectura).
+- [x] Suite de pruebas exhaustiva (`backend/tests/test_phase_d2_authors_and_catalog.py`) 100% verde (6/6 passed).
+
+**Criterio de salida:** Suite de autores, catálogo y conteo de páginas 100% verde + interoperabilidad multi-rol y equivalencia ISBN. [COMPLETADO - 2026-10-12]
 
 ---
 
@@ -259,11 +263,14 @@
 **Duración estimada:** 4-5 días  
 **Prioridad:** 🟠 P1
 
-- [ ] Una reseña activa por usuario/libro + soft-delete limpio.
-- [ ] Likes únicos y agregaciones de rating eficientes.
-- [ ] Feed social optimizado (exclusión de bloqueados/silenciados, paginación, caché).
-- [ ] Notificaciones fiables (in-app + preferencias de email/push).
-- [ ] Moderación de contenido (reportes, cola admin, AuditLog) re-validada.
+- [x] Una reseña activa por usuario/libro (`unique_active_review_user_book`) + reactivación limpia tras soft-delete reutilizando entidad previa sin duplicados.
+- [x] Likes únicos e idempotentes (`ReviewLike`) con protección ante bloqueos y agregación atómica de ratings (`update_book_rating`, `recalculate_book_rating_task`).
+- [x] Feed social optimizado y blindado (exclusión bidireccional de bloqueados, silenciados, actividades de reseñas borradas/moderadas y privacidad `activity_privacy_level: private`).
+- [x] Notificaciones fiables y respetuosas de privacidad (supresión de notificaciones entre usuarios bloqueados y observancia de canales `NotificationPreference`).
+- [x] Moderación de contenido re-validada con filtrado automático en feeds públicos y detalle para no-admins.
+- [x] Suite de pruebas exhaustiva (`backend/tests/test_phase_d3_reviews_social_feed.py`) 100% verde (7/7 passed).
+
+**Criterio de salida:** Suite de interacción social, reseñas y feed 100% verde + cero filtraciones entre usuarios bloqueados. [COMPLETADO - 2026-10-14]
 
 ---
 
@@ -271,10 +278,13 @@
 **Duración estimada:** 4-6 días  
 **Prioridad:** 🟠 P1 / 🟡 P2
 
-- [ ] Búsqueda híbrida (trigramas + embeddings) estable y rápida.
-- [ ] Descubrimiento facetado y tendencias públicas.
-- [ ] Motor de recomendaciones: diversidad, penalización de ya vistos, afinidad temporal y cold-start.
-- [ ] Transparencia ética de la IA (explicabilidad mínima).
+- [x] Búsqueda híbrida (`UnifiedSearchEngine`) multicanal (léxica, difusa por trigramas y semántica) estable y resiliente con fallback sin dependencias duras externas.
+- [x] Descubrimiento facetado y tendencias públicas (`BookDiscoveryView` en `/api/v1/books/discover/`) con filtrado por género y caché normalizada sin caracteres especiales.
+- [x] Motor de recomendaciones con diversidad, exclusión estricta de obras en biblioteca (`UserBook`) y soporte de arranque en frío (*cold-start*) basado en preferencias de onboarding (`favorite_categories`).
+- [x] Transparencia ética y explicabilidad algorítmica obligatoria (`reason` en cada ítem y endpoint estructurado `/explain/`).
+- [x] Suite de pruebas exhaustiva (`backend/tests/test_phase_d4_search_discovery_recommendations.py`) 100% verde (7/7 passed).
+
+**Criterio de salida de Bloque D:** Catálogo, autores, privacidad, feed, descubrimiento y recomendaciones 100% endurecidos, operables y auditados. [COMPLETADO - 2026-10-12]
 
 ---
 
@@ -284,11 +294,13 @@
 **Duración estimada:** 3-4 días  
 **Prioridad:** 🟠 P1
 
-- [ ] Entorno de staging idéntico a producción.
-- [ ] Suite de smoke automatizada (API + frontend + WebSocket + backup).
-- [ ] Checklist de seguridad pre-despliegue.
-- [ ] Prueba de restore completa.
-- [ ] Validación de feature flags de registro público / invitación.
+- [x] Entorno de staging idéntico a producción y scripts de auditoría preflight (`preflight_staging.sh`, `smoke_test_staging.py`).
+- [x] Suite de smoke automatizada (`backend/tests/test_phase_e1_staging_smoke.py`, 8/8 passed) cubriendo liveness, readiness sanitizado, autenticación con cookies HttpOnly seguras y ticket efímero de WebSocket de un solo uso.
+- [x] Checklist de seguridad pre-despliegue exhaustivo y firmado (`docs/deployment/pre_deployment_security_checklist.md`).
+- [x] Prueba de restore completa auditada con éxito mediante comando `verify_restore_integrity` sobre usuarios, catálogo e interacciones.
+- [x] Validación de feature flags de registro público e invitaciones (`PUBLIC_REGISTRATION_ENABLED` y `REQUIRE_BETA_INVITATION`).
+
+**Criterio de salida:** Suite de smoke testing y checklist de pre-despliegue 100% aprobados en staging. [COMPLETADO - 2026-10-13]
 
 ---
 

@@ -151,6 +151,8 @@ class TestPhase31Monetization:
             user=self.author_user,
             author_id=self.author.id,
         )
+        profile.is_verified = True
+        profile.save()
 
         self.client.force_authenticate(user=self.author_user)
         ann_res = self.client.post(

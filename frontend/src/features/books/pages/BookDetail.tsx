@@ -434,7 +434,12 @@ export function BookDetail() {
                         <div className="space-y-1 pt-1">
                           <div className="flex justify-between text-[11px] font-semibold text-indigo-700 dark:text-indigo-300">
                             <span>Progreso: {progress}%</span>
-                            {currentPage > 0 && <span>Pág. {currentPage}</span>}
+                            {currentPage > 0 && (
+                              <span>
+                                Pág. {currentPage}
+                                {book?.page_count ? ` de ${book.page_count}` : ''}
+                              </span>
+                            )}
                           </div>
                           <div className="w-full bg-slate-200 dark:bg-slate-600 h-2 rounded-full overflow-hidden">
                             <div
@@ -737,14 +742,12 @@ export function BookDetail() {
                     <span className="text-xs text-slate-400 font-mono">ISBN: {book.isbn}</span>
                   </>
                 )}
-                {book.page_count && (
-                  <>
-                    <span className="text-slate-300 dark:text-slate-600">•</span>
-                    <span className="text-xs text-slate-600 dark:text-slate-300 font-medium inline-flex items-center gap-1">
-                      <span>📖</span> {book.page_count} páginas
-                    </span>
-                  </>
-                )}
+                <span className="text-slate-300 dark:text-slate-600">•</span>
+                <span className="text-xs text-slate-700 dark:text-slate-200 font-semibold inline-flex items-center gap-1 bg-slate-100 dark:bg-slate-700/80 px-2 py-0.5 rounded-md border border-slate-200 dark:border-slate-600">
+                  <span>📄</span>{' '}
+                  {book.page_count ? `${book.page_count} páginas` : 'Páginas no disponibles'}
+                </span>
+
                 {book.publisher && (
                   <>
                     <span className="text-slate-300 dark:text-slate-600">•</span>
@@ -757,6 +760,25 @@ export function BookDetail() {
                   </>
                 )}
               </div>
+
+              {/* Contribuciones y Roles de Autoría (Traductor, Ilustrador, Narrador...) */}
+              {book.contributions && book.contributions.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2 pt-1 text-xs">
+                  {book.contributions
+                    .filter((c: any) => c.role !== 'author')
+                    .map((c: any) => (
+                      <span
+                        key={c.id}
+                        className="inline-flex items-center gap-1 bg-teal-50 dark:bg-teal-950/40 text-teal-800 dark:text-teal-300 px-2 py-0.5 rounded-md border border-teal-200/60 dark:border-teal-800/60 font-medium"
+                      >
+                        <span className="font-semibold">{c.role_display}:</span>
+                        <Link to={`/authors/${c.author?.id}`} className="hover:underline">
+                          {c.author?.name}
+                        </Link>
+                      </span>
+                    ))}
+                </div>
+              )}
 
               {/* Puntuación Media y Desglose en Estrellas */}
               <div className="pt-2">

@@ -24,6 +24,52 @@ def normalize_isbn(value: str | None) -> str | None:
     return cleaned if cleaned else None
 
 
+def isbn10_to_isbn13(isbn10: str | None) -> str | None:
+    """Convierte un ISBN-10 válido a su equivalente canónico ISBN-13 (prefijo 978)."""
+    cleaned = normalize_isbn(isbn10)
+    if not cleaned or len(cleaned) != 10:
+        return None
+    core = '978' + cleaned[:9]
+    try:
+        checksum = sum(int(d) * (1 if i % 2 == 0 else 3) for i, d in enumerate(core))
+        check_digit = (10 - (checksum % 10)) % 10
+        return core + str(check_digit)
+    except (ValueError, TypeError):
+        return None
+
+
+def isbn13_to_isbn10(isbn13: str | None) -> str | None:
+    """Convierte un ISBN-13 con prefijo 978 a su equivalente ISBN-10."""
+    cleaned = normalize_isbn(isbn13)
+    if not cleaned or len(cleaned) != 13 or not cleaned.startswith('978'):
+        return None
+    core = cleaned[3:12]
+    try:
+        checksum = sum(int(d) * (10 - i) for i, d in enumerate(core))
+        rem = (11 - (checksum % 11)) % 11
+        check_digit = 'X' if rem == 10 else str(rem)
+        return core + check_digit
+    except (ValueError, TypeError):
+        return None
+
+
+def get_equivalent_isbns(value: str | None) -> list[str]:
+    """Obtiene una lista con el ISBN original y su contraparte equivalente (ISBN-10/13)."""
+    cleaned = normalize_isbn(value)
+    if not cleaned:
+        return []
+    variants = [cleaned]
+    if len(cleaned) == 10:
+        conv = isbn10_to_isbn13(cleaned)
+        if conv and conv not in variants:
+            variants.append(conv)
+    elif len(cleaned) == 13 and cleaned.startswith('978'):
+        conv = isbn13_to_isbn10(cleaned)
+        if conv and conv not in variants:
+            variants.append(conv)
+    return variants
+
+
 def normalize_title(value: str | None) -> str:
     """Normaliza un título eliminando acentos, caracteres no alfanuméricos y espacios repetidos para comparación."""
     if not value:
@@ -182,14 +228,20 @@ class Book(models.Model):
 
     @classmethod
     def find_by_isbn(cls, isbn_candidate: str | None):
-        """Busca un libro tanto por su ISBN principal como por sus ISBNs secundarios/alternativos."""
-        cleaned = normalize_isbn(isbn_candidate)
-        if not cleaned:
+        """Busca un libro tanto por su ISBN principal como secundarios, incluyendo equivalentes ISBN-10/13."""
+        candidates = get_equivalent_isbns(isbn_candidate)
+        if not candidates:
             return None
-        found = cls.objects.filter(isbn=cleaned).first()
+        # Búsqueda por ISBN principal
+        found = cls.objects.filter(isbn__in=candidates).first()
         if found:
             return found
-        return cls.objects.filter(additional_isbns__contains=cleaned).first()
+        # Búsqueda por ISBNs adicionales
+        for c in candidates:
+            found_extra = cls.objects.filter(additional_isbns__contains=c).first()
+            if found_extra:
+                return found_extra
+        return None
 
     def save(self, *args, **kwargs):
         if self.isbn:
@@ -204,9 +256,47 @@ class Book(models.Model):
         super().save(*args, **kwargs)
         if self.author_id:
             self.authors.add(self.author)
+            BookContribution.objects.get_or_create(
+                book=self,
+                author_id=self.author_id,
+                role=ContributionRole.AUTHOR,
+            )
 
     def __str__(self):
         return f"{self.title}"
+
+
+class ContributionRole(models.TextChoices):
+    AUTHOR = 'author', 'Autor principal'
+    COAUTHOR = 'coauthor', 'Coautor'
+    TRANSLATOR = 'translator', 'Traductor'
+    ILLUSTRATOR = 'illustrator', 'Ilustrador'
+    NARRATOR = 'narrator', 'Narrador'
+    EDITOR = 'editor', 'Editor / Prólogo'
+
+
+class BookContribution(models.Model):
+    book = models.ForeignKey(Book, on_delete=models.CASCADE, related_name='contributions')
+    author = models.ForeignKey(Author, on_delete=models.CASCADE, related_name='book_contributions')
+    role = models.CharField(
+        max_length=20,
+        choices=ContributionRole.choices,
+        default=ContributionRole.AUTHOR,
+        db_index=True,
+    )
+    order = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        ordering = ['order', 'id']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['book', 'author', 'role'],
+                name='unique_book_author_role',
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.author.name} ({self.get_role_display()}) en {self.book.title}"
 
 
 class ReadingStatus(models.TextChoices):

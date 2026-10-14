@@ -43,7 +43,7 @@ class UserProfileView(generics.RetrieveAPIView):
                 following_count=Count('following', distinct=True),
                 followers_count=Count('followers', distinct=True),
             )
-            .prefetch_related('following', 'followers')
+            .prefetch_related('following', 'followers', 'favorite_categories')
             .get(pk=user.pk)
         )
 

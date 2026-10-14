@@ -71,7 +71,7 @@ class BookListCreateView(generics.ListCreateAPIView):
     permission_classes = (permissions.IsAuthenticatedOrReadOnly,)
 
     def get_queryset(self):
-        queryset = Book.objects.select_related('author').prefetch_related('categories', 'authors')
+        queryset = Book.objects.select_related('author').prefetch_related('categories', 'authors', 'contributions__author')
         q = self.request.query_params.get('q') or self.request.query_params.get('search')
         if not q:
             return queryset
@@ -194,7 +194,7 @@ class BookDetailView(generics.RetrieveAPIView):
     Detecta automáticamente si falta portada, autor, sinopsis o categorías,
     disparando el enriquecimiento asíncrono para mantener el catálogo completo.
     """
-    queryset = Book.objects.select_related('author').prefetch_related('categories', 'authors')
+    queryset = Book.objects.select_related('author').prefetch_related('categories', 'authors', 'contributions__author')
     serializer_class = BookSerializer
     permission_classes = (permissions.AllowAny,)
 
@@ -220,6 +220,7 @@ class BookDetailView(generics.RetrieveAPIView):
                 not cached_data.get('author')
                 or not cached_data.get('description')
                 or not cached_data.get('categories')
+                or not cached_data.get('page_count')
             )
             if missing_cached_meta:
                 bg_enrich_key = f"bg_enrich_book_{book_id}"
@@ -246,11 +247,12 @@ class BookDetailView(generics.RetrieveAPIView):
                 except Exception as exc:
                     logging.warning(f"No se pudo encolar download_cover_task para libro {instance.id}: {exc}")
 
-        # Si al libro le falta autor, sinopsis o categorías, enriquecer en segundo plano
+        # Si al libro le falta autor, sinopsis, categorías o número de páginas, enriquecer en segundo plano
         missing_metadata = (
             not instance.author
             or not instance.description
             or not instance.categories.exists()
+            or not instance.page_count
         )
         if missing_metadata:
             bg_enrich_key = f"bg_enrich_book_{instance.id}"
@@ -298,7 +300,9 @@ class UserBookListCreateView(generics.ListCreateAPIView):
         else:
             queryset = UserBook.objects.filter(user=self.request.user)
 
-        queryset = queryset.select_related('book', 'book__author').prefetch_related('book__categories')
+        queryset = queryset.select_related('book', 'book__author').prefetch_related(
+            'book__categories', 'book__authors', 'book__contributions__author'
+        )
 
         def parse_bool(value):
             if value is None or value == '':
@@ -431,7 +435,7 @@ class ReviewListCreateView(generics.ListCreateAPIView):
 
         queryset = (
             Review.objects.select_related('user', 'book', 'book__author')
-            .prefetch_related('book__categories', 'book__authors')
+            .prefetch_related('book__categories', 'book__authors', 'book__contributions__author')
             .annotate(
                 annotated_likes_count=Count('likes', distinct=True),
                 annotated_comments_count=Count('comments', filter=Q(comments__deleted_at__isnull=True), distinct=True),
@@ -516,33 +520,50 @@ class ReviewListCreateView(generics.ListCreateAPIView):
                 review = active_review
                 created = False
             else:
-                try:
-                    with transaction.atomic():
-                        review = Review.objects.create(
-                            user=request.user,
-                            book_id=book_id,
-                            rating=rating_val,
-                            title=title,
-                            text=text,
-                            image=image_file,
-                        )
+                # Reactivar reseña previa si existía con soft-delete
+                deleted_review = Review.all_objects.select_for_update().filter(
+                    user=request.user, book_id=book_id, deleted_at__isnull=False
+                ).first()
+
+                if deleted_review:
+                    deleted_review.deleted_at = None
+                    deleted_review.rating = rating_val
+                    deleted_review.title = title
+                    deleted_review.text = text
+                    deleted_review.is_moderated = False
+                    if image_file is not None:
+                        deleted_review.image = image_file
+                    deleted_review.save()
+                    review = deleted_review
                     created = True
-                except IntegrityError:
-                    # Colisión concurrente: otro worker/hilo creó la reseña simultáneamente
-                    active_review = Review.objects.select_for_update().filter(
-                        user=request.user, book_id=book_id, deleted_at__isnull=True
-                    ).first()
-                    if active_review:
-                        active_review.rating = rating_val
-                        active_review.title = title
-                        active_review.text = text
-                        if image_file is not None:
-                            active_review.image = image_file
-                        active_review.save()
-                        review = active_review
-                        created = False
-                    else:
-                        raise
+                else:
+                    try:
+                        with transaction.atomic():
+                            review = Review.objects.create(
+                                user=request.user,
+                                book_id=book_id,
+                                rating=rating_val,
+                                title=title,
+                                text=text,
+                                image=image_file,
+                            )
+                        created = True
+                    except IntegrityError:
+                        # Colisión concurrente: otro worker/hilo creó la reseña simultáneamente
+                        active_review = Review.objects.select_for_update().filter(
+                            user=request.user, book_id=book_id, deleted_at__isnull=True
+                        ).first()
+                        if active_review:
+                            active_review.rating = rating_val
+                            active_review.title = title
+                            active_review.text = text
+                            if image_file is not None:
+                                active_review.image = image_file
+                            active_review.save()
+                            review = active_review
+                            created = False
+                        else:
+                            raise
 
 
             if created:

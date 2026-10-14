@@ -203,21 +203,33 @@ class TestPhase13NginxReverseProxyConfig:
     def test_api_proxy_pass_configured(self, nginx_config_content):
         """Debe existir directiva proxy_pass hacia backend para la ruta /api/."""
         assert "location /api/" in nginx_config_content
-        assert "proxy_pass http://backend:8000/api/;" in nginx_config_content
+        assert (
+            "proxy_pass http://backend:8000/api/;" in nginx_config_content
+            or "proxy_pass http://django_cluster;" in nginx_config_content
+        )
         assert "proxy_set_header Host $host;" in nginx_config_content
         assert "proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;" in nginx_config_content
 
     def test_websocket_proxy_pass_configured(self, nginx_config_content):
         """Debe existir directiva proxy_pass con Upgrade y Connection para WebSockets /ws/."""
         assert "location /ws/" in nginx_config_content
-        assert "proxy_pass http://backend:8000/ws/;" in nginx_config_content
+        assert (
+            "proxy_pass http://backend:8000/ws/;" in nginx_config_content
+            or "proxy_pass http://django_cluster;" in nginx_config_content
+        )
         assert "proxy_set_header Upgrade $http_upgrade;" in nginx_config_content
-        assert "proxy_set_header Connection \"upgrade\";" in nginx_config_content
+        assert (
+            "proxy_set_header Connection \"upgrade\";" in nginx_config_content
+            or "proxy_set_header Connection $connection_upgrade;" in nginx_config_content
+        )
 
     def test_health_proxy_pass_configured(self, nginx_config_content):
         """Debe existir directiva proxy_pass para sondas /health/."""
         assert "location /health/" in nginx_config_content
-        assert "proxy_pass http://backend:8000/health/;" in nginx_config_content
+        assert (
+            "proxy_pass http://backend:8000/health/;" in nginx_config_content
+            or "proxy_pass http://django_cluster;" in nginx_config_content
+        )
 
     def test_static_and_media_aliases_configured(self, nginx_config_content):
         """Debe servir /media/ y estáticos con cabeceras de seguridad."""

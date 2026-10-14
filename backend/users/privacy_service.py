@@ -503,16 +503,25 @@ class PrivacyService:
         - Actividad pública para el visor respetando activity_privacy_level y privacy_level.
         """
         if not viewer or not getattr(viewer, "is_authenticated", False):
-            # Visor anónimo solo ve actividades de usuarios públicos
-            return queryset.filter(
-                user__is_active=True,
-                user__privacy_level=PrivacyChoices.PUBLIC,
-                user__activity_privacy_level=PrivacyChoices.PUBLIC,
+            # Visor anónimo solo ve actividades de usuarios públicos y no moderadas/borradas
+            return (
+                queryset.filter(
+                    user__is_active=True,
+                    user__privacy_level=PrivacyChoices.PUBLIC,
+                    user__activity_privacy_level=PrivacyChoices.PUBLIC,
+                )
+                .exclude(review__is_moderated=True)
+                .exclude(review__deleted_at__isnull=False)
             )
 
         # Excluir autores inactivos
         if not getattr(viewer, "is_staff", False):
             queryset = queryset.filter(user__is_active=True)
+
+        # Excluir actividades asociadas a reseñas moderadas o eliminadas lógicamente
+        if not cls.can_moderate(viewer):
+            queryset = queryset.exclude(review__is_moderated=True)
+        queryset = queryset.exclude(review__deleted_at__isnull=False)
 
         # Bloqueos bidireccionales
         blocked_by_viewer = set(viewer.blocked_users.values_list("id", flat=True))

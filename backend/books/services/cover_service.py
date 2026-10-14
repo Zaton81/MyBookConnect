@@ -125,7 +125,7 @@ def download_and_attach_image(instance, field_name: str, url: str, filename_hint
                 logger.warning(f"Redirección descartada por política Anti-SSRF: {current_url}")
                 return False
             r = requests.get(current_url, timeout=8, headers=DEFAULT_HEADERS, allow_redirects=False)
-            if r.is_redirect or r.status_code in (301, 302, 303, 307, 308):
+            if getattr(r, 'is_redirect', False) or getattr(r, 'status_code', 200) in (301, 302, 303, 307, 308):
                 next_loc = r.headers.get('Location')
                 if not next_loc:
                     return False

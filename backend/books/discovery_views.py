@@ -71,13 +71,16 @@ class BookDiscoveryView(APIView):
         tags=['Books'],
     )
     def get(self, request):
+        from django.utils.text import slugify
+
         genre_param = request.query_params.get('genre', '').strip()
         try:
             limit = min(int(request.query_params.get('limit', 8)), 24)
         except ValueError:
             limit = 8
 
-        cache_key = f"books:discovery:v1:{genre_param}:{limit}"
+        cache_genre = slugify(genre_param) if genre_param else 'all'
+        cache_key = f"books:discovery:v1:{cache_genre}:{limit}"
         cached_data = safe_cache_get(cache_key)
         if cached_data is not None:
             return Response(cached_data, status=status.HTTP_200_OK)
@@ -129,13 +132,21 @@ class BookDiscoveryView(APIView):
             if genre_param.isdigit():
                 genre_filter_qs = genre_filter_qs.filter(categories__id=int(genre_param))
             else:
-                genre_filter_qs = genre_filter_qs.filter(categories__slug=genre_param)
+                from django.db.models import Q
+                genre_filter_qs = genre_filter_qs.filter(
+                    Q(categories__slug__iexact=genre_param) | Q(categories__name__iexact=genre_param)
+                )
 
             matched_books = genre_filter_qs.order_by('-average_rating', '-id')[:limit]
             genre_books = [_serialize_book_card(b, request) for b in matched_books]
             if categories:
                 matched_cat = next(
-                    (c for c in categories if str(c['id']) == genre_param or c['slug'] == genre_param),
+                    (
+                        c for c in categories
+                        if str(c['id']) == genre_param
+                        or c['slug'].lower() == genre_param.lower()
+                        or c['name'].lower() == genre_param.lower()
+                    ),
                     None
                 )
                 if matched_cat:
