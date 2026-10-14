@@ -105,6 +105,8 @@ Cualquier agente de IA o desarrollador que se incorpore a la base de código **D
 | **Fase D3** | **Reseñas, social, feed y notificaciones** | COMPLETADA | Unicidad de reseña activa + reactivación limpia de soft-delete, eliminación de N+1 con prefetch de `contributions__author`, exclusión de moderados y borrados en feed (`PrivacyService.filter_visible_activities`), aislamiento de bloqueados en notificaciones y observancia de canales (`test_phase_d3_reviews_social_feed.py`, 10 tests). |
 | **Fase D4** | **Búsqueda, descubrimiento y recomendaciones** | COMPLETADA | Motor de búsqueda híbrido multicanal (`UnifiedSearchEngine`), descubrimiento facetado público (`BookDiscoveryView`), recomendaciones con penalización de obras en biblioteca (`UserBook`), cold-start y explicabilidad ética (`reason` / `/explain/`) (`test_phase_d4_search_discovery_recommendations.py`, 7 tests). |
 | **Fase E1** | **Staging y smoke tests** | COMPLETADA | Checklist pre-despliegue exhaustivo (`pre_deployment_security_checklist.md`), paridad staging/producción, verificación DRP con `verify_restore_integrity` y suite integral de smoke tests (`test_phase_e1_staging_smoke.py`, 8 tests). |
+| **Fase E2** | **Soft launch y monitorización** | COMPLETADA | Guía de rollback y plantillas de comunicación (`rollback_and_incident_communication_guide.md`), canales de soporte y feedback in-app (`BetaFeedback`, `SupportTicket`), telemetría y alertas críticas (`test_phase_e2_soft_launch_monitoring.py`, 5 tests). |
+| **Fase E3** | **General Availability (GA) endurecida** | COMPLETADA | Certificación final en informe de cierre de beta (`beta_closure_report.md`), anuncio público (`ga_release_announcement.md`), manual de guardia on-call 24/7 (`on_call_runbook.md`), promoción a GA 1.0.0 y suite de pruebas (`test_phase_e3_general_availability.py`, 5 tests). |
 
 ---
 
@@ -693,6 +695,8 @@ Cualquier agente de IA o desarrollador que se incorpore a la base de código **D
   - Checklist de seguridad pre-despliegue, scripts de auditoría preflight y smoke tests de staging. Suite de 8 tests pasando al 100% (`test_phase_e1_staging_smoke.py`).
 - **Fase E2 — Soft launch y monitorización (P1) — COMPLETADA (2026-10-14):**
   - Guía operativa de rollback y comunicación de incidentes (`docs/devops/rollback_and_incident_communication_guide.md`), canales de soporte y feedback in-app (`BetaFeedback`, `SupportTicket`), telemetría de cohorte (`BetaMetricsService`) y detección de alertas críticas (`BetaAlertsService`). Suite de 5 tests pasando al 100% (`test_phase_e2_soft_launch_monitoring.py`).
+- **Fase E3 — General Availability (GA) endurecida (P1) — COMPLETADA (2026-10-14):**
+  - Cierre formal de fase beta (`docs/deployment/beta_closure_report.md`), anuncio oficial de GA 1.0.0 (`docs/deployment/ga_release_announcement.md`), manual de guardia on-call 24/7 (`docs/devops/on_call_runbook.md`) y activación de registro público por defecto. Suite de 5 tests pasando al 100% (`test_phase_e3_general_availability.py`).
 
 ---
 
@@ -719,6 +723,9 @@ Cualquier agente de IA o desarrollador que se incorpore a la base de código **D
 - **Guía de Preparación de Producción y Hardening:** [docs/deployment/production_readiness_guide.md](file:///c:/Users/zaton/Desktop/Escritorio/proyectos/MyBookConnect/docs/deployment/production_readiness_guide.md)
 - **Monetización y Plataforma de Autores:** [docs/business/monetization_and_author_platform.md](file:///c:/Users/zaton/Desktop/Escritorio/proyectos/MyBookConnect/docs/business/monetization_and_author_platform.md)
 - **Multi-autor, Reseñas en Perfil y Muro Social:** [docs/product/wall_posts_and_multiauthor_platform.md](file:///c:/Users/zaton/Desktop/Escritorio/proyectos/MyBookConnect/docs/product/wall_posts_and_multiauthor_platform.md)
+- **Informe de Cierre de Beta:** [docs/deployment/beta_closure_report.md](file:///c:/Users/zaton/Desktop/Escritorio/proyectos/MyBookConnect/docs/deployment/beta_closure_report.md)
+- **Comunicado Oficial de Lanzamiento GA:** [docs/deployment/ga_release_announcement.md](file:///c:/Users/zaton/Desktop/Escritorio/proyectos/MyBookConnect/docs/deployment/ga_release_announcement.md)
+- **Manual de Guardia On-Call 24/7:** [docs/devops/on_call_runbook.md](file:///c:/Users/zaton/Desktop/Escritorio/proyectos/MyBookConnect/docs/devops/on_call_runbook.md)
 
 
 

@@ -7,6 +7,18 @@ y este proyecto se adhiere a [Semantic Versioning 2.0.0](https://semver.org/lang
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-10-14 — General Availability (GA)
+
+### Added & Changed / General Availability (GA) Hardening & Public Launch (Roadmap Bloque E - Fase E3)
+- **Informe de Cierre Formal de Fase Beta (`docs/deployment/beta_closure_report.md`)**:
+  - Auditoría formal de fin de fase beta, certificación de calidad con cero vulnerabilidades críticas abiertas, 100% pruebas aprobadas, cero migraciones pendientes y formalización del paso a modo GA público.
+- **Comunicado Oficial de Lanzamiento Global (`docs/deployment/ga_release_announcement.md`)**:
+  - Declaración pública de General Availability (GA v1.0.0) detallando las funcionalidades para lectores, panel de autores, recomendaciones éticas, observabilidad y cumplimiento estricto del RGPD.
+- **Manual de Guardia y Respuesta a Incidentes (`docs/devops/on_call_runbook.md`)**:
+  - Protocolo operativo 24/7 con matriz de severidad (SEV-1/SEV-2/SEV-3), SLAs de respuesta (<15 min para SEV-1, <30 min para SEV-2), roles de guardia (Primary, Secondary, Incident Commander, Communications Lead), canales de alerta (Sentry, sondas HTTP, Celery) y directrices para post-mortem sin culpa en menos de 48h.
+- **Suite Integral de Pruebas de General Availability (`backend/tests/test_phase_e3_general_availability.py`)**:
+  - Cobertura completa de verificación de versión oficial SemVer 1.0.0 limpia, registro público por defecto (`mode='public'`), sondas de salud y métricas restringidas, viaje e2e del lector y preservación de artefactos de gobernanza y operaciones.
+
 ### Added & Changed / Soft Launch, Monitoring & Rollback Protocols (Roadmap Bloque E - Fase E2)
 - **Guía Operativa de Rollback y Comunicación de Incidentes (`docs/devops/rollback_and_incident_communication_guide.md`)**:
   - Procedimiento paso a paso para la contención y reversión de despliegues ante degradaciones de SLA (5xx > 1.0%, latencia p95 > 2000ms, caídas de base de datos o fallos de migración).
