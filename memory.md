@@ -691,6 +691,8 @@ Cualquier agente de IA o desarrollador que se incorpore a la base de código **D
   - Búsqueda híbrida resiliente (`UnifiedSearchEngine`), faceteado por género, recomendaciones con cold-start y explicabilidad algorítmica obligatoria. Suite de 7 tests pasando al 100% (`test_phase_d4_search_discovery_recommendations.py`).
 - **Fase E1 — Staging y smoke tests (P1) — COMPLETADA (2026-10-12):**
   - Checklist de seguridad pre-despliegue, scripts de auditoría preflight y smoke tests de staging. Suite de 8 tests pasando al 100% (`test_phase_e1_staging_smoke.py`).
+- **Fase E2 — Soft launch y monitorización (P1) — COMPLETADA (2026-10-14):**
+  - Guía operativa de rollback y comunicación de incidentes (`docs/devops/rollback_and_incident_communication_guide.md`), canales de soporte y feedback in-app (`BetaFeedback`, `SupportTicket`), telemetría de cohorte (`BetaMetricsService`) y detección de alertas críticas (`BetaAlertsService`). Suite de 5 tests pasando al 100% (`test_phase_e2_soft_launch_monitoring.py`).
 
 ---
 

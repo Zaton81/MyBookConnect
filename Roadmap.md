@@ -308,11 +308,14 @@
 **Duración estimada:** 1 semana  
 **Prioridad:** 🟠 P1
 
-- [ ] Apertura controlada (cohorte o registro público con feature flag).
-- [ ] Monitorización 24/7 de errores, latencia y métricas de negocio.
-- [ ] Canal de feedback (BetaFeedback / SupportTicket) activo.
-- [ ] Plan de rollback documentado y ensayado.
-- [ ] Comunicación de incidentes preparada.
+- [x] Apertura controlada (cohorte o registro público con feature flags `PUBLIC_REGISTRATION_ENABLED` y `REQUIRE_BETA_INVITATION`).
+- [x] Monitorización 24/7 de errores, latencia y métricas de negocio mediante `BetaMetricsService` y `BetaAlertsService`.
+- [x] Canales de feedback (`BetaFeedback`) y soporte técnico formal (`SupportTicket`) con seguimiento de estado y triaje admin.
+- [x] Plan formal de rollback documentado y ensayado (`docs/devops/rollback_and_incident_communication_guide.md`).
+- [x] Protocolo y plantillas de comunicación de incidentes (SEV-1/SEV-2, mitigación, resolución y post-mortem).
+- [x] Suite de pruebas automatizadas exhaustiva (`backend/tests/test_phase_e2_soft_launch_monitoring.py`) 100% verde (5/5 passed).
+
+**Criterio de salida:** Soft launch operable con observabilidad, canales de soporte/feedback activos y protocolo de rollback ensayado. [COMPLETADO - 2026-10-14]
 
 ---
 

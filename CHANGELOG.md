@@ -7,6 +7,20 @@ y este proyecto se adhiere a [Semantic Versioning 2.0.0](https://semver.org/lang
 
 ## [Unreleased]
 
+### Added & Changed / Soft Launch, Monitoring & Rollback Protocols (Roadmap Bloque E - Fase E2)
+- **Guía Operativa de Rollback y Comunicación de Incidentes (`docs/devops/rollback_and_incident_communication_guide.md`)**:
+  - Procedimiento paso a paso para la contención y reversión de despliegues ante degradaciones de SLA (5xx > 1.0%, latencia p95 > 2000ms, caídas de base de datos o fallos de migración).
+  - Protocolos de rollback para código, contenedores Docker, migraciones reversibles y restauración de snapshots con `restore_db.sh` y verificación con `verify_restore_integrity`.
+  - 4 plantillas estandarizadas de comunicación pública y para autores: notificación inicial de incidencia (SEV-1/SEV-2), actualización de mitigación, anuncio de servicio restablecido y estructura de post-mortem técnico.
+- **Canales de Feedback y Soporte Técnico Formal (`backend/beta/views.py`)**:
+  - Operatividad auditada de `/api/v1/beta/feedback/` con captura de contexto de dispositivo/página y triaje administrativo.
+  - Circuito de tickets `/api/v1/beta/support/` y `/api/v1/beta/support/my/` con seguimiento de estado (`OPEN`, `IN_PROGRESS`, `RESOLVED`, `CLOSED`), prioridades y resolución documentada por administradores.
+- **Telemetría de Cohorte y Detección de Alertas Críticas (`backend/beta/metrics_service.py`, `backend/beta/alerts_service.py`)**:
+  - Agregación en tiempo real de tasas de activación de invitaciones, distribución de incidencias y tickets de soporte.
+  - Triaje y alerta automática en logs estructurados ante bugs y tickets de severidad alta o crítica.
+- **Suite Integral de Pruebas de Soft Launch y Monitorización (`backend/tests/test_phase_e2_soft_launch_monitoring.py`)**:
+  - 5 pruebas unitarias y de integración pasando al 100% que validan el registro controlado por feature flags, ciclo de feedback, soporte técnico, telemetría operativa y la integridad del manual de rollback.
+
 ### Added & Changed / Staging Parity, Smoke Testing & Pre-Deployment Hardening (Roadmap Bloque E - Fase E1)
 - **Checklist de Seguridad Pre-Despliegue (`docs/deployment/pre_deployment_security_checklist.md`)**:
   - Matriz integral de seguridad auditando directivas Django (`DEBUG=False`, `SECRET_KEY`, `ALLOWED_HOSTS`, cookies HttpOnly/Secure/SameSite=Lax, HSTS estricto de 1 año), aislamiento estricto de redes Docker (`backend_net internal: true`, puertos de base de datos y Redis cerrados al exterior), backup cifrado con DRP y feature flags de control de apertura.
