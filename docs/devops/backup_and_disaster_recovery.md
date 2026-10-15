@@ -101,8 +101,8 @@ En caso de fallo total del servidor, hardware o proveedor de nube:
 ### Paso 1: Aprovisionar Nueva Instancia y Repositorio
 ```bash
 # 1. Clonar el repositorio en la nueva máquina
-git clone https://github.com/Zaton81/MyBookConnect.git
-cd MyBookConnect
+git clone https://github.com/Zaton81/MyBookSocial.git
+cd MyBookSocial
 git checkout develop
 
 # 2. Configurar variables de entorno con las claves maestras

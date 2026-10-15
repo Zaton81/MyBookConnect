@@ -9,7 +9,7 @@
 
 ## 1. Identificadores y Control de Versiones
 
-- **Repositorio:** `https://github.com/Zaton81/MyBookConnect`
+- **Repositorio:** `https://github.com/Zaton81/MyBookSocial`
 - **Rama principal activa:** `develop`
 - **Rama de producción:** `main`
 - **SemVer de la API:** `1.0.0`

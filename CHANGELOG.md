@@ -775,5 +775,5 @@ y este proyecto se adhiere a [Semantic Versioning 2.0.0](https://semver.org/lang
 
 ---
 
-[Unreleased]: https://github.com/Zaton81/MyBookConnect/compare/v1.0.0...HEAD
-[1.0.0]: https://github.com/Zaton81/MyBookConnect/releases/tag/v1.0.0
+[Unreleased]: https://github.com/Zaton81/MyBookSocial/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/Zaton81/MyBookSocial/releases/tag/v1.0.0
