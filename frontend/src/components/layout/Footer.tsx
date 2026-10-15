@@ -200,7 +200,7 @@ export function FooterSection() {
                 <BsInstagram className="w-4 h-4" />
               </a>
               <a
-                href="https://github.com/Zaton81/MyBookConnect"
+                href="https://github.com/Zaton81/MyBookSocial"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-teal-50 dark:hover:bg-teal-950/60 hover:text-teal-600 dark:hover:text-teal-400 text-slate-600 dark:text-slate-300 flex items-center justify-center transition-colors"

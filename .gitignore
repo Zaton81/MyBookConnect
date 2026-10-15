@@ -45,3 +45,6 @@ logs/
 OPTIMIZACIONES.md
 *.sql
 backups/
+*.zip
+*.tar.gz
+

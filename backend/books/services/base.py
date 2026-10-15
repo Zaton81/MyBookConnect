@@ -25,7 +25,7 @@ DEFAULT_HEADERS = {
 
 # Headers identificados obligatorios para la API de OpenLibrary
 OPENLIBRARY_HEADERS = {
-    'User-Agent': 'MyBookSocial/1.0 (https://github.com/Zaton81/MyBookConnect; contact@mybooksocial.com)',
+    'User-Agent': 'MyBookSocial/1.0 (https://github.com/Zaton81/MyBookSocial; contact@mybooksocial.com)',
     'Accept': 'application/json',
 }
 

@@ -1,6 +1,6 @@
 # MyBookConnect 📚
 
-[![CI/CD Pipeline](https://img.shields.io/badge/CI%2FCD-Passing-brightgreen)](https://github.com/Zaton81/MyBookConnect)
+[![CI/CD Pipeline](https://img.shields.io/badge/CI%2FCD-Passing-brightgreen)](https://github.com/Zaton81/MyBookSocial)
 [![Django](https://img.shields.io/badge/Django-5.2%20LTS-092E20?logo=django)](https://www.djangoproject.com/)
 [![DRF](https://img.shields.io/badge/DRF-3.18.1-red)](https://www.django-rest-framework.org/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-336791?logo=postgresql)](https://www.postgresql.org/)
@@ -64,8 +64,8 @@
 
 ### 1. Clonar el Repositorio
 ```bash
-git clone https://github.com/Zaton81/MyBookConnect.git
-cd MyBookConnect
+git clone https://github.com/Zaton81/MyBookSocial.git
+cd MyBookSocial
 ```
 
 ### 2. Configuración de Variables de Entorno
