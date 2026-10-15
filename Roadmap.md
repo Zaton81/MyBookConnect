@@ -1,395 +1,376 @@
-# MyBookConnect — Roadmap de Producción y Evolución
+# Hoja de Ruta Maestra de Ingeniería y Evolución (Post-GA) — MyBookSocial
 
-> **Versión del documento:** 2.0  
-> **Fecha:** 10 de octubre de 2026  
-> **Estado del producto:** `1.0.0` (General Availability)  
-> **Rama de trabajo:** `develop`  
-> **Objetivo del documento:** Definir el plan completo, priorizado y ejecutable para (1) corregir fallos y riesgos residuales críticos, (2) endurecer la plataforma para producción pública real y (3) evolucionar el producto de forma sostenible.
+> **Estado del Proyecto:** General Availability (GA) alcanzado (72 Fases / 20 Sprints completados).
+> **Objetivo de este Documento:** Servir como guía técnica operativa y exhaustiva para eliminar la deuda técnica acumulada durante la construcción acelerada, desacoplar dominios monolíticos, limpiar el historial y árbol de archivos, consolidar la capa de IA/Recomendaciones y preparar la arquitectura para escalar a decenas de miles de usuarios concurrentes.
 
 ---
 
-## Principios rectores
+## Índice de Épicas
 
-1. **Seguridad e integridad primero.** Ninguna feature nueva tiene prioridad sobre vulnerabilidades o inconsistencias de dominio.
-2. **Cero regresiones.** Toda fase debe dejar la suite de tests (backend + frontend) al 100 % y las migraciones en estado limpio.
-3. **Operabilidad.** Todo cambio debe ser reversible, observable y documentado (ADRs + `memory.md` + runbooks).
-4. **IA opcional.** Las capacidades de inteligencia artificial nunca deben bloquear el flujo principal de lectura, social o biblioteca.
-5. **Privacidad por diseño.** Cumplimiento RGPD (Arts. 17 y 20) y minimización de datos son invariantes.
-6. **Trabajo exclusivo en `develop`.** Tras cada fase: commit semántico + push a `develop`. Nunca push directo a `main`.
-7. **Plan antes de código.** Antes de implementar una fase se redacta y aprueba `implementation_plan.md`.
-
----
-
-## Estado actual del producto (baseline)
-
-| Área | Estado | Notas |
-|------|--------|-------|
-| Backend | Django 5.2 LTS + DRF + Channels + Celery | Stack estable |
-| Frontend | React 18 + TypeScript strict + Vite + Tailwind | Typecheck y build de producción OK |
-| Base de datos | PostgreSQL 16 + pgvector | Extensión activa |
-| Caché / tiempo real | Redis 7 (cache + Channels + broker) | Persistencia AOF |
-| Infraestructura | Docker multi-stage, Nginx reverse proxy, redes aisladas | Usuario no-root |
-| Seguridad | JWT, throttling, moderación, AuditLog, CSP/HSTS | Residual: token en localStorage |
-| Dominio | Biblioteca, reseñas, social, chat, listas, autores verificados, newsletters, IA, analytics, beta | Funcionalmente rico |
-| Tests | > 100 archivos de fase + suites de sprint | Cobertura alta, e2e y carga pendientes de refuerzo |
-| Versión | `1.0.0` (GA) | Release Candidate y staging validados |
+1. [Diagnóstico de Línea Base (Auditoría del Repositorio Actual)](#1-diagnóstico-de-línea-base-auditoría-del-repositorio-actual)
+2. [Fase 1: Higiene de Git, Activos Estáticos y Almacenamiento Multimedia](#2-fase-1-higiene-de-git-activos-estáticos-y-almacenamiento-multimedia)
+3. [Fase 2: Deconstrucción del Monolito `backend/books/` (Modularización sin Downtime)](#3-fase-2-deconstrucción-del-monolito-backendbooks-modularización-sin-downtime)
+4. [Fase 3: Consolidación de IA, Embeddings (`pgvector`) y Motor de Recomendaciones](#4-fase-3-consolidación-de-ia-embeddings-pgvector-y-motor-de-recomendaciones)
+5. [Fase 4: Refactorización Arquitectónica del Frontend (`frontend/src/`)](#5-fase-4-refactorización-arquitectónica-del-frontend-frontendsrc)
+6. [Fase 5: Reestructuración y Optimización de la Suite de Testing y QA](#6-fase-5-reestructuración-y-optimización-de-la-suite-de-testing-y-qa)
+7. [Fase 6: Rendimiento en PostgreSQL, Redis, Celery y WebSockets](#7-fase-6-rendimiento-en-postgresql-redis-celery-y-websockets)
+8. [Fase 7: Seguridad Defensiva Avanzada, Privacidad y Cumplimiento Legal](#8-fase-7-seguridad-defensiva-avanzada-privacidad-y-cumplimiento-legal)
+9. [Fase 8: Evolución de Producto y Monetización Real](#9-fase-8-evolución-de-producto-y-monetización-real)
+10. [Planificación por Sprints y Métricas de Éxito (SLAs / KPIs)](#10-planificación-por-sprints-y-métricas-de-éxito-slas--kpis)
 
 ---
 
-## Mapa de prioridades
+## 1. Diagnóstico de Línea Base (Auditoría del Repositorio Actual)
 
-| Prioridad | Significado | Criterio de inclusión |
-|-----------|-------------|-----------------------|
-| 🔴 **P0** | Bloquea producción pública segura | Vulnerabilidad, pérdida de datos, fallo de autenticación o integridad |
-| 🟠 **P1** | Necesario para primera versión pública robusta | Experiencia core, operación, observabilidad |
-| 🟡 **P2** | Mejora importante post-lanzamiento | Diferenciación, rendimiento, UX avanzada |
-| 🟢 **P3** | Evolución a medio plazo | Features de crecimiento |
-| 🔮 **FUTURO** | Visión a largo plazo | No planificado para los próximos 6 meses |
-
----
-
-# BLOQUE A — Estabilización crítica (P0)
-
-> Objetivo: eliminar riesgos que impiden confiar en un entorno de producción pública real.
-
-## Fase A1 — Congelación y baseline de seguridad
-**Duración estimada:** 1-2 días  
-**Prioridad:** 🔴 P0
-
-- [x] Crear tag `v1.0.0-pre-hardening` y branch de protección.
-- [x] Backup completo de PostgreSQL (cifrado AES-256) + volumen `media/`.
-- [x] Verificar `makemigrations --check` (0 pendientes).
-- [x] Ejecutar suite completa de tests de fase y de sprint (100 %).
-- [x] Auditoría exhaustiva de marcadores de conflicto residuales (`<<<<<<<`, `=======`, `>>>>>>>`).
-- [x] Eliminación definitiva de código muerto (`backend/app/`, `backend/config/` u otros esqueletos FastAPI).
-- [x] Rotación de secrets de desarrollo y documentación de política de secrets (nunca en git).
-- [x] Actualizar `memory.md` con el estado de baseline.
-
-**Criterio de salida:** Repo limpio, tests verdes, backup restaurable en entorno limpio.
+| Dimensión | Estado Actual en el Repositorio | Problema / Deuda Técnica Detectada | Impacto |
+| :--- | :--- | :--- | :--- |
+| **Control de Versiones y Binarios** | `backend/media/` rastreado en Git + PNGs pesados en `frontend/src/assets/` | Más de 50 imágenes de portadas, avatares y fotos de autores con duplicados de sufijo aleatorio (`_F7TCjR9`, `_70FpCru`, `_joxidbD`, `_it7j7NR`) inflando el repositorio. | Alto (Clonado lento, builds pesados, suciedad en Git). |
+| **Acoplamiento Backend** | `backend/books/` acumula **42 migraciones** y 6 dominios distintos | Catálogo, Clubes de Lectura, Gamificación, Audiolibros, Marketplace, Portal de Autores y comandos de Backup viven dentro de la misma app `books`. | Alto (Riesgo de colisiones en migraciones y alto acoplamiento). |
+| **Servicios de IA y Recomendaciones** | Coexistencia de múltiples versiones (`v1`, `v2`, `v3`) y servicios duplicados | `backend/mybookconnect/ai_service.py` duplica responsabilidades de `backend/ai/services.py`. Coexisten `0019_book_embedding` y `0022_bookembedding`. | Medio-Alto (Confusión sobre cuál es la fuente de verdad). |
+| **Estructura Frontend** | Doble árbol de rutas y componentes (`src/pages/` y `src/components/` vs `src/features/`) | Más de 35 archivos puente (*re-exports* de 1 línea) en `src/pages/*` y `src/components/*`, además de clientes API duplicados (`services/api.ts` vs `api/client.ts`). | Medio (Fricción cognitiva, *imports* inconsistentes). |
+| **Organización de Tests** | **95+ archivos** en `backend/tests/` con 4 nomenclaturas mezcladas | Conviven `test_phase01..72`, `test_phase_a2..e3`, `test_sprint1..20` y tests temáticos, más archivos vacíos (`users/tests.py`, `messages_app/tests.py`). | Alto (Solapamiento de pruebas, difícil mantenimiento). |
+| **Scripts Operativos** | Scripts duplicados en `scripts/` | `scripts/locustfile.py` vs `scripts/load_testing/locustfile.py`; `preflight_check.sh` vs `preflight_prod.sh`. | Bajo-Medio (Riesgo de ejecutar el script desactualizado en CI/CD). |
 
 ---
 
-## Fase A2 — Autenticación y sesión segura
-**Duración estimada:** 3-4 días  
-**Prioridad:** 🔴 P0
+## 2. Fase 1: Higiene de Git, Activos Estáticos y Almacenamiento Multimedia
 
-### JWT y almacenamiento de tokens
-- [x] Migrar tokens de acceso/refresh desde `localStorage` (Zustand persist) a cookies `HttpOnly` + `Secure` + `SameSite=Lax/Strict` (con soporte transparente en `client.ts` y backend).
-- [x] Eliminar cualquier `console.log` o log que contenga tokens.
-- [x] Implementar rotación de refresh token + blacklist (`OutstandingToken` y `BlacklistedToken` de SimpleJWT).
-- [x] Configurar tiempos de vida cortos para access token (15 min) y razonables para refresh (7 días).
-- [x] Actualizar cliente frontend (`client.ts` / interceptores) y store de autenticación (`useAuthStore` con `partialize`).
-- [x] Tests de seguridad: robo de cookie, XSS simulado, rotación y logout al 100%.
+### 2.1. Purga de `backend/media/` del Control de Versiones
+Actualmente Git rastrea archivos generados en tiempo de ejecución dentro de `backend/media/author_photos/`, `backend/media/avatars/` y `backend/media/covers/`, incluyendo colisiones de nombres de Django como:
+* `backend/media/author_photos/jordi-ortiz.jpg` y `jordi-ortiz_F7TCjR9.jpg`
+* `backend/media/author_photos/peter-connolly.jpg` y `peter-connolly_it7j7NR.jpg`
+* `backend/media/author_photos/santiago-posteguillo.jpg` y `santiago-posteguillo_70FpCru.jpg`
+* `backend/media/author_photos/stephen-dando-collins.jpg` y `stephen-dando-collins_joxidbD.jpg`
+* `backend/media/covers/cronicas-y-debates..._8Pae1J3.jpg`, `_RpSqb8Z.jpg`, `_bl1bShc.jpg`
 
-### WebSockets
-- [x] Eliminar completamente autenticación por query string (`?token=`) y bloquear intentos inseguros en middleware.
-- [x] Autenticación exclusiva mediante cookie HttpOnly o ticket de corta duración emitido por endpoint autenticado (`/api/v1/auth/ws-ticket/`).
-- [x] Rate limiting / backpressure por conexión y por usuario.
-- [x] Tamaño máximo de mensaje y rechazo de acciones desconocidas.
-- [x] Manejo robusto de desconexiones y reconexión.
-- [x] Tests de abuso, usuarios bloqueados y payloads malformados.
+**Plan de Acción:**
+- [ ] **Actualizar `.gitignore` raíz:**
+  Añadir reglas estrictas para ignorar cualquier archivo subido por usuarios o descargado por proveedores:
+  ```gitignore
+  backend/media/*
+  !backend/media/.gitkeep
+  ```
+- [ ] **Desindexar archivos actuales sin borrarlos del entorno local:**
+  ```bash
+  git rm -r --cached backend/media/
+  touch backend/media/.gitkeep
+  git add .gitignore backend/media/.gitkeep
+  git commit -m "chore(repo): stop tracking runtime media files in git"
+  ```
+- [ ] **Limpiar historial de Git (Opcional pero recomendado antes de escalar el equipo):**
+  Ejecutar `git filter-repo --path backend/media/ --invert-paths` para reducir el tamaño de `.git` en más de un $85\%$.
+- [ ] **Crear comando de *seed* determinista para entorno local:**
+  Crear `backend/books/management/commands/seed_dev_catalog.py` que genere portadas SVG ligeras en memoria o descargue bajo demanda en local sin ensuciar Git.
 
-### Cookies y headers
-- [x] Confirmar `SECURE_PROXY_SSL_HEADER`, `SECURE_SSL_REDIRECT`, HSTS, CSP, COOP.
-- [x] Revisar CORS y CSRF en el contexto de cookies cross-origin (`CORS_ALLOW_CREDENTIALS = True`, `AUTH_COOKIE_SAMESITE = 'Lax'`).
+### 2.2. Deduplicación de Archivos Multimedia por Hash Criptográfico
+Para evitar que Django cree copias como `foto_F7TCjR9.jpg` cuando se sube o hidrata la misma imagen dos veces:
+- [ ] **Modificar `backend/books/media_utils.py` y `backend/mybookconnect/media_security.py`:**
+  - Implementar un `UploadToHashedPath` que calcule el hash $\text{SHA-256}$ del binario ya procesado/re-codificado en formato WebP.
+  - Guardar la imagen como `covers/< primeros_2_chars_hash >/< sha256 >.webp`.
+  - Si el archivo ya existe en el almacenamiento, reutilizar la ruta existente en complejidad $O(1)$ sin escribir de nuevo en disco ni generar sufijos aleatorios.
+- [ ] **Conversión automática a WebP:**
+  - En `backend/mybookconnect/media_security.py`, tras validar y limpiar metadatos EXIF con Pillow, convertir sistemáticamente portadas y avatares a `.webp` (calidad $82\%$, dimensiones máximas $800 \times 1200\text{ px}$ para portadas y $400 \times 400\text{ px}$ para avatares).
 
-**Criterio de salida:** Suite de autenticación y WebSocket abuse al 100 %. Ningún token en localStorage ni en logs. [COMPLETADO - 2026-10-11]
+### 2.3. Optimización de Activos Estáticos del Frontend
+Los archivos en `frontend/src/assets/` y `frontend/public/` tienen un peso excesivo para el primer renderizado (*First Contentful Paint*):
+- [ ] **Optimizar logotipos e iconos:**
+  - Convertir `frontend/src/assets/logo-horizontal.png`, `logo-libro.png` y `logo-principal.png` a formato **SVG vectorial** o **WebP comprimido** (reducción esperada de $\sim 1.5\text{ MB}$ a $< 25\text{ KB}$).
+  - Reemplazar `frontend/public/favicon.ico` (actualmente sobredimensionado con múltiples capas PNG sin comprimir) por un conjunto limpio: `favicon.ico` ($32\times 32$, $< 15\text{ KB}$), `icon.svg` y `apple-touch-icon.png` ($180\times 180$).
 
----
+### 2.4. Abstracción de Almacenamiento S3 / Cloudflare R2 para Producción
+- [ ] **Integrar `django-storages[s3]` en `backend/requirements.txt` y `backend/mybookconnect/settings.py`:**
+  - Configurar variable de entorno `STORAGE_BACKEND=local|s3`.
+  - En local/CI mantiene `FileSystemStorage`; en producción permite conmutar a AWS S3, Cloudflare R2 o MinIO sin tocar una sola línea de código de los modelos.
 
-## Fase A3 — Integridad de dominio y permisos
-**Duración estimada:** 3-4 días  
-**Prioridad:** 🔴 P0
-
-- [x] Re-auditoría de `UniqueConstraint` en `Review` (user + book) y `UserBook`.
-- [x] Verificar que no existen signals destructivas o bucles de sincronización rating/notas.
-- [x] Cálculo eficiente y cacheado de `average_rating` (evitar `book.save()` completo en cada review con `Book.objects.filter().update()`).
-- [x] Validación estricta de media (MIME real, tamaño máximo, prevención de SSRF en enrichment de portadas con `validate_safe_external_url`).
-- [x] Throttling agresivo en endpoints costosos (`book_import: 10/hour`, `enrichment: 20/hour`, `author_claims: 5/hour`).
-- [x] Revisión de permisos: `IsOwnerOrReadOnly`, roles editor/moderador, IDOR en perfiles, listas y mensajes.
-- [x] Política de bloqueo social: respuesta 404 (no filtrar existencia) confirmada y testeada.
-- [x] Soft-delete correcto en reseñas, comentarios y publicaciones de autor.
-
-**Criterio de salida:** Tests de integridad + seguridad (IDOR, permisos, injection) al 100 %. [COMPLETADO - 2026-10-11]
-
----
-
-## Fase A4 — Health, readiness y superficie de ataque
-**Duración estimada:** 1-2 días  
-**Prioridad:** 🔴 P0
-
-- [x] `/health/live` y `/health/ready` no filtran información interna; códigos 200/503 correctos.
-- [x] Endpoints de métricas y observabilidad restringidos a personal autorizado.
-- [x] Eliminación o protección de cualquier endpoint de depuración residual.
-- [x] Revisión de OpenAPI / schema público (no exponer información sensible).
-- [x] Checklist OWASP Top 10 aplicado y documentado.
-
-**Criterio de salida:** Smoke de seguridad + healthchecks validados en staging. [COMPLETADO - 2026-10-11]
+### 2.5. Consolidación de Scripts Operativos Duplicados
+- [ ] **Unificar pruebas de carga:**
+  - Eliminar `scripts/locustfile.py` (raíz) y mantener únicamente la suite estructurada en `scripts/load_testing/locustfile.py`, `scripts/load_testing/run_locust_headless.py` y `scripts/load_testing/load_test_benchmark.py`.
+- [ ] **Unificar scripts de *Preflight* de Producción:**
+  - Fusionar las validaciones de `scripts/production/preflight_check.sh` y `scripts/production/preflight_prod.sh` en un único `scripts/production/preflight_prod.sh` parametrizado. Actualizar las referencias en `docs/deployment/`.
 
 ---
 
-# BLOQUE B — Infraestructura y operación de producción (P0 → P1)
+## 3. Fase 2: Deconstrucción del Monolito `backend/books/` (Modularización sin Downtime)
 
-## Fase B1 — Docker y orquestación de producción
-**Duración estimada:** 3-4 días  
-**Prioridad:** 🔴 P0 / 🟠 P1
+Actualmente `backend/books/` concentra **42 migraciones** y múltiples dominios de negocio. El objetivo es extraer los dominios periféricos en aplicaciones Django independientes **manteniendo intactos los nombres de las tablas en PostgreSQL** (`Meta.db_table = 'books_<modelo>'`) mediante `migrations.SeparateDatabaseAndState`, garantizando cero pérdida de datos y cero tiempo de inactividad.
 
-- [x] Validación end-to-end de `docker-compose.prod.yml`:
-  - Nginx como único punto de entrada (80/443).
-  - Backend, Celery, PostgreSQL y Redis sin puertos públicos.
-  - Redes `frontend_net` y `backend_net` (internal).
-  - Usuario no-root en todos los contenedores de aplicación.
-  - Healthchecks, `stop_signal` y `stop_grace_period`.
-  - Límites de CPU y memoria.
-- [x] Secrets management (Docker secrets o solución equivalente; nunca `.env` en claro en prod).
-- [x] Configuración de SSL/TLS (certificados, renovación automática).
-- [x] Upstream balanceado y `limit_req_zone` en Nginx.
-- [x] Scripts de preflight y smoke de producción.
+### 3.1. Extracción de la App `backend/clubs/` (Clubes de Lectura)
+- [ ] Crear el paquete `backend/clubs/` y registrarlo en `INSTALLED_APPS`.
+- [ ] Mover desde `backend/books/`:
+  - `club_models.py` $\rightarrow$ `backend/clubs/models.py` (`ReadingClub`, `ReadingClubMembership`, `ReadingClubBook`, `ReadingClubDiscussion`, etc., fijando `db_table = 'books_readingclub'`, etc.).
+  - `club_serializers.py` $\rightarrow$ `backend/clubs/serializers.py`.
+  - `club_views.py` $\rightarrow$ `backend/clubs/views.py`.
+  - `club_urls.py` $\rightarrow$ `backend/clubs/urls.py` (manteniendo el mismo prefijo de ruta en `mybookconnect/urls.py`).
+- [ ] Generar migración con `SeparateDatabaseAndState` en `books` (eliminando del estado de `books`) y en `clubs` (creando el estado en `clubs` sin ejecutar `DROP/CREATE TABLE`).
 
-**Criterio de salida:** Entorno de staging idéntico a producción levantado y validado. [COMPLETADO - 2026-10-12]
+### 3.2. Extracción de la App `backend/gamification/` (Retos, Rachas e Insignias)
+- [ ] Crear el paquete `backend/gamification/`.
+- [ ] Mover desde `backend/books/`:
+  - `gamification_models.py` $\rightarrow$ `backend/gamification/models.py` (`Badge`, `UserBadge`, `ReadingChallenge`, `ReadingStreak`, `DailyReadingLog`).
+  - `gamification_serializers.py` $\rightarrow$ `backend/gamification/serializers.py`.
+  - `gamification_views.py` $\rightarrow$ `backend/gamification/views.py`.
+  - `gamification_urls.py` $\rightarrow$ `backend/gamification/urls.py`.
+  - `services/gamification_service.py` $\rightarrow$ `backend/gamification/services.py`.
 
----
+### 3.3. Extracción de la App `backend/audiobooks/` (Reproductor y TTS)
+- [ ] Crear el paquete `backend/audiobooks/`.
+- [ ] Mover desde `backend/books/`:
+  - `audiobook_models.py` $\rightarrow$ `backend/audiobooks/models.py` (`AudiobookTrack`, `UserAudiobookProgress`).
+  - `services/audiobook_service.py` $\rightarrow$ `backend/audiobooks/services.py`.
+  - Vistas y serializadores asociados a pistas de audio y progreso de escucha.
 
-## Fase B2 — Backups, restore y disaster recovery
-**Duración estimada:** 2-3 días  
-**Prioridad:** 🔴 P0
+### 3.4. Extracción de la App `backend/marketplace/` (Editoriales, Enlaces de Compra y Afiliados)
+- [ ] Crear el paquete `backend/marketplace/`.
+- [ ] Mover desde `backend/books/`:
+  - `marketplace_models.py` $\rightarrow$ `backend/marketplace/models.py` (`Publisher`, `BookBuyLink`, `MarketplaceClick`, `AffiliateClick`).
+  - `services/marketplace_service.py` y `services/affiliate_service.py` $\rightarrow$ `backend/marketplace/services/`.
 
-- [x] Backup automático diario de PostgreSQL (cifrado) + retención configurable.
-- [x] Backup de volumen `media/` y de configuración crítica.
-- [x] Procedimiento de restore documentado y **probado** en entorno limpio.
-- [x] Definición de RPO / RTO y monitorización de fallos de backup.
-- [x] Script de verificación de integridad post-restore (usuarios, libros, reseñas, mensajes).
+### 3.5. Extracción de la App `backend/authors_portal/` (Ecosistema de Escritores)
+- [ ] Crear el paquete `backend/authors_portal/`.
+- [ ] Mover la lógica exclusiva para escritores verificados (`AuthorProfile`, `AuthorAnnouncement`, `AuthorEvent`, `AuthorEventAttendee`, `AuthorNewsletter`, `AuthorNewsletterIssue`, `services/author_service.py`, `author_urls.py`), dejando en `backend/books/` únicamente la entidad bibliográfica `Author` del catálogo.
 
-**Criterio de salida:** Restore completo ejecutado con éxito al menos una vez en staging. [COMPLETADO - 2026-10-12]
-
----
-
-## Fase B3 — Observabilidad y alertas
-**Duración estimada:** 2-3 días  
-**Prioridad:** 🟠 P1
-
-- [x] Logs JSON estructurados sin secretos ni PII.
-- [x] Métricas de sistema (CPU, memoria, Redis, colas Celery, latencia p95/p99).
-- [x] Métricas de producto (signups, retención D1/D7/D30, embudo, errores 5xx).
-- [x] Alertas mínimas accionables (disco, memoria Redis, cola saturada, tasa de error).
-- [x] Integración con herramienta de error tracking (Sentry o equivalente).
-- [x] Runbooks de incidentes comunes.
-
-**Criterio de salida:** Dashboard operativo + al menos 5 alertas configuradas y probadas. [COMPLETADO - 2026-10-12]
-
----
-
-## Fase B4 — Escalabilidad básica
-**Duración estimada:** 3-5 días  
-**Prioridad:** 🟠 P1
-
-- [x] Colas Celery separadas (`default`, `books`, `ai`, `recommendations`, `emails`) ya existentes → validar bajo carga.
-- [x] Primary/Replica router de PostgreSQL (si aplica) y configuración de réplicas de lectura.
-- [x] Upstream Nginx con varios workers Daphne.
-- [x] Estrategia de caché L2 (Redis) y invalidación en cascada revisada.
-- [x] Script de carga concurrente y definición de SLAs (p95/p99).
-- [x] Documentación de scaling horizontal de workers y de frontend.
-
-**Criterio de salida:** Informe de carga con SLAs cumplidos en staging. [COMPLETADO - 2026-10-12]
+### 3.6. Extracción de Comandos de Infraestructura a `backend/ops/` (o `mybookconnect`)
+Los siguientes comandos en `backend/books/management/commands/` no pertenecen al dominio de los libros:
+- [ ] Mover a una app transversal `backend/ops/management/commands/`:
+  - `backup_db.py` y `restore_db.py`
+  - `backup_media.py` y `restore_media.py`
+  - `check_backup_freshness.py` y `verify_restore_integrity.py`
+  - `evaluate_system_alerts.py`
+  - `benchmark_queries.py` y `rebuild_cache.py`
+  - `services/backup_service.py` $\rightarrow$ `backend/ops/services/backup_service.py`.
 
 ---
 
-# BLOQUE C — Calidad y deuda técnica (P1)
+## 4. Fase 3: Consolidación de IA, Embeddings (`pgvector`) y Motor de Recomendaciones
 
-## Fase C1 — Suite de tests y calidad de código
-**Duración estimada:** 5-7 días  
-**Prioridad:** 🟠 P1
+### 4.1. Eliminación de Duplicidades en la Capa de IA
+En el repositorio existen tres puntos de entrada para la IA: `backend/mybookconnect/ai_service.py`, `backend/ai/services.py` y `backend/books/ai_views.py`.
+- [ ] **Auditar y eliminar `backend/mybookconnect/ai_service.py`:**
+  - Migrar cualquier función residual hacia `backend/ai/services.py`.
+  - Asegurar que todas las llamadas a LLMs pasen exclusivamente por `backend/ai/clients/factory.py` y respeten las políticas de `backend/ai/policies.py` (prevención de *prompt injection*, límites de tokens, moderación de salida).
+- [ ] **Mover `backend/books/ai_views.py` $\rightarrow$ `backend/ai/views.py`:**
+  - Exponer las rutas de IA desde `backend/ai/urls.py` e incluirlas en `backend/mybookconnect/urls.py`.
 
-- [x] Tests de carga (Locust/k6) sobre listados, feed, búsqueda y chat (`scripts/load_testing/locustfile.py`, `run_locust_headless.py`, `load_test_benchmark.py`).
-- [x] Tests e2e críticos: registro/login → biblioteca → reseña → post/chat ws-ticket → feed → perfil (`test_phase_c1_e2e_critical_flow.py`).
-- [x] Cobertura de backend (126 tests pytest 100% verde) y frontend (24 archivos vitest, 93 tests 100% verde) documentada (`docs/testing/test_coverage_and_quality_report.md`).
-- [x] Erradicación de N+1 residuales con complejidad constante $O(1)$ en `BookSerializer` validada con `CaptureQueriesContext` (`test_phase_c1_query_optimization.py`).
-- [x] Paginación global y filtros consistentes en todos los listados.
-- [x] Linting estricto: Ruff (Backend 0 errors, All checks passed!) y ESLint (Frontend 0 errors).
-- [x] CI/CD: pipelines modulares y validación local de integración continua.
-- [x] Rebranding y unificación de marca/variables: migración exhaustiva a My Book Social (`mybooksocial.com`) en todo el código base y variables de entorno.
+### 4.2. Unificación del Sistema de Embeddings Vectoriales
+Actualmente coexisten `backend/ai/embeddings.py` y `backend/books/services/embedding_service.py`, además de las migraciones históricas `0019_book_embedding.py` (campo en `Book`) y `0022_bookembedding.py` (modelo separado `BookEmbedding`).
+- [ ] **Consolidar la generación de embeddings en `backend/ai/embeddings.py`:**
+  - `backend/books/services/embedding_service.py` solo debe encargarse de construir el texto canónico del libro (Título + Autor + Categorías + Sinopsis limpia) y delegar la vectorización a `ai.embeddings`.
+- [ ] **Limpiar campo legado de base de datos:**
+  - Verificar si el campo antiguo de la migración `0019` sigue presente en el modelo `Book` y, de ser así, deprecarlo en favor de la tabla dedicada `BookEmbedding` (`0022`), que permite reindexar con distintos modelos dimensionales sin bloquear la tabla principal `books_book`.
 
-**Criterio de salida:** CI 100 % verde + informe de cobertura + informe de performance. [COMPLETADO - 2026-10-12]
+### 4.3. Refactorización del Motor de Recomendaciones (`v1`, `v2`, `v3`)
+En `backend/books/services/` coexisten 7 archivos de recomendación:
+1. `recommendation_service.py`
+2. `recommendation_v1_service.py` (Heurísticas básicas / popularidad y géneros)
+3. `recommendation_v2_service.py` (Filtrado colaborativo e historial)
+4. `recommendation_v3_service.py` (Híbrido semántico con `pgvector` + señales de comportamiento)
+5. `recommendation_diversity_service.py` (Re-ranking MMR / penalización de monotonía de autor/género)
+6. `recommendation_explanation_service.py` (Generación de motivos legibles para la UI)
+7. `recommendation_feedback_service.py` (Pesos positivos/negativos y `dismissed`)
 
----
-
-## Fase C2 — Documentación y gobernanza
-**Duración estimada:** 2-3 días  
-**Prioridad:** 🟠 P1
-
-- [x] Actualización de ADRs existentes y creación de los pendientes (ADRs 009 a 013 e índice en `docs/decisions/`).
-- [x] Runbooks de operación (restore, rotación de secrets, scaling, incidentes) en `docs/devops/operations_runbook.md`.
-- [x] Guía de contribución y de onboarding de agentes/desarrolladores en `CONTRIBUTING.md`.
-- [x] Sincronización de `memory.md`, `CHANGELOG.md` y este `Roadmap.md`.
-- [x] Versionado SemVer estricto y política de release en `docs/development/versioning_and_release_policy.md`.
-
-**Criterio de salida:** Documentación operativa completa y accesible en `docs/`. [COMPLETADO - 2026-10-12]
-
----
-
-# BLOQUE D — Endurecimiento de producto core (P1)
-
-> Solo se ejecuta tras completar los Bloques A–C.
-
-## Fase D1 — Perfil de lector y privacidad
-**Duración estimada:** 3-4 días  
-**Prioridad:** 🟠 P1
-
-- [x] Perfil público/privado/amigos completamente funcional y consistente (`users/privacy_service.py`, `Profile.tsx`).
-- [x] Estadísticas de lectura, libros leídos/leyendo/pendientes, reseñas y actividad con protección `reading_privacy_level` (ocultas para terceros si es privado).
-- [x] Avatar, biografía, ubicación y fecha de nacimiento con control granular de privacidad y ofuscación de PII (`apply_profile_field_visibility`).
-- [x] Exportación RGPD (Art. 20 con filename `mybooksocial_data_export_{username}.json` y metadatos `My Book Social`) y eliminación/anonimización (Art. 17).
-- [x] Tests de visibilidad, aislamiento y bloqueos (`backend/tests/test_phase_d1_reader_profile_and_privacy.py`).
-
-**Criterio de salida:** Suite de visibilidad y RGPD 100% verde + cero fugas de datos privados. [COMPLETADO - 2026-10-12]
+**Plan de Acción:**
+- [ ] **Crear el subpaquete `backend/books/services/recommendations/`:**
+  - Implementar un **Pipeline de Recomendación en 4 etapas**:
+    1. `candidates.py`: Recuperación rápida de candidatos ($K = 200$) combinando similitud coseno en `pgvector` (`v3`), filtrado colaborativo (`v2`) y *fallback* para usuarios en frío (*cold-start*, `v1`).
+    2. `filtering.py`: Exclusión estricta de libros ya leídos, en lectura o descartados (`RecommendationFeedback.dismissed=True`).
+    3. `reranking.py`: Aplicación de diversidad (`recommendation_diversity_service.py`) usando *Maximal Marginal Relevance* (MMR):
+       $$\text{MMR} = \arg\max_{d_i \in R \setminus S} \left[ \lambda \cdot \text{Sim}_1(d_i, u) - (1 - \lambda) \max_{d_j \in S} \text{Sim}_2(d_i, d_j) \right]$$
+    4. `explanations.py`: Enriquecimiento en lote (*batch*) de las razones de recomendación sin incurrir en consultas $N+1$.
+- [ ] **Eliminar código muerto:** Si `v1` y `v2` contienen métodos que ya fueron absorbidos por `v3`, purgar las funciones redundantes y dejar solo las estrategias activas en el pipeline.
 
 ---
 
-## Fase D2 — Autores y catálogo
-**Duración estimada:** 4-5 días  
-**Prioridad:** 🟠 P1
+## 5. Fase 4: Refactorización Arquitectónica del Frontend (`frontend/src/`)
 
-- [x] Relación Book ↔ Author multi-rol (autor, coautor, traductor, ilustrador, narrador…) con modelo `BookContribution` y sincronización automática.
-- [x] Sistema de normalización y equivalencia matemática determinista ISBN-10 / ISBN-13 (`isbn10_to_isbn13`, `isbn13_to_isbn10`) y búsqueda cruzada en catálogo (`Book.find_by_isbn`).
-- [x] Deduplicación atómica de catálogo (`merge_books`) preservando ISBNs absorbidos, reseñas, estanterías y datos de usuarios sin colisiones.
-- [x] Resolución de conteo de páginas (`page_count`): persistencia en enriquecimiento (Google Books / OpenLibrary), auto-detección de metadatos faltantes en `BookDetailView` y renderizado en UI de perfil de libro (`📄 {page_count} páginas` y tracking de lectura).
-- [x] Suite de pruebas exhaustiva (`backend/tests/test_phase_d2_authors_and_catalog.py`) 100% verde (6/6 passed).
+El frontend ya cuenta con una excelente estructura basada en *features* (`frontend/src/features/`), pero conserva decenas de archivos puente heredados de una arquitectura anterior que ensucian el árbol de directorios.
 
-**Criterio de salida:** Suite de autores, catálogo y conteo de páginas 100% verde + interoperabilidad multi-rol y equivalencia ISBN. [COMPLETADO - 2026-10-12]
+### 5.1. Eliminación de Archivos Puente (*Re-export Shims*) en `src/pages/` y `src/components/`
+- [ ] **Eliminar la carpeta `frontend/src/pages/` por completo:**
+  - Actualmente los 14 archivos en `frontend/src/pages/*.tsx` (`AddBook.tsx`, `AdminDashboard.tsx`, `Author.tsx`, `BookDetail.tsx`, `Chat.tsx`, `EditProfile.tsx`, `Friends.tsx`, `Home.tsx`, `Library.tsx`, `Login.tsx`, `Profile.tsx`, `ReadingLists.tsx`, `ReadingStats.tsx`, `Register.tsx`) y los 7 archivos en `frontend/src/pages/legal/*.tsx` son *re-exports* de una sola línea que apuntan a `frontend/src/features/*/pages/*`.
+  - Actualizar `frontend/src/app/router.tsx` y los tests para que importen directamente desde `@/features/<feature>` y borrar `frontend/src/pages/`.
+- [ ] **Eliminar los componentes duplicados en la raíz de `frontend/src/components/`:**
+  - Borrar los 16 archivos puente de la raíz de `components/`:
+    - `AIAssistantModal.tsx` (vive en `features/ai/components/`)
+    - `AmazonAdSlot.tsx`, `BioEditor.tsx`, `CookieBanner.tsx`, `StarRating.tsx` (viven en `components/ui/`)
+    - `AuthBox.tsx`, `LoginModal.tsx`, `ProtectedRoute.tsx`, `RegisterModal.tsx`, `login.tsx`, `register.tsx` (viven en `features/auth/components/`)
+    - `BookReviewsSection.tsx` (vive en `features/reviews/components/`)
+    - `EditProfile.tsx` (vive en `features/profile/pages/`)
+    - `footer.tsx`, `header.tsx`, `logo.tsx` (viven en `components/layout/`)
+  - Dejar en `frontend/src/components/` únicamente las subcarpetas reales: `audio/`, `layout/` y `ui/`.
 
----
+### 5.2. Unificación de la Capa de Red (API Client) y Estado de Autenticación
+- [ ] **Fusionar `frontend/src/services/api.ts` en `frontend/src/api/client.ts`:**
+  - Actualmente existen dos clientes HTTP configurados. Migrar cualquier interceptor o *helper* de `src/services/api.ts` hacia `src/api/client.ts`.
+  - Mover `frontend/src/services/erratas.ts` a `frontend/src/features/books/services/errataService.ts` y eliminar el directorio `frontend/src/services/`.
+- [ ] **Unificar `frontend/src/lib/auth.ts`, `frontend/src/lib/useAuth.ts` y `frontend/src/store/auth.ts`:**
+  - Consolidar toda la gestión de estado de sesión, refresco silencioso de cookies JWT y permisos de rol dentro de `frontend/src/store/auth.ts` y exportar el hook desde `frontend/src/features/auth/`.
 
-## Fase D3 — Reseñas, social y feed
-**Duración estimada:** 4-5 días  
-**Prioridad:** 🟠 P1
+### 5.3. Estandarización de TanStack Query y Particionado de Componentes Grandes
+- [ ] **Completar la cobertura de Custom Hooks con TanStack Query (`queryKeys.ts`):**
+  - Actualmente `books`, `reviews` y `social` tienen carpeta `hooks/` (`useBooksQuery.ts`, `useReviewsQuery.ts`, `useSocialQuery.ts`, `useNotificationsQuery.ts`), pero `admin`, `clubs`, `discovery`, `library` y `profile` realizan llamadas directas en páginas o servicios.
+  - Crear `useClubsQuery.ts`, `useDiscoveryQuery.ts`, `useLibraryQuery.ts`, `useProfileQuery.ts` y `useAdminQuery.ts` centralizando todas las claves de invalidación en `frontend/src/api/queryKeys.ts`.
+- [ ] **Dividir páginas monolíticas (> 350 líneas) en subcomponentes:**
+  - `frontend/src/features/admin/pages/AdminDashboard.tsx`: Extraer las pestañas restantes (moderación, métricas de negocio, auditoría y usuarios) al igual que ya se hizo con `AdminAuthorClaimsTab.tsx` o `AdminSystemHealthTab.tsx`.
+  - `frontend/src/features/social/pages/Home.tsx`: Separar en `FeedComposer.tsx`, `FeedFilterTabs.tsx`, `FeedActivityCard.tsx` y `TrendingSidebar.tsx`.
+  - `frontend/src/features/books/pages/BookDetail.tsx`: Extraer `BookMetadataHeader.tsx`, `ReadingStatusSelector.tsx` y `SimilarBooksCarousel.tsx`.
+  - `frontend/src/features/books/pages/ReadingLists.tsx`: Separar el modal de creación/edición, la vista de colaboradores y la tarjeta de lista.
 
-- [x] Una reseña activa por usuario/libro (`unique_active_review_user_book`) + reactivación limpia tras soft-delete reutilizando entidad previa sin duplicados.
-- [x] Likes únicos e idempotentes (`ReviewLike`) con protección ante bloqueos y agregación atómica de ratings (`update_book_rating`, `recalculate_book_rating_task`).
-- [x] Feed social optimizado y blindado (exclusión bidireccional de bloqueados, silenciados, actividades de reseñas borradas/moderadas y privacidad `activity_privacy_level: private`).
-- [x] Notificaciones fiables y respetuosas de privacidad (supresión de notificaciones entre usuarios bloqueados y observancia de canales `NotificationPreference`).
-- [x] Moderación de contenido re-validada con filtrado automático en feeds públicos y detalle para no-admins.
-- [x] Suite de pruebas exhaustiva (`backend/tests/test_phase_d3_reviews_social_feed.py`) 100% verde (7/7 passed).
-
-**Criterio de salida:** Suite de interacción social, reseñas y feed 100% verde + cero filtraciones entre usuarios bloqueados. [COMPLETADO - 2026-10-14]
-
----
-
-## Fase D4 — Búsqueda, descubrimiento y recomendaciones
-**Duración estimada:** 4-6 días  
-**Prioridad:** 🟠 P1 / 🟡 P2
-
-- [x] Búsqueda híbrida (`UnifiedSearchEngine`) multicanal (léxica, difusa por trigramas y semántica) estable y resiliente con fallback sin dependencias duras externas.
-- [x] Descubrimiento facetado y tendencias públicas (`BookDiscoveryView` en `/api/v1/books/discover/`) con filtrado por género y caché normalizada sin caracteres especiales.
-- [x] Motor de recomendaciones con diversidad, exclusión estricta de obras en biblioteca (`UserBook`) y soporte de arranque en frío (*cold-start*) basado en preferencias de onboarding (`favorite_categories`).
-- [x] Transparencia ética y explicabilidad algorítmica obligatoria (`reason` en cada ítem y endpoint estructurado `/explain/`).
-- [x] Suite de pruebas exhaustiva (`backend/tests/test_phase_d4_search_discovery_recommendations.py`) 100% verde (7/7 passed).
-
-**Criterio de salida de Bloque D:** Catálogo, autores, privacidad, feed, descubrimiento y recomendaciones 100% endurecidos, operables y auditados. [COMPLETADO - 2026-10-12]
-
----
-
-# BLOQUE E — Pre-producción y lanzamiento público (P1)
-
-## Fase E1 — Staging y smoke tests
-**Duración estimada:** 3-4 días  
-**Prioridad:** 🟠 P1
-
-- [x] Entorno de staging idéntico a producción y scripts de auditoría preflight (`preflight_staging.sh`, `smoke_test_staging.py`).
-- [x] Suite de smoke automatizada (`backend/tests/test_phase_e1_staging_smoke.py`, 8/8 passed) cubriendo liveness, readiness sanitizado, autenticación con cookies HttpOnly seguras y ticket efímero de WebSocket de un solo uso.
-- [x] Checklist de seguridad pre-despliegue exhaustivo y firmado (`docs/deployment/pre_deployment_security_checklist.md`).
-- [x] Prueba de restore completa auditada con éxito mediante comando `verify_restore_integrity` sobre usuarios, catálogo e interacciones.
-- [x] Validación de feature flags de registro público e invitaciones (`PUBLIC_REGISTRATION_ENABLED` y `REQUIRE_BETA_INVITATION`).
-
-**Criterio de salida:** Suite de smoke testing y checklist de pre-despliegue 100% aprobados en staging. [COMPLETADO - 2026-10-13]
+### 5.4. Sincronización Automática de Tipos OpenAPI y *Code-Splitting*
+- [ ] **Generación automática de tipos TypeScript desde `backend/schema.yaml`:**
+  - En lugar de mantener manualmente las más de 600 líneas de `frontend/src/types/api.ts`, añadir `openapi-typescript` en `frontend/package.json`:
+    ```json
+    "scripts": {
+      "generate:types": "openapi-typescript ../backend/schema.yaml -o src/types/openapi.d.ts"
+    }
+    ```
+  - Añadir verificación en `.github/workflows/ci-frontend.yml` para asegurar que el contrato de `schema.yaml` y el frontend nunca diverjan.
+- [ ] **Lazy Loading en `frontend/src/app/router.tsx`:**
+  - Envolver en `React.lazy()` y `<Suspense>` las rutas pesadas o de acceso secundario: `AdminDashboard`, `ReadingStats`, `ChallengesPage`, `ClubDetailPage`, `Chat` y las páginas legales.
 
 ---
 
-## Fase E2 — Soft launch y monitorización
-**Duración estimada:** 1 semana  
-**Prioridad:** 🟠 P1
+## 6. Fase 5: Reestructuración y Optimización de la Suite de Testing y QA
 
-- [x] Apertura controlada (cohorte o registro público con feature flags `PUBLIC_REGISTRATION_ENABLED` y `REQUIRE_BETA_INVITATION`).
-- [x] Monitorización 24/7 de errores, latencia y métricas de negocio mediante `BetaMetricsService` y `BetaAlertsService`.
-- [x] Canales de feedback (`BetaFeedback`) y soporte técnico formal (`SupportTicket`) con seguimiento de estado y triaje admin.
-- [x] Plan formal de rollback documentado y ensayado (`docs/devops/rollback_and_incident_communication_guide.md`).
-- [x] Protocolo y plantillas de comunicación de incidentes (SEV-1/SEV-2, mitigación, resolución y post-mortem).
-- [x] Suite de pruebas automatizadas exhaustiva (`backend/tests/test_phase_e2_soft_launch_monitoring.py`) 100% verde (5/5 passed).
+La carpeta `backend/tests/` cuenta con una cobertura envidiable, pero su organización cronológica (`test_phase01` a `test_phase72`, `test_phase_a2` a `test_phase_e3`, `test_sprint1` a `test_sprint20`) hace difícil localizar y mantener los tests por dominio funcional.
 
-**Criterio de salida:** Soft launch operable con observabilidad, canales de soporte/feedback activos y protocolo de rollback ensayado. [COMPLETADO - 2026-10-14]
+### 6.1. Nueva Taxonomía de Tests por Dominio en `backend/tests/`
+- [ ] **Eliminar archivos vacíos de Django:**
+  - Borrar `backend/users/tests.py` y `backend/messages_app/tests.py`.
+- [ ] **Reorganizar los 95+ archivos de `backend/tests/` en subdirectorios semánticos:**
+  ```text
+  backend/tests/
+  ├── conftest.py
+  ├── factories/                  # Factory Boy para User, Book, Review, Club, etc.
+  ├── fixtures/
+  │   └── goodreads_sample.csv
+  ├── catalog/                    # Dominio de libros, ingesta, deduplicación y búsqueda
+  │   ├── test_models_and_constraints.py      (absorbe phase01, a3, domain_models)
+  │   ├── test_catalog_deduplication.py       (absorbe sprint4)
+  │   ├── test_csv_and_goodreads_import.py    (absorbe phase55)
+  │   ├── test_external_providers.py          (absorbe amazon, services_providers, genre_hydration)
+  │   └── test_unified_search_and_trigrams.py (absorbe phase06, phase48, search_postgres)
+  ├── recommendations_and_ai/     # IA, pgvector y motor de recomendaciones
+  │   ├── test_embeddings_pgvector.py         (absorbe phase25_embeddings)
+  │   ├── test_recommendation_pipeline.py     (absorbe phase07, 24, 49, 50, 51, 52, sprint17)
+  │   ├── test_ai_assistant_and_tools.py      (absorbe phase24_product_ai, phase26_ai)
+  │   ├── test_multimodal_ai.py               (absorbe sprint20)
+  │   └── test_ai_security_and_guardrails.py  (absorbe phase05, phase27_ai_security)
+  ├── social_and_community/       # Reseñas, listas, muros, clubes y notificaciones
+  │   ├── test_reviews_and_comments.py        (absorbe review_social, d3)
+  │   ├── test_smart_feed_and_trending.py     (absorbe phase22_social_feed, phase23_trending, phase53, social_feed)
+  │   ├── test_reading_lists_and_collab.py    (absorbe phase21, sprint10)
+  │   ├── test_reading_clubs.py               (absorbe sprint9)
+  │   ├── test_notifications.py               (absorbe phase23_notifications)
+  │   └── test_social_sharing.py              (absorbe sprint16)
+  ├── creators_and_commerce/      # Autores, eventos, newsletters, audiolibros y marketplace
+  │   ├── test_author_portal_and_events.py    (absorbe sprint3, 11, 12, 13, phase32_multiauthor, verified_pubs)
+  │   ├── test_audiobooks_and_tts.py          (absorbe sprint18)
+  │   └── test_marketplace_and_monetization.py(absorbe phase31_monetization, sprint19)
+  ├── reader_experience/          # Gamificación, estadísticas y onboarding
+  │   ├── test_gamification_and_challenges.py (absorbe phase54, sprint14)
+  │   ├── test_reading_stats.py               (absorbe phase22_reading_stats, sprint15)
+  │   └── test_onboarding_and_discovery.py    (absorbe phase19, phase20)
+  ├── messaging/                  # Chat en tiempo real
+  │   └── test_chat_websockets_and_persistence.py (absorbe chat_websockets, phase04)
+  ├── security_and_privacy/       # Auth, permisos, moderación, UGC y legal
+  │   ├── test_auth_jwt_and_cookies.py        (absorbe auth_security, phase03, phase47, a2, sprint1)
+  │   ├── test_privacy_and_visibility.py      (absorbe permissions_privacy, users_privacy, phase02, phase17, d1)
+  │   ├── test_moderation_and_ugc_safety.py   (absorbe phase16, 29, 58, 59, sprint7)
+  │   ├── test_media_and_image_security.py    (absorbe phase28_media, phase60)
+  │   └── test_legal_and_gdpr.py              (absorbe phase18, sprint8)
+  └── platform_and_infra/         # Caché, concurrencia, idempotencia, backups y contratos API
+      ├── test_caching_and_invalidation.py    (absorbe caching, phase08, phase65)
+      ├── test_transactions_and_concurrency.py(absorbe phase62, 63, 64, 31_soft_delete)
+      ├── test_database_and_query_budgets.py  (absorbe database_performance, phase09, 33_query, 43, c1_query)
+      ├── test_backups_and_dr.py              (absorbe phase15, 66, 67, b2)
+      ├── test_observability_and_health.py    (absorbe healthcheck, phase14, 42, 46, b3)
+      └── test_openapi_and_error_contracts.py (absorbe phase32_coherent, 33_openapi, 61_error)
+  ```
 
----
-
-## Fase E3 — General Availability (GA) endurecida
-**Duración estimada:** 2-3 días  
-**Prioridad:** 🟠 P1
-
-- [x] Certificación de calidad y auditoría final documentada en Informe de Cierre Formal de Fase Beta (`docs/deployment/beta_closure_report.md`).
-- [x] Verificación post-deploy (sondas `/health/live` y `/health/ready`, control de métricas y observabilidad protegida en `/api/v1/observability/metrics/`).
-- [x] Anuncio oficial de release global (`docs/deployment/ga_release_announcement.md`) y promoción formal a `1.0.0` en `CHANGELOG.md`.
-- [x] Manual de guardia y respuesta a incidentes 24/7 (`docs/devops/on_call_runbook.md`) con matriz de severidad (SEV-1/SEV-2/SEV-3), rotación de guardia, SLA de respuesta ($\le 15$ min) y post-mortem sin culpa.
-- [x] Cierre formal de la fase de beta y activación de registro público por defecto (`PUBLIC_REGISTRATION_ENABLED=True`, `REQUIRE_BETA_INVITATION=False`).
-- [x] Suite de pruebas automatizadas exhaustiva (`backend/tests/test_phase_e3_general_availability.py`) 100% verde (5/5 passed).
-
-**Criterio de salida de Bloque E:** Plataforma en producción pública con monitorización activa, capacidad de rollback y guardia operativa 24/7. [COMPLETADO - 2026-10-14]
-
----
-
-# BLOQUE F — Evolución post-lanzamiento (P2 / P3)
-
-## Fase F1 — Rendimiento y experiencia (P2)
-- Optimización de Core Web Vitals y Lighthouse.
-- Accesibilidad WCAG 2.1 AA.
-- Mejoras de UX en onboarding, biblioteca y descubrimiento.
-- Caché avanzada y CDN para assets estáticos y media.
-
-## Fase F2 — Producto avanzado (P2 / P3)
-- Recomendaciones personalizadas de mayor calidad.
-- Clubs de lectura y discusiones estructuradas.
-- Marketplace de libros (si se decide monetizar).
-- App móvil (PWA o nativa).
-- Integraciones adicionales (Goodreads sync bidireccional, librerías, etc.).
-
-## Fase F3 — Escala y organización (P3)
-- Multi-región / multi-AZ.
-- Separación total de Redis (cache vs Channels vs Celery).
-- Observabilidad avanzada (tracing distribuido).
-- Equipo de moderación y soporte escalado.
-- Modelo de negocio y métricas de unit economics.
-
----
-
-# Resumen ejecutivo de ejecución
-
-| Bloque | Objetivo principal | Prioridad | Orden |
-|--------|--------------------|-----------|-------|
-| **A** | Corregir fallos críticos de seguridad e integridad | 🔴 P0 | 1º |
-| **B** | Infraestructura, backups y operación | 🔴/🟠 | 2º |
-| **C** | Calidad, tests y deuda técnica | 🟠 P1 | 3º |
-| **D** | Endurecimiento de producto core | 🟠 P1 | 4º |
-| **E** | Staging → Soft launch → GA endurecida | 🟠 P1 | 5º |
-| **F** | Evolución post-lanzamiento | 🟡/🟢 | Posterior |
-
----
-
-## Flujo de trabajo obligatorio por fase
-
-1. Leer `memory.md` e `instruccionesAgente.md`.
-2. Redactar y someter a aprobación `implementation_plan.md` de la fase.
-3. Implementar en `develop`.
-4. Ejecutar tests + linters + typecheck + build.
-5. Actualizar `memory.md`, `CHANGELOG.md` y este `Roadmap.md`.
-6. Commit semántico + `git push origin develop`.
-7. Solo tras validación: merge a `main` y tag de versión si corresponde.
+### 6.2. Aceleración de Ejecución de Pytest
+- [ ] Incorporar `pytest-xdist` en `backend/requirements.txt` y `backend/pytest.ini` (`-n auto --dist loadscope`) para paralelizar la ejecución de los tests en CI (`.github/workflows/ci-backend.yml`), reduciendo el tiempo de pipeline en un $60\%$.
+- [ ] Ampliar `frontend/e2e/critical-flows.spec.ts` en una suite modular de Playwright:
+  - `e2e/auth-and-onboarding.spec.ts`
+  - `e2e/library-and-import.spec.ts`
+  - `e2e/clubs-and-social.spec.ts`
+  - `e2e/author-portal.spec.ts`
 
 ---
 
-## Objetivo final
+## 7. Fase 6: Rendimiento en PostgreSQL, Redis, Celery y WebSockets
 
-> **MyBookConnect debe ser una red social literaria sólida, segura, rápida y mantenible**, donde los lectores gestionen su biblioteca, descubran libros y autores, compartan opiniones y se conecten, y donde los autores dispongan de una presencia verificable y herramientas propias.
+### 7.1. Índices HNSW en `pgvector` y Optimización de Consultas SQL
+- [ ] **Crear índice HNSW en `BookEmbedding`:**
+  - En tablas vectoriales que superan los $10,000$ libros, una búsqueda exacta de vecino más cercano tiene complejidad $O(N)$. Añadir una migración con índice `HnswIndex` (`m=16`, `ef_construction=64`, `vector_cosine_ops`) para búsquedas aproximadas en tiempo logarítmico $O(\log N)$ con un *recall* $> 98\%$.
+- [ ] **Desnormalización controlada de métricas de `Book`:**
+  - Añadir campos `ratings_count` (`PositiveIntegerField(default=0)`) y `average_rating` (`DecimalField(max_digits=3, decimal_places=2, default=0.00)`) indexados directamente en el modelo `Book` si aún se calculan con `Avg()` al vuelo en ciertos listados, actualizándolos de forma atómica con expresiones `F()` al crear/editar/borrar reseñas.
+- [ ] **Connection Pooling en Producción (`docker-compose.prod.yml`):**
+  - Añadir un servicio ligero de **PgBouncer** (modo `transaction`) entre los contenedores de Gunicorn/Daphne/Celery y PostgreSQL para evitar el agotamiento de conexiones bajo picos de tráfico o *workers* asíncronos.
 
-La prioridad no es acumular funcionalidades.  
-La prioridad es que **todo lo que existe funcione correctamente, sea seguro, observable y operable en producción**.
+### 7.2. Aislamiento de Colas en Celery y Tareas Periódicas (Celery Beat)
+- [ ] **Verificar enrutamiento estricto en `backend/mybookconnect/celery.py` y `settings.py`:**
+  - Cola `realtime_priority`: Notificaciones, tickets y correos transaccionales de autenticación (latencia objetivo $< 2\text{ s}$).
+  - Cola `ai_and_embeddings`: Generación de embeddings, consultas a LLMs y procesamiento multimodal (con *rate-limit* y `acks_late=True`).
+  - Cola `catalog_batch`: Importaciones masivas de CSV Goodreads, deduplicación y enriquecimiento con Google Books / OpenLibrary / Amazon.
+  - Cola `ops_maintenance`: Backups programados, evaluación de alertas (`evaluate_system_alerts`) y limpieza de registros en `soft_delete`.
+
+### 7.3. Endurecimiento de WebSockets (`backend/messages_app/consumers.py`)
+- [ ] **Control de *Backpressure* y *Heartbeat*:**
+  - Implementar tramas de `ping/pong` cada $30\text{ s}$ entre `frontend/src/hooks/useChatWebSocket.ts` y `consumers.py` para detectar conexiones zombis.
+  - Validar la expiración de permisos y bloqueos de usuarios (`user.blocked_users`) no solo en el `connect()` del WebSocket, sino también en tiempo real si un usuario bloquea a otro mientras el socket ya está abierto (enviando un evento de cierre inmediato al canal del grupo).
 
 ---
 
-*Documento vivo. Debe actualizarse al cierre de cada fase.*
+## 8. Fase 7: Seguridad Defensiva Avanzada, Privacidad y Cumplimiento Legal
+
+### 8.1. Blindaje de Privacidad a Nivel de `QuerySet` (`VisibleToUserManager`)
+- [ ] **Reforzar `backend/users/privacy_service.py`:**
+  - Crear un `QuerySet` personalizado reutilizable (`PrivacyAwareQuerySet`) con el método `.visible_to(request_user)` para los modelos `UserBook`, `Review`, `ReadingList`, `Activity` y `UserPost`.
+  - Garantizar mediante un test de arquitectura automatizado que ningún `ViewSet` público devuelva instancias de estos modelos sin invocar `.visible_to(self.request.user)`.
+
+### 8.2. Cabeceras de Seguridad en Nginx y Sincronización de *Rate Limiting*
+- [ ] **Endurecer `frontend/nginx.conf` y `frontend/nginx.ssl.conf.template`:**
+  - Definir directivas `limit_req_zone` en Nginx para `/api/auth/` y `/api/ai/` como primera línea de defensa en capa 7 antes de que las peticiones lleguen al *worker* de Python.
+  - Refinar la cabecera `Content-Security-Policy` (CSP) eliminando `unsafe-inline` en scripts y restringiendo `connect-src` e `img-src` a los dominios autorizados de proveedores de portadas.
+
+### 8.3. Automatización Completa del Ciclo de Vida GDPR / LOPDGDD
+- [ ] **Purga definitiva tras periodo de gracia (`deleted_at`):**
+  - Añadir una tarea periódica en `backend/users/tasks.py` que anonimice y elimine físicamente las cuentas cuyo `deleted_at` supere los 30 días de gracia estipulados en `DeletionPolicy.tsx`, conservando únicamente los registros agregados no identificables.
+
+---
+
+## 9. Fase 8: Evolución de Producto y Monetización Real
+
+Una vez saneada la base técnica en las Fases 1 a 7, el producto está listo para activar las palancas de crecimiento y negocio ya modeladas en la base de datos:
+
+- [ ] **Integración de Pasarela de Pagos Real (Stripe Billing & Checkout):**
+  - Conectar el modelo `UserSubscription` (`backend/users/migrations/0025_usersubscription.py`) y los anuncios patrocinados de autores (`0041_authorannouncement_moderation_and_paid.py`) con **Stripe Webhooks** firmados (`STRIPE_WEBHOOK_SECRET`), utilizando `backend/mybookconnect/idempotency.py` para procesar eventos `checkout.session.completed` y `customer.subscription.updated`.
+- [ ] **Progressive Web App (PWA) y Modo Offline de Lectura:**
+  - Añadir `vite-plugin-pwa` en `frontend/vite.config.js` para permitir instalar MyBookSocial en iOS y Android, cacheando la estantería activa del lector y permitiendo registrar avances de lectura (`DailyReadingLog`) sin conexión con sincronización diferida (*Background Sync*).
+- [ ] **API Pública para Editoriales y Widgets Embebibles:**
+  - Permitir que autores verificados y editoriales (`Publisher`) generen un *widget* interactivo de su libro en MyBookSocial para incrustarlo en sus blogs o webs personales, atrayendo tráfico orgánico de vuelta a la plataforma.
+
+---
+
+## 10. Planificación por Sprints y Métricas de Éxito (SLAs / KPIs)
+
+### Calendario de Ejecución Recomendado (6 Sprints Técnicos)
+
+| Sprint | Foco Principal | Entregables Clave |
+| :--- | :--- | :--- |
+| **Sprint R1** | **Higiene de Git y Multimedia (Fase 1)** | `backend/media/` fuera de Git, deduplicación $\text{SHA-256}$ WebP activa, logos frontend optimizados, scripts duplicados eliminados. |
+| **Sprint R2** | **Limpieza de Frontend (Fase 4)** | Eliminación de `src/pages/` y 16 shims en `src/components/`, fusión de `api/client.ts`, generación automática de tipos desde `schema.yaml`. |
+| **Sprint R3** | **Consolidación de IA y Recomendaciones (Fase 3)** | Eliminación de `mybookconnect/ai_service.py`, unificación de embeddings, pipeline de recomendaciones limpio e índice HNSW en `pgvector`. |
+| **Sprint R4** | **Desacoplamiento de `books` — Parte 1 (Fase 2)** | Extracción sin downtime (`SeparateDatabaseAndState`) de `clubs`, `gamification` y comandos `ops`. |
+| **Sprint R5** | **Desacoplamiento de `books` — Parte 2 (Fase 2)** | Extracción de `audiobooks`, `marketplace` y `authors_portal`. `books` queda reducido exclusivamente al dominio de catálogo y lectura. |
+| **Sprint R6** | **Reorganización de Tests y Escala (Fases 5, 6 y 7)** | Reestructuración de los 95 archivos de test por dominio, paralelización con `pytest-xdist`, PgBouncer en producción y auditoría CSP/GDPR. |
+
+### Indicadores Clave de Rendimiento (KPIs Técnicos de Aceptación)
+
+1. **Tamaño del Repositorio Git y Clone Time:** Reducción del peso del archivo `.zip` / clonado en $> 80\%$ tras purgar `backend/media/` y optimizar activos PNG/ICO.
+2. **Latencia de API ($p_{95}$ y $p_{99}$):**
+   - Endpoints de lectura y *Smart Feed*: $p_{95} < 120\text{ ms}$, $p_{99} < 250\text{ ms}$.
+   - Búsqueda unificada y recomendaciones vectoriales con HNSW: $p_{95} < 180\text{ ms}$.
+   - Presupuesto estricto de consultas SQL por petición HTTP: $\le 6\text{ queries}$ en vistas de listado ($0$ problemas $N+1$).
+3. **Tamaño del Bundle Inicial JS (Frontend):** Chunk principal $< 180\text{ KB}$ (gzipped) tras aplicar `React.lazy()` en `router.tsx`.
+4. **Tiempo de Ejecución de CI/CD:** Suite completa de backend (`pytest -n auto`) completada en $< 90\text{ segundos}$.
