@@ -2,7 +2,7 @@ from django.conf import settings
 from django.db import models
 from django.utils import timezone
 
-from mybookconnect.media_security import validate_chat_image
+from mybookconnect.media_security import upload_to_chat_images, validate_chat_image
 from mybookconnect.soft_delete import SoftDeleteManager, SoftDeleteModel
 
 User = settings.AUTH_USER_MODEL
@@ -96,7 +96,7 @@ class Message(SoftDeleteModel):
     )
     text = models.TextField(blank=True)
     image = models.ImageField(
-        upload_to='chat_images/',
+        upload_to=upload_to_chat_images,
         null=True,
         blank=True,
         validators=[validate_chat_image],

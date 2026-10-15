@@ -12,7 +12,13 @@ from django.dispatch import receiver
 from django.utils import timezone
 from django.utils.text import slugify
 
-from mybookconnect.media_security import validate_author_photo, validate_cover_image
+from mybookconnect.media_security import (
+    upload_to_author_photos,
+    upload_to_covers,
+    upload_to_reviews,
+    validate_author_photo,
+    validate_cover_image,
+)
 from mybookconnect.soft_delete import SoftDeleteModel
 
 
@@ -85,7 +91,7 @@ class Author(models.Model):
     name = models.CharField(max_length=200)
     biography = models.TextField(blank=True, null=True)
     photo = models.ImageField(
-        upload_to='author_photos/',
+        upload_to=upload_to_author_photos,
         null=True,
         blank=True,
         validators=[validate_author_photo],
@@ -143,7 +149,7 @@ class Book(models.Model):
     openlibrary_work_id = models.CharField(max_length=50, null=True, blank=True, db_index=True)
     openlibrary_edition_id = models.CharField(max_length=50, null=True, blank=True, db_index=True)
     cover = models.ImageField(
-        upload_to='covers/',
+        upload_to=upload_to_covers,
         null=True,
         blank=True,
         validators=[validate_cover_image],
@@ -392,7 +398,7 @@ class Review(SoftDeleteModel):
     title = models.CharField(max_length=200, blank=True, null=True)
     text = models.TextField(blank=True, null=True)
     image = models.ImageField(
-        upload_to='reviews/',
+        upload_to=upload_to_reviews,
         null=True,
         blank=True,
         validators=[validate_cover_image],

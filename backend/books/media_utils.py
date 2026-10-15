@@ -6,6 +6,29 @@ import os
 
 from django.conf import settings
 
+from mybookconnect.media_security import (
+    UploadToHashedPath,
+    sanitize_and_prepare_image,
+    sanitize_image,
+    upload_to_author_photos,
+    upload_to_avatars,
+    upload_to_chat_images,
+    upload_to_covers,
+    upload_to_reviews,
+)
+
+__all__ = [
+    'UploadToHashedPath',
+    'build_media_url',
+    'sanitize_and_prepare_image',
+    'sanitize_image',
+    'upload_to_author_photos',
+    'upload_to_avatars',
+    'upload_to_chat_images',
+    'upload_to_covers',
+    'upload_to_reviews',
+]
+
 
 def build_media_url(file_field_or_url, request=None) -> str | None:
     """

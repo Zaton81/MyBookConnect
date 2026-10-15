@@ -13,6 +13,7 @@ Este módulo implementa las directrices de la Fase 28 del Roadmap:
   para proteger la privacidad de los usuarios y eliminar posibles payloads incrustados.
 """
 
+import hashlib
 import io
 import logging
 import os
@@ -227,30 +228,25 @@ def validate_image_file(
 def sanitize_image(
     file_or_bytes,
     filename: str | None = None,
-    output_format: str | None = None,
+    output_format: str | None = 'WEBP',
     strip_exif: bool = True,
-    quality: int = 85,
+    quality: int = 82,
     max_dimensions: Tuple[int, int] | None = None,
 ) -> ContentFile:
     """
     Sanitiza una imagen abriéndola en Pillow, eliminando metadatos EXIF/IPTC/XMP/comentarios,
-    redimensionando si excede max_dimensions preservando el aspect ratio (Fase 60),
-    y re-codificándola de forma segura en un buffer limpio.
+    redimensionando según max_dimensions preservando el aspect ratio (Fase 60), y re-codificándola
+    de forma segura por defecto en formato WebP optimizado con hash SHA-256.
 
     :param file_or_bytes: Objeto UploadedFile, ContentFile o bytes de la imagen.
     :param filename: Nombre sugerido para el archivo resultante.
-    :param output_format: Formato deseado ('JPEG', 'PNG', 'WEBP').
+    :param output_format: Formato deseado ('WEBP', 'JPEG', 'PNG'). Por defecto: 'WEBP'.
     :param strip_exif: Si es True, no se preserva ningún metadato.
-    :param quality: Calidad de compresión para formatos JPEG o WebP (1-100).
+    :param quality: Calidad de compresión para WebP o JPEG (1-100). Por defecto: 82.
     :param max_dimensions: Tupla opcional (max_w, max_h) para aplicar redimensionamiento/downscale.
-    :return: ContentFile sanitizado listo para asignar a un ImageField o FileField.
+    :return: ContentFile sanitizado con atributo `.content_hash` y nombre `{hash}.webp`.
     """
-    orig_name = filename or getattr(file_or_bytes, 'name', 'image.jpg') or 'image.jpg'
-    base_name, ext = os.path.splitext(orig_name)
-    ext_lower = ext.lower() if ext else '.jpg'
-
-    if ext_lower not in ALLOWED_IMAGE_EXTENSIONS:
-        ext_lower = '.jpg'
+    orig_name = filename or getattr(file_or_bytes, 'name', 'image.webp') or 'image.webp'
 
     if isinstance(file_or_bytes, (bytes, bytearray)):
         file_or_bytes = io.BytesIO(file_or_bytes)
@@ -271,22 +267,18 @@ def sanitize_image(
             for meta_key in ('exif', 'icc_profile', 'photoshop', 'xmp', 'comment', 'parameters', 'Software'):
                 img.info.pop(meta_key, None)
 
-        if output_format:
-            fmt = output_format.upper()
-        elif ext_lower in ('.jpg', '.jpeg'):
-            fmt = 'JPEG'
-        elif ext_lower == '.png':
-            fmt = 'PNG'
-        elif ext_lower == '.webp':
+        fmt = (output_format or 'WEBP').upper()
+        if fmt not in ALLOWED_IMAGE_FORMATS:
             fmt = 'WEBP'
-        else:
-            fmt = img.format or 'JPEG'
 
-        if fmt.upper() not in ALLOWED_IMAGE_FORMATS:
-            fmt = 'JPEG'
-            ext_lower = '.jpg'
-
-        if fmt.upper() == 'JPEG':
+        if fmt == 'WEBP':
+            target_ext = '.webp'
+            if img.mode in ('CMYK', 'YCbCr'):
+                img = img.convert('RGB')
+            elif img.mode == 'P':
+                img = img.convert('RGBA') if 'transparency' in img.info else img.convert('RGB')
+        elif fmt == 'JPEG':
+            target_ext = '.jpg'
             if img.mode in ('RGBA', 'LA', 'P'):
                 background = Image.new('RGB', img.size, (255, 255, 255))
                 if img.mode == 'P':
@@ -295,21 +287,35 @@ def sanitize_image(
                 img = background
             elif img.mode != 'RGB':
                 img = img.convert('RGB')
+        elif fmt == 'PNG':
+            target_ext = '.png'
+            if img.mode not in ('RGB', 'RGBA', 'L', 'LA'):
+                img = img.convert('RGBA')
+        else:
+            fmt = 'WEBP'
+            target_ext = '.webp'
 
         output_buffer = io.BytesIO()
         save_kwargs = {'format': fmt}
 
-        if fmt.upper() in ('JPEG', 'WEBP'):
+        if fmt in ('JPEG', 'WEBP'):
             save_kwargs['quality'] = quality
             save_kwargs['optimize'] = True
-        elif fmt.upper() == 'PNG':
+            if fmt == 'WEBP':
+                save_kwargs['method'] = 4
+        elif fmt == 'PNG':
             save_kwargs['optimize'] = True
 
         img.save(output_buffer, **save_kwargs)
         sanitized_bytes = output_buffer.getvalue()
 
-        clean_name = f"{base_name}{ext_lower}"
-        return ContentFile(sanitized_bytes, name=clean_name)
+        # Cálculo de hash criptográfico SHA-256 para nombramiento determinista
+        content_hash = hashlib.sha256(sanitized_bytes).hexdigest()
+        clean_name = f"{content_hash}{target_ext}"
+
+        result_file = ContentFile(sanitized_bytes, name=clean_name)
+        result_file.content_hash = content_hash
+        return result_file
 
     except Exception as exc:
         logger.error(f"Fallo al sanitizar imagen {orig_name}: {exc}")
@@ -320,6 +326,97 @@ def sanitize_image(
                 file_or_bytes.seek(0)
             except Exception:
                 pass
+
+
+def sanitize_and_prepare_image(
+    file_or_bytes,
+    preset: Tuple[int, int] | None = None,
+    filename: str | None = None,
+    output_format: str = 'WEBP',
+    quality: int = 82,
+) -> ContentFile:
+    """Helper unificado para sanitizar, redimensionar según preset y codificar en WebP optimizado."""
+    return sanitize_image(
+        file_or_bytes,
+        filename=filename,
+        output_format=output_format,
+        quality=quality,
+        max_dimensions=preset,
+    )
+
+
+@deconstructible
+class UploadToHashedPath:
+    """
+    Callable serializable para ImageField/FileField `upload_to`.
+    Calcula el hash SHA-256 del contenido binario para ubicar el archivo en una estructura
+    jerárquica con sharding de dos niveles:
+        {subfolder}/{hash[:2]}/{hash}.webp
+
+    Beneficios arquitectónicos:
+    - Previene saturación del sistema de archivos al no acumular miles de ficheros en un solo directorio.
+    - Facilita indexación y caching O(1) en Cloudflare R2 / AWS S3.
+    - Garantiza unicidad e inmutabilidad criptográfica, permitiendo deduplicación total.
+    """
+
+    def __init__(self, subfolder: str):
+        self.subfolder = subfolder.strip('/')
+
+    def __call__(self, instance, filename: str) -> str:
+        clean_base, ext = os.path.splitext(os.path.basename(filename))
+        clean_ext = ext.lower() if ext.lower() in ('.webp', '.jpg', '.jpeg', '.png') else '.webp'
+
+        computed_hash = None
+
+        # 1. Comprobar si el archivo adjunto al modelo tiene hash o bytes legibles
+        for attr_name in ('cover', 'photo', 'avatar', 'image', 'file', 'cover_image', 'logo'):
+            field_file = getattr(instance, attr_name, None)
+            if field_file:
+                # Comprobar atributo .content_hash adjuntado por sanitize_image
+                if hasattr(field_file, 'content_hash') and field_file.content_hash:
+                    computed_hash = field_file.content_hash
+                    break
+                # Comprobar inner file si está abierto
+                inner_file = getattr(field_file, 'file', None)
+                if inner_file and hasattr(inner_file, 'content_hash') and inner_file.content_hash:
+                    computed_hash = inner_file.content_hash
+                    break
+                if inner_file and hasattr(inner_file, 'read'):
+                    try:
+                        pos = inner_file.tell() if hasattr(inner_file, 'tell') else 0
+                        if hasattr(inner_file, 'seek'):
+                            inner_file.seek(0)
+                        hasher = hashlib.sha256()
+                        while chunk := inner_file.read(65536):
+                            hasher.update(chunk)
+                        if hasattr(inner_file, 'seek'):
+                            inner_file.seek(pos)
+                        computed_hash = hasher.hexdigest()
+                        break
+                    except Exception:
+                        pass
+
+        # 2. Si el propio filename recibido ya es un hash hexadecimal SHA-256 (64 caracteres)
+        if not computed_hash:
+            if len(clean_base) == 64 and all(c in '0123456789abcdefABCDEF' for c in clean_base):
+                computed_hash = clean_base.lower()
+
+        # 3. Fallback determinista
+        if not computed_hash:
+            computed_hash = hashlib.sha256(f"{filename}-{getattr(instance, 'pk', '')}".encode('utf-8')).hexdigest()
+
+        return f"{self.subfolder}/{computed_hash[:2]}/{computed_hash}{clean_ext}"
+
+    def __eq__(self, other):
+        return isinstance(other, UploadToHashedPath) and self.subfolder == other.subfolder
+
+
+# Instancias singleton reutilizables para modelos
+upload_to_covers = UploadToHashedPath('covers')
+upload_to_author_photos = UploadToHashedPath('author_photos')
+upload_to_avatars = UploadToHashedPath('avatars')
+upload_to_chat_images = UploadToHashedPath('chat_images')
+upload_to_reviews = UploadToHashedPath('reviews')
 
 
 @deconstructible

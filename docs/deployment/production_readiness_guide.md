@@ -235,7 +235,7 @@ cd frontend && pnpm audit --prod
 Antes de dirigir tráfico DNS hacia una nueva versión, ejecutar el script de verificación pre-vuelo:
 
 ```bash
-docker compose -f docker-compose.prod.yml exec backend bash scripts/production/preflight_check.sh
+docker compose -f docker-compose.prod.yml exec backend bash scripts/production/preflight_prod.sh
 ```
 
 El script valida:

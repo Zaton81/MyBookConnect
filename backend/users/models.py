@@ -7,7 +7,7 @@ from django.core.validators import MinValueValidator
 from django.db import models
 from django.utils import timezone
 
-from mybookconnect.media_security import validate_avatar_image
+from mybookconnect.media_security import upload_to_avatars, validate_avatar_image
 
 
 class PrivacyChoices(models.TextChoices):
@@ -40,7 +40,7 @@ class AccountType(models.TextChoices):
 class User(AbstractUser):
     bio = models.TextField(max_length=500, blank=True)
     avatar = models.ImageField(
-        upload_to='avatars/',
+        upload_to=upload_to_avatars,
         null=True,
         blank=True,
         validators=[validate_avatar_image],

@@ -17,8 +17,10 @@ instance/
 .pytest_cache/
 .coverage
 htmlcov/
-backend/media/
-media/
+backend/media/*
+!backend/media/.gitkeep
+media/*
+!media/.gitkeep
 
 # ───── Node / pnpm / React ─────
 node_modules/
