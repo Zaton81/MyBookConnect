@@ -139,14 +139,15 @@ MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 MEDIA_BASE_URL = os.getenv('MEDIA_BASE_URL', '').rstrip('/')
 
-# ─── Configuración de Almacenamiento Pluggable (Fase 28: Media y Uploads) ───
-# Permite cambiar entre almacenamiento en disco local (desarrollo) y S3/R2/MinIO (producción)
-MEDIA_STORAGE_BACKEND = os.getenv('MEDIA_STORAGE_BACKEND', 'local').lower().strip()
+# ─── Configuración de Almacenamiento Pluggable y Deduplicado (Fase 1 Post-GA) ───
+# Permite conmutar transparentemente entre almacenamiento local (desarrollo) y S3/R2/MinIO (producción)
+STORAGE_BACKEND = os.getenv('STORAGE_BACKEND', os.getenv('MEDIA_STORAGE_BACKEND', 'local')).lower().strip()
+MEDIA_STORAGE_BACKEND = STORAGE_BACKEND
 
-if MEDIA_STORAGE_BACKEND in ('s3', 'r2', 'minio'):
+if STORAGE_BACKEND in ('s3', 'r2', 'minio'):
     AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID', '')
     AWS_SECRET_ACCESS_KEY = os.getenv('AWS_SECRET_ACCESS_KEY', '')
-    AWS_STORAGE_BUCKET_NAME = os.getenv('AWS_STORAGE_BUCKET_NAME', 'mybookconnect-media')
+    AWS_STORAGE_BUCKET_NAME = os.getenv('AWS_STORAGE_BUCKET_NAME', 'mybooksocial-media')
     AWS_S3_ENDPOINT_URL = os.getenv('AWS_S3_ENDPOINT_URL', None)
     AWS_S3_REGION_NAME = os.getenv('AWS_S3_REGION_NAME', 'auto')
     AWS_DEFAULT_ACL = None
@@ -154,7 +155,7 @@ if MEDIA_STORAGE_BACKEND in ('s3', 'r2', 'minio'):
     AWS_S3_FILE_OVERWRITE = False
     STORAGES = {
         'default': {
-            'BACKEND': 'storages.backends.s3boto3.S3Boto3Storage',
+            'BACKEND': 'mybookconnect.storage.DeduplicatedS3Storage',
         },
         'staticfiles': {
             'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage',
@@ -163,7 +164,7 @@ if MEDIA_STORAGE_BACKEND in ('s3', 'r2', 'minio'):
 else:
     STORAGES = {
         'default': {
-            'BACKEND': 'django.core.files.storage.FileSystemStorage',
+            'BACKEND': 'mybookconnect.storage.DeduplicatedFileSystemStorage',
         },
         'staticfiles': {
             'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage',

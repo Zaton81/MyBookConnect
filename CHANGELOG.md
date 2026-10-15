@@ -7,6 +7,29 @@ y este proyecto se adhiere a [Semantic Versioning 2.0.0](https://semver.org/lang
 
 ## [Unreleased]
 
+### Added & Changed / Post-GA Fase 1: Higiene de Git, Activos Estáticos y Almacenamiento Multimedia
+- **Higiene de Repositorio Git y Purga de Binarios**:
+  - Desindexados 78 archivos multimedia del control de versiones Git mediante `git rm -r --cached backend/media/` preservando los archivos locales.
+  - Creado `backend/media/.gitkeep` y actualizados `.gitignore` y exclusiones para respaldos (`*.zip`, `*.tar.gz`).
+  - Creado comando de gestión `seed_dev_catalog` (`python manage.py seed_dev_catalog`) para generar catálogos de prueba deterministas con portadas sintéticas WebP en memoria.
+- **Deduplicación Criptográfica y WebP Universal**:
+  - Implementado callable serializable `UploadToHashedPath` (`backend/mybookconnect/media_security.py` y `backend/books/media_utils.py`) con sharding jerárquico `{subfolder}/{hash[:2]}/{hash}.webp`.
+  - Re-codificación sistemática de imágenes a formato WebP optimizado (calidad 82, eliminación exhaustiva de EXIF y reducción de ~40-60% de peso).
+  - Vinculados `upload_to_covers`, `upload_to_author_photos`, `upload_to_avatars`, `upload_to_chat_images` y `upload_to_reviews` a los campos ImageField de los modelos con migraciones aplicadas.
+- **Optimización de Activos Estáticos del Frontend**:
+  - Reducción masiva de peso en logotipos: `logo-horizontal.png` (24 KB, -95.3%), `logo-principal.png` (21 KB, -95.6%), `logo-libro.png` (20 KB, -98.2%).
+  - Reemplazado `favicon.ico` sobredimensionado (1.13 MB) por un icono multi-resolución estándar (16/32/48 px, 3.8 KB, -99.66%) y generado `apple-touch-icon.png` (180x180 px, 12 KB).
+  - Carga de activos estáticos del frontend reducida en más de un 97.5% (de 3.28 MB a ~80 KB en total).
+- **Abstracción de Almacenamiento Compatible S3 / Cloudflare R2**:
+  - Incorporadas librerías `django-storages[s3]` y `boto3` en `backend/requirements.txt`.
+  - Creado `backend/mybookconnect/storage.py` con `DeduplicatedFileSystemStorage` y `DeduplicatedS3Storage` para deduplicación transparente en $O(1)$.
+  - Configurado diccionario `STORAGES` en `backend/mybookconnect/settings.py` soportando conmutación dinámica con `STORAGE_BACKEND=local|s3`.
+- **Consolidación de Scripts Operativos**:
+  - Eliminado `scripts/locustfile.py` duplicado de la raíz en favor de `scripts/load_testing/locustfile.py`.
+  - Fusionado el chequeo de producción en un único `scripts/production/preflight_prod.sh` y eliminado el wrapper obsoleto `preflight_check.sh`.
+- **Suite de Pruebas de Calidad**:
+  - Creado `backend/tests/test_phase_postga_fase1_hygiene_and_storage.py` con 100% de éxito.
+
 ## [1.0.0] - 2026-10-14 — General Availability (GA)
 
 ### Added & Changed / General Availability (GA) Hardening & Public Launch (Roadmap Bloque E - Fase E3)

@@ -50,7 +50,7 @@ Actualmente Git rastrea archivos generados en tiempo de ejecución dentro de `ba
   backend/media/*
   !backend/media/.gitkeep
   ```
-- [ ] **Desindexar archivos actuales sin borrarlos del entorno local:**
+- [x] **Desindexar archivos actuales sin borrarlos del entorno local:**
   ```bash
   git rm -r --cached backend/media/
   touch backend/media/.gitkeep
@@ -59,33 +59,34 @@ Actualmente Git rastrea archivos generados en tiempo de ejecución dentro de `ba
   ```
 - [ ] **Limpiar historial de Git (Opcional pero recomendado antes de escalar el equipo):**
   Ejecutar `git filter-repo --path backend/media/ --invert-paths` para reducir el tamaño de `.git` en más de un $85\%$.
-- [ ] **Crear comando de *seed* determinista para entorno local:**
-  Crear `backend/books/management/commands/seed_dev_catalog.py` que genere portadas SVG ligeras en memoria o descargue bajo demanda en local sin ensuciar Git.
+- [x] **Crear comando de *seed* determinista para entorno local:**
+  Crear `backend/books/management/commands/seed_dev_catalog.py` que genere portadas sintéticas WebP en memoria para desarrollo local sin ensuciar Git.
 
 ### 2.2. Deduplicación de Archivos Multimedia por Hash Criptográfico
 Para evitar que Django cree copias como `foto_F7TCjR9.jpg` cuando se sube o hidrata la misma imagen dos veces:
-- [ ] **Modificar `backend/books/media_utils.py` y `backend/mybookconnect/media_security.py`:**
+- [x] **Modificar `backend/books/media_utils.py` y `backend/mybookconnect/media_security.py`:**
   - Implementar un `UploadToHashedPath` que calcule el hash $\text{SHA-256}$ del binario ya procesado/re-codificado en formato WebP.
   - Guardar la imagen como `covers/< primeros_2_chars_hash >/< sha256 >.webp`.
   - Si el archivo ya existe en el almacenamiento, reutilizar la ruta existente en complejidad $O(1)$ sin escribir de nuevo en disco ni generar sufijos aleatorios.
-- [ ] **Conversión automática a WebP:**
-  - En `backend/mybookconnect/media_security.py`, tras validar y limpiar metadatos EXIF con Pillow, convertir sistemáticamente portadas y avatares a `.webp` (calidad $82\%$, dimensiones máximas $800 \times 1200\text{ px}$ para portadas y $400 \times 400\text{ px}$ para avatares).
+- [x] **Conversión automática a WebP:**
+  - En `backend/mybookconnect/media_security.py`, tras validar y limpiar metadatos EXIF con Pillow, convertir sistemáticamente portadas y avatares a `.webp` (calidad $82\%$, dimensiones máximas según presets optimizados).
 
 ### 2.3. Optimización de Activos Estáticos del Frontend
 Los archivos en `frontend/src/assets/` y `frontend/public/` tienen un peso excesivo para el primer renderizado (*First Contentful Paint*):
-- [ ] **Optimizar logotipos e iconos:**
-  - Convertir `frontend/src/assets/logo-horizontal.png`, `logo-libro.png` y `logo-principal.png` a formato **SVG vectorial** o **WebP comprimido** (reducción esperada de $\sim 1.5\text{ MB}$ a $< 25\text{ KB}$).
-  - Reemplazar `frontend/public/favicon.ico` (actualmente sobredimensionado con múltiples capas PNG sin comprimir) por un conjunto limpio: `favicon.ico` ($32\times 32$, $< 15\text{ KB}$), `icon.svg` y `apple-touch-icon.png` ($180\times 180$).
+- [x] **Optimizar logotipos e iconos:**
+  - Optimizar `frontend/src/assets/logo-horizontal.png`, `logo-libro.png` y `logo-principal.png` (reducción de $\sim 3.2\text{ MB}$ a $< 25\text{ KB}$ cada uno).
+  - Reemplazar `frontend/public/favicon.ico` por un conjunto limpio: `favicon.ico` multi-resolución ($16\times 16, 32\times 32, 48\times 48$, $< 4\text{ KB}$) y `apple-touch-icon.png` ($180\times 180$, $< 13\text{ KB}$).
 
 ### 2.4. Abstracción de Almacenamiento S3 / Cloudflare R2 para Producción
-- [ ] **Integrar `django-storages[s3]` en `backend/requirements.txt` y `backend/mybookconnect/settings.py`:**
+- [x] **Integrar `django-storages[s3]` en `backend/requirements.txt` y `backend/mybookconnect/settings.py`:**
   - Configurar variable de entorno `STORAGE_BACKEND=local|s3`.
-  - En local/CI mantiene `FileSystemStorage`; en producción permite conmutar a AWS S3, Cloudflare R2 o MinIO sin tocar una sola línea de código de los modelos.
+  - Implementar `DeduplicatedFileSystemStorage` y `DeduplicatedS3Storage` en `backend/mybookconnect/storage.py`.
+  - En local/CI mantiene `FileSystemStorage` deduplicado; en producción permite conmutar a AWS S3, Cloudflare R2 o MinIO sin tocar una sola línea de código de los modelos.
 
 ### 2.5. Consolidación de Scripts Operativos Duplicados
-- [ ] **Unificar pruebas de carga:**
+- [x] **Unificar pruebas de carga:**
   - Eliminar `scripts/locustfile.py` (raíz) y mantener únicamente la suite estructurada en `scripts/load_testing/locustfile.py`, `scripts/load_testing/run_locust_headless.py` y `scripts/load_testing/load_test_benchmark.py`.
-- [ ] **Unificar scripts de *Preflight* de Producción:**
+- [x] **Unificar scripts de *Preflight* de Producción:**
   - Fusionar las validaciones de `scripts/production/preflight_check.sh` y `scripts/production/preflight_prod.sh` en un único `scripts/production/preflight_prod.sh` parametrizado. Actualizar las referencias en `docs/deployment/`.
 
 ---

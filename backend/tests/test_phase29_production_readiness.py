@@ -91,11 +91,13 @@ class TestPhase29ProductionReadiness:
             assert key in content, f"La variable {key} debe estar presente en .env.production.example"
 
     def test_production_preflight_script_validity(self):
-        """Comprueba que el script preflight_check.sh existe y realiza las auditorías clave."""
+        """Comprueba que el script preflight_prod.sh existe y realiza las auditorías clave."""
         candidates = [
+            Path('/app/scripts/production/preflight_prod.sh'),
+            self.repo_root / 'scripts' / 'production' / 'preflight_prod.sh',
+            Path(__file__).resolve().parent.parent.parent / 'scripts' / 'production' / 'preflight_prod.sh',
             Path('/app/scripts/production/preflight_check.sh'),
             self.repo_root / 'scripts' / 'production' / 'preflight_check.sh',
-            Path(__file__).resolve().parent.parent.parent / 'scripts' / 'production' / 'preflight_check.sh',
         ]
         script_path = _find_file(candidates)
         content = script_path.read_text(encoding='utf-8')

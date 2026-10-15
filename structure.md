@@ -143,6 +143,12 @@ frontend/
 
 ```text
 scripts/
-├── locustfile.py              # Prueba de carga concurrente con Locust
+├── load_testing/
+│   ├── locustfile.py          # Prueba de carga concurrente con Locust
+│   ├── run_locust_headless.py # Runner headless multiplataforma
+│   └── load_test_benchmark.py # Validador de SLAs de concurrencia
+├── production/
+│   ├── preflight_prod.sh      # Verificación pre-vuelo de producción
+│   └── smoke_test_prod.py     # Smoke test E2E de producción
 └── k6_load_test.js            # Prueba de rendimiento y umbrales con k6
 ```

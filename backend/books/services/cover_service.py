@@ -173,8 +173,8 @@ def download_and_attach_image(instance, field_name: str, url: str, filename_hint
             logger.warning(f"La imagen descargada desde {url} no superó la validación o sanitización: {val_err}")
             return False
 
-        getattr(instance, field_name).save(clean_hint, clean_file, save=True)
-        logger.info(f"Imagen sanitizada y guardada exitosamente en {field_name}: {clean_hint}")
+        getattr(instance, field_name).save(clean_file.name, clean_file, save=True)
+        logger.info(f"Imagen sanitizada y guardada exitosamente en {field_name}: {clean_file.name}")
         return True
     except Exception as e:
         logger.warning(f"Error descargando imagen desde {url}: {e}")
