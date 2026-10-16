@@ -72,3 +72,50 @@ def rank_items_by_semantic_similarity(
 
     scored_items.sort(key=lambda x: x[1], reverse=True)
     return scored_items[:top_k]
+
+
+def weighted_average_embeddings(
+    vectors_with_weights: list[tuple[list[float], float]],
+    normalize: bool = False,
+) -> list[float] | None:
+    """
+    Calcula el vector promedio ponderado a partir de una lista de tuplas (vector, peso).
+    Opcionalmente normaliza el vector resultante para tener norma euclidiana unitaria (L2).
+
+    :param vectors_with_weights: Lista de pares (vector_flotantes, peso_positivo).
+    :param normalize: Si es True, normaliza el vector resultante con norma L2.
+    :return: Vector condensado promedio o None si la entrada es vacía o los pesos son nulos.
+    """
+    if not vectors_with_weights:
+        return None
+
+    dimension = 0
+    weighted_sum: list[float] | None = None
+    total_weight = 0.0
+
+    for vec, weight in vectors_with_weights:
+        if not vec or weight <= 0:
+            continue
+        dim = len(vec)
+        if dimension == 0:
+            dimension = dim
+            weighted_sum = [0.0] * dimension
+        elif dim != dimension:
+            continue
+
+        for i in range(dimension):
+            weighted_sum[i] += vec[i] * weight
+        total_weight += weight
+
+    if not weighted_sum or total_weight <= 0:
+        return None
+
+    avg_vector = [val / total_weight for val in weighted_sum]
+
+    if normalize:
+        norm = math.sqrt(sum(x * x for x in avg_vector))
+        if norm > 0.0:
+            return [x / norm for x in avg_vector]
+
+    return avg_vector
+

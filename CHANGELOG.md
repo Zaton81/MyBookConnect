@@ -7,6 +7,28 @@ y este proyecto se adhiere a [Semantic Versioning 2.0.0](https://semver.org/lang
 
 ## [Unreleased]
 
+### Added & Changed / Post-GA Fase 3: Consolidación de IA, Embeddings (`pgvector`) y Motor de Recomendaciones
+- **Eliminación de Duplicidades y Modularización de Vistas de IA**:
+  - Eliminado el proxy obsoleto `backend/mybookconnect/ai_service.py` (`git rm`).
+  - Trasladadas todas las vistas de IA (13 clases: `AIStatusView`, `AIAssistantView`, `SemanticSearchView`, `BookComparisonView`, `EmbeddingsStatsView`, `AIToolsCatalogView`, `MultimodalBookCoverAnalysisView`, `BookSummaryView`, `BookKeyThemesView`, `BookSentimentAnalysisView`, `BookQuotesView`, `BookCharactersView`, `BookReadingGuideView`) a la app canónica `backend/ai/views.py`.
+  - Creado `backend/ai/urls.py` y montado en `/api/v1/ai/` en `mybookconnect/urls.py`.
+  - Mantenida compatibilidad retrospectiva completa conservando `/api/v1/books/ai/` y re-exportando las vistas en `backend/books/ai_views.py`.
+- **Unificación del Sistema de Embeddings Vectoriales (`pgvector`)**:
+  - Implementada función matemática de utilidad `weighted_average_embeddings` con normalización L2 opcional en `backend/ai/embeddings.py`.
+  - Confirmada `BookEmbedding` y `backend/books/services/embedding_service.py` como única fuente canónica para indexación y búsqueda semántica con `pgvector`.
+- **Refactorización del Motor de Recomendaciones en Pipeline de 4 Etapas**:
+  - Creado submódulo modular `backend/books/services/recommendations/`:
+    - `CandidateGenerator` (`candidates.py`): Generación multi-fuente ($K=200$) combinando semántica vectorial v3, filtrado colaborativo v2, heurísticas v1 y fallback cold-start.
+    - `RecommendationFilter` (`filtering.py`): Exclusión de leídos, en lectura, abandonados (`ReadingStatus.ABANDONED`) y libros descartados (`RecommendationFeedbackAction.DISMISSED`), con filtros por categorías y longitud.
+    - `MMRReranker` (`reranking.py`): Reordenación con Maximal Marginal Relevance y balance de diversidad por autor y categoría.
+    - `BatchExplanationEngine` (`explanations.py`): Enriquecimiento en bloque de explicaciones comprensibles sin consultas $N+1$.
+    - `RecommendationPipeline` (`pipeline.py`): Orquestador desacoplado con caché y métricas de ejecución.
+  - Integrado `strategy='pipeline'` en `get_user_recommendations` en `backend/books/services/recommendation_service.py` y re-exportado en `backend/books/services/__init__.py`.
+- **Suite de Pruebas y Validación**:
+  - Creado `backend/tests/test_phase_postga_fase3_ai_and_recommendations.py` con 9 pruebas exhaustivas (100% aprobadas).
+  - Verificada la suite completa de IA y recomendaciones (91/91 pruebas pasadas) y frontend Vitest (93/93 pruebas pasadas).
+  - Ruff linting verificado con 0 errores y 0 advertencias.
+
 ### Added & Changed / Post-GA Fase 2: Deconstrucción del Monolito `backend/books/` (Modularización sin Downtime)
 - **Modularización Arquitectónica sin Downtime ni Pérdida de Datos**:
   - Desacoplados 5 dominios de negocio y operaciones transversales fuera del monolito `backend/books/` en aplicaciones Django independientes registradas en `INSTALLED_APPS`: `clubs`, `gamification`, `audiobooks`, `marketplace`, `authors_portal` y `ops`.

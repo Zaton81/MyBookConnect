@@ -57,6 +57,7 @@ urlpatterns = [
             path('', include('users.urls')),
         ])),
         path('books/', include('books.urls')),
+        path('ai/', include('ai.urls')),
         path('authors/', include('authors_portal.urls')),
         path('gamification/', include('gamification.urls')),
         path('users/', include('users.urls')),

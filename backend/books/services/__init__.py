@@ -98,6 +98,13 @@ from .recommendation_v3_service import (
     get_user_preference_vector,
     recommend_books_v3,
 )
+from .recommendations import (
+    BatchExplanationEngine,
+    CandidateGenerator,
+    MMRReranker,
+    RecommendationFilter,
+    RecommendationPipeline,
+)
 from .social_share_service import generate_social_share_card, track_social_share
 from .stats_service import get_user_reading_stats
 from .trending_service import get_trending_books
@@ -145,6 +152,11 @@ __all__ = [
     'RecommendationExplanation',
     'ExplanationBullet',
     'explain_recommendation',
+    'RecommendationPipeline',
+    'CandidateGenerator',
+    'RecommendationFilter',
+    'MMRReranker',
+    'BatchExplanationEngine',
     'SimilarUserPeer',
     'get_similar_readers',
     'get_book_recommendations',

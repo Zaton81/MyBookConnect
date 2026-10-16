@@ -200,6 +200,20 @@ def get_user_recommendations(
                 break
         return processed
 
+    if strategy in ('pipeline', 'pipeline_4stage'):
+        from .recommendations.pipeline import RecommendationPipeline
+        pipeline = RecommendationPipeline()
+        return pipeline.run(
+            user=user,
+            limit=limit,
+            strategy='hybrid',
+            category_id=category_id,
+            length_tier=length_tier,
+            exclude_dismissed=exclude_dismissed,
+            request=request,
+            use_cache=True,
+        )
+
     if strategy in ('v1', 'canonical_v1'):
         from .recommendation_v1_service import recommend_books_v1
         res = recommend_books_v1(user=user, limit=limit * 2, weights=weights, request=request)

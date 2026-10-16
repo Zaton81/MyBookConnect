@@ -146,17 +146,17 @@ Los siguientes comandos en `backend/books/management/commands/` no pertenecen al
 
 ### 4.1. Eliminación de Duplicidades en la Capa de IA
 En el repositorio existen tres puntos de entrada para la IA: `backend/mybookconnect/ai_service.py`, `backend/ai/services.py` y `backend/books/ai_views.py`.
-- [ ] **Auditar y eliminar `backend/mybookconnect/ai_service.py`:**
+- [x] **Auditar y eliminar `backend/mybookconnect/ai_service.py`:**
   - Migrar cualquier función residual hacia `backend/ai/services.py`.
   - Asegurar que todas las llamadas a LLMs pasen exclusivamente por `backend/ai/clients/factory.py` y respeten las políticas de `backend/ai/policies.py` (prevención de *prompt injection*, límites de tokens, moderación de salida).
-- [ ] **Mover `backend/books/ai_views.py` $\rightarrow$ `backend/ai/views.py`:**
+- [x] **Mover `backend/books/ai_views.py` $\rightarrow$ `backend/ai/views.py`:**
   - Exponer las rutas de IA desde `backend/ai/urls.py` e incluirlas en `backend/mybookconnect/urls.py`.
 
 ### 4.2. Unificación del Sistema de Embeddings Vectoriales
 Actualmente coexisten `backend/ai/embeddings.py` y `backend/books/services/embedding_service.py`, además de las migraciones históricas `0019_book_embedding.py` (campo en `Book`) y `0022_bookembedding.py` (modelo separado `BookEmbedding`).
-- [ ] **Consolidar la generación de embeddings en `backend/ai/embeddings.py`:**
+- [x] **Consolidar la generación de embeddings en `backend/ai/embeddings.py`:**
   - `backend/books/services/embedding_service.py` solo debe encargarse de construir el texto canónico del libro (Título + Autor + Categorías + Sinopsis limpia) y delegar la vectorización a `ai.embeddings`.
-- [ ] **Limpiar campo legado de base de datos:**
+- [x] **Limpiar campo legado de base de datos:**
   - Verificar si el campo antiguo de la migración `0019` sigue presente en el modelo `Book` y, de ser así, deprecarlo en favor de la tabla dedicada `BookEmbedding` (`0022`), que permite reindexar con distintos modelos dimensionales sin bloquear la tabla principal `books_book`.
 
 ### 4.3. Refactorización del Motor de Recomendaciones (`v1`, `v2`, `v3`)
@@ -170,14 +170,14 @@ En `backend/books/services/` coexisten 7 archivos de recomendación:
 7. `recommendation_feedback_service.py` (Pesos positivos/negativos y `dismissed`)
 
 **Plan de Acción:**
-- [ ] **Crear el subpaquete `backend/books/services/recommendations/`:**
+- [x] **Crear el subpaquete `backend/books/services/recommendations/`:**
   - Implementar un **Pipeline de Recomendación en 4 etapas**:
     1. `candidates.py`: Recuperación rápida de candidatos ($K = 200$) combinando similitud coseno en `pgvector` (`v3`), filtrado colaborativo (`v2`) y *fallback* para usuarios en frío (*cold-start*, `v1`).
     2. `filtering.py`: Exclusión estricta de libros ya leídos, en lectura o descartados (`RecommendationFeedback.dismissed=True`).
     3. `reranking.py`: Aplicación de diversidad (`recommendation_diversity_service.py`) usando *Maximal Marginal Relevance* (MMR):
        $$\text{MMR} = \arg\max_{d_i \in R \setminus S} \left[ \lambda \cdot \text{Sim}_1(d_i, u) - (1 - \lambda) \max_{d_j \in S} \text{Sim}_2(d_i, d_j) \right]$$
     4. `explanations.py`: Enriquecimiento en lote (*batch*) de las razones de recomendación sin incurrir en consultas $N+1$.
-- [ ] **Eliminar código muerto:** Si `v1` y `v2` contienen métodos que ya fueron absorbidos por `v3`, purgar las funciones redundantes y dejar solo las estrategias activas en el pipeline.
+- [x] **Eliminar código muerto:** Si `v1` y `v2` contienen métodos que ya fueron absorbidos por `v3`, purgar las funciones redundantes y dejar solo las estrategias activas en el pipeline.
 
 ---
 
