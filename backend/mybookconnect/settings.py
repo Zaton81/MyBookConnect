@@ -47,10 +47,16 @@ INSTALLED_APPS = [
     'drf_spectacular',
     'users.apps.UsersConfig',
     'books',
+    'clubs.apps.ClubsConfig',
+    'gamification.apps.GamificationConfig',
+    'audiobooks.apps.AudiobooksConfig',
+    'marketplace.apps.MarketplaceConfig',
+    'authors_portal.apps.AuthorsPortalConfig',
     'messages_app.apps.MessagesConfig',
     'ai.apps.AIConfig',
     'analytics.apps.AnalyticsConfig',
     'beta.apps.BetaConfig',
+    'ops.apps.OpsConfig',
 ]
 
 AUTH_USER_MODEL = 'users.User'

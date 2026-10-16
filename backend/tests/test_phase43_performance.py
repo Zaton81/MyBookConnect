@@ -29,6 +29,7 @@ def performance_dataset(db):
             description=f'Descripción detallada y rica para búsqueda de la obra {i} en el catálogo.',
             isbn=f'9780000000{i:02d}',
             cover='covers/test.jpg',
+            page_count=350,
             enrichment_attempted=True,
         )
         b.categories.add(cat1, cat2)

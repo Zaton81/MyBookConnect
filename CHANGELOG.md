@@ -7,6 +7,35 @@ y este proyecto se adhiere a [Semantic Versioning 2.0.0](https://semver.org/lang
 
 ## [Unreleased]
 
+### Added & Changed / Post-GA Fase 2: Deconstrucción del Monolito `backend/books/` (Modularización sin Downtime)
+- **Modularización Arquitectónica sin Downtime ni Pérdida de Datos**:
+  - Desacoplados 5 dominios de negocio y operaciones transversales fuera del monolito `backend/books/` en aplicaciones Django independientes registradas en `INSTALLED_APPS`: `clubs`, `gamification`, `audiobooks`, `marketplace`, `authors_portal` y `ops`.
+  - Preservación estricta de tablas relacionales en PostgreSQL mediante `Meta.db_table = 'books_<modelo>'` y migraciones con el patrón `SeparateDatabaseAndState` (`database_operations=[]`, `state_operations=[migrations.CreateModel(...)]`), garantizando cero alteraciones de DDL y cero tiempo de inactividad.
+- **Extracción de Clubes de Lectura (`backend/clubs/`)**:
+  - Modelos `ReadingClub`, `ReadingClubMembership`, `ReadingClubBook`, `ReadingClubDiscussion`, `ReadingClubComment` trasladados con serializadores, vistas, URLs y servicios dedicados.
+  - Migraciones `clubs.0001_initial` y `books.0044_transfer_clubs_models_to_clubs_app`.
+- **Extracción de Gamificación (`backend/gamification/`)**:
+  - Modelos `Badge`, `UserBadge`, `ReadingChallenge`, `UserChallenge`, `ReadingGoal`, `ReadingStreak`, `DailyReadingLog` trasladados con sus servicios (`GamificationService`, insignias y retos predeterminados), serializadores, vistas y URLs.
+  - Migraciones `gamification.0001_initial` y `books.0045_transfer_gamification_models_to_gamification_app`.
+- **Extracción de Audiolibros y TTS (`backend/audiobooks/`)**:
+  - Modelos `AudiobookTrack` y `UserAudiobookProgress` trasladados con servicios (`AudiobookService`), reproductor, progreso de escucha, estantería y catálogo público.
+  - Migraciones `audiobooks.0001_initial` y `books.0046_transfer_audiobook_models_to_audiobooks_app`.
+- **Extracción de Marketplace y Editoriales (`backend/marketplace/`)**:
+  - Modelos `Publisher`, `BookBuyLink` y `MarketplaceClick` trasladados con `MarketplaceService` y `AffiliateService` (manteniendo `Book.publisher` relacionado con `'marketplace.Publisher'`).
+  - Migraciones `marketplace.0001_initial` y `books.0047_transfer_marketplace_models_to_marketplace_app`.
+- **Extracción del Portal de Autores (`backend/authors_portal/`)**:
+  - Modelos de gestión y comunidad para autores: `AuthorProfile`, `AuthorAnnouncement`, `AuthorEvent`, `AuthorEventAttendee`, `AuthorNewsletter`, `AuthorNewsletterIssue`, `AuthorNewsletterSubscriber`, `AuthorClaim` y `AuthorClaimStatus`.
+  - Invariante arquitectónico protegido: La entidad bibliográfica `Author` permanece en `backend/books/` como catálogo canónico universal.
+  - Migraciones `authors_portal.0001_initial` y `books.0048_transfer_author_portal_models_to_authors_portal_app`.
+- **Extracción de Comandos Operativos y Recuperación ante Desastres (`backend/ops/`)**:
+  - Comandos de gestión desacoplados a `ops/management/commands/`: `backup_db`, `backup_media`, `restore_db`, `restore_media`, `check_backup_freshness`, `verify_restore_integrity`, `evaluate_system_alerts`, `benchmark_queries` y `rebuild_cache`.
+  - Servicio transversal `DatabaseBackupService` y `MediaBackupService` trasladados a `backend/ops/services/backup_service.py`.
+- **Compatibilidad Retrospectiva Total (Re-exports)**:
+  - Preservados *shims* de compatibilidad retrospectiva con `# noqa: E402, F401` en `books/models.py`, `books/serializers.py`, `books/views.py`, `books/services/` y módulos de URLs para no romper importaciones existentes ni tareas de Celery.
+- **Suite de Pruebas de Arquitectura y Modularización**:
+  - Creado `backend/tests/test_phase_postga_fase2_modularization.py` con 5 pruebas exhaustivas verificando el registro en `INSTALLED_APPS`, identidad de nombres de tablas de base de datos, resolución de vistas y presencia canónica de `Author` en `books`.
+  - Suite de pruebas de backend (pytest) y frontend (vitest) verificada al 100%.
+
 ### Added & Changed / Post-GA Fase 1: Higiene de Git, Activos Estáticos y Almacenamiento Multimedia
 - **Higiene de Repositorio Git y Purga de Binarios**:
   - Desindexados 78 archivos multimedia del control de versiones Git mediante `git rm -r --cached backend/media/` preservando los archivos locales.
