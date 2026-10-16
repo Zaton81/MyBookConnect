@@ -131,7 +131,8 @@ class TestReviewImageUpload:
         assert data["rating"] == 5
         assert data["title"] == "Edición bellísima con foto"
         assert data["image"] is not None
-        assert "test_photo" in data["image"]
+        assert "reviews/" in data["image"]
+        assert data["image"].endswith(".webp")
 
         review = Review.objects.get(id=data["id"])
         assert review.image is not None

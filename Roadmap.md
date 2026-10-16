@@ -96,17 +96,17 @@ Los archivos en `frontend/src/assets/` y `frontend/public/` tienen un peso exces
 Actualmente `backend/books/` concentra **42 migraciones** y múltiples dominios de negocio. El objetivo es extraer los dominios periféricos en aplicaciones Django independientes **manteniendo intactos los nombres de las tablas en PostgreSQL** (`Meta.db_table = 'books_<modelo>'`) mediante `migrations.SeparateDatabaseAndState`, garantizando cero pérdida de datos y cero tiempo de inactividad.
 
 ### 3.1. Extracción de la App `backend/clubs/` (Clubes de Lectura)
-- [ ] Crear el paquete `backend/clubs/` y registrarlo en `INSTALLED_APPS`.
-- [ ] Mover desde `backend/books/`:
+- [x] Crear el paquete `backend/clubs/` y registrarlo en `INSTALLED_APPS`.
+- [x] Mover desde `backend/books/`:
   - `club_models.py` $\rightarrow$ `backend/clubs/models.py` (`ReadingClub`, `ReadingClubMembership`, `ReadingClubBook`, `ReadingClubDiscussion`, etc., fijando `db_table = 'books_readingclub'`, etc.).
   - `club_serializers.py` $\rightarrow$ `backend/clubs/serializers.py`.
   - `club_views.py` $\rightarrow$ `backend/clubs/views.py`.
   - `club_urls.py` $\rightarrow$ `backend/clubs/urls.py` (manteniendo el mismo prefijo de ruta en `mybookconnect/urls.py`).
-- [ ] Generar migración con `SeparateDatabaseAndState` en `books` (eliminando del estado de `books`) y en `clubs` (creando el estado en `clubs` sin ejecutar `DROP/CREATE TABLE`).
+- [x] Generar migración con `SeparateDatabaseAndState` en `books` (eliminando del estado de `books`) y en `clubs` (creando el estado en `clubs` sin ejecutar `DROP/CREATE TABLE`).
 
 ### 3.2. Extracción de la App `backend/gamification/` (Retos, Rachas e Insignias)
-- [ ] Crear el paquete `backend/gamification/`.
-- [ ] Mover desde `backend/books/`:
+- [x] Crear el paquete `backend/gamification/`.
+- [x] Mover desde `backend/books/`:
   - `gamification_models.py` $\rightarrow$ `backend/gamification/models.py` (`Badge`, `UserBadge`, `ReadingChallenge`, `ReadingStreak`, `DailyReadingLog`).
   - `gamification_serializers.py` $\rightarrow$ `backend/gamification/serializers.py`.
   - `gamification_views.py` $\rightarrow$ `backend/gamification/views.py`.
@@ -114,25 +114,25 @@ Actualmente `backend/books/` concentra **42 migraciones** y múltiples dominios 
   - `services/gamification_service.py` $\rightarrow$ `backend/gamification/services.py`.
 
 ### 3.3. Extracción de la App `backend/audiobooks/` (Reproductor y TTS)
-- [ ] Crear el paquete `backend/audiobooks/`.
-- [ ] Mover desde `backend/books/`:
+- [x] Crear el paquete `backend/audiobooks/`.
+- [x] Mover desde `backend/books/`:
   - `audiobook_models.py` $\rightarrow$ `backend/audiobooks/models.py` (`AudiobookTrack`, `UserAudiobookProgress`).
   - `services/audiobook_service.py` $\rightarrow$ `backend/audiobooks/services.py`.
   - Vistas y serializadores asociados a pistas de audio y progreso de escucha.
 
 ### 3.4. Extracción de la App `backend/marketplace/` (Editoriales, Enlaces de Compra y Afiliados)
-- [ ] Crear el paquete `backend/marketplace/`.
-- [ ] Mover desde `backend/books/`:
+- [x] Crear el paquete `backend/marketplace/`.
+- [x] Mover desde `backend/books/`:
   - `marketplace_models.py` $\rightarrow$ `backend/marketplace/models.py` (`Publisher`, `BookBuyLink`, `MarketplaceClick`, `AffiliateClick`).
   - `services/marketplace_service.py` y `services/affiliate_service.py` $\rightarrow$ `backend/marketplace/services/`.
 
 ### 3.5. Extracción de la App `backend/authors_portal/` (Ecosistema de Escritores)
-- [ ] Crear el paquete `backend/authors_portal/`.
-- [ ] Mover la lógica exclusiva para escritores verificados (`AuthorProfile`, `AuthorAnnouncement`, `AuthorEvent`, `AuthorEventAttendee`, `AuthorNewsletter`, `AuthorNewsletterIssue`, `services/author_service.py`, `author_urls.py`), dejando en `backend/books/` únicamente la entidad bibliográfica `Author` del catálogo.
+- [x] Crear el paquete `backend/authors_portal/`.
+- [x] Mover la lógica exclusiva para escritores verificados (`AuthorProfile`, `AuthorAnnouncement`, `AuthorEvent`, `AuthorEventAttendee`, `AuthorNewsletter`, `AuthorNewsletterIssue`, `services/author_service.py`, `author_urls.py`), dejando en `backend/books/` únicamente la entidad bibliográfica `Author` del catálogo.
 
 ### 3.6. Extracción de Comandos de Infraestructura a `backend/ops/` (o `mybookconnect`)
 Los siguientes comandos en `backend/books/management/commands/` no pertenecen al dominio de los libros:
-- [ ] Mover a una app transversal `backend/ops/management/commands/`:
+- [x] Mover a una app transversal `backend/ops/management/commands/`:
   - `backup_db.py` y `restore_db.py`
   - `backup_media.py` y `restore_media.py`
   - `check_backup_freshness.py` y `verify_restore_integrity.py`
