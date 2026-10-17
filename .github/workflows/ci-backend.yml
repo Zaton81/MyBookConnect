@@ -89,4 +89,4 @@ jobs:
           SECRET_KEY: ci-secret-key-test-environment-12345
           DEBUG: '1'
         run: |
-          pytest --cov --cov-report=xml --cov-report=term
+          pytest -n auto --dist loadscope --cov --cov-report=xml --cov-report=term

@@ -235,9 +235,9 @@ El frontend ya cuenta con una excelente estructura basada en *features* (`fronte
 La carpeta `backend/tests/` cuenta con una cobertura envidiable, pero su organización cronológica (`test_phase01` a `test_phase72`, `test_phase_a2` a `test_phase_e3`, `test_sprint1` a `test_sprint20`) hace difícil localizar y mantener los tests por dominio funcional.
 
 ### 6.1. Nueva Taxonomía de Tests por Dominio en `backend/tests/`
-- [ ] **Eliminar archivos vacíos de Django:**
+- [x] **Eliminar archivos vacíos de Django:**
   - Borrar `backend/users/tests.py` y `backend/messages_app/tests.py`.
-- [ ] **Reorganizar los 95+ archivos de `backend/tests/` en subdirectorios semánticos:**
+- [x] **Reorganizar los 95+ archivos de `backend/tests/` en subdirectorios semánticos:**
   ```text
   backend/tests/
   ├── conftest.py
@@ -289,8 +289,8 @@ La carpeta `backend/tests/` cuenta con una cobertura envidiable, pero su organiz
   ```
 
 ### 6.2. Aceleración de Ejecución de Pytest
-- [ ] Incorporar `pytest-xdist` en `backend/requirements.txt` y `backend/pytest.ini` (`-n auto --dist loadscope`) para paralelizar la ejecución de los tests en CI (`.github/workflows/ci-backend.yml`), reduciendo el tiempo de pipeline en un $60\%$.
-- [ ] Ampliar `frontend/e2e/critical-flows.spec.ts` en una suite modular de Playwright:
+- [x] Incorporar `pytest-xdist` en `backend/requirements.txt` y `backend/pytest.ini` (`-n auto --dist loadscope`) para paralelizar la ejecución de los tests en CI (`.github/workflows/ci-backend.yml`), reduciendo el tiempo de pipeline en un $60\%$.
+- [x] Ampliar `frontend/e2e/critical-flows.spec.ts` en una suite modular de Playwright:
   - `e2e/auth-and-onboarding.spec.ts`
   - `e2e/library-and-import.spec.ts`
   - `e2e/clubs-and-social.spec.ts`

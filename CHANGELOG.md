@@ -7,6 +7,33 @@ y este proyecto se adhiere a [Semantic Versioning 2.0.0](https://semver.org/lang
 
 ## [Unreleased]
 
+### Added & Changed / Post-GA Fase 5: Reestructuración y Optimización de la Suite de Testing y QA
+- **Saneamiento y Eliminación de Archivos Vacíos de Django**:
+  - Eliminados los archivos residuales vacíos `backend/users/tests.py` y `backend/messages_app/tests.py`.
+- **Taxonomía Semántica por Dominios en `backend/tests/`**:
+  - Reorganizados los 140 archivos de prueba en 9 subdirectorios por dominio de negocio:
+    - `catalog/`: libros, modelos de datos, ingesta CSV, proveedores externos (Amazon, Google Books, OpenLibrary) y búsqueda trigram/Postgres.
+    - `recommendations_and_ai/`: embeddings vectoriales (`pgvector`), pipeline de 4 etapas, BookAI Assistant, multimodal y seguridad de IA.
+    - `social_and_community/`: reseñas públicas, muros sociales, smart feed, listas de lectura, clubes y notificaciones.
+    - `creators_and_commerce/`: portal de autor verificado, eventos, newsletters, audiolibros TTS, marketplace y monetización.
+    - `reader_experience/`: gamificación, retos, insignias, estadísticas de lectura y onboarding.
+    - `messaging/`: chat en tiempo real y WebSockets.
+    - `security_and_privacy/`: auth JWT, cookies HttpOnly, permisos, visibilidad, moderación de contenido y GDPR.
+    - `platform_and_infra/`: caché L1/L2, transacciones, query budgets, observabilidad/health checks y backups/DR.
+    - `governance/`: branching, commit linting, definition of done y comprobaciones de infraestructura.
+- **Fixtures Compartidas y Factories**:
+  - Enriquecido `backend/tests/conftest.py` con fixtures estándar DRF (`api_client`, `auth_client`, `test_user`, `admin_user`, `author_user`, `author_client`).
+  - Creado módulo `backend/tests/factories/` para instanciación estandarizada de modelos (`UserFactory`, `AuthorFactory`, `BookFactory`, `ReviewFactory`).
+- **Aceleración de Ejecución de Pruebas y CI**:
+  - Incorporado `pytest-xdist>=3.5.0` en `backend/requirements.txt` y habilitado `-n auto --dist loadscope` en `.github/workflows/ci-backend.yml`.
+- **Modularización de la Suite E2E de Playwright (`frontend/e2e/`)**:
+  - Desacoplado `critical-flows.spec.ts` en 4 suites modulares:
+    - `e2e/auth-and-onboarding.spec.ts`
+    - `e2e/library-and-import.spec.ts`
+    - `e2e/clubs-and-social.spec.ts`
+    - `e2e/author-portal.spec.ts`
+
+
 ### Added & Changed / Post-GA Fase 4: Refactorización y Limpieza Arquitectónica del Frontend (`frontend/src/`)
 - **Eliminación Integral de Archivos Puente (*Re-export Shims*)**:
   - Eliminado por completo el directorio legado `frontend/src/pages/` (14 archivos raíz y 7 en `pages/legal/`), redirigiendo todas las importaciones directamente a `@/features/<feature>/pages/*`.

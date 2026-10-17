@@ -247,6 +247,8 @@ class Phase55AdvancedImportTests(APITestCase):
         import os
         self.client.force_authenticate(user=self.user)
         fixture_path = os.path.join(os.path.dirname(__file__), 'fixtures', 'goodreads_sample.csv')
+        if not os.path.exists(fixture_path):
+            fixture_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'fixtures', 'goodreads_sample.csv')
         self.assertTrue(os.path.exists(fixture_path))
 
         with open(fixture_path, 'rb') as f:

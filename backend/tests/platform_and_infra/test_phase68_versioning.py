@@ -87,6 +87,8 @@ class TestPhase68Versioning:
         """Verifica que backend/pyproject.toml contenga la versión 1.0.0."""
         # Ruta relativa al directorio de backend
         pyproject_path = Path(__file__).resolve().parent.parent / "pyproject.toml"
+        if not pyproject_path.exists():
+            pyproject_path = Path(__file__).resolve().parent.parent.parent / "pyproject.toml"
         assert pyproject_path.exists(), f"No se encontró {pyproject_path}"
 
         content = pyproject_path.read_text(encoding="utf-8")
@@ -97,6 +99,8 @@ class TestPhase68Versioning:
     def test_frontend_package_json_consistency(self):
         """Verifica que frontend/package.json coincida con la versión del backend."""
         frontend_pkg_path = Path(__file__).resolve().parent.parent.parent / "frontend" / "package.json"
+        if not frontend_pkg_path.exists():
+            frontend_pkg_path = Path(__file__).resolve().parent.parent.parent.parent / "frontend" / "package.json"
         if frontend_pkg_path.exists():
             pkg_data = json.loads(frontend_pkg_path.read_text(encoding="utf-8"))
             assert pkg_data.get("version") == get_version(), (
@@ -106,6 +110,8 @@ class TestPhase68Versioning:
     def test_changelog_conforms_to_standard(self):
         """Verifica que CHANGELOG.md exista y contenga la versión 1.0.0."""
         changelog_path = Path(__file__).resolve().parent.parent.parent / "CHANGELOG.md"
+        if not changelog_path.exists():
+            changelog_path = Path(__file__).resolve().parent.parent.parent.parent / "CHANGELOG.md"
         if changelog_path.exists():
             content = changelog_path.read_text(encoding="utf-8")
             assert f"## [{get_version()}]" in content, f"Falta sección ## [{get_version()}] en CHANGELOG.md"

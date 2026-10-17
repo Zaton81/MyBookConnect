@@ -465,7 +465,8 @@ class TestPhase40Integration:
             'suggested_books': [],
         }
 
-        with patch('books.ai_views.get_assistant_reply', return_value=mock_reply):
+        with patch('ai.views.get_assistant_reply', return_value=mock_reply), \
+             patch('books.ai_views.get_assistant_reply', return_value=mock_reply):
             res = api_client.post(
                 '/api/v1/books/ai/assistant/',
                 {'messages': [{'role': 'user', 'content': 'Recomiéndame algo de realismo mágico.'}]},
