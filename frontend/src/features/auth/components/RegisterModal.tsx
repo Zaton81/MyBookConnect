@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { register as doRegister } from '../../../lib/auth';
-import { useAuth } from '../../../lib/useAuth';
+import { authApi } from '../../../api/client';
+import { useAuth } from '../hooks/useAuth';
 import { es } from '../../../locales/es';
 import { registerSchema, RegisterFormData } from '../schemas/authSchemas';
 
@@ -47,8 +47,16 @@ export default function RegisterModal({ open, onClose, onRegisterSuccess }: Regi
   const onSubmit = async (data: RegisterFormData) => {
     setServerError(null);
     try {
-      const resData = await doRegister(data.username, data.email, data.password);
-      const token = resData.access_token || resData.token || '';
+      const resData = await authApi.register(data.username, data.email, data.password);
+      let token = (resData as any)?.access || '';
+      if (!token) {
+        try {
+          const loginRes = await authApi.login(data.username, data.password);
+          token = loginRes.access || '';
+        } catch {
+          // Si el login automático falla, continuar con lo obtenido
+        }
+      }
       saveToken(token);
       if (onRegisterSuccess) onRegisterSuccess(token);
       reset();

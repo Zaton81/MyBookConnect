@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { es } from '../../../locales/es';
-import { login as doLogin, register as doRegister } from '../../../lib/auth';
-import { useAuth } from '../../../lib/useAuth';
 import { useNavigate } from 'react-router-dom';
-import { authApi } from '../../../services/api';
+import { useAuth } from '../hooks/useAuth';
 import { useAuthStore } from '../../../store/auth';
+import { authApi } from '../../../api/client';
 
 export function AuthBox() {
   const [mode, setMode] = useState<'login' | 'register'>('login');
@@ -53,8 +52,8 @@ function LoginForm({ onSwitch, onSuccess }: any) {
     setLoading(true);
     setError(null);
     try {
-      const data = await doLogin(username, password);
-      const token = data.access_token || data.token || data.access || '';
+      const data = await authApi.login(username, password);
+      const token = data.access || '';
       // Guardar token localmente (useAuth)
       onSuccess(token);
       // Actualizar store inmediatamente para activar protecciones/redirecciones
@@ -180,7 +179,7 @@ function RegisterForm({ onSwitch, onSuccess }: any) {
     setLoading(true);
     try {
       // First register the user
-      await doRegister(username, email, password, passwordConfirm);
+      await authApi.register(username, email, password, passwordConfirm);
 
       // Then immediately login to get token
       const loginResponse = await authApi.login(username, password);

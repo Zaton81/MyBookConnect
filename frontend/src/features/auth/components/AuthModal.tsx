@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { login as doLogin, register as doRegister } from '../../../lib/auth';
-import { useAuth } from '../../../lib/useAuth';
+import { useAuth } from '../hooks/useAuth';
 import { useAuthStore } from '../../../store/auth';
-import { authApi } from '../../../services/api';
+import { authApi } from '../../../api/client';
 import { GoogleLoginButton } from './GoogleLoginButton';
 
 export interface AuthModalProps {
@@ -159,8 +158,8 @@ function ModalLoginForm({
     setLoading(true);
     setError(null);
     try {
-      const data = await doLogin(username.trim(), password);
-      const token = data.access_token || data.token || data.access || '';
+      const data = await authApi.login(username.trim(), password);
+      const token = data.access || '';
       useAuthStore.setState({ token, isAuthenticated: true });
       try {
         const user = await authApi.getProfile(token);
@@ -308,7 +307,7 @@ function ModalRegisterForm({
     setLoading(true);
     setError(null);
     try {
-      await doRegister(username.trim(), email.trim(), password, passwordConfirm, accountType);
+      await authApi.register(username.trim(), email.trim(), password, passwordConfirm, accountType);
       const loginResponse = await authApi.login(username.trim(), password);
       const token = loginResponse.access;
       if (!token) throw new Error('No se recibió token tras el registro.');

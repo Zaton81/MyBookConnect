@@ -10,3 +10,5 @@ export * from './components/AdminCategoriesTab';
 export * from './components/AdminSystemHealthTab';
 export * from './components/AdminFaqsTab';
 export * from './components/AdminAuthorClaimsTab';
+export * from './hooks/useAdminQuery';
+

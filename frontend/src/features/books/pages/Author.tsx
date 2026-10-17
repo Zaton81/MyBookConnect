@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../../store/auth';
-import { createErrata } from '../../../services/erratas';
+import { createErrata } from '../services/errataService';
 import { Spinner, Modal, Button } from 'flowbite-react';
 import {
   HiBadgeCheck,

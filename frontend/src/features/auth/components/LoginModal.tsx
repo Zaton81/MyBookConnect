@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { login as doLogin } from '../../../lib/auth';
-import { useAuth } from '../../../lib/useAuth';
+import { authApi } from '../../../api/client';
+import { useAuth } from '../hooks/useAuth';
 import { loginSchema, LoginFormData } from '../schemas/authSchemas';
 import { GoogleLoginButton } from './GoogleLoginButton';
 import { useAuthStore } from '../../../store/auth';
@@ -33,8 +33,8 @@ export default function LoginModal({ open, onClose, onLoginSuccess }: LoginModal
   const onSubmit = async (data: LoginFormData) => {
     setServerError(null);
     try {
-      const resData = await doLogin(data.email, data.password);
-      const token = resData.access_token || resData.token || '';
+      const resData = await authApi.login(data.email, data.password);
+      const token = resData.access || '';
       saveToken(token);
       if (onLoginSuccess) onLoginSuccess(token);
       reset();

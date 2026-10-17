@@ -1,4 +1,4 @@
-import { api } from '../api/client';
+import { api } from '../../../api/client';
 
 export type ErrataPayload = {
   book_id?: number | null;

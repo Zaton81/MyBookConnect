@@ -1,3 +1,5 @@
 export { default as Library, Library as LibraryNamed } from './pages/Library';
 export { default } from './pages/Library';
 export { ImportBooksModal } from './components/ImportBooksModal';
+export * from './hooks/useLibraryQuery';
+

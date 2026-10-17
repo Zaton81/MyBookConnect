@@ -4,8 +4,10 @@ import { useAuthStore } from '../../../store/auth';
 import { Spinner } from 'flowbite-react';
 import { AIAssistantModal } from '../../ai';
 import { OnboardingModal } from '../../onboarding';
-import { AmazonAdSlot } from '../../../components/ui';
 import { resolveMediaUrl } from '../../../utils/media';
+import { FeedActivityCard } from '../components/FeedActivityCard';
+import { FeedFilterTabs } from '../components/FeedFilterTabs';
+import { TrendingSidebar } from '../components/TrendingSidebar';
 
 interface TrendingBook {
   id: number;
@@ -652,74 +654,13 @@ export const Home = () => {
         {/* ── Muro Social de Actividad ── */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                  <span>✨</span>
-                  <span>Muro Social de Lecturas</span>
-                </h2>
-                <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">
-                  {feedMode === 'smart'
-                    ? 'Feed inteligente personalizado por tus gustos, lecturas y amigos'
-                    : 'Actividad social reciente en estricto orden cronológico'}
-                </p>
-              </div>
-
-              {/* Selector de modo Feed */}
-              <div className="inline-flex p-1 bg-gray-100 dark:bg-gray-700/60 rounded-xl border border-gray-200 dark:border-gray-600/50 self-start sm:self-auto shadow-inner">
-                <button
-                  type="button"
-                  disabled={feedLoading}
-                  onClick={() => handleFeedModeChange('smart')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
-                    feedMode === 'smart'
-                      ? 'bg-teal-600 text-white shadow-sm'
-                      : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'
-                  }`}
-                >
-                  <span>✨</span>
-                  <span>Para ti</span>
-                </button>
-                <button
-                  type="button"
-                  disabled={feedLoading}
-                  onClick={() => handleFeedModeChange('chronological')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
-                    feedMode === 'chronological'
-                      ? 'bg-teal-600 text-white shadow-sm'
-                      : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'
-                  }`}
-                >
-                  <span>🕒</span>
-                  <span>Cronológico</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Píldoras de filtro por categoría temático (Fase 22) */}
-            <div className="flex flex-wrap items-center gap-1.5 pb-1">
-              {[
-                { id: 'all', label: '✨ Todo' },
-                { id: 'reads', label: '📖 Lecturas' },
-                { id: 'reviews', label: '✍️ Reseñas' },
-                { id: 'lists', label: '📑 Listas' },
-                { id: 'social', label: '👥 Social' },
-              ].map((cat) => (
-                <button
-                  key={cat.id}
-                  type="button"
-                  disabled={feedLoading}
-                  onClick={() => handleFeedCategoryChange(cat.id as any)}
-                  className={`px-3 py-1 rounded-full text-xs font-semibold transition-all ${
-                    feedCategory === cat.id
-                      ? 'bg-teal-600 text-white shadow-sm'
-                      : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
-                  }`}
-                >
-                  {cat.label}
-                </button>
-              ))}
-            </div>
+            <FeedFilterTabs
+              feedMode={feedMode}
+              feedCategory={feedCategory}
+              feedLoading={feedLoading}
+              onFeedModeChange={handleFeedModeChange}
+              onFeedCategoryChange={handleFeedCategoryChange}
+            />
 
             {loading || feedLoading ? (
               <div className="flex justify-center items-center py-12">
@@ -734,7 +675,7 @@ export const Home = () => {
                 </p>
                 <button
                   onClick={() => navigate('/friends')}
-                  className="mt-4 inline-flex items-center text-teal-600 font-bold text-sm hover:underline"
+                  className="mt-4 inline-flex items-center text-teal-600 font-bold text-sm hover:underline cursor-pointer"
                 >
                   Explorar usuarios y amigos ➔
                 </button>
@@ -742,237 +683,27 @@ export const Home = () => {
             ) : (
               <div className="space-y-4">
                 {feed.map((item) => (
-                  <div
+                  <FeedActivityCard
                     key={item.id}
-                    className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-100 dark:border-gray-700 shadow-sm hover:shadow-md transition-shadow relative"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex items-center space-x-3">
-                        {item.user.avatar ? (
-                          <img
-                            src={resolveMediaUrl(item.user.avatar)}
-                            alt={item.user.username}
-                            className="w-10 h-10 rounded-full object-cover cursor-pointer hover:opacity-80 shrink-0"
-                            onClick={() => navigate(`/users/${item.user.id}`)}
-                          />
-                        ) : (
-                          <div
-                            onClick={() => navigate(`/users/${item.user.id}`)}
-                            className="w-10 h-10 rounded-full bg-teal-600 text-white flex items-center justify-center font-bold cursor-pointer hover:bg-teal-700 shrink-0"
-                          >
-                            {item.user.username[0]?.toUpperCase()}
-                          </div>
-                        )}
-                        <div>
-                          <div className="flex flex-wrap items-center gap-2">
-                            <p className="text-sm text-gray-900 dark:text-white">
-                              <strong
-                                onClick={() => navigate(`/users/${item.user.id}`)}
-                                className="cursor-pointer hover:text-teal-600 font-bold"
-                              >
-                                @{item.user.username}
-                              </strong>{' '}
-                              <span className="text-gray-500 dark:text-gray-400">
-                                {getActivityActionText(item)}
-                              </span>{' '}
-                              {item.target_user && (
-                                <strong
-                                  onClick={() => navigate(`/users/${item.target_user?.id}`)}
-                                  className="cursor-pointer hover:text-teal-600 font-bold"
-                                >
-                                  @{item.target_user.username}
-                                </strong>
-                              )}
-                            </p>
-                            {item.feed_signal && (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-teal-50 text-teal-700 dark:bg-teal-950/60 dark:text-teal-300 border border-teal-200/60 dark:border-teal-800/60">
-                                {item.feed_signal}
-                              </span>
-                            )}
-                          </div>
-                          <span className="text-[11px] text-gray-400">
-                            {formatRelativeTime(item.timestamp || item.created_at)}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2 shrink-0">
-                        {(item.rating || item.review?.rating) &&
-                          renderStars(item.rating || item.review?.rating || 0)}
-
-                        {/* Menú de Opciones y Controles del Feed (Fase 22) */}
-                        <div className="relative">
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setActiveMenuId(activeMenuId === item.id ? null : item.id);
-                            }}
-                            className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                            title="Opciones de publicación"
-                          >
-                            <span className="text-base font-bold leading-none px-1">⋮</span>
-                          </button>
-
-                          {activeMenuId === item.id && (
-                            <div
-                              onClick={(e) => e.stopPropagation()}
-                              className="absolute right-0 top-8 z-30 w-52 bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 py-1.5 text-xs divide-y divide-gray-100 dark:divide-gray-700/80 animate-fade-in"
-                            >
-                              <div className="py-1">
-                                <button
-                                  type="button"
-                                  onClick={() => handleHideActivity(item.id)}
-                                  className="w-full text-left px-3.5 py-2 hover:bg-gray-50 dark:hover:bg-gray-700/60 text-gray-700 dark:text-gray-200 flex items-center gap-2"
-                                >
-                                  <span>👁️</span>
-                                  <span>Ocultar esta publicación</span>
-                                </button>
-                              </div>
-                              {item.user.id !== user.id && (
-                                <div className="py-1">
-                                  <button
-                                    type="button"
-                                    onClick={() => handleMuteUser(item.user.id, item.user.username)}
-                                    className="w-full text-left px-3.5 py-2 hover:bg-gray-50 dark:hover:bg-gray-700/60 text-gray-700 dark:text-gray-200 flex items-center gap-2"
-                                  >
-                                    <span>🔇</span>
-                                    <span>Silenciar a @{item.user.username}</span>
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      handleUnfollowUser(item.user.id, item.user.username)
-                                    }
-                                    className="w-full text-left px-3.5 py-2 hover:bg-gray-50 dark:hover:bg-gray-700/60 text-gray-700 dark:text-gray-200 flex items-center gap-2"
-                                  >
-                                    <span>👤</span>
-                                    <span>Dejar de seguir</span>
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      handleBlockUser(item.user.id, item.user.username)
-                                    }
-                                    className="w-full text-left px-3.5 py-2 hover:bg-red-50 dark:hover:bg-red-950/40 text-red-600 dark:text-red-400 flex items-center gap-2"
-                                  >
-                                    <span>🚫</span>
-                                    <span>Bloquear a @{item.user.username}</span>
-                                  </button>
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Tarjeta de Lista Creada (LIST_CREATED) */}
-                    {item.type === 'LIST_CREATED' && item.metadata?.name && (
-                      <div
-                        onClick={() => navigate('/lists')}
-                        className="mt-4 p-3.5 rounded-xl bg-gradient-to-r from-teal-50 to-emerald-50 dark:from-teal-950/40 dark:to-emerald-950/40 hover:from-teal-100 hover:to-emerald-100 dark:hover:from-teal-900/50 dark:hover:to-emerald-900/50 cursor-pointer flex items-center space-x-3 border border-teal-200/60 dark:border-teal-800/60 transition-all shadow-sm"
-                      >
-                        <div className="w-10 h-10 rounded-xl bg-teal-600 text-white flex items-center justify-center font-bold text-lg shrink-0 shadow-inner">
-                          📑
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <h4 className="font-bold text-sm text-teal-900 dark:text-teal-200 truncate">
-                            {item.metadata.name}
-                          </h4>
-                          <p className="text-xs text-teal-700/80 dark:text-teal-400">
-                            Colección de libros comunitaria • Explorar listas ➔
-                          </p>
-                        </div>
-                      </div>
-                    )}
-
-                    {item.book && (
-                      <div
-                        onClick={() => navigate(`/books/${item.book?.id}`)}
-                        className="mt-4 p-3 rounded-xl bg-gray-50 dark:bg-gray-700/50 hover:bg-teal-50/50 dark:hover:bg-gray-700 cursor-pointer flex items-center space-x-3 border border-gray-100 dark:border-gray-600/50 transition-colors"
-                      >
-                        {item.book.cover ? (
-                          <img
-                            src={resolveMediaUrl(item.book.cover)}
-                            alt={item.book.title}
-                            className="w-12 h-16 object-cover rounded shadow shrink-0"
-                          />
-                        ) : (
-                          <div className="w-12 h-16 bg-teal-700 text-white rounded flex items-center justify-center text-[10px] text-center font-medium shrink-0 p-1">
-                            {item.book.title}
-                          </div>
-                        )}
-                        <div className="min-w-0 flex-1">
-                          <h4 className="font-bold text-sm text-gray-900 dark:text-white truncate">
-                            {item.book.title}
-                          </h4>
-                          <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                            {item.book.author_name}
-                          </p>
-                        </div>
-                      </div>
-                    )}
-
-                    {(item.comment || item.review?.text) && (
-                      <div className="mt-3 text-sm text-gray-700 dark:text-gray-300 italic bg-gray-50/70 dark:bg-gray-700/30 p-3 rounded-xl border-l-2 border-teal-500">
-                        "{item.comment || item.review?.text}"
-                      </div>
-                    )}
-                  </div>
+                    item={item}
+                    currentUserId={user?.id}
+                    activeMenuId={activeMenuId}
+                    setActiveMenuId={setActiveMenuId}
+                    onHideActivity={handleHideActivity}
+                    onMuteUser={handleMuteUser}
+                    onUnfollowUser={handleUnfollowUser}
+                    onBlockUser={handleBlockUser}
+                    renderStars={renderStars}
+                    formatRelativeTime={formatRelativeTime}
+                    getActivityActionText={getActivityActionText}
+                  />
                 ))}
               </div>
             )}
           </div>
 
           {/* ── Sidebar de BookAI & Enlaces Rápidos ── */}
-          <div className="space-y-6">
-            <div className="rounded-3xl bg-gradient-to-br from-teal-900 via-teal-800 to-emerald-950 text-white p-6 shadow-xl relative overflow-hidden">
-              <div className="w-12 h-12 rounded-2xl bg-white/10 backdrop-blur-md flex items-center justify-center text-2xl mb-4 shadow-inner">
-                ✨
-              </div>
-              <h3 className="text-lg font-bold">Asistente Literario BookAI</h3>
-              <p className="mt-2 text-xs sm:text-sm text-teal-100/90 leading-relaxed">
-                ¿No sabes qué leer a continuación? Pídele recomendaciones a BookAI basadas en tu
-                biblioteca o consulta por géneros y autores.
-              </p>
-              <button
-                onClick={() => setIsAiModalOpen(true)}
-                className="mt-5 w-full bg-gradient-to-r from-amber-400 to-orange-400 hover:from-amber-300 hover:to-orange-300 text-slate-900 font-bold py-2.5 px-4 rounded-xl text-sm transition-all shadow-md transform hover:-translate-y-0.5"
-              >
-                Abrir BookAI
-              </button>
-            </div>
-
-            <div className="bg-white dark:bg-gray-800 rounded-3xl p-6 border border-gray-100 dark:border-gray-700 shadow-sm space-y-4">
-              <h3 className="font-bold text-gray-900 dark:text-white text-base">
-                Comunidad & Conexiones
-              </h3>
-              <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
-                Encuentra amigos lectores, compara vuestras estanterías y chatea en tiempo real
-                sobre vuestras novelas favoritas.
-              </p>
-              <div className="pt-2 flex flex-col gap-2">
-                <button
-                  onClick={() => navigate('/friends')}
-                  className="w-full text-left px-4 py-2.5 rounded-xl text-xs font-semibold bg-gray-50 dark:bg-gray-700 hover:bg-teal-50 dark:hover:bg-teal-900/30 text-gray-700 dark:text-gray-200 hover:text-teal-700 transition-colors flex items-center justify-between"
-                >
-                  <span>👥 Ver Lista de Amigos</span>
-                  <span>➔</span>
-                </button>
-                <button
-                  onClick={() => navigate('/chat')}
-                  className="w-full text-left px-4 py-2.5 rounded-xl text-xs font-semibold bg-gray-50 dark:bg-gray-700 hover:bg-teal-50 dark:hover:bg-teal-900/30 text-gray-700 dark:text-gray-200 hover:text-teal-700 transition-colors flex items-center justify-between"
-                >
-                  <span>💬 Bandeja de Mensajes</span>
-                  <span>➔</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Espacio Publicitario / Afiliados de Amazon */}
-            <AmazonAdSlot variant="card" />
-          </div>
+          <TrendingSidebar onOpenAiModal={() => setIsAiModalOpen(true)} />
         </div>
       </div>
 

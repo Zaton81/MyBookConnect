@@ -6,6 +6,9 @@ export { default as AuthModal } from './components/AuthModal';
 export { default as GoogleLoginButton } from './components/GoogleLoginButton';
 export { default as Login } from './pages/Login';
 export { default as Register } from './pages/Register';
+export { useAuth, default as useAuthDefault } from './hooks/useAuth';
+export { useAuthStore } from '../../store/auth';
 export type { LoginModalProps } from './components/LoginModal';
 export type { RegisterModalProps } from './components/RegisterModal';
 export type { AuthModalProps } from './components/AuthModal';
+

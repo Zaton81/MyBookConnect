@@ -1,8 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { User, AuthState } from '../types/auth';
-import { authApi } from '../services/api';
-import { api } from '../api/client';
+import { api, authApi } from '../api/client';
 import { queryClient } from '../app/queryClient';
 import { queryKeys } from '../api/queryKeys';
 

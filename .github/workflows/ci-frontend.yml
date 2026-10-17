@@ -37,6 +37,10 @@ jobs:
         working-directory: frontend
         run: pnpm install --frozen-lockfile
 
+      - name: Verify OpenAPI Types Contract
+        working-directory: frontend
+        run: pnpm generate:types
+
       - name: Check Code Formatting (Prettier)
         working-directory: frontend
         run: pnpm format:check

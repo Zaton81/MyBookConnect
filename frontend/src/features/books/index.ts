@@ -5,5 +5,8 @@ export { default as ReadingLists, ReadingLists as ReadingListsNamed } from './pa
 export { default as ReadingStats, ReadingStats as ReadingStatsNamed } from './pages/ReadingStats';
 export { BookAudiobookSection } from './components/BookAudiobookSection';
 export { BookMarketplaceModal } from './components/BookMarketplaceModal';
+export { SimilarBooksCarousel } from './components/SimilarBooksCarousel';
 
 export * from './hooks/useBooksQuery';
+export * from './services/errataService';
+

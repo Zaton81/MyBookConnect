@@ -7,3 +7,8 @@ export {
 
 export * from './hooks/useSocialQuery';
 export * from './hooks/useNotificationsQuery';
+export * from './components/FeedActivityCard';
+export * from './components/FeedFilterTabs';
+export * from './components/TrendingSidebar';
+export * from './components/SocialShareModal';
+

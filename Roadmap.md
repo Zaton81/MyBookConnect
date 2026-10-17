@@ -186,10 +186,10 @@ En `backend/books/services/` coexisten 7 archivos de recomendación:
 El frontend ya cuenta con una excelente estructura basada en *features* (`frontend/src/features/`), pero conserva decenas de archivos puente heredados de una arquitectura anterior que ensucian el árbol de directorios.
 
 ### 5.1. Eliminación de Archivos Puente (*Re-export Shims*) en `src/pages/` y `src/components/`
-- [ ] **Eliminar la carpeta `frontend/src/pages/` por completo:**
+- [x] **Eliminar la carpeta `frontend/src/pages/` por completo:**
   - Actualmente los 14 archivos en `frontend/src/pages/*.tsx` (`AddBook.tsx`, `AdminDashboard.tsx`, `Author.tsx`, `BookDetail.tsx`, `Chat.tsx`, `EditProfile.tsx`, `Friends.tsx`, `Home.tsx`, `Library.tsx`, `Login.tsx`, `Profile.tsx`, `ReadingLists.tsx`, `ReadingStats.tsx`, `Register.tsx`) y los 7 archivos en `frontend/src/pages/legal/*.tsx` son *re-exports* de una sola línea que apuntan a `frontend/src/features/*/pages/*`.
   - Actualizar `frontend/src/app/router.tsx` y los tests para que importen directamente desde `@/features/<feature>` y borrar `frontend/src/pages/`.
-- [ ] **Eliminar los componentes duplicados en la raíz de `frontend/src/components/`:**
+- [x] **Eliminar los componentes duplicados en la raíz de `frontend/src/components/`:**
   - Borrar los 16 archivos puente de la raíz de `components/`:
     - `AIAssistantModal.tsx` (vive en `features/ai/components/`)
     - `AmazonAdSlot.tsx`, `BioEditor.tsx`, `CookieBanner.tsx`, `StarRating.tsx` (viven en `components/ui/`)
@@ -200,24 +200,24 @@ El frontend ya cuenta con una excelente estructura basada en *features* (`fronte
   - Dejar en `frontend/src/components/` únicamente las subcarpetas reales: `audio/`, `layout/` y `ui/`.
 
 ### 5.2. Unificación de la Capa de Red (API Client) y Estado de Autenticación
-- [ ] **Fusionar `frontend/src/services/api.ts` en `frontend/src/api/client.ts`:**
+- [x] **Fusionar `frontend/src/services/api.ts` en `frontend/src/api/client.ts`:**
   - Actualmente existen dos clientes HTTP configurados. Migrar cualquier interceptor o *helper* de `src/services/api.ts` hacia `src/api/client.ts`.
   - Mover `frontend/src/services/erratas.ts` a `frontend/src/features/books/services/errataService.ts` y eliminar el directorio `frontend/src/services/`.
-- [ ] **Unificar `frontend/src/lib/auth.ts`, `frontend/src/lib/useAuth.ts` y `frontend/src/store/auth.ts`:**
+- [x] **Unificar `frontend/src/lib/auth.ts`, `frontend/src/lib/useAuth.ts` y `frontend/src/store/auth.ts`:**
   - Consolidar toda la gestión de estado de sesión, refresco silencioso de cookies JWT y permisos de rol dentro de `frontend/src/store/auth.ts` y exportar el hook desde `frontend/src/features/auth/`.
 
 ### 5.3. Estandarización de TanStack Query y Particionado de Componentes Grandes
-- [ ] **Completar la cobertura de Custom Hooks con TanStack Query (`queryKeys.ts`):**
+- [x] **Completar la cobertura de Custom Hooks con TanStack Query (`queryKeys.ts`):**
   - Actualmente `books`, `reviews` y `social` tienen carpeta `hooks/` (`useBooksQuery.ts`, `useReviewsQuery.ts`, `useSocialQuery.ts`, `useNotificationsQuery.ts`), pero `admin`, `clubs`, `discovery`, `library` y `profile` realizan llamadas directas en páginas o servicios.
   - Crear `useClubsQuery.ts`, `useDiscoveryQuery.ts`, `useLibraryQuery.ts`, `useProfileQuery.ts` y `useAdminQuery.ts` centralizando todas las claves de invalidación en `frontend/src/api/queryKeys.ts`.
-- [ ] **Dividir páginas monolíticas (> 350 líneas) en subcomponentes:**
+- [x] **Dividir páginas monolíticas (> 350 líneas) en subcomponentes:**
   - `frontend/src/features/admin/pages/AdminDashboard.tsx`: Extraer las pestañas restantes (moderación, métricas de negocio, auditoría y usuarios) al igual que ya se hizo con `AdminAuthorClaimsTab.tsx` o `AdminSystemHealthTab.tsx`.
   - `frontend/src/features/social/pages/Home.tsx`: Separar en `FeedComposer.tsx`, `FeedFilterTabs.tsx`, `FeedActivityCard.tsx` y `TrendingSidebar.tsx`.
   - `frontend/src/features/books/pages/BookDetail.tsx`: Extraer `BookMetadataHeader.tsx`, `ReadingStatusSelector.tsx` y `SimilarBooksCarousel.tsx`.
   - `frontend/src/features/books/pages/ReadingLists.tsx`: Separar el modal de creación/edición, la vista de colaboradores y la tarjeta de lista.
 
 ### 5.4. Sincronización Automática de Tipos OpenAPI y *Code-Splitting*
-- [ ] **Generación automática de tipos TypeScript desde `backend/schema.yaml`:**
+- [x] **Generación automática de tipos TypeScript desde `backend/schema.yaml`:**
   - En lugar de mantener manualmente las más de 600 líneas de `frontend/src/types/api.ts`, añadir `openapi-typescript` en `frontend/package.json`:
     ```json
     "scripts": {
@@ -225,7 +225,7 @@ El frontend ya cuenta con una excelente estructura basada en *features* (`fronte
     }
     ```
   - Añadir verificación en `.github/workflows/ci-frontend.yml` para asegurar que el contrato de `schema.yaml` y el frontend nunca diverjan.
-- [ ] **Lazy Loading en `frontend/src/app/router.tsx`:**
+- [x] **Lazy Loading en `frontend/src/app/router.tsx`:**
   - Envolver en `React.lazy()` y `<Suspense>` las rutas pesadas o de acceso secundario: `AdminDashboard`, `ReadingStats`, `ChallengesPage`, `ClubDetailPage`, `Chat` y las páginas legales.
 
 ---

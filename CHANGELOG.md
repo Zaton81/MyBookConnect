@@ -7,6 +7,30 @@ y este proyecto se adhiere a [Semantic Versioning 2.0.0](https://semver.org/lang
 
 ## [Unreleased]
 
+### Added & Changed / Post-GA Fase 4: Refactorización y Limpieza Arquitectónica del Frontend (`frontend/src/`)
+- **Eliminación Integral de Archivos Puente (*Re-export Shims*)**:
+  - Eliminado por completo el directorio legado `frontend/src/pages/` (14 archivos raíz y 7 en `pages/legal/`), redirigiendo todas las importaciones directamente a `@/features/<feature>/pages/*`.
+  - Eliminados los 16 archivos puente huérfanos de la raíz de `frontend/src/components/`, dejando la carpeta organizada exclusivamente en sus subdirectorios funcionales: `audio/`, `layout/` y `ui/`.
+- **Unificación de la Capa de Red y Estado de Autenticación**:
+  - Fusionado `src/services/api.ts` dentro de `src/api/client.ts` centralizando `authApi` (`login`, `register`, `loginWithGoogle`, `getProfile`, `updateProfile`).
+  - Trasladado `src/services/erratas.ts` hacia `src/features/books/services/errataService.ts` y eliminada la carpeta obsoleta `src/services/`.
+  - Unificados `src/lib/auth.ts` y `src/lib/useAuth.ts` en el hook canónico reactivo `useAuth` (`src/features/auth/hooks/useAuth.ts`), respaldado por el store persistido Zustand `useAuthStore` (`src/store/auth.ts`), eliminando la carpeta `src/lib/`.
+- **Estandarización de TanStack React Query**:
+  - Ampliadas y tipadas las claves de invalidación en `src/api/queryKeys.ts` para los dominios `clubs`, `discovery`, `library`, `profile` y `admin`.
+  - Creados hooks tipados con TanStack Query:
+    - `useClubsQuery.ts`: `useClubs`, `useClubDetail`, `useClubMembers`, `useClubDiscussions`, mutaciones de suscripción y creación.
+    - `useDiscoveryQuery.ts`: `useDiscoveryTrending`, `useDiscoverySearch`, `useDiscoveryRecommendations`, `useContextualRecommendations`, `useRecommendationFeedbackMutation`.
+    - `useLibraryQuery.ts`: `useUserBooks`, mutaciones de actualización y eliminación.
+    - `useProfileQuery.ts`: `useUserProfile`, `useUserWall`, mutaciones de seguimiento y edición.
+    - `useAdminQuery.ts`: `useAdminStats`, `useAdminAuditLogs`, `useAdminReports`, `useAdminSystemHealth`, mutación para resolución de reportes.
+- **Descomposición Modular de Componentes Monolíticos**:
+  - `features/social/pages/Home.tsx`: Extraídos `FeedActivityCard.tsx`, `FeedFilterTabs.tsx` y `TrendingSidebar.tsx`.
+  - `features/books/pages/BookDetail.tsx`: Extraído `SimilarBooksCarousel.tsx`.
+- **Sincronización Automática OpenAPI y Build de Producción**:
+  - Añadido comando `"generate:types": "openapi-typescript ../backend/schema.yaml -o src/types/openapi.d.ts"` a `package.json` y verificación en `.github/workflows/ci-frontend.yml`.
+  - Ajustado `pool: 'forks'` en `vite.config.js` para asegurar ejecución robusta de la suite de pruebas.
+  - Verificado 100% de éxito en Vitest (24/24 suites, 93/93 tests) y `npm run build` en 18s.
+
 ### Added & Changed / Post-GA Fase 3: Consolidación de IA, Embeddings (`pgvector`) y Motor de Recomendaciones
 - **Eliminación de Duplicidades y Modularización de Vistas de IA**:
   - Eliminado el proxy obsoleto `backend/mybookconnect/ai_service.py` (`git rm`).

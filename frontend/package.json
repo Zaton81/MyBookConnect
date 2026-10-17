@@ -17,8 +17,8 @@
     "lint": "eslint src --ext .ts,.tsx",
     "lint:fix": "eslint src --ext .ts,.tsx --fix",
     "format": "prettier --write \"src/**/*.{ts,tsx,css,json}\"",
-    "format:check": "prettier --check \"src/**/*.{ts,tsx,css,json}\"",
-    "generate:types": "openapi-typescript http://backend:8000/api/schema/ -o src/types/api.ts"
+    "generate:types": "openapi-typescript ../backend/schema.yaml -o src/types/openapi.d.ts",
+    "generate:types:live": "openapi-typescript http://localhost:8000/api/schema/ -o src/types/api.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",

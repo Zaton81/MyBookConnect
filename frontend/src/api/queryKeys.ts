@@ -40,12 +40,43 @@ export const queryKeys = {
     list: () => ['notifications', 'list'] as const,
     unreadCount: () => ['notifications', 'unreadCount'] as const,
   },
+  clubs: {
+    all: ['clubs'] as const,
+    list: (params?: Record<string, any>) => ['clubs', 'list', params ?? {}] as const,
+    detail: (slug: string) => ['clubs', 'detail', slug] as const,
+    discussions: (clubId: string | number) => ['clubs', 'discussions', String(clubId)] as const,
+    members: (clubId: string | number) => ['clubs', 'members', String(clubId)] as const,
+  },
+  discovery: {
+    all: ['discovery'] as const,
+    trending: (params?: Record<string, any>) => ['discovery', 'trending', params ?? {}] as const,
+    recommendations: (params?: Record<string, any>) =>
+      ['discovery', 'recommendations', params ?? {}] as const,
+    search: (query: string, params?: Record<string, any>) =>
+      ['discovery', 'search', query, params ?? {}] as const,
+  },
+  library: {
+    all: ['library'] as const,
+    userBooks: (params?: Record<string, any>) => ['library', 'userBooks', params ?? {}] as const,
+    shelfSummary: () => ['library', 'shelfSummary'] as const,
+  },
+  profile: {
+    all: ['profile'] as const,
+    detail: (userIdOrUsername: string | number) =>
+      ['profile', 'detail', String(userIdOrUsername)] as const,
+    readingStats: (userId?: string | number) =>
+      ['profile', 'reading-stats', userId ? String(userId) : 'me'] as const,
+  },
   admin: {
     all: ['admin'] as const,
     stats: () => ['admin', 'stats'] as const,
     reports: () => ['admin', 'reports'] as const,
     audit: (page?: number) => ['admin', 'audit', page ?? 1] as const,
+    authorClaims: () => ['admin', 'authorClaims'] as const,
+    systemHealth: () => ['admin', 'systemHealth'] as const,
+    faqs: () => ['admin', 'faqs'] as const,
   },
 } as const;
 
 export default queryKeys;
+
